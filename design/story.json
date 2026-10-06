@@ -1,0 +1,1049 @@
+{
+  "meta": {
+    "title": "KEEP SEVEN",
+    "stage": "First Tally: Plenty",
+    "version": 2,
+    "language": "en",
+    "source": "docs/GDD.md",
+    "voice": "Narrator: past tense, third person, dry and counted; 4 to 14 words a sentence; one image a sentence; the worse the thing, the plainer the line. Station: calm procedure in wide capitals, never personality. The Dowser (notes only): unhurried, exact, never unkind.",
+    "speakers": {
+      "narrator": {
+        "label": null,
+        "style": "serif italic, no speaker label"
+      },
+      "station": {
+        "label_key": "ui_speaker_station",
+        "style": "wide tracked capitals; preceded by a three-note chime; tones, never speech"
+      },
+      "reeve": {
+        "label_key": "ui_speaker_reeve",
+        "style": "serif roman; used once"
+      },
+      "card": {
+        "label": null,
+        "style": "title card, centred; numeral and title"
+      },
+      "caption": {
+        "label": null,
+        "style": "small, bracketed; shown only when captions for sounds are on"
+      }
+    },
+    "rules": {
+      "subtitle_max_chars": 84,
+      "subtitle_lines": 2,
+      "seconds": "suggested hold. Narrator, Reeve, hint and station lines: 1.5 + 0.06 per character, rounded to 0.5, minimum 2. Deliberate exceptions: title cards carry their own durations (3.5 to 5); captions are fixed at 2; stn_boss_indexing is 1.5 (one index step); stn_proven, stn_dry and nar_last are held longer than the formula",
+      "readable_cards": "a blank line in a readable body starts a new card",
+      "placeholders": "{n} a number; {movement} a roman numeral; {forward} {left} {back} {right} {fire} {reload} {sprint} {interact} {line} {kept} the bound key names",
+      "once_only": [
+        "nar_first_fell",
+        "nar_first_seat",
+        "nar_not_for_firing",
+        "nar_down_the_bore",
+        "nar_dowser_shot",
+        "nar_tin",
+        "nar_line_first",
+        "nar_file_lined",
+        "nar_parley_kept",
+        "nar_office",
+        "nar_seal",
+        "nar_one_left",
+        "nar_cradle",
+        "nar_cradle_2",
+        "nar_street_after",
+        "nar_nine",
+        "nar_tamper_dead"
+      ],
+      "narrator_repeat": "Every nar_* line plays at most once per run, whatever fires it and however many markers name it (the flag is saved with the checkpoint). hint_*, stn_* and cap_* lines may repeat. The once_only list names the lines whose single use is load-bearing or conditional.",
+      "ending_branch": {
+        "take": [
+          "nar_take_1",
+          "nar_take_2",
+          "nar_fire",
+          "nar_last"
+        ],
+        "leave": [
+          "nar_take_1",
+          "nar_leave",
+          "nar_fire",
+          "nar_last"
+        ]
+      },
+      "courtesy_cap": "The call \"Water to you\" appears only in rd_note_lip and rd_note_stone. The reply \"And shade\" appears only in nar_last. Do not add uses. It is never shown as a stock greeting: not in UI, menus, loading text, store text or marketing.",
+      "oath_cap": "The oath appears only in rv_ask.",
+      "never": "No line comments on, or counts, the felled. No line uses a name, term or phrase from the blocklist in docs/research/art-tone.md 1.5."
+    },
+    "load_bearing": [
+      "hud_seventh",
+      "ui_seventh_sealed",
+      "ui_seventh_broken",
+      "ui_seventh_spent",
+      "ui_seventh_violet",
+      "rd_plate_proving",
+      "ia_cradle",
+      "nar_cradle",
+      "nar_cradle_2",
+      "ui_prompt_kept"
+    ]
+  },
+  "lines": {
+    "card_title": {
+      "speaker": "card",
+      "text": "KEEP SEVEN",
+      "seconds": 4
+    },
+    "card_i": {
+      "speaker": "card",
+      "text": "I. The Lip",
+      "seconds": 3.5
+    },
+    "card_ii": {
+      "speaker": "card",
+      "text": "II. Plenty",
+      "seconds": 3.5
+    },
+    "card_iii": {
+      "speaker": "card",
+      "text": "III. The Tally",
+      "seconds": 3.5
+    },
+    "card_iv": {
+      "speaker": "card",
+      "text": "IV. The Line",
+      "seconds": 3.5
+    },
+    "card_v": {
+      "speaker": "card",
+      "text": "V. The Weight",
+      "seconds": 3.5
+    },
+    "card_vi": {
+      "speaker": "card",
+      "text": "VI. The Asking",
+      "seconds": 3.5
+    },
+    "card_vii": {
+      "speaker": "card",
+      "text": "VII. Seven",
+      "seconds": 3.5
+    },
+    "card_end": {
+      "speaker": "card",
+      "text": "FIRST TALLY ENDS",
+      "seconds": 5
+    },
+    "nar_open_1": {
+      "speaker": "narrator",
+      "text": "Coffee in his pot, gone to tar. Two days, by the crust on it.",
+      "seconds": 5
+    },
+    "nar_open_2": {
+      "speaker": "narrator",
+      "text": "He had left the pot, and a note under a spent case.",
+      "seconds": 4.5
+    },
+    "nar_tin": {
+      "speaker": "narrator",
+      "text": "A tin of cartridges, too. He kept her in lead. It was not kindness.",
+      "seconds": 5.5
+    },
+    "nar_seven": {
+      "speaker": "narrator",
+      "text": "A Reeve keeps seven. Six for the work. One for the oath.",
+      "seconds": 5
+    },
+    "nar_rule": {
+      "speaker": "narrator",
+      "text": "The Rule stood on the far edge of everything. It leaned.",
+      "seconds": 5
+    },
+    "nar_not_for_firing": {
+      "speaker": "narrator",
+      "text": "Not that one. That one was for keeping.",
+      "seconds": 4
+    },
+    "nar_jugs_sand": {
+      "speaker": "narrator",
+      "text": "Sand ran out of the first jug. Sand would run out of all of them.",
+      "seconds": 5.5
+    },
+    "nar_jugs_open": {
+      "speaker": "narrator",
+      "text": "One more than her gun held. He knew what it held.",
+      "seconds": 4.5
+    },
+    "hint_jugs_2": {
+      "speaker": "narrator",
+      "text": "Six jugs down. The sweep wanted seven.",
+      "seconds": 4
+    },
+    "hint_jugs_2_few": {
+      "speaker": "narrator",
+      "text": "The jugs were the weight on the bar. Clay breaks.",
+      "seconds": 4
+    },
+    "hint_jugs_3": {
+      "speaker": "narrator",
+      "text": "The seventh hung high, on the dead pylon's arm.",
+      "seconds": 4.5
+    },
+    "hint_jugs_4": {
+      "speaker": "narrator",
+      "text": "The rope gave before her patience did.",
+      "seconds": 4
+    },
+    "nar_plenty": {
+      "speaker": "narrator",
+      "text": "The town was called Plenty. Somebody had meant it.",
+      "seconds": 4.5
+    },
+    "nar_kneeler": {
+      "speaker": "narrator",
+      "text": "Somebody knelt at the trough, scooping. The trough was dry.",
+      "seconds": 5
+    },
+    "nar_first_fell": {
+      "speaker": "narrator",
+      "text": "It folded like a coat slipping off a peg.",
+      "seconds": 4
+    },
+    "nar_first_seat": {
+      "speaker": "narrator",
+      "text": "The knot went. What was under it sat down, and breathed.",
+      "seconds": 5
+    },
+    "nar_street_after": {
+      "speaker": "narrator",
+      "text": "Seven of them. She had started with six in the gun.",
+      "seconds": 4.5
+    },
+    "nar_marks": {
+      "speaker": "narrator",
+      "text": "Every door wore the well mark. Every mark was struck through, neatly.",
+      "seconds": 5.5
+    },
+    "nar_first_knot": {
+      "speaker": "narrator",
+      "text": "Something violet had knotted on the latch, as it knots on anything left crooked.",
+      "seconds": 6.5
+    },
+    "hint_yard_knot": {
+      "speaker": "narrator",
+      "text": "A knot wants a round put through it.",
+      "seconds": 3.5
+    },
+    "stn_yard_wake": {
+      "speaker": "station",
+      "text": "LIFT STATION 4. SURFACE POWER: WIND. THANK YOU FOR YOUR PATIENCE.",
+      "seconds": 5.5
+    },
+    "nar_transit": {
+      "speaker": "narrator",
+      "text": "It took a sighting on the yard bell. Then it took one on her.",
+      "seconds": 5
+    },
+    "nar_dowser_seen": {
+      "speaker": "narrator",
+      "text": "On the far rim, a man with a forked rod, dark against the sky. Watching.",
+      "seconds": 5
+    },
+    "nar_dowser_shot": {
+      "speaker": "narrator",
+      "text": "Too far. He would know to the pace how far.",
+      "seconds": 4
+    },
+    "nar_dowser_gone": {
+      "speaker": "narrator",
+      "text": "When she looked again there was only rim.",
+      "seconds": 4
+    },
+    "nar_tally_1": {
+      "speaker": "narrator",
+      "text": "Eleven at the table. Hooded. Hands flat on the boards.",
+      "seconds": 4.5
+    },
+    "nar_tally_2": {
+      "speaker": "narrator",
+      "text": "They had hooded themselves. A courtesy, once daylight began to hurt.",
+      "seconds": 5.5
+    },
+    "nar_tally_3": {
+      "speaker": "narrator",
+      "text": "Then they had shut the light out, and sat down to bide.",
+      "seconds": 5
+    },
+    "nar_tally_wall": {
+      "speaker": "narrator",
+      "text": "Every household's share, in chalk. Four days in a shaking hand. Then none.",
+      "seconds": 6
+    },
+    "nar_tally_chair": {
+      "speaker": "narrator",
+      "text": "A chair at the head, pulled out. Not one of theirs. He had sat with them.",
+      "seconds": 6
+    },
+    "nar_tally_chair_2": {
+      "speaker": "narrator",
+      "text": "He had not turned them on her. He had sat, and counted, and gone on.",
+      "seconds": 5.5
+    },
+    "nar_tally_hearth": {
+      "speaker": "narrator",
+      "text": "His cup on their hearthstone, the dregs dried to a ring. She had gained a day.",
+      "seconds": 6
+    },
+    "nar_tally_cloth": {
+      "speaker": "narrator",
+      "text": "The share-cloth hung in the light's way. Family marks, in paint.",
+      "seconds": 5.5
+    },
+    "nar_ask": {
+      "speaker": "narrator",
+      "text": "Did he spoil the wells, or only reach them first? She meant to ask.",
+      "seconds": 5.5
+    },
+    "stn_tally_wake_1": {
+      "speaker": "station",
+      "text": "DAYLIGHT. HEADWORKS WAKING.",
+      "seconds": 3
+    },
+    "stn_tally_wake_2": {
+      "speaker": "station",
+      "text": "SURFACE STAFF: ELEVEN, SEATED. WATER BELOW STANDARD: FOUR DAYS.",
+      "seconds": 5.5
+    },
+    "hint_daylight_2": {
+      "speaker": "narrator",
+      "text": "The old works woke to daylight. The town had boarded it out.",
+      "seconds": 5
+    },
+    "hint_daylight_3": {
+      "speaker": "narrator",
+      "text": "The north shutter. Then whatever hung in its way.",
+      "seconds": 4.5
+    },
+    "hint_daylight_4": {
+      "speaker": "narrator",
+      "text": "The latch was old. It let go on its own.",
+      "seconds": 4
+    },
+    "nar_two_rise": {
+      "speaker": "narrator",
+      "text": "The light came up through the floor. Two of them stood.",
+      "seconds": 5
+    },
+    "nar_nine": {
+      "speaker": "narrator",
+      "text": "Nine kept their seats. She let them keep them.",
+      "seconds": 4.5
+    },
+    "nar_pegs_1": {
+      "speaker": "narrator",
+      "text": "Coats on pegs, all the way down. Hats. Boots, paired.",
+      "seconds": 4.5
+    },
+    "nar_pegs_2": {
+      "speaker": "narrator",
+      "text": "The low pegs were bare. The children had gone east in time.",
+      "seconds": 5
+    },
+    "nar_watcher_1": {
+      "speaker": "narrator",
+      "text": "One sat in the niche, apart from the rest. It turned its hood to watch her.",
+      "seconds": 6
+    },
+    "nar_watcher_2": {
+      "speaker": "narrator",
+      "text": "It did nothing else. She went by.",
+      "seconds": 3.5
+    },
+    "nar_plate_1": {
+      "speaker": "narrator",
+      "text": "A cast plate. On it, a cartridge with a band about its waist.",
+      "seconds": 5
+    },
+    "nar_plate_2": {
+      "speaker": "narrator",
+      "text": "She knew the shape. She had carried one eleven years.",
+      "seconds": 4.5
+    },
+    "nar_plate_3": {
+      "speaker": "narrator",
+      "text": "DO NOT KEEP, it said. The Assize had kept every one.",
+      "seconds": 4.5
+    },
+    "nar_line_first": {
+      "speaker": "narrator",
+      "text": "One round, one line, and everything on it.",
+      "seconds": 4
+    },
+    "hint_line_2": {
+      "speaker": "narrator",
+      "text": "They healed alone. They wanted bursting together.",
+      "seconds": 4.5
+    },
+    "hint_line_3": {
+      "speaker": "narrator",
+      "text": "From the brass mark the knots sat one inside the other. One line would take all.",
+      "seconds": 6.5
+    },
+    "nar_file": {
+      "speaker": "narrator",
+      "text": "Six, in a queue, at the far door. They turned.",
+      "seconds": 4.5
+    },
+    "nar_file_lined": {
+      "speaker": "narrator",
+      "text": "They sat down in order, like a thing being counted.",
+      "seconds": 4.5
+    },
+    "nar_file_more": {
+      "speaker": "narrator",
+      "text": "Three more, from the far door. These had not queued.",
+      "seconds": 4.5
+    },
+    "nar_tamper_1": {
+      "speaker": "narrator",
+      "text": "The Tamper had a job once. It was still doing it.",
+      "seconds": 4.5
+    },
+    "nar_tamper_dead": {
+      "speaker": "narrator",
+      "text": "It stopped mid-stroke. It had never been anyone. That helped.",
+      "seconds": 5
+    },
+    "nar_mark_1": {
+      "speaker": "narrator",
+      "text": "The lift head, drawn on the wall. Six in a ring, and one hung apart.",
+      "seconds": 5.5
+    },
+    "nar_mark_2": {
+      "speaker": "narrator",
+      "text": "The same mark was stamped under her loading gate.",
+      "seconds": 4.5
+    },
+    "nar_mark_3": {
+      "speaker": "narrator",
+      "text": "It had never been a crest. It was a diagram of how the thing was used.",
+      "seconds": 5.5
+    },
+    "stn_lift_1": {
+      "speaker": "station",
+      "text": "LIFT HEAD INVENTORY. CHAMBERS: SIX. IN SERVICE: SIX.",
+      "seconds": 4.5
+    },
+    "stn_lift_2": {
+      "speaker": "station",
+      "text": "PROVING CHARGE: NOT IN CRADLE. BORE: UNPROVEN. LIFT WILL PROCEED.",
+      "seconds": 5.5
+    },
+    "stn_lift_3": {
+      "speaker": "station",
+      "text": "IF THE TONE CHANGES, LEAVE.",
+      "seconds": 3
+    },
+    "nar_windlass_seen": {
+      "speaker": "narrator",
+      "text": "It hung over the bore like her own cylinder, seen from the wrong end.",
+      "seconds": 5.5
+    },
+    "nar_embers_1": {
+      "speaker": "narrator",
+      "text": "Embers, still orange. He had been here inside the hour.",
+      "seconds": 5
+    },
+    "nar_embers_2": {
+      "speaker": "narrator",
+      "text": "It was the first warm light below ground, and it was his.",
+      "seconds": 5
+    },
+    "nar_cradle": {
+      "speaker": "narrator",
+      "text": "A cradle, cast for one banded round. Dust everywhere but there.",
+      "seconds": 5.5
+    },
+    "nar_cradle_2": {
+      "speaker": "narrator",
+      "text": "One thumbprint in the dust. He had taken it out and carried it off.",
+      "seconds": 5.5
+    },
+    "stn_ask_1": {
+      "speaker": "station",
+      "text": "IDENTIFY STATION.",
+      "seconds": 2.5
+    },
+    "stn_ask_2": {
+      "speaker": "station",
+      "text": "CHAMBERS IN SERVICE.",
+      "seconds": 2.5
+    },
+    "stn_ask_3": {
+      "speaker": "station",
+      "text": "PROVING CHARGES IN CRADLE.",
+      "seconds": 3
+    },
+    "stn_ask_wrong": {
+      "speaker": "station",
+      "text": "COUNT AGAIN.",
+      "seconds": 2
+    },
+    "stn_ask_done": {
+      "speaker": "station",
+      "text": "CRADLE: NONE. NOTED. BORE UNPROVEN. ENTER AND STAND CLEAR.",
+      "seconds": 5
+    },
+    "hint_ask_2": {
+      "speaker": "narrator",
+      "text": "It asked for numbers. The walls were covered in numbers.",
+      "seconds": 5
+    },
+    "hint_ask_3": {
+      "speaker": "narrator",
+      "text": "The cradle was empty. No port was marked for none. She did not fire.",
+      "seconds": 5.5
+    },
+    "hint_ask_3_num": {
+      "speaker": "narrator",
+      "text": "The answer was cast on the wall beside the door.",
+      "seconds": 4.5
+    },
+    "hint_boss_haul": {
+      "speaker": "narrator",
+      "text": "The ribs stopped what it threw. Lit meant open. All six opened to haul.",
+      "seconds": 6
+    },
+    "stn_parley_1": {
+      "speaker": "station",
+      "text": "LIFT HEAD PRESENTING. SIX CHAMBERS. STATE BUSINESS AT THE BORE.",
+      "seconds": 5.5
+    },
+    "nar_parley": {
+      "speaker": "narrator",
+      "text": "A Reeve asks once before she draws. She asked.",
+      "seconds": 4.5
+    },
+    "rv_ask": {
+      "speaker": "reeve",
+      "text": "By the Rule and the round: will you stand down?",
+      "seconds": 4.5
+    },
+    "stn_parley_2": {
+      "speaker": "station",
+      "text": "CHAMBER ONE: STAKE. TWO: STAKE. THREE: CANISTER.",
+      "seconds": 4.5
+    },
+    "stn_parley_3": {
+      "speaker": "station",
+      "text": "FOUR: STAKE. FIVE: STAKE. SIX: CANISTER.",
+      "seconds": 4
+    },
+    "stn_parley_4": {
+      "speaker": "station",
+      "text": "WILL NOT STAND DOWN. A LIT CHAMBER IS OPEN. ALL SIX OPEN ON THE HAUL.",
+      "seconds": 5
+    },
+    "stn_parley_refused": {
+      "speaker": "station",
+      "text": "INSPECTION REFUSED.",
+      "seconds": 2.5
+    },
+    "nar_parley_kept": {
+      "speaker": "narrator",
+      "text": "It stood open while she looked. It would open again to haul.",
+      "seconds": 4.5
+    },
+    "stn_boss_indexing": {
+      "speaker": "station",
+      "text": "INDEXING.",
+      "seconds": 1.5
+    },
+    "stn_boss_hauling": {
+      "speaker": "station",
+      "text": "HAULING.",
+      "seconds": 2
+    },
+    "stn_boss_p1_break": {
+      "speaker": "station",
+      "text": "HEAD DAMAGED. GUARD WILL BE SET.",
+      "seconds": 3.5
+    },
+    "stn_boss_guard_set": {
+      "speaker": "station",
+      "text": "GUARD SET. LINE LOCKER RELEASED.",
+      "seconds": 3.5
+    },
+    "stn_boss_guard_released": {
+      "speaker": "station",
+      "text": "GUARD RELEASED.",
+      "seconds": 2.5
+    },
+    "stn_boss_p2_break": {
+      "speaker": "station",
+      "text": "GUARD LOST. DRAWING FROM BORE.",
+      "seconds": 3.5
+    },
+    "stn_boss_refilled": {
+      "speaker": "station",
+      "text": "CHAMBER REFILLED FROM BORE.",
+      "seconds": 3
+    },
+    "stn_boss_charge_required": {
+      "speaker": "station",
+      "text": "BORE UNPROVEN. PROVING CHARGE REQUIRED AT THE MARK.",
+      "seconds": 4.5
+    },
+    "stn_boss_head_dry_refilling": {
+      "speaker": "station",
+      "text": "HEAD DRY. REFILLING.",
+      "seconds": 2.5
+    },
+    "stn_bore_lead": {
+      "speaker": "station",
+      "text": "CHARGE NOT RECOGNISED.",
+      "seconds": 3
+    },
+    "stn_bore_line_short": {
+      "speaker": "station",
+      "text": "LINE CHARGE. LINE SHORT. BORE DEPTH: 412.",
+      "seconds": 4
+    },
+    "nar_office": {
+      "speaker": "narrator",
+      "text": "A Reeve mends a well where she finds it broken. That was the whole office.",
+      "seconds": 6
+    },
+    "nar_one_left": {
+      "speaker": "narrator",
+      "text": "There was one proving charge left in Plenty. She was carrying it.",
+      "seconds": 5.5
+    },
+    "hint_kept_2": {
+      "speaker": "narrator",
+      "text": "The brass mark at the kerb. The seventh round. Down the bore.",
+      "seconds": 5
+    },
+    "nar_down_the_bore": {
+      "speaker": "narrator",
+      "text": "Down the bore. Nowhere else.",
+      "seconds": 3
+    },
+    "nar_seal": {
+      "speaker": "narrator",
+      "text": "She broke the band with her thumb. It came away like wax. It was wax.",
+      "seconds": 5.5
+    },
+    "nar_kept": {
+      "speaker": "narrator",
+      "text": "Eleven years kept. It took less than half a second to spend.",
+      "seconds": 5
+    },
+    "stn_proven": {
+      "speaker": "station",
+      "text": "BORE PROVEN.",
+      "seconds": 3
+    },
+    "stn_dry": {
+      "speaker": "station",
+      "text": "HEAD DRY.",
+      "seconds": 2.5
+    },
+    "nar_hauling": {
+      "speaker": "narrator",
+      "text": "It went on hauling. There was nothing on the rope.",
+      "seconds": 4.5
+    },
+    "stn_service": {
+      "speaker": "station",
+      "text": "LIFT STATION 4 IN SERVICE. WATER WHERE YOU STAND.",
+      "seconds": 4.5
+    },
+    "stn_thanks": {
+      "speaker": "station",
+      "text": "THANK YOU FOR YOUR PATIENCE.",
+      "seconds": 3
+    },
+    "nar_lift_up": {
+      "speaker": "narrator",
+      "text": "The lift rose beside the line. She did not count the lamps.",
+      "seconds": 5
+    },
+    "nar_rim_1": {
+      "speaker": "narrator",
+      "text": "Blue hour. She could not have said of which day.",
+      "seconds": 4.5
+    },
+    "nar_rim_2": {
+      "speaker": "narrator",
+      "text": "A thread of light stood up out of Plenty, dead plumb.",
+      "seconds": 4.5
+    },
+    "nar_rim_3": {
+      "speaker": "narrator",
+      "text": "Against it she could see how far the Rule leaned. Further than from the gully.",
+      "seconds": 5.5
+    },
+    "nar_lamps": {
+      "speaker": "narrator",
+      "text": "Lamps, down in Plenty. She counted them.",
+      "seconds": 4
+    },
+    "nar_lamps_count": {
+      "speaker": "narrator",
+      "text": "{n}, by her count. Somebody had found the matches.",
+      "seconds": 4.5
+    },
+    "nar_stone_1": {
+      "speaker": "narrator",
+      "text": "Six spent cases on a flat stone, mouth up, in a row.",
+      "seconds": 4.5
+    },
+    "nar_stone_2": {
+      "speaker": "narrator",
+      "text": "Kept rounds, all of them. Five she could have put a name to.",
+      "seconds": 5
+    },
+    "nar_stone_3": {
+      "speaker": "narrator",
+      "text": "The sixth was older than the Assize.",
+      "seconds": 3.5
+    },
+    "nar_stone_4": {
+      "speaker": "narrator",
+      "text": "And a seventh, unfired. The band on it was the wrong colour.",
+      "seconds": 5
+    },
+    "nar_take_1": {
+      "speaker": "narrator",
+      "text": "He had not taken hers. She had given it.",
+      "seconds": 4
+    },
+    "nar_take_2": {
+      "speaker": "narrator",
+      "text": "Seven again. It did not feel like keeping.",
+      "seconds": 4
+    },
+    "nar_leave": {
+      "speaker": "narrator",
+      "text": "She left it on the stone. Six, then.",
+      "seconds": 3.5
+    },
+    "nar_fire": {
+      "speaker": "narrator",
+      "text": "Out on the flat, one small fire. It was not moving.",
+      "seconds": 4.5
+    },
+    "nar_last": {
+      "speaker": "narrator",
+      "text": "\"And shade,\" she said, to nobody, and went on.",
+      "seconds": 5
+    },
+    "cap_bider_rattle": {
+      "speaker": "caption",
+      "text": "[a dry rattle, like wind in a sack]",
+      "seconds": 2
+    },
+    "cap_bider_sits": {
+      "speaker": "caption",
+      "text": "[a long breath out]",
+      "seconds": 2
+    },
+    "cap_transit_clack": {
+      "speaker": "caption",
+      "text": "[three legs, clacking]",
+      "seconds": 2
+    },
+    "cap_transit_tone": {
+      "speaker": "caption",
+      "text": "[a rising tone]",
+      "seconds": 2
+    },
+    "cap_stake": {
+      "speaker": "caption",
+      "text": "[a stake, whirring]",
+      "seconds": 2
+    },
+    "cap_tamper_hiss": {
+      "speaker": "caption",
+      "text": "[a rising hiss]",
+      "seconds": 2
+    },
+    "cap_tamper_howl": {
+      "speaker": "caption",
+      "text": "[a falling howl]",
+      "seconds": 2
+    },
+    "cap_tamper_pound": {
+      "speaker": "caption",
+      "text": "[pounding, slow and regular]",
+      "seconds": 2
+    },
+    "cap_chairs": {
+      "speaker": "caption",
+      "text": "[chairs scrape]",
+      "seconds": 2
+    },
+    "cap_station_chime": {
+      "speaker": "caption",
+      "text": "[three notes, a little flat]",
+      "seconds": 2
+    },
+    "cap_listening": {
+      "speaker": "caption",
+      "text": "[lamps ticking, filling]",
+      "seconds": 2
+    },
+    "cap_ratchet": {
+      "speaker": "caption",
+      "text": "[a great ratchet turns]",
+      "seconds": 2
+    },
+    "cap_canister": {
+      "speaker": "caption",
+      "text": "[something heavy, lobbed]",
+      "seconds": 2
+    },
+    "cap_lance": {
+      "speaker": "caption",
+      "text": "[two tones, rising]",
+      "seconds": 2
+    },
+    "cap_refill": {
+      "speaker": "caption",
+      "text": "[a rising gurgle]",
+      "seconds": 2
+    },
+    "cap_dry_click": {
+      "speaker": "caption",
+      "text": "[a dry click, very large]",
+      "seconds": 2
+    },
+    "cap_hum_stops": {
+      "speaker": "caption",
+      "text": "[the hum stops]",
+      "seconds": 2
+    },
+    "cap_water_below": {
+      "speaker": "caption",
+      "text": "[water, far below]",
+      "seconds": 2
+    },
+    "cap_gate": {
+      "speaker": "caption",
+      "text": "[the gate bursts open]",
+      "seconds": 2
+    },
+    "cap_shutter": {
+      "speaker": "caption",
+      "text": "[a shutter drops open]",
+      "seconds": 2
+    },
+    "cap_locker_chime": {
+      "speaker": "caption",
+      "text": "[a locker chimes]",
+      "seconds": 2
+    },
+    "cap_fire_kindles": {
+      "speaker": "caption",
+      "text": "[far off, a fire catches]",
+      "seconds": 2
+    },
+    "cap_wire_resolves": {
+      "speaker": "caption",
+      "text": "[one wire note, come home]",
+      "seconds": 2
+    }
+  },
+  "readables": {
+    "rd_backstory": {
+      "title": "The story so far",
+      "body": "The Assize was a court that rode. Its officers, the Reeves, carried a blued six-gun and seven rounds: six for the work, and one, banded, given at swearing and never fired.\n\nThe Assize judged water by the Rule, the bright upright on the horizon that every well was sunk true to. The court is gone. The Rule leans.\n\nTamsin Ware is the last Reeve anyone has heard of. For two years she has been behind the Dowser, who goes from well to well, and each one is wrong when she reaches it. He is never hurried. He always leaves her one more problem than her gun holds.\n\nShe does not know whether he spoils the wells or only reaches them first. She means to ask."
+    },
+    "rd_note_lip": {
+      "title": "A note, weighted with a spent case",
+      "body": "Reeve Ware. Water to you.\n\nYou are two days behind and walking well. I have hung the gate below for you. Count what I hung.\n\nYou may call it rudeness. I call it arithmetic.\n— D."
+    },
+    "rd_rain_tally": {
+      "title": "A slate, in a child's hand",
+      "body": "DAYS NO RAIN\nA hundred strokes, bundled in fives, and a careful line ruled under them.\n\nUnder the line, in a grown hand: Wagon goes east at first light. Bring your slate."
+    },
+    "rd_ledger": {
+      "title": "The water ledger of Plenty",
+      "body": "Day 1. Water came up warm and the wrong colour. A man with a rod says it will clear. Shares drawn as usual.\n\nDay 3. It is in the eyes now. Light hurts. Hoods for all who have it, so the rest need not look. Children sent east with the Hallam wagon. Shares drawn: half.\n\nDay 4. Doors barred. Shutters. We will sit and bide till it clears. What else was there. Shares drawn: none."
+    },
+    "rd_note_hearth": {
+      "title": "A note, on the hearthstone",
+      "body": "Reeve. One day, now.\n\nThey did not suffer long. I sat with them and counted, so that somebody had.\n\nYou will want to go down. Your kind always does. Mind what you carry.\n— D."
+    },
+    "rd_plate_line": {
+      "title": "Cast plate: line charge",
+      "body": "PELLAM DEEPWORKS\nLINE CHARGE. FOR SIGHTING.\nONE LINE THROUGH ALL IT MEETS.\nSTAND ON THE MARK. RETURN UNUSED CHARGES."
+    },
+    "rd_plate_proving": {
+      "title": "Cast plate: proving charge",
+      "body": "PELLAM DEEPWORKS\nPROVING CHARGE. BANDED.\nONE ISSUED PER BORE.\nFIRE ONLY DOWN THE BORE.\nDO NOT KEEP."
+    },
+    "rd_plate_service": {
+      "title": "Cast plate: tamping unit",
+      "body": "PELLAM DEEPWORKS\nTAMPING UNIT. SERVICE INTERVAL: FORTY YEARS.\nBUILT TO OUTLAST THE NEED."
+    },
+    "rd_note_cradle": {
+      "title": "A note, under the empty cradle",
+      "body": "Reeve. An hour, now, and you walking well.\n\nThe cradle is empty. I emptied it. There is one such charge left in Plenty, and I did not carry it in.\n\nMend the well or leave it crooked. I will think no less of you either way.\n— D."
+    },
+    "rd_note_stone": {
+      "title": "A note, under the first case",
+      "body": "For the one you spent. It is as true as the last, by my measure if not by yours.\n\nSix came before you. Each mended a well. Look at the Rule, and ask what the mending cost.\n\nI am not far, and I am not moving. Water to you, Reeve.\n— D."
+    }
+  },
+  "objectives": {
+    "obj_lip_camp": "His camp is two days cold. The gully runs down to a town. Go down.",
+    "obj_lip_gate": "The stock gate is weighted shut. Lighten it.",
+    "obj_street": "Front Street, Plenty. Walk it west.",
+    "obj_yard_door": "The pump yard door is knotted shut.",
+    "obj_yard": "Clear the yard.",
+    "obj_tally": "The tally house. There is a way down, and no power to open it.",
+    "obj_tally_hatch": "The hatch is lit. Its latch is knotted.",
+    "obj_gallery": "The baffle door is held by three knots that mend each other.",
+    "obj_file": "The long gallery, east.",
+    "obj_hall": "Something is pounding in the lift hall. Get past it.",
+    "obj_lift": "Take the lift down to the bore.",
+    "obj_ante": "The bore door asks three questions.",
+    "obj_boss": "The lift head will not stand down.",
+    "obj_boss_unproven": "Lead will not hold it. The bore wants proving.",
+    "obj_boss_dry": "The head is dry. Break its six chambers.",
+    "obj_proving_lift": "Take the proving lift up.",
+    "obj_rim": "Go on."
+  },
+  "system": {
+    "note": "Plain lines core shows by itself when the game cannot go on (src/core/debugHook.ts, src/core/flow.ts). Not part of the UI's screens.",
+    "boot_failed": "KEEP SEVEN could not start.",
+    "boot_connection": "A file it needs would not load. Check the connection.",
+    "boot_retry": "Reload the page to try again.",
+    "no_webgl": "KEEP SEVEN cannot start: this browser or device does not provide WebGL 2.",
+    "load_failed": "The way on would not load. Check the connection, then go on.",
+    "waiting": "Waiting on the connection.",
+    "save_unreadable": "The last count could not be read. Begin again."
+  },
+  "ui": {
+    "ui_title": "KEEP SEVEN",
+    "ui_subtitle": "First Tally: Plenty",
+    "ui_click_to_start": "Click to take up the gun",
+    "ui_loading": "Loading",
+    "ui_menu_play": "Begin",
+    "ui_menu_continue": "Go on",
+    "ui_menu_story": "The story so far",
+    "ui_menu_options": "Options",
+    "ui_menu_credits": "Credits",
+    "ui_credits_body": "An original work. Every model, rig and scene authored in Blender. All sound synthesised as you play.",
+    "ui_pause_title": "Paused",
+    "ui_pause_resume": "Resume",
+    "ui_pause_options": "Options",
+    "ui_pause_restart_cp": "Back to the last count (checkpoint)",
+    "ui_pause_quit": "Quit to title",
+    "ui_pause_objective": "The work at hand",
+    "ui_seventh_sealed": "The kept round. Not for firing.",
+    "ui_seventh_broken": "The kept round. The band is broken.",
+    "ui_seventh_spent": "The kept round. Spent.",
+    "ui_seventh_violet": "A seventh round. Not hers.",
+    "ui_hud_reserve": "{n}",
+    "ui_hud_line_rounds": "Line",
+    "ui_boss_name": "LIFT HEAD · STATION 4",
+    "ui_checkpoint": "{movement} · {n}",
+    "ui_death": "She went down. The count began again.",
+    "ui_key_mouse_left": "Left click",
+    "ui_key_mouse_middle": "Middle click",
+    "ui_key_mouse_right": "Right click",
+    "ui_hint_move": "{forward} {left} {back} {right} to walk",
+    "ui_hint_fire": "{fire} to fire",
+    "ui_hint_reload": "{reload} to reload",
+    "ui_hint_sprint": "Hold {sprint} to run",
+    "ui_hint_interact": "{interact} to read or take",
+    "ui_hint_line": "{line} to seat a line round under the hammer",
+    "ui_prompt_read": "{interact}  Read",
+    "ui_prompt_take": "{interact}  Take",
+    "ui_prompt_use": "{interact}  Use",
+    "ui_prompt_kept": "{kept}  Break the band",
+    "ui_read_next": "Next",
+    "ui_read_close": "Close",
+    "ui_end_time": "Time",
+    "ui_end_rounds": "Rounds fired",
+    "ui_end_accuracy": "Rounds that told",
+    "ui_end_of": "of",
+    "ui_end_knots": "Knots burst",
+    "ui_end_lines": "Lines of three or more",
+    "ui_end_clean_six": "A clean six at the last",
+    "ui_end_secrets": "Things found",
+    "ui_end_lamps": "Lamps lit in Plenty",
+    "ui_end_carries": "The Reeve carries",
+    "ui_end_carries_six": "6",
+    "ui_end_carries_his": "7, one of them his",
+    "ui_end_yes": "Yes",
+    "ui_end_no": "No",
+    "ui_end_again": "Walk it again",
+    "ui_end_menu": "Title",
+    "ui_opt_title": "Options",
+    "ui_opt_tab_controls": "Controls",
+    "ui_opt_tab_comfort": "Comfort",
+    "ui_opt_tab_text": "Text",
+    "ui_opt_tab_sound": "Sound",
+    "ui_opt_tab_picture": "Picture",
+    "ui_opt_sensitivity": "Mouse sensitivity",
+    "ui_opt_invert_y": "Invert look",
+    "ui_opt_fov": "Field of view",
+    "ui_opt_bob": "Head bob",
+    "ui_opt_shake": "Screen shake",
+    "ui_opt_reduce_motion": "Reduce motion",
+    "ui_opt_reduce_flashes": "Reduce flashes",
+    "ui_opt_subtitles": "Subtitles",
+    "ui_opt_subtitle_size": "Subtitle size",
+    "ui_opt_subtitle_bg": "Subtitle backing",
+    "ui_opt_captions": "Captions for sounds",
+    "ui_opt_difficulty": "Difficulty",
+    "ui_opt_diff_easy": "Easy",
+    "ui_opt_diff_normal": "Normal",
+    "ui_opt_diff_hard": "Hard",
+    "ui_opt_diff_easy_desc": "They hit softer and come one at a time. The gun is the same.",
+    "ui_opt_diff_normal_desc": "As it was meant. The gun is the same.",
+    "ui_opt_diff_hard_desc": "They hit harder and come three at a time. The gun is the same.",
+    "ui_opt_sprint_mode": "Run",
+    "ui_opt_hold": "Hold",
+    "ui_opt_toggle": "Toggle",
+    "ui_opt_fire_mode": "Fire",
+    "ui_opt_fire_click": "A click a shot",
+    "ui_opt_fire_hold": "Hold to keep firing",
+    "ui_opt_bindings": "Key bindings",
+    "ui_opt_bind_press": "Press a key",
+    "ui_opt_crosshair_size": "Crosshair size",
+    "ui_opt_crosshair_colour": "Crosshair colour",
+    "ui_opt_crosshair_outline": "Crosshair outline",
+    "ui_opt_hints": "Puzzle hints",
+    "ui_opt_hints_off": "Off",
+    "ui_opt_hints_normal": "Normal",
+    "ui_opt_hints_fast": "Fast",
+    "ui_opt_graphics": "Graphics",
+    "ui_opt_gfx_auto": "Auto",
+    "ui_opt_gfx_low": "Low",
+    "ui_opt_gfx_high": "High",
+    "ui_opt_resolution": "Resolution scale",
+    "ui_opt_vol_master": "Master volume",
+    "ui_opt_vol_effects": "Effects volume",
+    "ui_opt_vol_music": "Music volume",
+    "ui_opt_on": "On",
+    "ui_opt_off": "Off",
+    "ui_opt_reset": "Restore defaults",
+    "ui_opt_back": "Back",
+    "ui_action_forward": "Forward",
+    "ui_action_back": "Back",
+    "ui_action_left": "Left",
+    "ui_action_right": "Right",
+    "ui_action_fire": "Fire",
+    "ui_action_reload": "Reload",
+    "ui_action_line": "Seat a line round",
+    "ui_action_kept": "Break the band",
+    "ui_action_interact": "Read / take / use",
+    "ui_action_sprint": "Run",
+    "ui_action_jump": "Jump",
+    "ui_action_pause": "Pause",
+    "ui_speaker_station": "STATION",
+    "ui_speaker_reeve": "THE REEVE"
+  }
+}

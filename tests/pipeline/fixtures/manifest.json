@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "title": "pipeline fixtures: an overlay manifest for tools/build-assets.mjs --manifest (not game assets)",
+    "rawExportDir": "tests/pipeline/fixtures/export",
+    "publicDir": "tests/pipeline/fixtures/public"
+  },
+  "assets": {
+    "fixture_stool": {
+      "path": "assets/fixtures/fixture_stool.glb", "source": "tests/pipeline/fixtures/fixture_stool.py", "owner": "fixtures", "category": "fixtures",
+      "priority": 0, "triBudget": 340, "drawCalls": 1, "materials": ["m_prop"], "bake": "AO", "skinned": false, "nodes": [], "animations": [],
+      "collision": "none", "instanced": true, "lightmapped": false, "zone": null, "sets": [], "placedBy": "zone", "pivot": "base centre",
+      "placeholder": { "shape": "box", "size": [0.4, 0.45, 0.4], "anchor": "base" }
+    },
+    "fixture_probe": {
+      "path": "assets/fixtures/fixture_probe.glb", "source": "tests/pipeline/fixtures/fixture_probe.py", "owner": "fixtures", "category": "fixtures",
+      "priority": 0, "triBudget": 120, "drawCalls": 2, "materials": ["m_prop", "m_emis"], "bake": "AO", "skinned": true,
+      "bones": ["root", "lid"], "nodes": ["lid", "probe_lamps", "socket_a", "socket_b", "tip"],
+      "lampSets": { "probe_lamps": 3 }, "nodePos": { "lid": [0, 0.3, -0.15], "socket_a": [0.2, 0.1, 0.25], "socket_b": [-0.2, 0.3, 0], "probe_lamps": [0, 0.15, 0.152] },
+      "animations": [ { "name": "flip", "loop": false, "seconds": 0.32, "priority": 0 }, { "name": "idle", "loop": true, "seconds": 1.0, "priority": 0 } ],
+      "collision": "none", "instanced": false, "lightmapped": false, "zone": null, "sets": [], "placedBy": "code", "pivot": "base centre",
+      "placeholder": { "shape": "box", "size": [0.4, 0.3, 0.3], "anchor": "base" }
+    },
+    "fixture_crate_panel": {
+      "path": "assets/fixtures/fixture_crate_panel.glb", "source": "tests/pipeline/fixtures/fixture_crate_panel.py", "owner": "fixtures", "category": "fixtures",
+      "priority": 0, "triBudget": 4200, "drawCalls": 5, "materials": ["m_frontier", "m_pellam", "m_prop", "m_mask"], "bake": "AO", "skinned": false,
+      "nodes": ["knot_live", "socket_knot"], "nodePos": { "socket_knot": [1.1, 1.8, 0.14] }, "animations": [],
+      "collision": "none", "instanced": false, "lightmapped": false, "zone": null, "sets": [], "placedBy": "code", "pivot": "base centre",
+      "placeholder": { "shape": "box", "size": [4.0, 2.5, 1.2], "anchor": "base" }
+    },
+    "fixture_room": {
+      "path": "assets/fixtures/fixture_room.glb", "source": "tests/pipeline/fixtures/fixture_room.py", "owner": "fixtures", "category": "fixtures",
+      "priority": 0, "triBudget": 4000, "drawCalls": 2, "materials": ["m_pellam", "m_emis"], "bake": "LM+VL", "skinned": false,
+      "nodes": ["room_lamps"], "lampSets": { "room_lamps": 3 }, "drawnNodes": ["room_lamps"], "animations": [],
+      "collision": "none", "instanced": false, "lightmapped": true, "lightmaps": ["lm_fixture_room"], "lightLayers": ["lm_fixture_room_layer"],
+      "zone": "fixture_zone", "sets": [], "placedBy": "origin", "pivot": "world origin",
+      "placeholder": { "shape": "box", "size": [6, 3, 4], "anchor": "world" },
+      "chunks": [ { "id": "chunk_fx_room", "tris": 4000, "materials": ["m_pellam"], "drawCalls": 1, "box": { "min": [-3.5, -0.5, -2.5], "max": [3.5, 3.5, 2.5] } } ]
+    }
+  },
+  "textures": {
+    "lm_fixture_room": {
+      "path": "assets/lm/lm_fixture_room.webp", "source": "tests/pipeline/fixtures/fixture_room.py", "owner": "fixtures", "kind": "lightmap",
+      "size": [256, 256], "format": "rgba8", "colorSpace": "srgb", "mips": false, "wrap": "clamp", "sets": [], "gpuBytes": 262144,
+      "lightmapScale": 2, "uv": 1, "neutralTexel": { "px": [0, 0, 4, 4], "uv": [0.0078125, 0.0078125], "value": 1 }
+    },
+    "lm_fixture_room_layer": {
+      "path": "assets/lm/lm_fixture_room_layer.webp", "source": "tests/pipeline/fixtures/fixture_room.py", "owner": "fixtures", "kind": "lightlayer",
+      "size": [256, 256], "format": "r8", "colorSpace": "none", "mips": false, "wrap": "clamp", "sets": [], "gpuBytes": 65536,
+      "lightmapScale": 2, "uv": 1, "neutralTexel": { "px": [0, 0, 4, 4], "uv": [0.0078125, 0.0078125], "value": 0 }
+    }
+  },
+  "zones": {
+    "fixture_zone": { "set": "surface", "env": "fixture_room", "chunks": ["chunk_fx_room"], "cells": [], "dressing": { "tris": 600, "drawCalls": 1, "assets": ["fixture_stool"] },
+      "triangles": 5000, "drawCalls": { "typical": 4, "worst": 6 } }
+  }
+}

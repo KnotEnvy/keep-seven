@@ -1,0 +1,184 @@
+[
+ {
+  "severity": "major",
+  "owner": "core",
+  "problem": "The quality manager never raises the pixel ratio again after the viewport or the resolution-scale option has lowered it. `setViewport` does `this.ceiling = Math.min(this.ceiling, max)` and keeps the old ratio; nothing raises `ceiling` afterwards (it is only reset while `ceilingFrames > 0`), so the probe-up test `pixelRatio < min(max, ceiling)` is never true. A player who leaves fullscreen, shrinks the window, or lowers and then raises the resolution slider stays at the reduced resolution until the tier changes. `src/core` freezes after this phase and code-ui builds its options screen on top of this.",
+  "evidence": "Production build, real-time loop, SwiftShader at a steady 16.7 ms (scratch/critic-core-r3/h_resize.log): 960x540 start, ratio 1, buffer 960x540. At 1920x1080: ratio 0.7111, buffer 1365x768 (the intended cap). Back at 960x540: ratio 0.7111, buffer 682x384 after 1, 5, 10, 20 and 40 s. The only `quality/changed` event is `155:0.711:adaptive`. Opened shots/critic-core-r3/h_after_shrink.png (visibly stair-stepped edges) against h_fresh_960.png (a fresh page at the same size). scratch/critic-core-r3/i_scale.log: `setOption('resolutionScale', 0.5)` gives 480x270; back to 1 it is still 480x270 after 16 s; only `graphics high` then `low` restores 960x540. tests/core/quality.spec.ts has no case that enlarges the allowance again.",
+  "fix": "In `QualityManagerImpl.setViewport` (also reached by `onOptionChanged('resolutionScale')`): compute `max`; when the controller is not holding the ratio down (`ceilingFrames === 0`) set `ceiling = max`, and if the ratio was sitting at the previous allowance raise it to the new `max`; otherwise keep `min(ceiling, max)` so a real back-off survives. Add two unit cases: 960x540 -> 1920x1080 -> 960x540 ends at ratio 1, and resolutionScale 1 -> 0.5 -> 1 ends at ratio 1, with no frame-time samples needed."
+ },
+ {
+  "severity": "major",
+  "owner": "core",
+  "problem": "`startServer({ mode: 'build' })` in tests/harness.mjs (frozen after this phase) produces a development-flavoured bundle whenever a dev server was started earlier in the same Node process. Vite's dev server sets `NODE_ENV=development` and the later `build()` keeps it, so `import.meta.env.DEV` is true: the debug hook is installed without `?debug=1` and a missing asset file is synthesised instead of being a load error. `node --test tests/core/` imports every test file into one process and the dev-server tests register first, so 'the production build boots, synthesises nothing and plays' does not exercise production code paths. That test also only ever opens `?debug=1`, so nothing checks the page a player actually gets.",
+  "evidence": "scratch/critic-core-r3/m3_buildmode.log: `after a dev server: NODE_ENV development`; the build that follows is `index-CYr9kXGo.js`, and a page WITHOUT `?debug` with one GLB answered 404 reports `hook: object, ready: true, version: 2, synthesised: 1` and shows the title. Build first in a fresh process (m_buildmode.log, l2_missing.log, 6 of 6 runs): `index-8wX3KZe-.js`, hook `undefined`, and the same 404 gives `[boot] Error: asset 'env_plenty_street': file ... failed to load`. tests/core/stubs.test.mjs lines 384-400 open the build only with `query: { debug: 1 }`.",
+  "fix": "In `startServer`, pin the environment per mode: for a build, set `process.env.NODE_ENV = 'production'` around `build({ mode: 'production', ... })` and restore the previous value; for dev, set `'development'` explicitly (a dev server started after a build currently runs with NODE_ENV=production). Add a test that opens the build with no `debug` parameter after a dev server has run in the same process and asserts `typeof window.__dbg === 'undefined'`, a click starts the run, and a 404 on one manifest file ends in the boot error."
+ },
+ {
+  "severity": "major",
+  "owner": "core",
+  "problem": "The 'wired in' check in all six code orders is vacuous, for the third round. Each order's definition of done says `node --test tests/core/` passes 'with your system in `src/main.ts`', but that command keeps core stubs in all six slots unless `KEEP7_REAL` is set, and no order or the work-order README mentions `KEEP7_REAL`, `docs/FOUNDATION_REPORT.md`, `stepAsync`, the one-radius ledge lift or the view-model rule. The document text for this (docs/requests/foundation-core.md rows 9-31) is still unapplied. A builder following the binding reading list passes this check without their system ever being loaded, and builds a 1.0 m jump against 'about 0.2 m' of ledge lift.",
+  "evidence": "`grep -n 'tests/core' docs/workorders/code-*.md`: code-player 147, code-enemies 183, code-world 186, code-ui 114, code-render 182, code-audio 168 all carry the sentence. `grep -ln FOUNDATION_REPORT docs/workorders/*.md CLAUDE.md` returns nothing (only ARCHITECTURE.md names it); `grep KEEP7_REAL\\|stepAsync\\|'one radius'` over code-player.md and README.md returns nothing. My run of `node --test tests/core/`: 59 pass, and `__dbg.ext.core.stubs()` on the index page lists all six slots as stubs. docs/workorders/* were last modified 12:51-14:15, before both fix rounds. The engine property is real: scratch/critic-core-r3/d_room_r2.log shows the stub (apex 0.86 m) mounting a 1.1 m box (maxY 1.962), and ARCHITECTURE 6 still says ledges 'up to about 0.2 m'.",
+  "fix": "Core can close most of this without editing documents it does not own: in tests/core/route.mjs, when `KEEP7_REAL` is unset, treat a slot as real when `src/<slot>/index.ts` no longer carries the 'INITIAL STUB written by foundation-core' header, and print which slots were loaded as the first line of the run, so the order's sentence becomes true as written. The integrator must still apply rows 9-31 before phase 3 starts, at minimum: a pointer to FOUNDATION_REPORT sections 3-5 in the work-order README, the ledge numbers in ARCHITECTURE 6 and code-player 4.1, and `stepAsync` / `untilAsync` in ARCHITECTURE 11.2."
+ },
+ {
+  "severity": "minor",
+  "owner": "core",
+  "problem": "A refused pointer-lock request leaves the game in `playing` with no lock and no signal: mouse look is dead, no pause plate returns, and nothing tells the UI. Chrome refuses re-lock for about 1.25 s after Esc (docs/research/tech-web.md line 943), so a quick click on resume hits this. The click that later takes the lock back is also a shot, because edges are dropped only on entering `playing`, not on gaining the lock.",
+  "evidence": "scratch/critic-core-r3/r2_lockfail.log (production build; `requestPointerLock` made to reject after `document.exitPointerLock()`): after the refused resume click `game: playing, lock: false, requests: 4`, and it stays so after mouse movement; the next click in play gives `lock: true, fired: 1`. src/core/input.ts `onLockError` tries the plain request once and then does nothing; `onMouseButton` never drops the edge.",
+  "fix": "In `InputImpl`: when the plain request also fails, emit `input/pointer_lock { locked: false }` so the loop's existing handler requests `paused` (`focus_lost`) and the click-to-resume plate returns; in `onLockChange(true)` call `dropEdges(false)` so the click that takes the pointer is never a shot. Add an input.spec case for each."
+ },
+ {
+  "severity": "minor",
+  "owner": "core",
+  "problem": "The debug hook accepts bad arguments silently and `state()` hides NaN. `walkTo(NaN, NaN)` and `teleport(NaN, 0, 0)` put NaN into the player's position and yaw, and `roundDeep` writes every non-finite number as 0, so the snapshot shows her at (0, 0, 0) with yaw 0. The same masking would hide a NaN produced by a builder's controller or AI. `setBossPhase` with an unknown phase leaves the stub's boss undefined, after which `state()`, `hash()`, `stepUntil` and `checkpoint()` all throw; `spawnEnemy` with an unknown kind throws a TypeError instead of returning ''.",
+  "evidence": "scratch/critic-core-r3/k_misc.log: `walkTo(NaN) -> \"stuck 44\"`, `pos after walkTo(NaN) -> \"0,0,0,0\"`, `teleport(NaN) -> \"0,0,0,plenty_street\"`, `look(399,0) -> 0` afterwards (yaw is NaN), `spawnEnemy(bogus kind) -> THROWS Cannot read properties of undefined (reading 'hp')`, and after `setBossPhase('p9')`: `hash -> THROWS Cannot read properties of undefined (reading 'pips')`, `checkpoint(bogus) -> REJECTS ... 'pips'`. `__dbg.error` stayed null throughout. src/core/math.ts `roundDeep`: `Number.isFinite(value) ? round4(value) : 0`.",
+  "fix": "In debugHook.ts: throw `__dbg.<method>: ...` for non-finite coordinates in `walkTo`, `teleport`, `aimAt`, `setAim`, `spawnEnemy`, and for an enemy kind or boss phase outside the contract unions (as already done for puzzles, encounters and tiers). In `state()`, record the first non-finite number found into `core.error` with its path (for example `state(): player.x is NaN`) so the harness fails the test, instead of only writing 0."
+ },
+ {
+  "severity": "minor",
+  "owner": "core",
+  "problem": "The stub world commits every checkpoint by proximity, including the four boss checkpoints whose markers are 0.5 m apart. Warping to `cp_boss_p1` beside the stub world becomes `cp_boss_proven` (objective `obj_boss_dry`, four saves) within three idle ticks. code-enemies, code-player and code-ui tests of the boss phases beside the stub world will restore the wrong checkpoint after a death.",
+  "evidence": "scratch/critic-core-r3/o_bosscp.mjs: `warp cp_boss_p1 -> checkpoint cp_boss_p1 ; after 5 idle ticks -> cp_boss_proven ; saved events: cp_lip_start,cp_boss_p1,cp_boss_p2,cp_boss_p3,cp_boss_proven`. n_layoutfuzz.log: runs started at cp_boss_p1 never record cp_boss_p1 (`cps: [cp_boss_p2, cp_boss_p3, cp_boss_proven]`). Layout: the markers are at z 83.5, 84, 84.5, 85 with `when` 'boss phase 1 start', 'boss phase 2 start', 'boss phase 3a start', 'the kept round fired'.",
+  "fix": "In `nullWorld.updateCheckpoints`, commit by proximity only the checkpoints that are places (`start`, 'entering ...', 'foot of the stair', 'the lift opens on the rim'); commit `cp_boss_p1..p3` on `boss/phase` and `cp_boss_proven` on `boss/proven` (the stub's `setBossPhase` already emits the phase), and the encounter and puzzle ones only through `clearEncounter` / `solvePuzzle` as now."
+ },
+ {
+  "severity": "minor",
+  "owner": "core",
+  "problem": "`__dbg.tap()` does nothing while the real-time loop is running: taps are injected only inside the hook's own `tickOnce`, and the rAF loop calls `loop.tick()` directly. A phase-4 critic who uses `setRealtime(true)` or a dev page and taps `interact` or `fire` gets no input and no error.",
+  "evidence": "scratch/critic-core-r3/q_realswap.log: in the production build with `?debug=1` (loop running), `aimAtMarker('ia_proving_lift'); tap('interact')` and the ride had not started after 34 s (`RIDE DID NOT END`, still `set: underground, cp_boss_proven`). q2_ride.log: the same with `step(2, false)` after the tap starts the ride at once and ends it 721 ticks later on the rim.",
+  "fix": "Move the tap bookkeeping into a per-tick hook that `Loop.tick()` calls before `input.beginTick()` (so stepped and real-time ticks share it), or have `tap()` throw when `loop.running` is true and say to use `setActions`. Say which in FOUNDATION_REPORT section 3."
+ },
+ {
+  "severity": "minor",
+  "owner": "core",
+  "problem": "A boot failure in the production build is a blank black page. With WebGL unavailable or a manifest file missing, `reportBootFailure` only writes to the console; `#ui` stays empty. For a demo judged by opening a URL on weak machines, the most likely failure (no WebGL2) says nothing to the player.",
+  "evidence": "scratch/critic-core-r3/k_misc.log, `PROD no-webgl` (Chromium with `--disable-3d-apis`): `visible text {\"ui\":\"\",\"body\":\"\"}`, 4 console errors ('A WebGL context could not be created'). l_missing.log `glb` and `texture` rows: `ui: \"\"`, `[boot] Error: asset 'env_plenty_street' ... failed to load`. Opened shots/critic-core-r3/k_prod_no-webgl.png is not needed to see it: the DOM text is empty.",
+  "fix": "In `reportBootFailure` (and around `createContext` in main.ts) write one plain line into `#ui` from a `story.json` ui key (the integrator adds for example `ui_boot_failed` and `ui_no_webgl`; until then fall back to the document title plus the error's first line). Add a harness test with `--disable-3d-apis`."
+ },
+ {
+  "severity": "minor",
+  "owner": "core",
+  "problem": "`GameClock.tick` keeps counting while the game is paused or loading, and the contract comment on `unscaledTime` ('tick * FIXED_DT while the sim runs') reads as if the two were interchangeable. A builder who stamps `clock.tick` for a cooldown or a telegraph gets a timer that runs out while a readable is open (readables use the `paused` state).",
+  "evidence": "scratch/critic-core-r3/g_real.log, dev and production: `paused 0.5 s: tick advanced 30` (31 in production) with the position unchanged. src/core/clock.ts `advance()`: `this.tick++` runs before the `simRunning` test; `simTime` and `unscaledTime` advance only when the sim runs. src/core/contracts.ts 878-883 has the two comments.",
+  "fix": "Core cannot change the contracts block, so: add the sentence 'tick also advances while paused or loading; count your own ticks in fixedUpdate or use unscaledTime for anything that must stop with the game' to FOUNDATION_REPORT section 5 and to the request rows for the `GameClock` comment, and add a clock.spec case that pins it."
+ },
+ {
+  "severity": "minor",
+  "owner": "core",
+  "problem": "The core browser suite took nearly twice the reported time here, most of it in one test. Six code builders are each told to run it as a definition-of-done step.",
+  "evidence": "My run of `node --test tests/core/`: 59 pass, 0 fail, `duration_ms 193540` (178 s wall on a second run); '600 ticks of walking and shooting ... at most 6 KB per tick' alone took 60.4 s. FOUNDATION_REPORT section 2 says 95-100 s quiet and 140-155 s under load, and 15 s for the allocation test. Other agents were probably sharing the machine.",
+  "fix": "Warm the allocation paths once and reuse the page across its sub-measurements (the 3000-tick warm-up is paid per path today), or split the warm-up so the test stays under about 20 s; update the timing figures in the report."
+ },
+ {
+  "severity": "major",
+  "owner": "pipeline",
+  "problem": "The 'a VL mesh must have been vertex-lit' guard does not cover the commonest case: a mesh stamped LM whose vertex-lit faces sit on the neutral texel. Forgetting vcol.bake_vertex_light, or lighting only some of the objects, builds and passes check-glb, and ships tint x 2 (washed-out white) surfaces. Every one of the seven zones is an LM+VL mixed chunk, and blender/lib freezes after this phase. blender/lib/README.md claims the guard exists ('forgetting the bake used to ship unlit colours at x 2').",
+  "evidence": "In a scratch clone I replaced the vcol.bake_vertex_light call in tests/pipeline/fixtures/fixture_room.py with nothing: 'built fixture_room 40.8 kB tris 2362/4000 dc 2/2', exit 0; chunk extras {bake: LM, lightmap: lm_fixture_room}. Opened shots/critic-pipeline-r3/room_no_vertex_light_game.png: walls are blown-out white beside a correctly lit floor. Lighting only the embedded stool and not the walls (partial case) also built, exit 0. Same on my own standalone LM+VL prop (scratch/critic-pipeline-r3/artist/critic_console.py with the vertex bake removed): 'built critic_console 21.8 kB', exit 0.",
+  "fix": "In zone.merge_chunks and export.check_scene, for a mesh stamped LM: every source object (or face) whose UV1 is on the neutral texel must carry vl_baked, else raise with the object names. Track the mark per face (an attribute written by bake_vertex_light for the faces it updated) so faces= restricted bakes are covered too. Add a mutation test in tests/pipeline/driver.test.mjs (room without the vertex bake must FAIL)."
+ },
+ {
+  "severity": "major",
+  "owner": "pipeline",
+  "problem": "The recommended and documented sample count for the final vertex light (256 spp; the function default is 64) is badly under-sampled for interiors: vertex-lit walls come out visibly mottled. The README says 'the cost is nothing' but recommends a value that leaves about 21 % per-vertex noise; this is the look of every vertex-lit wall, ceiling and embedded prop underground.",
+  "evidence": "Rebuilt the fixture room in the clone with samples=4096 and compared COLOR_0 of the 882 vertex-lit vertices against the shipped 256-spp build: mean relative luminance error 0.212, p90 0.419. Cost: vertex light 0.5 s at 256 spp versus 4.00 s at 4096 (log line 'BAKED ... vertex light 2348 faces 4.00s'). Opened both frames: shots/critic-pipeline-r3/fixture_room_game.png (256 spp: blotchy cloud pattern on all walls) and room_vl4096_game.png (clean gradients). Shipped file 82.1 kB versus 100.1 kB.",
+  "fix": "Raise the default of vcol.bake_vertex_light to at least 1024 and document 2048-4096 for final interior bakes in blender/lib/README.md and FOUNDATION_REPORT section 6 (still seconds), or add a neighbour-weighted smoothing pass (average over vertices sharing a smoothing group within ~0.3 m) inside bake_vertex_light. Update fixture_room.py so the worked example shows the clean result."
+ },
+ {
+  "severity": "minor",
+  "owner": "pipeline",
+  "problem": "A lightmap by-product the script did not write is reported 'skipped' with exit 0 while the asset (with a new UV1 atlas) ships: the shipped GLB then points at a stale or placeholder lightmap.",
+  "evidence": "Removed bake.save_lightmap from my prop script: 'built critic_console 23.4 kB ... / skipped lm_critic 9.7 kB (critic_console.py did not write it in this run) / 2 items: 1 built, 1 skipped', exit 0.",
+  "fix": "When an asset has a mesh with extra lightmap: <id> and its script did not write <id> in this run, FAIL the asset (or at least print WARNING and exit non-zero unless --allow-stale-lightmap)."
+ },
+ {
+  "severity": "minor",
+  "owner": "pipeline",
+  "problem": "Bake warnings (buried vertices baked dark) are only in blender/export/.logs/<id>.log; the one-line build result says 'built' with no hint, so an artist following 'one command' never sees them.",
+  "evidence": "My prop's log held two 'WARNING kick: 20 faces (0.478 m2, 37 % of its surface) baked dark from end to end' lines; the driver printed only 'built critic_console 23.4 kB 1.3 s tris 472/900 dc 2/2'.",
+  "fix": "Count lines starting with WARNING in the item log and append '(2 warnings: see blender/export/.logs/<id>.log)' to the built line; print them in full with --verbose as now."
+ },
+ {
+  "severity": "minor",
+  "owner": "pipeline",
+  "problem": "The reference asset every artist copies shows the defect the README warns about: the upper-left 1.2 m ceramic panel grades from enamel to dark grey because AO is sampled only at its four corners (two of them beside the livery band), while the neighbouring panel is flat.",
+  "evidence": "Opened shots/critic-pipeline-r3/panel_close.png and crate_close.png (viewer, real loader). Sampled pixels: top of the panel cbd2c8, bottom 81857f (about 36 % darker across one flat panel); the right-hand panel d0d7cd (target enamel CFD6CC).",
+  "fix": "In fixture_crate_panel.py tessellate the panels (mesh.tessellate_max_edge(p, 0.3)) before the AO bake, or bake AO for the panels with the band excluded; regenerate the fixture shots."
+ },
+ {
+  "severity": "minor",
+  "owner": "pipeline",
+  "problem": "Contact sheets frame the subject loosely, and the Cycles sheet of a room is taken from outside a closed box, so a critic cannot judge detail or an interior from the default evidence.",
+  "evidence": "fixture_crate_panel_sheet.png: the 0.9 m crate is about 100 px wide in a 480 px tile; fixture_room_cycles.png shows the outside of the ceiling and back walls in three of four views (both opened, copies in shots/critic-pipeline-r3/).",
+  "fix": "In blender/tools/preview.py fit the camera to the bounding sphere with about 10 % margin; for assets with chunks (rooms / zones) use the --cull dollhouse or hide faces whose normal faces the camera in the Cycles sheet as well."
+ },
+ {
+  "severity": "minor",
+  "owner": "core",
+  "problem": "The viewer's shot=1 distance (radius x 2.6 + 0.6) leaves the asset at roughly a quarter of the frame width, so every <id>_game.png is too small to judge trim mapping or decals at 960 x 540.",
+  "evidence": "shots/critic-pipeline-r3/fixture_crate_panel_game.png and critic_console_game.png (opened): asset about 250 px wide of 960. I had to pass &dist=2.0 by hand (crate_close.png) to see plank grain and nail heads.",
+  "fix": "Use about radius x 1.6 + 0.3 for shot frames in sandbox/viewer.ts, or let preview-asset.mjs pass --dist / --yaw / --pitch through to the query."
+ },
+ {
+  "severity": "minor",
+  "owner": "pipeline",
+  "problem": "Small documentation gaps met while authoring: preview-asset's --piece and --name flags are not in blender/lib/README.md's command list; the sign convention of a hinge rotation in anim.key_pose ('bone-local Y = the hinge') is not stated, and my lid swung into the body on the first try; tx_frontier_trim has 52 px at value 55 (0.216), under the 0.22 seam floor, and the tin row is drawn as about 20 fine corrugations where ART_BIBLE 4.2 says 12 soft bars.",
+  "evidence": "critic_console__open.png (opened: lid sinks into the body at +75 degrees); texture statistics from my script: 'tx_frontier_trim min 55 ... below.22 0.010%'; tx_frontier_trim_contrast.png opened.",
+  "fix": "Add the two flags and one line on rotation sign (right-hand rule about the bone's head-to-tail axis) to the README; clamp seam lines at 57/255 after encoding; either redraw tin with 12 bars per sheet module or amend the bible row."
+ },
+ {
+  "severity": "major",
+  "owner": "core",
+  "problem": "Third round running: no work order and no README line points a builder at docs/FOUNDATION_REPORT.md, and the orders still describe the harness and engine as they were before round 1. Request rows 9-31 of docs/requests/foundation-core.md are unapplied. A builder who reads only CLAUDE.md, PLAN.md, the README and their own order (which is what the orders say is 'everything you need') gets three things wrong: (a) every code order's definition of done says 'node --test tests/core/ passes with your system in src/main.ts', but that command runs ?stubs=all and never loads their system; the real check is KEEP7_REAL=<slot>, which no order names; (b) code-player 4.1 and ARCHITECTURE 6 say the capsule 'rolls over about 0.2 m', the engine lifts one radius (0.35 m), so a jump reaches apex + 0.35 m; (c) the view-model camera-space rule that code-player and code-render must both follow exists only in the report and the requests file, and the contract comment on SceneRoots.viewModel does not state it.",
+  "evidence": "grep -l FOUNDATION_REPORT over docs/workorders/*.md, CLAUDE.md, PLAN.md: only ARCHITECTURE.md matches. grep -l KEEP7_REAL over docs/workorders/*.md and ARCHITECTURE.md: no match. File times: every order 12:19-12:51, README 14:15, report 16:24. code-player.md:56 and ARCHITECTURE.md:2225 still say 'about 0.2 m'. In a scratch copy of the tree I replaced src/player with a non-wrapper controller (jump 6.93 m/s, measured apex 0.977 m): it mounted a 1.2 m box in the sandbox (feet at 1.121 m beyond the box's far edge). With src/enemies/index.ts deliberately broken, tests/core/boot.test.mjs still passed 7/7, which shows the documented 'wired in' check does not load the pieces. contracts.ts:1078 says only 'drawn by render in a second pass with its own 52 degree projection and a cleared depth range'.",
+  "fix": "Before phase 3 starts, someone with edit rights on docs/ (the integrator, or the core fixer given that permission for this one pass) applies rows 9-31. Minimum that removes the risk: (1) README section 4 'Read first: docs/FOUNDATION_REPORT.md sections 3-5, docs/requests/foundation-core.md section 4, tests/core/example.mjs'; (2) replace the tests/core line in the six code orders' definition of done with the KEEP7_REAL=<slot> wording of row 20; (3) code-player 4.1 and ARCHITECTURE 6: the ledge text of row 17 plus the acceptance line 'a 1.2 m box is not mountable by a jump'; (4) the camera-space sentence of row 25 into the contracts comment (both copies), code-player 4.7 and code-render 4.4; (5) rows 21-23, 26 and 31 into code-render, code-enemies, code-ui, art-weapons, art-enemies. If the orders cannot be edited, put the same pointer and the three corrections into the phase-3 builder prompt."
+ },
+ {
+  "severity": "major",
+  "owner": "core",
+  "problem": "`node --test tests/core/` is not independent of the six pieces, although the report (section 2) says it 'does not move with the pieces' and request row 20 says it 'never loads src/<piece>/'. Three tests in tests/core/stubs.test.mjs load or bundle all of src/<piece>/: the '?stubs=' test and the two production-build tests. While any one builder has a half-written module (an import of a file not yet created is the normal state while writing a multi-file module), those three fail for all six code builders, whose definition of done requires this suite to pass.",
+  "evidence": "Scratch copy of the tree, three lines appended to src/enemies/index.ts (import of a missing ./tokens.ts and an unfinished expression). node --test tests/core/stubs.test.mjs: 6 pass, 3 fail. '?stubs= leaves core stubs in the named slots...' fails with 'Failed to fetch dynamically imported module: .../src/enemies/index.ts'; 'two production builds side by side...' and 'the production build boots...' fail with 'Build failed with 1 error: [builtin:vite-transform] Unexpected token'. In the same state node --test tests/player/ (my own directory, default stubs) passed 2/2 and boot.test.mjs passed 7/7, so the isolation works everywhere except these three tests.",
+  "fix": "In tests/core/stubs.test.mjs make the three tests independent of piece sources unless KEEP7_REAL=all: build the production bundle with a resolve.alias (or a small plugin in the test's build() call) that maps src/{player,enemies,world,render,audio,ui}/index.ts to a one-line re-export of the core stub, and have the '?stubs=' test prove 'a stubbed slot's module is never requested' from the page's network log rather than by loading the other real modules. Keep the all-real variants under KEEP7_REAL=all for the integrator. Then correct the sentence in report section 2 and row 20."
+ },
+ {
+  "severity": "major",
+  "owner": "core",
+  "problem": "The tone-map ruling is still open, and it splits art from render. The viewer and every <id>_game.png (where six art builders judge palette, 'gun is the darkest object', 'no pixel under #0B0D12', delta-E targets) show linear values untouched up to 0.8. code-render.md 4.1 and 4.3 order three's Neutral tone map, whose toe subtracts up to 0.04 linear from every colour. Both sides will pass their own tests and disagree at integration, mostly at the dark end, which is where the gun and the interiors live.",
+  "evidence": "three/src/renderers/shaders/ShaderChunk/tonemapping_pars_fragment.glsl.js:170-192 (offset = x < 0.08 ? x - 6.25x^2 : 0.04). Applied to palette cells of blender/tex/tx_palette.py: steel 54,82,90 -> 23,67,77; steel_dark 30,47,54 -> 3,35,44; gun_blue 28,34,48 -> 3,16,37; walnut 58,35,24 -> 51,22,2; workcloth 94,70,54 -> 82,51,23; sand 205,160,112 -> 199,151,98. code-render.md:66 and :119 still say Neutral; basicRender.ts:160 states it deliberately does not use it. Report section 9 lists this as open for 'render owner and art director'; nobody has ruled.",
+  "fix": "One producer ruling before phase 3, written into code-render 4.1/4.3 and README section 6: either (a) 'shoulder-only curve, no toe: copy TONE_MAP_GLSL of basicRender (knee 0.8)', so what art sees in the viewer is what the game shows before grade; or (b) keep Neutral and give the viewer a &tonemap=neutral switch that art must use for every display measurement. (a) costs nothing and keeps the palette as authored."
+ },
+ {
+  "severity": "minor",
+  "owner": "core",
+  "problem": "sandbox/viewer exposes no documented way for an art test to read or pose bones. ext.viewer has only project, coverage and firstPerson, but art-boss tamper.test (vent_chest at +80 degrees), art-weapons clips.test (every bone within 1 mm / 0.5 degrees of idle at t = 1), art-enemies poses.test and knot_visible.test need per-bone transforms and code-driven bones set by hand.",
+  "evidence": "sandbox/viewer.ts:180-189 registers only those three functions. It is reachable, but only by knowing internals: on ?asset=enemy_tamper&clip=slam_windup&t=1&shot=1, __dbg.ext.core.ctx().scene.dynamic.getObjectByName('viewer_holder').getObjectByName('vent_chest') returned a Bone (holder children: ['enemy_tamper']).",
+  "fix": "Add ext.viewer.pose(names) -> world position/quaternion per node and ext.viewer.setBone(name, {rot, scale}) (applied after the mixer), or put the 'viewer_holder' path into report section 4 as the supported way."
+ },
+ {
+  "severity": "minor",
+  "owner": "pipeline",
+  "problem": "`node tools/preview-asset.mjs <texture> --textures` writes into shots/foundation-pipeline/ whoever owns the texture, so art-weapons, art-props, both env pieces and code-render put evidence into another piece's folder unless they know to pass --piece.",
+  "evidence": "In the scratch tree `preview-asset tx_gun --textures` printed 'SHEETS tx_gun -> .../shots/foundation-pipeline' (tx_gun's owner is weapons). tools/preview-asset.mjs:48 and :61: path.join(ROOT, 'shots', pieceArg ?? 'foundation-pipeline').",
+  "fix": "Default the folder to the piece of the texture's manifest owner (PIECES[textures[id].owner]), as line 69 already does for assets."
+ },
+ {
+  "severity": "minor",
+  "owner": "pipeline",
+  "problem": "code-render's first run of tools/gen_fx_atlas.mjs will fail on tx_noise: sharp writes a 1-channel raw buffer as a 3-channel PNG unless .toColourspace('b-w') is added. The driver's message is exact about the symptom but not the cure, and neither the order nor tech-web.md mentions it.",
+  "evidence": "A 20-line generator in the scratch tree (sharp(buf, { raw: { width: 128, height: 128, channels: 1 } }).png()): `build-assets --only render` -> 'FAILED tx_noise: optimise: .../tx_noise.png has 3 channels; format r8 wants a greyscale PNG'. With .toColourspace('b-w') added: 'built tx_fx 22.0 kB, built tx_noise 2.4 kB', check-glb ok, and the same build still passed tests/pipeline 72/72.",
+  "fix": "Append the cure to the optimiser's message: \"(with sharp: .toColourspace('b-w') before .png())\", or add that sentence to code-render 4.8."
+ },
+ {
+  "severity": "minor",
+  "owner": "core",
+  "problem": "Small inaccuracies when FOUNDATION_REPORT is followed literally. (1) tests/core wall time under load is above the stated 140-155 s. (2) `npm run evidence` is said to regenerate 51 files; from an empty shots/foundation it writes 47 (48 with example.png), the other files come from other commands. (3) docs/requests/foundation-core.md section 6 says the core code is described in report section 8c; it is 8d (8c is the pipeline half). Everything else I followed matched to the digit.",
+  "evidence": "node --test tests/core/ on the real tree: 59 pass, duration 188.8 s, real 2m53s (another agent's core suite was running). In the scratch tree: 114.6 s and 115.8 s. `npm run evidence` in the scratch tree left 48 files in shots/foundation; the real folder holds 51. Matching exactly: example.mjs output ('walk: arrived 95 ticks', 'frame: 12 calls 848 tris 42 MiB'), check:assets '84 assets, 18 textures, 1.42 MB', bundle 1,168.71 kB / 303.82 kB gzip, ia_ammo_box '17.1 kB tris 184/400 dc 3/3', revolver muzzle 57.7 % / 37.2 %, coverage 13.95 %.",
+  "fix": "Report section 2: say 'up to about 190 s when another suite runs beside it' and '47 files written by the command'; fix the 8c/8d reference in the requests file."
+ },
+ {
+  "severity": "minor",
+  "owner": "pipeline",
+  "problem": "The exterior's shared 2048 lightmap (lm_surface: two zone scripts plus bake_surface.py over one helper module) is still only a written recipe. I could confirm its key assumption but not the whole path: no script has yet exported two zones and one bake from a shared module, and nothing near 50 000 triangles with a real sun has been baked.",
+  "evidence": "scratch/critic-readiness-r3/bl/shared_atlas.py: all visible solids of the_lip and plenty_street (107 objects), uv.unwrap_lightmap once on the name-sorted list, run in three separate Blender processes: identical UV1 hashes (the_lip 2ba5b8d719b6e20b, plenty_street 9afa3937cf09b8c4), unwrap 0.10-0.12 s. So 'same input, same atlas' holds across processes. Not tested: the three-script build through the driver.",
+  "fix": "No code change needed before phase 3. Add one line to blender/env_exterior/README.md that cross-process determinism of the unwrap was measured (107 objects, three runs), and tell art-env-exterior to build the three-script skeleton from layout solids first (minutes) before modelling, so a driver problem shows on day one."
+ }
+]

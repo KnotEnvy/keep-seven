@@ -1,0 +1,12 @@
+import sys, os
+sys.dont_write_bytecode = True
+_d = os.path.dirname(os.path.abspath(__file__))
+while not os.path.isfile(os.path.join(_d, "blender", "lib", "__init__.py")):
+    if os.path.dirname(_d) == _d: raise SystemExit("blender/lib not found")
+    _d = os.path.dirname(_d)
+sys.path.insert(0, os.path.join(_d, "blender")); sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import math
+import numpy as np
+from mathutils import Vector, Matrix
+from lib import scene, mesh, uv, material, vcol, rig, anim, export, zone, brand, knot, layout, manifest
+import mech_common as mc

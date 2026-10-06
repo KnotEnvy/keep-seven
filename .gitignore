@@ -1,0 +1,12 @@
+node_modules/
+.tools/
+dist/
+*.blend1
+.cache/
+test-results/
+shots/
+scratch/
+blender/blend/
+blender/export/
+tests/pipeline/fixtures/export/
+tests/pipeline/fixtures/public/

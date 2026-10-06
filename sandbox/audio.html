@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sandbox: audio (the sound board)</title>
+<link rel="stylesheet" href="./sandbox.css">
+<style>
+#board { position: fixed; inset: 0 0 34px 0; z-index: 880; overflow: auto; padding: 6px 8px; background: rgba(16, 13, 10, 0.93); display: grid; grid-template-columns: 250px 1fr; gap: 8px; }
+#board h2 { margin: 6px 0 2px; font: bold 11px/1.2 ui-monospace, Menlo, Consolas, monospace; color: #c9a56b; text-transform: uppercase; letter-spacing: 0.08em; }
+#board button { font: 11px/1.2 ui-monospace, Menlo, Consolas, monospace; color: #e9e2d0; background: #2b2520; border: 1px solid #5a4d40; border-radius: 3px; padding: 2px 6px; margin: 1px; cursor: pointer; }
+#board button:hover { background: #3b332b; }
+#board button.hot { background: #7c5a2a; border-color: #c9a56b; color: #fff; }
+#board button.big { background: #1f3a38; border-color: #7cf2e2; color: #7cf2e2; font-weight: bold; }
+#side { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+#scope { width: 234px; height: 90px; background: #0b0d12; border: 1px solid #5a4d40; }
+#meter { width: 234px; height: 12px; background: #0b0d12; border: 1px solid #5a4d40; position: relative; }
+#meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #7cf2e2; }
+#meter b { position: absolute; top: 0; bottom: 0; width: 2px; background: #ffd28a; left: 0; }
+#status, #cylinder { color: #7cf2e2; white-space: pre-wrap; }
+#captions, #recent { height: 150px; overflow: auto; background: #0b0d12; border: 1px solid #5a4d40; padding: 3px 5px; white-space: pre-wrap; font-size: 11px; }
+#captions .cap { color: #ffd28a; } #captions .mus { color: #7cf2e2; }
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0"></canvas>
+<div id="ui"></div>
+<div id="board">
+  <div id="side">
+    <div id="status">click anywhere to unlock audio</div>
+    <canvas id="scope" width="234" height="90"></canvas>
+    <div id="meter"><i></i><b></b></div>
+    <div id="cylinder"></div>
+    <h2>captions and music state</h2>
+    <div id="captions"></div>
+    <h2>recent()</h2>
+    <div id="recent"></div>
+  </div>
+  <div id="groups"></div>
+</div>
+<div id="bar"></div>
+<script type="module" src="./audio.ts"></script>
+</body>
+</html>

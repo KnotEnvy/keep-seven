@@ -1,0 +1,7663 @@
+{
+ "meta": {
+  "title": "KEEP SEVEN — asset manifest",
+  "version": 2,
+  "generator": "tools/gen_assets.mjs",
+  "spec": "docs/ARCHITECTURE.md sections 7, 8 and 9",
+  "sources": [
+   "docs/GDD.md",
+   "docs/ART_BIBLE.md",
+   "design/layout.json"
+  ],
+  "layoutVersion": 2,
+  "units": "m, game space (+Y up, -Z forward). placeholder.size, offset, nodePos and hitPoint are [x, y, z]; asset-local axes: +Z is the asset's front, +Y up.",
+  "owners": [
+   "env_exterior",
+   "env_interior",
+   "props_mech",
+   "props_dress",
+   "weapons",
+   "enemies",
+   "boss",
+   "render"
+  ],
+  "ownerFolders": {
+   "env_exterior": "blender/env_exterior",
+   "env_interior": "blender/env_interior",
+   "props_mech": "blender/props/mech",
+   "props_dress": "blender/props/dress",
+   "weapons": "blender/weapons",
+   "enemies": "blender/enemies",
+   "boss": "blender/boss",
+   "render": "tools"
+  },
+  "pieces": {
+   "props": [
+    "props_mech",
+    "props_dress"
+   ]
+  },
+  "categories": [
+   "env",
+   "props",
+   "weapons",
+   "enemies",
+   "boss"
+  ],
+  "priority": {
+   "0": "on the critical path and seen within 5 m, or load-bearing for a puzzle, a fight or the story. Final before any P1 work starts.",
+   "1": "on the path but not load-bearing: a placeholder here is noticed but breaks nothing.",
+   "2": "dressing, secrets and polish clips (GDD 20.1 cut order). A P2 clip may ship as its `fallback` clip under its own name."
+  },
+  "enums": {
+   "bake": [
+    "LM",
+    "VL",
+    "LM+VL",
+    "AO",
+    "UNLIT"
+   ],
+   "collision": [
+    "none",
+    "box",
+    "mesh",
+    "separate:<id>"
+   ],
+   "placedBy": {
+    "origin": "authored in world coordinates; loaded with its set and added at identity",
+    "zone": "imported, lit in place and merged into its zone GLB by the zone script; never loaded on its own at runtime",
+    "layout": "instantiated at runtime by src/world from design/layout.json markers through `bindings`",
+    "dressing": "instantiated at runtime from `inst_*` / `brk_*` empties in a zone GLB (instanced)",
+    "code": "spawned by a system (enemies, projectiles, view-model, lift shaft, cards)"
+   },
+   "placeholderShape": [
+    "box",
+    "capsule",
+    "cylinder"
+   ],
+   "placeholderAnchor": {
+    "base": "pivot at the centre of the bottom face; the asset stands on a surface",
+    "sill": "pivot at the centre of the bottom face; the asset is mounted in an opening",
+    "centre": "pivot at the centre",
+    "top": "pivot at the centre of the top face",
+    "back": "pivot at the centre of the back (-Z) face",
+    "back_base": "pivot at the middle of the bottom edge of the back face",
+    "hinge": "pivot at the bottom of the -X edge, mid thickness",
+    "world": "authored in world coordinates"
+   },
+   "bindingMode": [
+    "instance",
+    "variant",
+    "partOf",
+    "zoneNode",
+    "embedded",
+    "actor"
+   ]
+  },
+  "rawExportDir": "blender/export",
+  "publicDir": "public",
+  "vertexLightScale": 2
+ },
+ "assets": {
+  "env_the_lip": {
+   "path": "assets/env/env_the_lip.glb",
+   "source": "blender/env_exterior/env_the_lip.py",
+   "owner": "env_exterior",
+   "category": "env",
+   "priority": 0,
+   "triBudget": 27000,
+   "drawCalls": 10,
+   "materials": [
+    "m_frontier",
+    "m_sand",
+    "m_mask",
+    "m_pellam"
+   ],
+   "bake": "LM+VL",
+   "skinned": false,
+   "nodes": [
+    "collider_terrain"
+   ],
+   "animations": [],
+   "collision": "mesh",
+   "instanced": false,
+   "lightmapped": true,
+   "lightmaps": [
+    "lm_surface"
+   ],
+   "zone": "the_lip",
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "origin",
+   "pivot": "world origin",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     32,
+     27,
+     120
+    ],
+    "anchor": "world",
+    "source": "layout-solids"
+   },
+   "chunks": [
+    {
+     "id": "chunk_lip_rock",
+     "tris": 8000,
+     "materials": [
+      "m_frontier"
+     ],
+     "drawCalls": 1,
+     "box": {
+      "min": [
+       0,
+       -1,
+       -9
+      ],
+      "max": [
+       32,
+       26,
+       111
+      ]
+     },
+     "part": "high"
+    },
+    {
+     "id": "chunk_lip_upper",
+     "tris": 7000,
+     "materials": [
+      "m_sand",
+      "m_frontier",
+      "m_mask"
+     ],
+     "drawCalls": 3,
+     "box": {
+      "min": [
+       0,
+       -1,
+       54
+      ],
+      "max": [
+       32,
+       26,
+       111
+      ]
+     },
+     "part": "low"
+    },
+    {
+     "id": "chunk_lip_mid",
+     "tris": 4000,
+     "materials": [
+      "m_sand",
+      "m_frontier"
+     ],
+     "drawCalls": 2,
+     "box": {
+      "min": [
+       0,
+       -1,
+       30
+      ],
+      "max": [
+       32,
+       26,
+       54
+      ]
+     },
+     "part": "low"
+    },
+    {
+     "id": "chunk_lip_gate",
+     "tris": 8000,
+     "materials": [
+      "m_sand",
+      "m_frontier",
+      "m_pellam",
+      "m_mask"
+     ],
+     "drawCalls": 4,
+     "box": {
+      "min": [
+       0,
+       -1,
+       -9
+      ],
+      "max": [
+       32,
+       26,
+       30
+      ]
+     },
+     "part": "low"
+    }
+   ],
+   "notes": "Overhang, gully, gate piers, dead pylon. chunk_lip_rock is every rock face more than 3 m above the path, the overhang roof and the pylon mast above 3 m (vertex-lit): it is the skyline seen from the street and the yard. collider_terrain replaces the layout solids of role \"terrain\" (must stay within 0.25 m of them)."
+  },
+  "env_plenty_street": {
+   "path": "assets/env/env_plenty_street.glb",
+   "source": "blender/env_exterior/env_plenty_street.py",
+   "owner": "env_exterior",
+   "category": "env",
+   "priority": 0,
+   "triBudget": 54000,
+   "drawCalls": 16,
+   "materials": [
+    "m_sand",
+    "m_frontier",
+    "m_pellam",
+    "m_mask",
+    "m_emis"
+   ],
+   "bake": "LM+VL",
+   "skinned": false,
+   "nodes": [
+    "pump_rotor",
+    "pump_tail",
+    "drum_lamp",
+    "plug_door_tally"
+   ],
+   "lampSets": {
+    "drum_lamp": 1
+   },
+   "codeDriven": [
+    "pump_rotor",
+    "pump_tail"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": true,
+   "lightmaps": [
+    "lm_surface"
+   ],
+   "zone": "plenty_street",
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "origin",
+   "pivot": "world origin",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     111,
+     20,
+     32
+    ],
+    "anchor": "world",
+    "source": "layout-solids"
+   },
+   "chunks": [
+    {
+     "id": "chunk_st_east",
+     "tris": 16000,
+     "materials": [
+      "m_sand",
+      "m_frontier",
+      "m_pellam",
+      "m_mask"
+     ],
+     "drawCalls": 4,
+     "box": {
+      "min": [
+       -37,
+       -1,
+       -16
+      ],
+      "max": [
+       0,
+       16,
+       16
+      ]
+     }
+    },
+    {
+     "id": "chunk_st_west",
+     "tris": 16000,
+     "materials": [
+      "m_sand",
+      "m_frontier",
+      "m_mask"
+     ],
+     "drawCalls": 3,
+     "box": {
+      "min": [
+       -80,
+       -1,
+       -16
+      ],
+      "max": [
+       -37,
+       16,
+       16
+      ]
+     }
+    },
+    {
+     "id": "chunk_st_yard",
+     "tris": 14000,
+     "materials": [
+      "m_sand",
+      "m_frontier",
+      "m_mask"
+     ],
+     "drawCalls": 3,
+     "box": {
+      "min": [
+       -111,
+       -1,
+       -16
+      ],
+      "max": [
+       -80,
+       20,
+       16
+      ]
+     }
+    },
+    {
+     "id": "chunk_st_works",
+     "tris": 8000,
+     "materials": [
+      "m_frontier",
+      "m_pellam"
+     ],
+     "drawCalls": 2,
+     "box": {
+      "min": [
+       -111,
+       -1,
+       -16
+      ],
+      "max": [
+       -80,
+       20,
+       16
+      ]
+     },
+     "part": "high",
+     "solids": [
+      "yd_drum",
+      "yd_pump_tower",
+      "yd_tank",
+      "yd_tank_deck",
+      "yd_tank_boards",
+      "yd_tank_ramp",
+      "yd_tank_stilt_1",
+      "yd_tank_stilt_2",
+      "yd_tank_stilt_3",
+      "yd_tank_stilt_4"
+     ]
+    }
+   ],
+   "drawnNodes": [
+    "pump_rotor",
+    "pump_tail",
+    "drum_lamp",
+    "plug_door_tally"
+   ],
+   "notes": "Front Street (east and west halves split at x = -37, the gate court belongs to the west half) and the pump yard. chunk_st_works is the yard's tall machinery: the whole drum, the wind-pump derrick and the tank on its stilts with deck and ramp (the skyline seen down the street and from the jug gate). chunk_st_yard is the yard ground, walls, stubs, shed, cart and the Tally House exterior. pump_rotor is spun by code at 9 deg/s. drum_lamp is the aqua status lamp by the drum door. plug_door_tally is a black panel filling the Tally House doorway just inside the leaf (m_frontier, COLOR_0 black): world shows it while the door is open and the hall interior is not drawn."
+  },
+  "env_far_rim": {
+   "path": "assets/env/env_far_rim.glb",
+   "source": "blender/env_exterior/env_far_rim.py",
+   "owner": "env_exterior",
+   "category": "env",
+   "priority": 0,
+   "triBudget": 14000,
+   "drawCalls": 3,
+   "materials": [
+    "m_sand",
+    "m_frontier",
+    "m_mask"
+   ],
+   "bake": "LM+VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": true,
+   "lightmaps": [
+    "lm_rim"
+   ],
+   "zone": "far_rim",
+   "sets": [
+    "coda"
+   ],
+   "placedBy": "origin",
+   "pivot": "world origin",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     32,
+     8,
+     21
+    ],
+    "anchor": "world",
+    "source": "layout-solids"
+   },
+   "chunks": [
+    {
+     "id": "chunk_rim_ledge",
+     "tris": 14000,
+     "materials": [
+      "m_sand",
+      "m_frontier",
+      "m_mask"
+     ],
+     "drawCalls": 3,
+     "box": {
+      "min": [
+       -2,
+       17,
+       100
+      ],
+      "max": [
+       30,
+       25,
+       121
+      ]
+     }
+    }
+   ]
+  },
+  "rim_town_card": {
+   "path": "assets/env/rim_town_card.glb",
+   "source": "blender/env_exterior/rim_town_card.py",
+   "owner": "env_exterior",
+   "category": "env",
+   "priority": 0,
+   "triBudget": 600,
+   "drawCalls": 2,
+   "materials": [
+    "m_flat",
+    "m_emis"
+   ],
+   "bake": "UNLIT",
+   "skinned": false,
+   "nodes": [
+    "town_windows",
+    "socket_thread"
+   ],
+   "lampSets": {
+    "town_windows": 48
+   },
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": "far_rim",
+   "sets": [
+    "coda"
+   ],
+   "placedBy": "origin",
+   "pivot": "world origin",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     104,
+     25,
+     1
+    ],
+    "anchor": "world"
+   },
+   "notes": "Authored in world coordinates: the town (about 104 x 25 m) is drawn 12.5 m east of the layout vista_plenty target, 117 to 142 m from the ledge, and one leaning dead line pylon stands as a card 42 m out from the ledge at game (-0.9, 3.2 to 25, 61) (polish round 4; the size field is the town alone). 48 panes and 16 window pools (a second face of the same lamp). town_windows lights the first `lamps` quads (lighting order spreads outward from the Tally House)."
+  },
+  "env_backdrop_day": {
+   "path": "assets/env/env_backdrop_day.glb",
+   "source": "blender/env_exterior/env_backdrop_day.py",
+   "owner": "env_exterior",
+   "category": "env",
+   "priority": 0,
+   "triBudget": 2500,
+   "drawCalls": 1,
+   "materials": [
+    "m_flat"
+   ],
+   "bake": "UNLIT",
+   "skinned": false,
+   "nodes": [
+    "socket_dowser",
+    "socket_rule_base"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "origin",
+   "pivot": "world origin",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1600,
+     120,
+     1600
+    ],
+    "anchor": "world"
+   },
+   "notes": "Mesa cards, pylon line, cloud cards. One mesh, one draw call. Drawn with fog. socket_dowser is on the bearing of layout vista_dowser (due west of the yard)."
+  },
+  "env_backdrop_dusk": {
+   "path": "assets/env/env_backdrop_dusk.glb",
+   "source": "blender/env_exterior/env_backdrop_dusk.py",
+   "owner": "env_exterior",
+   "category": "env",
+   "priority": 0,
+   "triBudget": 2000,
+   "drawCalls": 1,
+   "materials": [
+    "m_flat"
+   ],
+   "bake": "UNLIT",
+   "skinned": false,
+   "nodes": [
+    "socket_last_fire"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "coda"
+   ],
+   "placedBy": "origin",
+   "pivot": "world origin",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1600,
+     120,
+     1600
+    ],
+    "anchor": "world"
+   }
+  },
+  "env_tally_house": {
+   "path": "assets/env/env_tally_house.glb",
+   "source": "blender/env_interior/env_tally_house.py",
+   "owner": "env_interior",
+   "category": "env",
+   "priority": 0,
+   "triBudget": 17000,
+   "drawCalls": 4,
+   "materials": [
+    "m_frontier",
+    "m_pellam",
+    "m_mask",
+    "m_emis"
+   ],
+   "bake": "LM+VL",
+   "skinned": false,
+   "nodes": [
+    "strip_hatch"
+   ],
+   "lampSets": {
+    "strip_hatch": 1
+   },
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": true,
+   "lightmaps": [
+    "lm_tally"
+   ],
+   "lightLayers": [
+    "lm_tally_hatch"
+   ],
+   "zone": "tally_house",
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "origin",
+   "pivot": "world origin",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     16,
+     7,
+     24
+    ],
+    "anchor": "world",
+    "source": "layout-solids"
+   },
+   "chunks": [
+    {
+     "id": "chunk_ty_hall",
+     "tris": 17000,
+     "materials": [
+      "m_frontier",
+      "m_pellam",
+      "m_mask"
+     ],
+     "drawCalls": 3,
+     "box": {
+      "min": [
+       -97,
+       -1,
+       -38
+      ],
+      "max": [
+       -81,
+       6,
+       -14
+      ]
+     }
+    }
+   ],
+   "drawnNodes": [
+    "strip_hatch"
+   ],
+   "notes": "strip_hatch and the lm_tally_hatch light layer switch on with hatch_powered. The eleven chairs, the latch block and its cowl (layout ty_latch_*), and the pictogram plate on the west-wall conduit are zone geometry."
+  },
+  "env_the_gallery": {
+   "path": "assets/env/env_the_gallery.glb",
+   "source": "blender/env_interior/env_the_gallery.py",
+   "owner": "env_interior",
+   "category": "env",
+   "priority": 0,
+   "triBudget": 32000,
+   "drawCalls": 10,
+   "materials": [
+    "m_pellam",
+    "m_emis",
+    "m_mask"
+   ],
+   "bake": "LM+VL",
+   "skinned": false,
+   "nodes": [
+    "strip_flicker",
+    "violet_hairline"
+   ],
+   "lampSets": {
+    "strip_flicker": 1,
+    "violet_hairline": 1
+   },
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": true,
+   "lightmaps": [
+    "lm_gallery"
+   ],
+   "zone": "the_gallery",
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "origin",
+   "pivot": "world origin",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     77,
+     13,
+     27
+    ],
+    "anchor": "world",
+    "source": "layout-solids"
+   },
+   "chunks": [
+    {
+     "id": "chunk_gl_stair",
+     "tris": 6000,
+     "materials": [
+      "m_pellam",
+      "m_emis"
+     ],
+     "drawCalls": 2,
+     "box": {
+      "min": [
+       -95,
+       -13,
+       -36
+      ],
+      "max": [
+       -83,
+       0,
+       -18.5
+      ]
+     }
+    },
+    {
+     "id": "chunk_gl_bay",
+     "tris": 6000,
+     "materials": [
+      "m_pellam",
+      "m_mask",
+      "m_emis"
+     ],
+     "drawCalls": 3,
+     "box": {
+      "min": [
+       -95,
+       -13,
+       -18.5
+      ],
+      "max": [
+       -81,
+       -6,
+       -9
+      ]
+     }
+    },
+    {
+     "id": "chunk_gl_gallery",
+     "tris": 20000,
+     "materials": [
+      "m_pellam",
+      "m_mask",
+      "m_emis"
+     ],
+     "drawCalls": 3,
+     "box": {
+      "min": [
+       -81,
+       -13,
+       -19
+      ],
+      "max": [
+       -18,
+       -6,
+       -9
+      ]
+     }
+    }
+   ],
+   "drawnNodes": [
+    "strip_flicker",
+    "violet_hairline"
+   ],
+   "notes": "Peg stair, proving bay, gallery. chunk_gl_stair holds the seam (flight 1, landing 1 and their shaft walls) and is drawn while the surface set is resident once the hatch is powered. The 3.6 m gallery module is baked once and copied by the script (shared lightmap UVs), then merged: no instancing. Stair strips are baked lit."
+  },
+  "env_lift_hall": {
+   "path": "assets/env/env_lift_hall.glb",
+   "source": "blender/env_interior/env_lift_hall.py",
+   "owner": "env_interior",
+   "category": "env",
+   "priority": 0,
+   "triBudget": 36000,
+   "drawCalls": 4,
+   "materials": [
+    "m_pellam",
+    "m_mask",
+    "m_emis"
+   ],
+   "bake": "LM+VL",
+   "skinned": false,
+   "nodes": [
+    "diagram_lamps"
+   ],
+   "lampSets": {
+    "diagram_lamps": 7
+   },
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": true,
+   "lightmaps": [
+    "lm_hall"
+   ],
+   "zone": "lift_hall",
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "origin",
+   "pivot": "world origin",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     47,
+     14,
+     37
+    ],
+    "anchor": "world",
+    "source": "layout-solids"
+   },
+   "chunks": [
+    {
+     "id": "chunk_lh_hall",
+     "tris": 36000,
+     "materials": [
+      "m_pellam",
+      "m_mask",
+      "m_emis"
+     ],
+     "drawCalls": 3,
+     "box": {
+      "min": [
+       -19,
+       -16,
+       -29
+      ],
+      "max": [
+       28,
+       -2,
+       8
+      ]
+     }
+    }
+   ],
+   "drawnNodes": [
+    "diagram_lamps"
+   ],
+   "notes": "Includes the ramp-foot switchgear cabinet (layout lh_ramp_cabinet), the cage bay and the cold bay."
+  },
+  "env_lift_shaft": {
+   "path": "assets/env/env_lift_shaft.glb",
+   "source": "blender/env_interior/env_lift_shaft.py",
+   "owner": "env_interior",
+   "category": "env",
+   "priority": 1,
+   "triBudget": 800,
+   "drawCalls": 7,
+   "materials": [
+    "m_pellam",
+    "m_emis"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [
+    "lamp_bar_1",
+    "lamp_bar_2",
+    "lamp_bar_3",
+    "lamp_bar_4",
+    "lamp_bar_5",
+    "lamp_bar_6"
+   ],
+   "codeDriven": [
+    "lamp_bar_1",
+    "lamp_bar_2",
+    "lamp_bar_3",
+    "lamp_bar_4",
+    "lamp_bar_5",
+    "lamp_bar_6"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground",
+    "coda"
+   ],
+   "placedBy": "code",
+   "pivot": "cage floor centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     6.4,
+     12,
+     6.4
+    ],
+    "anchor": "base"
+   },
+   "notes": "Dark-ride shell shown round the player during both lift rides (scaled to the cage in use); code scrolls the six lamp bars upward. Nothing else is drawn during a ride."
+  },
+  "env_the_bore": {
+   "path": "assets/env/env_the_bore.glb",
+   "source": "blender/env_interior/env_the_bore.py",
+   "owner": "env_interior",
+   "category": "env",
+   "priority": 0,
+   "triBudget": 40000,
+   "drawCalls": 10,
+   "materials": [
+    "m_pellam",
+    "m_mask",
+    "m_emis"
+   ],
+   "bake": "LM+VL",
+   "skinned": false,
+   "nodes": [
+    "bore_axis",
+    "bore_glow",
+    "bay_lamps",
+    "mark_glows",
+    "ante_diagram_lamps"
+   ],
+   "lampSets": {
+    "bore_glow": 1,
+    "bay_lamps": 6,
+    "mark_glows": 6,
+    "ante_diagram_lamps": 7
+   },
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": true,
+   "lightmaps": [
+    "lm_bore"
+   ],
+   "lightLayers": [
+    "lm_bore_glow"
+   ],
+   "zone": "the_bore",
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "origin",
+   "pivot": "world origin",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     34,
+     16,
+     53
+    ],
+    "anchor": "world",
+    "source": "layout-solids"
+   },
+   "chunks": [
+    {
+     "id": "chunk_bo_ante",
+     "tris": 8000,
+     "materials": [
+      "m_pellam",
+      "m_mask",
+      "m_emis"
+     ],
+     "drawCalls": 3,
+     "box": {
+      "min": [
+       -3,
+       -45,
+       64
+      ],
+      "max": [
+       31,
+       -29,
+       80.3
+      ]
+     }
+    },
+    {
+     "id": "chunk_bo_chamber",
+     "tris": 32000,
+     "materials": [
+      "m_pellam",
+      "m_mask",
+      "m_emis"
+     ],
+     "drawCalls": 3,
+     "box": {
+      "min": [
+       -3,
+       -51,
+       80.3
+      ],
+      "max": [
+       31,
+       -29,
+       117
+      ]
+     }
+    }
+   ],
+   "drawnNodes": [
+    "bore_glow",
+    "bay_lamps",
+    "mark_glows",
+    "ante_diagram_lamps"
+   ],
+   "notes": "chunk_bo_ante is the antechamber and the stair down to it; chunk_bo_chamber is everything south of the door wall (arrival bay, catwalk, chamber, bore shaft, proving-lift room). The chamber is one 60 degree sector baked once and copied five times about bore_axis by the script (shared lightmap UVs, copied vertex light), then merged into chunk_bo_chamber: no instancing; the triangle budget counts all six. mark_glows = the six proving marks (index = bay - 1). bore_glow participates in wrong_fade. The kerb is 0.6 m high in a 35 degree notch in front of each mark and 1.2 m at the six merlons (layout bo_kerb, bo_kerb_hi_*)."
+  },
+  "pk_rounds_6": {
+   "path": "assets/props/pk_rounds_6.glb",
+   "source": "blender/weapons/pk_rounds_6.py",
+   "owner": "weapons",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 120,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "layout",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.14,
+     0.06,
+     0.09
+    ],
+    "anchor": "base"
+   }
+  },
+  "pk_rounds_12": {
+   "path": "assets/props/pk_rounds_12.glb",
+   "source": "blender/weapons/pk_rounds_12.py",
+   "owner": "weapons",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 180,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "layout",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.18,
+     0.07,
+     0.12
+    ],
+    "anchor": "base"
+   }
+  },
+  "pk_canteen": {
+   "path": "assets/props/pk_canteen.glb",
+   "source": "blender/props/dress/pk_canteen.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 220,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "layout",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.24,
+     0.09,
+     0.24
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_cartridge_lead": {
+   "path": "assets/props/prop_cartridge_lead.glb",
+   "source": "blender/weapons/prop_cartridge_lead.py",
+   "owner": "weapons",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 80,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "round_live",
+    "round_spent"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "case head centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.012,
+     0.041,
+     0.012
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_cartridge_line": {
+   "path": "assets/props/prop_cartridge_line.glb",
+   "source": "blender/weapons/prop_cartridge_line.py",
+   "owner": "weapons",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 48,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "code",
+   "pivot": "case head centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.012,
+     0.041,
+     0.012
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_cartridge_kept": {
+   "path": "assets/props/prop_cartridge_kept.glb",
+   "source": "blender/weapons/prop_cartridge_kept.py",
+   "owner": "weapons",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 144,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "round_sealed",
+    "round_spent",
+    "round_violet"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "coda"
+   ],
+   "placedBy": "layout",
+   "pivot": "case head centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.012,
+     0.041,
+     0.012
+    ],
+    "anchor": "base"
+   },
+   "notes": "round_violet is ia_stone_round (runtime, taken by the player); six round_spent are zone-baked on the rim stone."
+  },
+  "ia_ammo_box": {
+   "path": "assets/props/ia_ammo_box.glb",
+   "source": "blender/props/mech/ia_ammo_box.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 400,
+   "drawCalls": 3,
+   "materials": [
+    "m_prop",
+    "m_emis",
+    "m_mask"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "flap"
+   ],
+   "nodes": [
+    "flap",
+    "lamp"
+   ],
+   "lampSets": {
+    "lamp": 1
+   },
+   "animations": [
+    {
+     "name": "dispense",
+     "loop": false,
+     "seconds": 0.4,
+     "priority": 0
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "back-plate centre at floor level",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.6,
+     0.9,
+     0.25
+    ],
+    "anchor": "back_base"
+   }
+  },
+  "ia_line_locker": {
+   "path": "assets/props/ia_line_locker.glb",
+   "source": "blender/props/mech/ia_line_locker.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 500,
+   "drawCalls": 3,
+   "materials": [
+    "m_prop",
+    "m_emis",
+    "m_mask"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "door"
+   ],
+   "nodes": [
+    "door",
+    "lamp",
+    "round_slot"
+   ],
+   "lampSets": {
+    "lamp": 1
+   },
+   "animations": [
+    {
+     "name": "open",
+     "loop": false,
+     "seconds": 0.5,
+     "priority": 0
+    },
+    {
+     "name": "close",
+     "loop": false,
+     "seconds": 0.5,
+     "priority": 0
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "back centre at floor level",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.6,
+     1.2,
+     0.3
+    ],
+    "anchor": "back_base"
+   }
+  },
+  "ia_jug": {
+   "path": "assets/props/ia_jug.glb",
+   "source": "blender/props/mech/ia_jug.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 400,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "jug_intact",
+    "jug_broken"
+   ],
+   "hitPoint": [
+    0,
+    -0.81,
+    0
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "cord top",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.32,
+     1.02,
+     0.32
+    ],
+    "anchor": "top"
+   },
+   "notes": "The jug body (0.42 m) hangs 0.6 m below the pivot: body centre 0.81 m below it. Layout jug markers are body centres (the hit sphere); the binding offset puts the pivot on the hook."
+  },
+  "prop_stock_gate": {
+   "path": "assets/props/prop_stock_gate.glb",
+   "source": "blender/props/mech/prop_stock_gate.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 500,
+   "drawCalls": 2,
+   "materials": [
+    "m_prop",
+    "m_frontier"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "gate_bar"
+   ],
+   "nodes": [
+    "gate_bar",
+    "hook_1",
+    "hook_2",
+    "hook_3",
+    "hook_4",
+    "hook_5",
+    "hook_6"
+   ],
+   "nodePos": {
+    "hook_1": [
+     -1.75,
+     2.36,
+     -0.15
+    ],
+    "hook_2": [
+     -1.05,
+     2.36,
+     -0.15
+    ],
+    "hook_3": [
+     -0.35,
+     2.36,
+     -0.15
+    ],
+    "hook_4": [
+     0.35,
+     2.36,
+     -0.15
+    ],
+    "hook_5": [
+     1.05,
+     2.36,
+     -0.15
+    ],
+    "hook_6": [
+     1.75,
+     2.36,
+     -0.15
+    ]
+   },
+   "codeDriven": [
+    "gate_bar"
+   ],
+   "animations": [],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "bottom centre of the hurdle, closed",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     4.6,
+     2.9,
+     0.35
+    ],
+    "anchor": "base"
+   },
+   "notes": "Sized to door_jug_gate (4 x 2.8 m): bar 4.6 m, hurdle 3.9 x 2.35 m. hook_n are children of gate_bar, on the face away from the street (asset -Z), 0.7 m apart. Jugs and their hit spheres follow the hooks as code raises gate_bar."
+  },
+  "prop_well_sweep": {
+   "path": "assets/props/prop_well_sweep.glb",
+   "source": "blender/props/mech/prop_well_sweep.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 600,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "sweep_arm"
+   ],
+   "nodes": [
+    "sweep_arm"
+   ],
+   "codeDriven": [
+    "sweep_arm"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "world origin (authored in place: post beside the gate, arm tip at layout prop_pylon.sweepTo)",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     5.5,
+     3.4,
+     0.6
+    ],
+    "anchor": "world"
+   }
+  },
+  "prop_wagon_tipped": {
+   "path": "assets/props/prop_wagon_tipped.glb",
+   "source": "blender/props/dress/prop_wagon_tipped.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 1200,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     3.6,
+     2.1,
+     1.5
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_trough_pump": {
+   "path": "assets/props/prop_trough_pump.glb",
+   "source": "blender/props/dress/prop_trough_pump.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 450,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     2.4,
+     1.6,
+     0.6
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_cup_tin": {
+   "path": "assets/props/prop_cup_tin.glb",
+   "source": "blender/props/dress/prop_cup_tin.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 60,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.09,
+     0.08,
+     0.09
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_water_cart": {
+   "path": "assets/props/prop_water_cart.glb",
+   "source": "blender/props/dress/prop_water_cart.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 900,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     3.2,
+     2.1,
+     1.6
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_yard_gate": {
+   "path": "assets/props/prop_yard_gate.glb",
+   "source": "blender/props/mech/prop_yard_gate.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 400,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "leaf_l",
+    "leaf_r"
+   ],
+   "nodes": [
+    "leaf_l",
+    "leaf_r"
+   ],
+   "animations": [
+    {
+     "name": "burst_open",
+     "loop": false,
+     "seconds": 0.5,
+     "priority": 1
+    }
+   ],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "hinge line centre at ground",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     4,
+     2.9,
+     0.15
+    ],
+    "anchor": "base"
+   }
+  },
+  "ia_yard_door": {
+   "path": "assets/props/ia_yard_door.glb",
+   "source": "blender/props/mech/ia_yard_door.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 300,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "leaf",
+    "socket_knot"
+   ],
+   "nodePos": {
+    "socket_knot": [
+     2.25,
+     1.3,
+     -0.14
+    ]
+   },
+   "animations": [
+    {
+     "name": "open",
+     "loop": false,
+     "seconds": 0.8,
+     "priority": 0
+    }
+   ],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "hinge axis at ground",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     2.6,
+     2.8,
+     0.12
+    ],
+    "anchor": "hinge"
+   },
+   "notes": "socket_knot is on the street face (asset -Z), 1.3 m up and 0.95 m from the door centre toward the latch edge: where layout knot_yard_latch sits."
+  },
+  "knot_mech": {
+   "path": "assets/props/knot_mech.glb",
+   "source": "blender/props/mech/knot_mech.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 220,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "knot_live"
+   ],
+   "hitPoint": [
+    0,
+    0,
+    0.08
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "collar back centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.42,
+     0.42,
+     0.2
+    ],
+    "anchor": "back"
+   },
+   "notes": "Used for knot_yard_latch, knot_hatch_latch, knot_cold_bay and knot_a/b/c (scale 1.25). The knot centre (the layout marker, the hit sphere) is 0.08 m in front of the pivot."
+  },
+  "ia_yard_bell": {
+   "path": "assets/props/ia_yard_bell.glb",
+   "source": "blender/props/mech/ia_yard_bell.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 260,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "bell"
+   ],
+   "nodes": [
+    "bell"
+   ],
+   "nodePos": {
+    "bell": [
+     0,
+     2.2,
+     0
+    ]
+   },
+   "hitPoint": [
+    0,
+    2.2,
+    0
+   ],
+   "animations": [
+    {
+     "name": "ring",
+     "loop": false,
+     "seconds": 1.2,
+     "priority": 1
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "post base",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.4,
+     2.6,
+     0.4
+    ],
+    "anchor": "base"
+   }
+  },
+  "sec_loft_bell": {
+   "path": "assets/props/sec_loft_bell.glb",
+   "source": "blender/props/mech/sec_loft_bell.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 2,
+   "triBudget": 300,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "rope",
+    "bell",
+    "ladder"
+   ],
+   "nodes": [
+    "rope",
+    "bell",
+    "ladder"
+   ],
+   "nodePos": {
+    "rope": [
+     0,
+     -0.6,
+     0
+    ],
+    "bell": [
+     0,
+     -1.2,
+     0
+    ]
+   },
+   "animations": [
+    {
+     "name": "fall",
+     "loop": false,
+     "seconds": 0.9,
+     "priority": 2
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "hoist arm tip",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.5,
+     3.2,
+     0.5
+    ],
+    "anchor": "top"
+   }
+  },
+  "prop_door_frontier": {
+   "path": "assets/props/prop_door_frontier.glb",
+   "source": "blender/props/mech/prop_door_frontier.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 160,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "leaf"
+   ],
+   "animations": [
+    {
+     "name": "open",
+     "loop": false,
+     "seconds": 0.6,
+     "priority": 0
+    }
+   ],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "hinge axis at ground",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1.6,
+     2.4,
+     0.08
+    ],
+    "anchor": "hinge"
+   }
+  },
+  "prop_lantern": {
+   "path": "assets/props/prop_lantern.glb",
+   "source": "blender/props/dress/prop_lantern.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 360,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "lantern_lit",
+    "lantern_dark"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "dressing",
+   "pivot": "bail top",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.16,
+     0.34,
+     0.16
+    ],
+    "anchor": "top"
+   }
+  },
+  "prop_bottle": {
+   "path": "assets/props/prop_bottle.glb",
+   "source": "blender/props/dress/prop_bottle.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 2,
+   "triBudget": 180,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "bottle_a",
+    "bottle_b",
+    "bottle_c"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "dressing",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.08,
+     0.28,
+     0.08
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_crate": {
+   "path": "assets/props/prop_crate.glb",
+   "source": "blender/props/dress/prop_crate.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 2,
+   "triBudget": 300,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "box",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground"
+   ],
+   "placedBy": "dressing",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.7,
+     0.7,
+     0.7
+    ],
+    "anchor": "base"
+   },
+   "notes": "Collider is tagged pierce."
+  },
+  "prop_barrel": {
+   "path": "assets/props/prop_barrel.glb",
+   "source": "blender/props/dress/prop_barrel.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 2,
+   "triBudget": 330,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "box",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground"
+   ],
+   "placedBy": "dressing",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.6,
+     0.9,
+     0.6
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_sack": {
+   "path": "assets/props/prop_sack.glb",
+   "source": "blender/props/dress/prop_sack.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 2,
+   "triBudget": 120,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "dressing",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.7,
+     0.3,
+     0.4
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_strain_cloth": {
+   "path": "assets/props/prop_strain_cloth.glb",
+   "source": "blender/props/dress/prop_strain_cloth.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 2,
+   "triBudget": 60,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "dressing",
+   "pivot": "top edge",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.8,
+     0.8,
+     0.02
+    ],
+    "anchor": "top"
+   }
+  },
+  "card_dowser": {
+   "path": "assets/props/card_dowser.glb",
+   "source": "blender/props/dress/card_dowser.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 2,
+   "drawCalls": 1,
+   "materials": [
+    "m_mask"
+   ],
+   "bake": "UNLIT",
+   "skinned": false,
+   "nodes": [
+    "glint"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "code",
+   "pivot": "feet",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.9,
+     2,
+     0.02
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_camp_ash": {
+   "path": "assets/props/prop_camp_ash.glb",
+   "source": "blender/props/dress/prop_camp_ash.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 600,
+   "drawCalls": 2,
+   "materials": [
+    "m_prop",
+    "m_emis"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [
+    "ash_cold",
+    "ash_embers"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "centre at ground",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.7,
+     0.12,
+     0.7
+    ],
+    "anchor": "base"
+   },
+   "notes": "ash_embers is stop three only (the bore antechamber). ash_cold is the town's ash in the Tally House firebox. Not used at stop one."
+  },
+  "prop_coffee_pot": {
+   "path": "assets/props/prop_coffee_pot.glb",
+   "source": "blender/props/dress/prop_coffee_pot.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 160,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.16,
+     0.22,
+     0.16
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_kettle": {
+   "path": "assets/props/prop_kettle.glb",
+   "source": "blender/props/dress/prop_kettle.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 180,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.2,
+     0.18,
+     0.2
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_flat_stone": {
+   "path": "assets/props/prop_flat_stone.glb",
+   "source": "blender/props/dress/prop_flat_stone.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 60,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.5,
+     0.08,
+     0.35
+    ],
+    "anchor": "base"
+   }
+  },
+  "rd_note": {
+   "path": "assets/props/rd_note.glb",
+   "source": "blender/props/dress/rd_note.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 120,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [
+    "note_lip",
+    "note_hearth",
+    "note_cradle",
+    "note_stone"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.13,
+     0.01,
+     0.2
+    ],
+    "anchor": "centre"
+   }
+  },
+  "rd_ledger": {
+   "path": "assets/props/rd_ledger.glb",
+   "source": "blender/props/dress/rd_ledger.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 120,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.3,
+     0.05,
+     0.42
+    ],
+    "anchor": "base"
+   }
+  },
+  "rd_rain_tally": {
+   "path": "assets/props/rd_rain_tally.glb",
+   "source": "blender/props/dress/rd_rain_tally.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 2,
+   "triBudget": 60,
+   "drawCalls": 2,
+   "materials": [
+    "m_prop",
+    "m_mask"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.22,
+     0.3,
+     0.02
+    ],
+    "anchor": "base"
+   }
+  },
+  "rd_plate": {
+   "path": "assets/props/rd_plate.glb",
+   "source": "blender/props/dress/rd_plate.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 750,
+   "drawCalls": 2,
+   "materials": [
+    "m_prop",
+    "m_mask"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [
+    "plate_line",
+    "plate_proving",
+    "plate_service"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "back centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.6,
+     0.34,
+     0.02
+    ],
+    "anchor": "back"
+   }
+  },
+  "prop_tally_table": {
+   "path": "assets/props/prop_tally_table.glb",
+   "source": "blender/props/dress/prop_tally_table.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 900,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "zone",
+   "pivot": "centre at floor",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1.4,
+     0.8,
+     11
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_chair": {
+   "path": "assets/props/prop_chair.glb",
+   "source": "blender/props/dress/prop_chair.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 150,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.45,
+     0.95,
+     0.45
+    ],
+    "anchor": "base"
+   },
+   "notes": "Eleven copies are merged into env_tally_house by the zone script (no instancing)."
+  },
+  "prop_head_chair": {
+   "path": "assets/props/prop_head_chair.glb",
+   "source": "blender/props/dress/prop_head_chair.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 180,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.5,
+     0.85,
+     0.5
+    ],
+    "anchor": "base"
+   }
+  },
+  "prop_bench": {
+   "path": "assets/props/prop_bench.glb",
+   "source": "blender/props/dress/prop_bench.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 2,
+   "triBudget": 90,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     2.2,
+     0.45,
+     0.3
+    ],
+    "anchor": "base"
+   }
+  },
+  "ia_shutter": {
+   "path": "assets/props/ia_shutter.glb",
+   "source": "blender/props/mech/ia_shutter.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 160,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "shutter_leaf",
+    "latch"
+   ],
+   "nodes": [
+    "shutter_leaf",
+    "latch"
+   ],
+   "nodePos": {
+    "latch": [
+     0,
+     -0.55,
+     0.06
+    ]
+   },
+   "animations": [
+    {
+     "name": "drop_open",
+     "loop": false,
+     "seconds": 0.5,
+     "priority": 0
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "hinge axis centre (bottom edge of the leaf)",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1.2,
+     0.9,
+     0.05
+    ],
+    "anchor": "sill"
+   },
+   "notes": "The pivot is 0.45 m below the opening centre (the shutter_* marker); latch is the white insulator 0.55 m below the pivot and 0.06 m proud of the wall: exactly the ia_latch_* marker."
+  },
+  "prop_share_cloth": {
+   "path": "assets/props/prop_share_cloth.glb",
+   "source": "blender/props/mech/prop_share_cloth.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 200,
+   "drawCalls": 2,
+   "materials": [
+    "m_prop",
+    "m_mask"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "cloth_root",
+    "cloth_1",
+    "cloth_2",
+    "cloth_3"
+   ],
+   "nodes": [
+    "cord",
+    "cloth"
+   ],
+   "nodePos": {
+    "cord": [
+     0,
+     0,
+     0
+    ],
+    "cloth": [
+     0,
+     -0.855,
+     0
+    ]
+   },
+   "animations": [
+    {
+     "name": "fall",
+     "loop": false,
+     "seconds": 1.2,
+     "priority": 0
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "cord top",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1.6,
+     1.46,
+     0.03
+    ],
+    "anchor": "top"
+   }
+  },
+  "prop_day_cell": {
+   "path": "assets/props/prop_day_cell.glb",
+   "source": "blender/props/mech/prop_day_cell.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 200,
+   "drawCalls": 2,
+   "materials": [
+    "m_prop",
+    "m_emis"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "cell_face"
+   ],
+   "lampSets": {
+    "cell_face": 1
+   },
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "back centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.6,
+     0.6,
+     0.08
+    ],
+    "anchor": "back"
+   },
+   "notes": "The pictogram plate is not on this asset: it is zone geometry of env_tally_house (layout prop_daycell_plate)."
+  },
+  "ia_hatch": {
+   "path": "assets/props/ia_hatch.glb",
+   "source": "blender/props/mech/ia_hatch.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 500,
+   "drawCalls": 2,
+   "materials": [
+    "m_prop",
+    "m_emis"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "leaf_a",
+    "leaf_b"
+   ],
+   "nodes": [
+    "leaf_a",
+    "leaf_b",
+    "socket_knot",
+    "latch_lamp"
+   ],
+   "nodePos": {
+    "socket_knot": [
+     1.6,
+     0.9,
+     1.35
+    ]
+   },
+   "lampSets": {
+    "latch_lamp": 1
+   },
+   "animations": [
+    {
+     "name": "open",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    },
+    {
+     "name": "close",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    }
+   ],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "opening centre at floor level",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     4,
+     0.12,
+     2
+    ],
+    "anchor": "top"
+   },
+   "notes": "Rectangular, two leaves sliding apart. `open` is linear in time: code holds it at 15 % for the \"ajar\" state (0.3 m gap, still impassable). socket_knot marks layout knot_hatch_latch; the latch block and its cowl are zone geometry of env_tally_house."
+  },
+  "prop_coat_hung": {
+   "path": "assets/props/prop_coat_hung.glb",
+   "source": "blender/props/dress/prop_coat_hung.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 270,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "coat_long",
+    "coat_short",
+    "coat_shawl"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "dressing",
+   "pivot": "peg (top)",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.5,
+     1.1,
+     0.15
+    ],
+    "anchor": "top"
+   }
+  },
+  "prop_hat_hung": {
+   "path": "assets/props/prop_hat_hung.glb",
+   "source": "blender/props/dress/prop_hat_hung.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 50,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "dressing",
+   "pivot": "peg",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.38,
+     0.14,
+     0.38
+    ],
+    "anchor": "top"
+   }
+  },
+  "prop_boots_pair": {
+   "path": "assets/props/prop_boots_pair.glb",
+   "source": "blender/props/dress/prop_boots_pair.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 90,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "dressing",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.3,
+     0.28,
+     0.25
+    ],
+    "anchor": "base"
+   }
+  },
+  "ia_range_plate": {
+   "path": "assets/props/ia_range_plate.glb",
+   "source": "blender/props/mech/ia_range_plate.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 100,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "plate"
+   ],
+   "nodes": [
+    "plate"
+   ],
+   "hitPoint": [
+    0,
+    -0.45,
+    0
+   ],
+   "animations": [
+    {
+     "name": "ring",
+     "loop": false,
+     "seconds": 0.8,
+     "priority": 1
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "hook",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.7,
+     0.8,
+     0.04
+    ],
+    "anchor": "top"
+   },
+   "notes": "A disc 0.7 m across whose centre hangs 0.45 m below the hook. Collision is the pierce-tagged layout solid ia_range_plate_n_solid."
+  },
+  "prop_proving_step": {
+   "path": "assets/props/prop_proving_step.glb",
+   "source": "blender/props/mech/prop_proving_step.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 160,
+   "drawCalls": 3,
+   "materials": [
+    "m_prop",
+    "m_emis",
+    "m_mask"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "mark_glow"
+   ],
+   "lampSets": {
+    "mark_glow": 1
+   },
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1.6,
+     0.15,
+     1.6
+    ],
+    "anchor": "base"
+   },
+   "notes": "Collision is the layout solid gl_mark_step."
+  },
+  "prop_sighting_loop": {
+   "path": "assets/props/prop_sighting_loop.glb",
+   "source": "blender/props/mech/prop_sighting_loop.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 220,
+   "drawCalls": 2,
+   "materials": [
+    "m_prop",
+    "m_emis"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "loop_rim"
+   ],
+   "nodePos": {
+    "loop_rim": [
+     0,
+     2.018,
+     0
+    ]
+   },
+   "lampSets": {
+    "loop_rim": 1
+   },
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "post base",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.62,
+     2.328,
+     0.1
+    ],
+    "anchor": "base"
+   }
+  },
+  "ia_baffle": {
+   "path": "assets/props/ia_baffle.glb",
+   "source": "blender/props/mech/ia_baffle.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 500,
+   "drawCalls": 3,
+   "materials": [
+    "m_prop",
+    "m_emis",
+    "m_mask"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "leaf_l",
+    "leaf_r"
+   ],
+   "nodes": [
+    "leaf_l",
+    "leaf_r",
+    "door_lamps"
+   ],
+   "lampSets": {
+    "door_lamps": 3
+   },
+   "animations": [
+    {
+     "name": "open",
+     "loop": false,
+     "seconds": 3,
+     "priority": 0
+    }
+   ],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "sill centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     3,
+     3,
+     0.3
+    ],
+    "anchor": "base"
+   },
+   "notes": "The lamp bar mounts on the wall above the lintel, outside the leaf area."
+  },
+  "prop_door_pellam": {
+   "path": "assets/props/prop_door_pellam.glb",
+   "source": "blender/props/mech/prop_door_pellam.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 220,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "leaf"
+   ],
+   "nodes": [
+    "leaf"
+   ],
+   "animations": [
+    {
+     "name": "open",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    },
+    {
+     "name": "close",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    }
+   ],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "sill centre, closed",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     3,
+     3,
+     0.12
+    ],
+    "anchor": "base"
+   },
+   "notes": "The gallery far door only. The yard drum door is zone geometry of env_plenty_street."
+  },
+  "prop_grate": {
+   "path": "assets/props/prop_grate.glb",
+   "source": "blender/props/mech/prop_grate.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 1,
+   "triBudget": 40,
+   "drawCalls": 2,
+   "materials": [
+    "m_prop",
+    "m_mask"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "lid"
+   ],
+   "nodes": [
+    "lid"
+   ],
+   "animations": [
+    {
+     "name": "flip_open",
+     "loop": false,
+     "seconds": 0.4,
+     "priority": 1
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "hinge edge centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1.2,
+     0.06,
+     1.2
+    ],
+    "anchor": "centre"
+   }
+  },
+  "ia_cold_bay_shutter": {
+   "path": "assets/props/ia_cold_bay_shutter.glb",
+   "source": "blender/props/mech/ia_cold_bay_shutter.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 2,
+   "triBudget": 260,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "shutter"
+   ],
+   "nodes": [
+    "shutter",
+    "socket_knot"
+   ],
+   "nodePos": {
+    "socket_knot": [
+     3,
+     1.6,
+     -0.62
+    ]
+   },
+   "animations": [
+    {
+     "name": "open",
+     "loop": false,
+     "seconds": 1.5,
+     "priority": 2
+    }
+   ],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "sill centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     3,
+     3,
+     0.1
+    ],
+    "anchor": "base"
+   },
+   "notes": "Collider is tagged pierce. socket_knot marks layout knot_cold_bay (seen through the inspection slot beside the shutter)."
+  },
+  "ia_lift_cage": {
+   "path": "assets/props/ia_lift_cage.glb",
+   "source": "blender/props/mech/ia_lift_cage.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 900,
+   "drawCalls": 3,
+   "materials": [
+    "m_prop",
+    "m_emis",
+    "m_mask"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "gate"
+   ],
+   "nodes": [
+    "gate",
+    "gate_lamp"
+   ],
+   "nodePos": {
+    "gate": [
+     0,
+     0,
+     2.95
+    ]
+   },
+   "lampSets": {
+    "gate_lamp": 1
+   },
+   "animations": [
+    {
+     "name": "gate_open",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    },
+    {
+     "name": "gate_close",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    }
+   ],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "floor centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     6,
+     3.5,
+     6
+    ],
+    "anchor": "base"
+   },
+   "notes": "The hall lift cage, interior 6 x 3.5 x 6 m (w x h x d, from nav.portals ride_lift_hall). The gate fills the whole +Z side. Two instances: lift_depart_hall and lift_arrival_bore (the same cage turned half a turn). The box collider is the gate only; cage walls are layout solids."
+  },
+  "ia_proving_lift_cage": {
+   "path": "assets/props/ia_proving_lift_cage.glb",
+   "source": "blender/props/mech/ia_proving_lift_cage.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 700,
+   "drawCalls": 3,
+   "materials": [
+    "m_prop",
+    "m_emis",
+    "m_mask"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "gate"
+   ],
+   "nodes": [
+    "gate",
+    "gate_lamp",
+    "control"
+   ],
+   "nodePos": {
+    "gate": [
+     0,
+     0,
+     1.95
+    ],
+    "control": [
+     0,
+     1.2,
+     -1.8
+    ]
+   },
+   "lampSets": {
+    "gate_lamp": 1
+   },
+   "animations": [
+    {
+     "name": "gate_open",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    },
+    {
+     "name": "gate_close",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    }
+   ],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground",
+    "coda"
+   ],
+   "placedBy": "layout",
+   "pivot": "floor centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     4,
+     3.5,
+     4
+    ],
+    "anchor": "base"
+   },
+   "notes": "The proving lift cage, interior 4 x 3.5 x 4 m (from nav.portals ride_proving_lift), a 3 x 3 m gate on the +Z side. control is the call plate on the back wall (layout ia_proving_lift). Built from the same parts as ia_lift_cage (1.2 m module), not scaled from it. Two instances: lift_depart_bore, lift_arrival_rim."
+  },
+  "ia_lift_lever": {
+   "path": "assets/props/ia_lift_lever.glb",
+   "source": "blender/props/mech/ia_lift_lever.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 180,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "lever"
+   ],
+   "nodes": [
+    "lever"
+   ],
+   "nodePos": {
+    "lever": [
+     0,
+     1,
+     0
+    ]
+   },
+   "animations": [
+    {
+     "name": "throw",
+     "loop": false,
+     "seconds": 0.6,
+     "priority": 0
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.3,
+     1.6,
+     0.3
+    ],
+    "anchor": "base"
+   }
+  },
+  "ia_bore_door": {
+   "path": "assets/props/ia_bore_door.glb",
+   "source": "blender/props/mech/ia_bore_door.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 1400,
+   "drawCalls": 3,
+   "materials": [
+    "m_prop",
+    "m_emis"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "door_disc"
+   ],
+   "nodes": [
+    "door_disc",
+    "port_1",
+    "port_2",
+    "port_3",
+    "port_4",
+    "port_5",
+    "port_6",
+    "port_7",
+    "port_8",
+    "port_lamps",
+    "listen_lamps"
+   ],
+   "nodePos": {
+    "port_1": [
+     0,
+     1,
+     0.145
+    ],
+    "port_2": [
+     0.707,
+     0.707,
+     0.145
+    ],
+    "port_3": [
+     1,
+     0,
+     0.145
+    ],
+    "port_4": [
+     0.707,
+     -0.707,
+     0.145
+    ],
+    "port_5": [
+     0,
+     -1,
+     0.145
+    ],
+    "port_6": [
+     -0.707,
+     -0.707,
+     0.145
+    ],
+    "port_7": [
+     -1,
+     0,
+     0.145
+    ],
+    "port_8": [
+     -0.707,
+     0.707,
+     0.145
+    ],
+    "listen_lamps": [
+     0,
+     0,
+     0.145
+    ]
+   },
+   "lampSets": {
+    "port_lamps": 8,
+    "listen_lamps": 12
+   },
+   "animations": [
+    {
+     "name": "open",
+     "loop": false,
+     "seconds": 2.5,
+     "priority": 0
+    }
+   ],
+   "collision": "box",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "disc centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     3,
+     3,
+     0.25
+    ],
+    "anchor": "centre"
+   },
+   "notes": "port_n are empties at the socket centres on the antechamber face (asset +Z), on a 1.0 m ring, numbered clockwise from the top as seen from the antechamber. listen_lamps fill clockwise from the top."
+  },
+  "ia_cradle": {
+   "path": "assets/props/ia_cradle.glb",
+   "source": "blender/props/mech/ia_cradle.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 400,
+   "drawCalls": 3,
+   "materials": [
+    "m_prop",
+    "m_emis"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "cradle_lamp",
+    "mark_lamps"
+   ],
+   "lampSets": {
+    "cradle_lamp": 1,
+    "mark_lamps": 7
+   },
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "back centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.5,
+     1.1,
+     0.2
+    ],
+    "anchor": "back"
+   },
+   "notes": "Load-bearing. mark_lamps index 6 (the seventh disc) is dark until the proof."
+  },
+  "ia_proving_mark": {
+   "path": "assets/props/ia_proving_mark.glb",
+   "source": "blender/props/dress/ia_proving_mark.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 60,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "LM",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "zone",
+   "pivot": "centre at floor",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.5,
+     0.01,
+     0.5
+    ],
+    "anchor": "base"
+   },
+   "notes": "Embedded in the bore sector by the zone script; its glow is lamp set mark_glows on env_the_bore."
+  },
+  "prop_station_plate": {
+   "path": "assets/props/prop_station_plate.glb",
+   "source": "blender/props/mech/prop_station_plate.py",
+   "owner": "props_mech",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 220,
+   "drawCalls": 2,
+   "materials": [
+    "m_prop",
+    "m_emis"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "plate_lamp"
+   ],
+   "lampSets": {
+    "plate_lamp": 1
+   },
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "layout",
+   "pivot": "back centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.8,
+     0.8,
+     0.03
+    ],
+    "anchor": "back"
+   }
+  },
+  "prop_rim_stone": {
+   "path": "assets/props/prop_rim_stone.glb",
+   "source": "blender/props/dress/prop_rim_stone.py",
+   "owner": "props_dress",
+   "category": "props",
+   "priority": 0,
+   "triBudget": 240,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "coda"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.9,
+     0.12,
+     0.5
+    ],
+    "anchor": "base"
+   }
+  },
+  "weapon_revolver": {
+   "path": "assets/weapons/weapon_revolver.glb",
+   "source": "blender/weapons/weapon_revolver.py",
+   "owner": "weapons",
+   "category": "weapons",
+   "priority": 0,
+   "triBudget": 6000,
+   "drawCalls": 2,
+   "materials": [
+    "m_gun",
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "gun",
+    "cylinder",
+    "hammer",
+    "trigger",
+    "gate",
+    "ejector",
+    "round_1",
+    "round_2",
+    "round_3",
+    "round_4",
+    "round_5",
+    "round_6",
+    "arm_r",
+    "hand_r",
+    "thumb_r_1",
+    "thumb_r_2",
+    "index_r_1",
+    "index_r_2",
+    "grip_r",
+    "arm_l",
+    "hand_l",
+    "thumb_l_1",
+    "thumb_l_2",
+    "index_l_1",
+    "index_l_2",
+    "fingers_l",
+    "round_hand_lead",
+    "round_hand_line",
+    "round_hand_kept",
+    "kept_loop"
+   ],
+   "nodes": [
+    "gun_mesh",
+    "arms_mesh",
+    "gun",
+    "cylinder",
+    "hammer",
+    "round_1",
+    "round_2",
+    "round_3",
+    "round_4",
+    "round_5",
+    "round_6",
+    "kept_loop",
+    "muzzle",
+    "eject",
+    "cam_look"
+   ],
+   "codeDriven": [
+    "round_1",
+    "round_2",
+    "round_3",
+    "round_4",
+    "round_5",
+    "round_6",
+    "kept_loop"
+   ],
+   "animations": [
+    {
+     "name": "idle",
+     "loop": true,
+     "seconds": 3,
+     "priority": 0
+    },
+    {
+     "name": "sprint",
+     "loop": true,
+     "seconds": 0.68,
+     "priority": 0
+    },
+    {
+     "name": "draw",
+     "loop": false,
+     "seconds": 0.5,
+     "priority": 0
+    },
+    {
+     "name": "fire",
+     "loop": false,
+     "seconds": 0.48,
+     "priority": 0
+    },
+    {
+     "name": "dry_fire",
+     "loop": false,
+     "seconds": 0.15,
+     "priority": 0
+    },
+    {
+     "name": "reload_open",
+     "loop": false,
+     "seconds": 0.35,
+     "priority": 0
+    },
+    {
+     "name": "reload_round",
+     "loop": false,
+     "seconds": 0.3,
+     "priority": 0
+    },
+    {
+     "name": "reload_close",
+     "loop": false,
+     "seconds": 0.3,
+     "priority": 0
+    },
+    {
+     "name": "reload_fast_close",
+     "loop": false,
+     "seconds": 0.2,
+     "priority": 0
+    },
+    {
+     "name": "load_line",
+     "loop": false,
+     "seconds": 0.55,
+     "priority": 0
+    },
+    {
+     "name": "unload_line",
+     "loop": false,
+     "seconds": 0.35,
+     "priority": 0
+    },
+    {
+     "name": "load_kept",
+     "loop": false,
+     "seconds": 1.8,
+     "priority": 0
+    },
+    {
+     "name": "unload_kept",
+     "loop": false,
+     "seconds": 0.3,
+     "priority": 0
+    },
+    {
+     "name": "fire_kept",
+     "loop": false,
+     "seconds": 1.2,
+     "priority": 0
+    },
+    {
+     "name": "take_round",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground",
+    "coda"
+   ],
+   "placedBy": "code",
+   "pivot": "camera (authored in camera space, barrel toward -Z)",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.3,
+     0.3,
+     0.6
+    ],
+    "anchor": "centre"
+   },
+   "notes": "muzzle, eject, cam_look are empties. round_n and kept_loop are scaled by code (no clip may key them)."
+  },
+  "enemy_bider": {
+   "path": "assets/enemies/enemy_bider.glb",
+   "source": "blender/enemies/enemy_bider.py",
+   "owner": "enemies",
+   "category": "enemies",
+   "priority": 0,
+   "triBudget": 2500,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "hips",
+    "spine",
+    "chest",
+    "neck",
+    "head",
+    "shoulder_l",
+    "shoulder_r",
+    "upperarm_l",
+    "upperarm_r",
+    "forearm_l",
+    "forearm_r",
+    "hand_l",
+    "hand_r",
+    "thigh_l",
+    "thigh_r",
+    "shin_l",
+    "shin_r",
+    "foot_l",
+    "foot_r",
+    "coat_tail_l",
+    "coat_tail_r"
+   ],
+   "nodes": [
+    "root",
+    "head",
+    "crown",
+    "hand_socket_r"
+   ],
+   "animations": [
+    {
+     "name": "idle_stoop",
+     "loop": true,
+     "seconds": 2,
+     "priority": 0
+    },
+    {
+     "name": "run",
+     "loop": true,
+     "seconds": 0.62,
+     "priority": 0
+    },
+    {
+     "name": "circle_strafe",
+     "loop": true,
+     "seconds": 0.8,
+     "priority": 2,
+     "fallback": "run"
+    },
+    {
+     "name": "lunge_windup",
+     "loop": false,
+     "seconds": 0.5,
+     "priority": 0
+    },
+    {
+     "name": "lunge",
+     "loop": false,
+     "seconds": 0.35,
+     "priority": 0
+    },
+    {
+     "name": "lunge_recover",
+     "loop": false,
+     "seconds": 0.6,
+     "priority": 0
+    },
+    {
+     "name": "stumble",
+     "loop": false,
+     "seconds": 0.4,
+     "priority": 0
+    },
+    {
+     "name": "falter",
+     "loop": true,
+     "seconds": 1,
+     "priority": 2,
+     "fallback": "stumble"
+    },
+    {
+     "name": "die_back",
+     "loop": false,
+     "seconds": 0.9,
+     "priority": 0
+    },
+    {
+     "name": "sit_down",
+     "loop": false,
+     "seconds": 0.9,
+     "priority": 0
+    },
+    {
+     "name": "sit_breathe",
+     "loop": true,
+     "seconds": 4,
+     "priority": 1
+    },
+    {
+     "name": "sit_table",
+     "loop": true,
+     "seconds": 4,
+     "priority": 0
+    },
+    {
+     "name": "rise_from_seat",
+     "loop": false,
+     "seconds": 1.2,
+     "priority": 0
+    },
+    {
+     "name": "climb_out",
+     "loop": false,
+     "seconds": 1.2,
+     "priority": 0
+    },
+    {
+     "name": "scoop_kneel",
+     "loop": true,
+     "seconds": 2.4,
+     "priority": 0
+    },
+    {
+     "name": "kneel_to_stand",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    },
+    {
+     "name": "queue_stand",
+     "loop": true,
+     "seconds": 3,
+     "priority": 0
+    },
+    {
+     "name": "turn_about",
+     "loop": false,
+     "seconds": 1.5,
+     "priority": 0
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground"
+   ],
+   "placedBy": "code",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "capsule",
+    "size": [
+     0.5,
+     1.4,
+     0.5
+    ],
+    "anchor": "base"
+   },
+   "notes": "Faces +Z. Root motion is baked out of every clip (code moves it). crown and hand_socket_r are empties."
+  },
+  "bider_seated_static": {
+   "path": "assets/enemies/bider_seated_static.glb",
+   "source": "blender/enemies/bider_seated_static.py",
+   "owner": "enemies",
+   "category": "enemies",
+   "priority": 0,
+   "triBudget": 500,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground"
+   ],
+   "placedBy": "code",
+   "pivot": "ground contact",
+   "placeholder": {
+    "shape": "capsule",
+    "size": [
+     0.55,
+     0.85,
+     0.7
+    ],
+    "anchor": "base"
+   }
+  },
+  "bider_felled_static": {
+   "path": "assets/enemies/bider_felled_static.glb",
+   "source": "blender/enemies/bider_felled_static.py",
+   "owner": "enemies",
+   "category": "enemies",
+   "priority": 0,
+   "triBudget": 450,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground"
+   ],
+   "placedBy": "code",
+   "pivot": "ground contact",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1.5,
+     0.35,
+     0.6
+    ],
+    "anchor": "base"
+   }
+  },
+  "bider_table_static": {
+   "path": "assets/enemies/bider_table_static.glb",
+   "source": "blender/enemies/bider_table_static.py",
+   "owner": "enemies",
+   "category": "enemies",
+   "priority": 0,
+   "triBudget": 600,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "layout",
+   "pivot": "seat (floor under the chair)",
+   "placeholder": {
+    "shape": "capsule",
+    "size": [
+     0.5,
+     1.25,
+     0.6
+    ],
+    "anchor": "base"
+   }
+  },
+  "enemy_transit": {
+   "path": "assets/enemies/enemy_transit.glb",
+   "source": "blender/enemies/enemy_transit.py",
+   "owner": "enemies",
+   "category": "enemies",
+   "priority": 0,
+   "triBudget": 2000,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "head",
+    "leg_a_upper",
+    "leg_a_lower",
+    "leg_b_upper",
+    "leg_b_lower",
+    "leg_c_upper",
+    "leg_c_lower"
+   ],
+   "nodes": [
+    "root",
+    "head",
+    "lens",
+    "stake_muzzle"
+   ],
+   "animations": [
+    {
+     "name": "idle_scan",
+     "loop": true,
+     "seconds": 3,
+     "priority": 1
+    },
+    {
+     "name": "walk",
+     "loop": true,
+     "seconds": 0.9,
+     "priority": 0
+    },
+    {
+     "name": "emerge",
+     "loop": false,
+     "seconds": 1.2,
+     "priority": 0
+    },
+    {
+     "name": "plant",
+     "loop": false,
+     "seconds": 0.3,
+     "priority": 0
+    },
+    {
+     "name": "aim_hold",
+     "loop": true,
+     "seconds": 0.6,
+     "priority": 0
+    },
+    {
+     "name": "fire",
+     "loop": false,
+     "seconds": 0.25,
+     "priority": 0
+    },
+    {
+     "name": "flinch",
+     "loop": false,
+     "seconds": 0.25,
+     "priority": 1
+    },
+    {
+     "name": "sidestep_l",
+     "loop": false,
+     "seconds": 0.4,
+     "priority": 2,
+     "fallback": "walk"
+    },
+    {
+     "name": "sidestep_r",
+     "loop": false,
+     "seconds": 0.4,
+     "priority": 2,
+     "fallback": "walk"
+    },
+    {
+     "name": "die_fold",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface"
+   ],
+   "placedBy": "code",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     1.1,
+     1.9,
+     1.1
+    ],
+    "anchor": "base"
+   }
+  },
+  "proj_stake": {
+   "path": "assets/enemies/proj_stake.glb",
+   "source": "blender/enemies/proj_stake.py",
+   "owner": "enemies",
+   "category": "enemies",
+   "priority": 0,
+   "triBudget": 48,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [
+    "stake_hot",
+    "stake_cool"
+   ],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "surface",
+    "underground"
+   ],
+   "placedBy": "code",
+   "pivot": "tip",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     0.04,
+     0.04,
+     0.6
+    ],
+    "anchor": "centre"
+   },
+   "notes": "Shared pool: 8 in flight + 18 stuck (Transits and the Windlass)."
+  },
+  "enemy_tamper": {
+   "path": "assets/enemies/enemy_tamper.glb",
+   "source": "blender/boss/enemy_tamper.py",
+   "owner": "boss",
+   "category": "enemies",
+   "priority": 0,
+   "triBudget": 4000,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "pelvis",
+    "barrel",
+    "arm_r_upper",
+    "arm_r_ram",
+    "arm_l",
+    "leg_l_upper",
+    "leg_l_foot",
+    "leg_r_upper",
+    "leg_r_foot",
+    "vent_chest",
+    "vent_back"
+   ],
+   "nodes": [
+    "root",
+    "vent_chest_knot",
+    "vent_back_knot",
+    "ram_head",
+    "foot_spark"
+   ],
+   "animations": [
+    {
+     "name": "idle",
+     "loop": true,
+     "seconds": 2.4,
+     "priority": 0
+    },
+    {
+     "name": "walk",
+     "loop": true,
+     "seconds": 1.2,
+     "priority": 0
+    },
+    {
+     "name": "slam_windup",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    },
+    {
+     "name": "slam",
+     "loop": false,
+     "seconds": 0.3,
+     "priority": 0
+    },
+    {
+     "name": "slam_recover",
+     "loop": false,
+     "seconds": 1.5,
+     "priority": 0
+    },
+    {
+     "name": "charge_windup",
+     "loop": false,
+     "seconds": 0.8,
+     "priority": 0
+    },
+    {
+     "name": "charge",
+     "loop": true,
+     "seconds": 0.5,
+     "priority": 0
+    },
+    {
+     "name": "charge_stun",
+     "loop": false,
+     "seconds": 2,
+     "priority": 0
+    },
+    {
+     "name": "stagger",
+     "loop": false,
+     "seconds": 1.5,
+     "priority": 0
+    },
+    {
+     "name": "flinch_plate",
+     "loop": false,
+     "seconds": 0.2,
+     "priority": 1
+    },
+    {
+     "name": "die",
+     "loop": false,
+     "seconds": 2.2,
+     "priority": 0
+    },
+    {
+     "name": "pound_bulkhead",
+     "loop": true,
+     "seconds": 2.6,
+     "priority": 1
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "code",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1.6,
+     2.4,
+     1.4
+    ],
+    "anchor": "base"
+   },
+   "notes": "State line_stagger (GDD 7.3 revision 2) plays `stagger` at half speed while code holds vent_chest and vent_back open: both vent bones must be openable additively over any clip (key them only in stagger, charge_stun and die)."
+  },
+  "tamper_cold_static": {
+   "path": "assets/enemies/tamper_cold_static.glb",
+   "source": "blender/boss/tamper_cold_static.py",
+   "owner": "boss",
+   "category": "enemies",
+   "priority": 2,
+   "triBudget": 4000,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "VL",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "zone",
+   "pivot": "base centre",
+   "placeholder": {
+    "shape": "box",
+    "size": [
+     1.6,
+     2.4,
+     1.4
+    ],
+    "anchor": "base"
+   }
+  },
+  "boss_windlass": {
+   "path": "assets/boss/boss_windlass.glb",
+   "source": "blender/boss/boss_windlass.py",
+   "owner": "boss",
+   "category": "boss",
+   "priority": 0,
+   "triBudget": 8000,
+   "drawCalls": 3,
+   "materials": [
+    "m_prop",
+    "m_emis"
+   ],
+   "bake": "AO",
+   "skinned": true,
+   "bones": [
+    "root",
+    "arm_yaw",
+    "drum_spin",
+    "mouth_1",
+    "mouth_2",
+    "mouth_3",
+    "mouth_4",
+    "mouth_5",
+    "mouth_6",
+    "knot_1",
+    "knot_2",
+    "knot_3",
+    "knot_4",
+    "knot_5",
+    "knot_6",
+    "guard",
+    "guard_piece_1",
+    "guard_piece_2",
+    "guard_piece_3",
+    "guard_piece_4",
+    "guard_piece_5",
+    "pawl_l",
+    "pawl_r",
+    "cable_a",
+    "cable_b",
+    "cable_c"
+   ],
+   "nodes": [
+    "arm_yaw",
+    "drum_spin",
+    "mouth_1",
+    "mouth_2",
+    "mouth_3",
+    "mouth_4",
+    "mouth_5",
+    "mouth_6",
+    "knot_1",
+    "knot_2",
+    "knot_3",
+    "knot_4",
+    "knot_5",
+    "knot_6",
+    "guard",
+    "pawl_l",
+    "pawl_r",
+    "knot_1_hit",
+    "knot_2_hit",
+    "knot_3_hit",
+    "knot_4_hit",
+    "knot_5_hit",
+    "knot_6_hit",
+    "pawl_l_hit",
+    "pawl_r_hit",
+    "muzzle_top",
+    "canister_muzzle",
+    "thread_anchor_1",
+    "thread_anchor_2",
+    "thread_anchor_3",
+    "thread_anchor_4",
+    "thread_anchor_5",
+    "thread_anchor_6",
+    "body_mesh",
+    "boss_lamps",
+    "gauge"
+   ],
+   "lampSets": {
+    "boss_lamps": 14,
+    "gauge": 26
+   },
+   "codeDriven": [
+    "arm_yaw",
+    "drum_spin",
+    "knot_1",
+    "knot_2",
+    "knot_3",
+    "knot_4",
+    "knot_5",
+    "knot_6",
+    "pawl_l",
+    "pawl_r"
+   ],
+   "animations": [
+    {
+     "name": "idle_sway",
+     "loop": true,
+     "seconds": 4,
+     "priority": 1
+    },
+    {
+     "name": "present",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    },
+    {
+     "name": "mouth_open",
+     "loop": false,
+     "seconds": 0.2,
+     "priority": 0
+    },
+    {
+     "name": "mouth_close",
+     "loop": false,
+     "seconds": 0.2,
+     "priority": 0
+    },
+    {
+     "name": "guard_slide_on",
+     "loop": false,
+     "seconds": 1.2,
+     "priority": 0
+    },
+    {
+     "name": "guard_drop",
+     "loop": false,
+     "seconds": 0.6,
+     "priority": 0
+    },
+    {
+     "name": "guard_raise",
+     "loop": false,
+     "seconds": 0.6,
+     "priority": 0
+    },
+    {
+     "name": "guard_shatter",
+     "loop": false,
+     "seconds": 1,
+     "priority": 0
+    },
+    {
+     "name": "sag_death",
+     "loop": false,
+     "seconds": 3,
+     "priority": 0
+    }
+   ],
+   "collision": "none",
+   "instanced": false,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "code",
+   "pivot": "bore axis at chamber floor level, arm heading +Z at yaw 0",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     5,
+     13,
+     5
+    ],
+    "anchor": "base"
+   },
+   "notes": "One rigid-skinned body mesh (body_mesh) plus two lamp-set meshes: 3 draw calls. boss_lamps indices: 0-5 mouth lamps 1-6, 6-11 knot cores 1-6, 12 pawl_l core, 13 pawl_r core. gauge indices 0-25 = pips (10, 10, 6). mouth_open / mouth_close are authored on mouth_1 and retargeted by code; idle_sway keys root only."
+  },
+  "proj_canister": {
+   "path": "assets/boss/proj_canister.glb",
+   "source": "blender/boss/proj_canister.py",
+   "owner": "boss",
+   "category": "boss",
+   "priority": 0,
+   "triBudget": 80,
+   "drawCalls": 1,
+   "materials": [
+    "m_prop"
+   ],
+   "bake": "AO",
+   "skinned": false,
+   "nodes": [],
+   "animations": [],
+   "collision": "none",
+   "instanced": true,
+   "lightmapped": false,
+   "zone": null,
+   "sets": [
+    "underground"
+   ],
+   "placedBy": "code",
+   "pivot": "centre",
+   "placeholder": {
+    "shape": "cylinder",
+    "size": [
+     0.35,
+     0.3,
+     0.35
+    ],
+    "anchor": "centre"
+   }
+  }
+ },
+ "textures": {
+  "tx_frontier_trim": {
+   "path": "assets/tex/tx_frontier_trim.webp",
+   "source": "blender/tex/tx_frontier_trim.py",
+   "owner": "env_exterior",
+   "kind": "detail",
+   "size": [
+    1024,
+    512
+   ],
+   "format": "r8",
+   "colorSpace": "none",
+   "mips": true,
+   "wrap": "repeat",
+   "sets": [
+    "always"
+   ],
+   "gpuBytes": 699051,
+   "usedBy": [
+    "m_frontier"
+   ],
+   "regions": [
+    "plank_a",
+    "plank_b",
+    "plank_end",
+    "adobe",
+    "tin",
+    "strata",
+    "strap",
+    "cord",
+    "flat"
+   ],
+   "notes": "Region `flat` is a uniform 0.5 grey cell: embedded props and far scenery merged into a zone chunk point UV0 at it and carry their palette colour in COLOR_0, so they need no material of their own."
+  },
+  "tx_pellam_trim": {
+   "path": "assets/tex/tx_pellam_trim.webp",
+   "source": "blender/tex/tx_pellam_trim.py",
+   "owner": "env_interior",
+   "kind": "detail",
+   "size": [
+    1024,
+    512
+   ],
+   "format": "r8",
+   "colorSpace": "none",
+   "mips": true,
+   "wrap": "repeat",
+   "sets": [
+    "always"
+   ],
+   "gpuBytes": 699051,
+   "usedBy": [
+    "m_pellam"
+   ],
+   "regions": [
+    "panel",
+    "panel_rib",
+    "steel",
+    "floor",
+    "concrete",
+    "cable",
+    "flat"
+   ],
+   "notes": "Region `flat` is a uniform 0.5 grey cell: embedded props and far scenery merged into a zone chunk point UV0 at it and carry their palette colour in COLOR_0, so they need no material of their own."
+  },
+  "tx_sand": {
+   "path": "assets/tex/tx_sand.webp",
+   "source": "blender/tex/tx_sand.py",
+   "owner": "env_exterior",
+   "kind": "detail",
+   "size": [
+    512,
+    512
+   ],
+   "format": "r8",
+   "colorSpace": "none",
+   "mips": true,
+   "wrap": "repeat",
+   "sets": [
+    "always"
+   ],
+   "gpuBytes": 349525,
+   "usedBy": [
+    "m_sand"
+   ]
+  },
+  "tx_mask": {
+   "path": "assets/tex/tx_mask.webp",
+   "source": "blender/tex/tx_mask.py",
+   "owner": "props_dress",
+   "kind": "mask",
+   "size": [
+    1024,
+    512
+   ],
+   "format": "r8",
+   "colorSpace": "none",
+   "mips": true,
+   "wrap": "clamp",
+   "sets": [
+    "always"
+   ],
+   "gpuBytes": 699051,
+   "usedBy": [
+    "m_mask"
+   ],
+   "regions": [
+    "mark_cast",
+    "mark_brush_a",
+    "mark_brush_b",
+    "mark_brush_c",
+    "strike",
+    "numerals",
+    "wordmark",
+    "station",
+    "plate_lines",
+    "picto_daycell",
+    "picto_line",
+    "picto_charge",
+    "picto_misc",
+    "tally",
+    "family_marks",
+    "grille",
+    "louvre",
+    "card_edges",
+    "card_dowser"
+   ],
+   "notes": "Alpha-test 0.5 on the red channel. grille and louvre tile; give them their own UV island with repeat handled in geometry."
+  },
+  "tx_palette": {
+   "path": "assets/tex/tx_palette.webp",
+   "source": "blender/tex/tx_palette.py",
+   "owner": "props_dress",
+   "kind": "palette",
+   "size": [
+    256,
+    256
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": true,
+   "wrap": "clamp",
+   "sets": [
+    "always"
+   ],
+   "gpuBytes": 349525,
+   "usedBy": [
+    "m_flat",
+    "m_prop"
+   ],
+   "notes": "Built for real by the foundation pipeline in phase 2; props_dress owns later revisions."
+  },
+  "tx_palette_emis": {
+   "path": "assets/tex/tx_palette_emis.webp",
+   "source": "blender/tex/tx_palette_emis.py",
+   "owner": "props_dress",
+   "kind": "emissive",
+   "size": [
+    256,
+    256
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": true,
+   "wrap": "clamp",
+   "sets": [
+    "always"
+   ],
+   "gpuBytes": 349525,
+   "usedBy": [
+    "m_emis",
+    "m_prop"
+   ],
+   "notes": "Built for real by the foundation pipeline in phase 2; props_dress owns later revisions."
+  },
+  "tx_gun": {
+   "path": "assets/tex/tx_gun.webp",
+   "source": "blender/tex/tx_gun.py",
+   "owner": "weapons",
+   "kind": "albedo",
+   "size": [
+    1024,
+    512
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": true,
+   "wrap": "clamp",
+   "sets": [
+    "always"
+   ],
+   "gpuBytes": 2796203,
+   "usedBy": [
+    "m_gun"
+   ],
+   "notes": "RGB albedo, A = gloss mask."
+  },
+  "tx_matcap_steel": {
+   "path": "assets/tex/tx_matcap_steel.webp",
+   "source": "blender/tex/tx_matcap_steel.py",
+   "owner": "weapons",
+   "kind": "matcap",
+   "size": [
+    256,
+    256
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": true,
+   "wrap": "clamp",
+   "sets": [
+    "always"
+   ],
+   "gpuBytes": 349525,
+   "usedBy": [
+    "m_gun"
+   ]
+  },
+  "tx_fx": {
+   "path": "assets/tex/tx_fx.webp",
+   "source": "tools/gen_fx_atlas.mjs",
+   "owner": "render",
+   "kind": "fx",
+   "size": [
+    1024,
+    512
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": true,
+   "wrap": "clamp",
+   "sets": [
+    "always"
+   ],
+   "gpuBytes": 2796203,
+   "usedBy": [
+    "vfx"
+   ],
+   "regions": [
+    "flash_a",
+    "flash_b",
+    "flash_c",
+    "flash_d",
+    "smoke_a",
+    "smoke_b",
+    "dust_a",
+    "dust_b",
+    "spark",
+    "soft_dot",
+    "star4",
+    "shard",
+    "splinter",
+    "sand_pour",
+    "mote_cluster",
+    "dec_wood",
+    "dec_adobe",
+    "dec_metal",
+    "dec_ceramic",
+    "dec_stone"
+   ],
+   "notes": "Row A: four 256 px cells; rows B-C: sixteen 128 px cells (ART_BIBLE 9.1). Drawn by script with sharp; premultiplied alpha."
+  },
+  "tx_noise": {
+   "path": "assets/tex/tx_noise.webp",
+   "source": "tools/gen_fx_atlas.mjs",
+   "owner": "render",
+   "kind": "noise",
+   "size": [
+    128,
+    128
+   ],
+   "format": "r8",
+   "colorSpace": "none",
+   "mips": true,
+   "wrap": "repeat",
+   "sets": [
+    "always"
+   ],
+   "gpuBytes": 21845,
+   "usedBy": [
+    "world",
+    "vfx"
+   ]
+  },
+  "lm_surface": {
+   "path": "assets/lm/lm_surface.webp",
+   "source": "blender/env_exterior/bake_surface.py",
+   "owner": "env_exterior",
+   "kind": "lightmap",
+   "size": [
+    2048,
+    2048
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": false,
+   "wrap": "clamp",
+   "sets": [
+    "surface"
+   ],
+   "gpuBytes": 16777216,
+   "lightmapScale": 2,
+   "uv": 1,
+   "neutralTexel": {
+    "px": [
+     0,
+     0,
+     4,
+     4
+    ],
+    "uv": [
+     0.0009765625,
+     0.0009765625
+    ],
+    "value": 1
+   },
+   "notes": "Shared by env_the_lip and env_plenty_street (exterior). One bake scene holds both zones."
+  },
+  "lm_tally": {
+   "path": "assets/lm/lm_tally.webp",
+   "source": "blender/env_interior/env_tally_house.py",
+   "owner": "env_interior",
+   "kind": "lightmap",
+   "size": [
+    1024,
+    1024
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": false,
+   "wrap": "clamp",
+   "sets": [
+    "surface"
+   ],
+   "gpuBytes": 4194304,
+   "lightmapScale": 2,
+   "uv": 1,
+   "neutralTexel": {
+    "px": [
+     0,
+     0,
+     4,
+     4
+    ],
+    "uv": [
+     0.001953125,
+     0.001953125
+    ],
+    "value": 1
+   }
+  },
+  "lm_tally_hatch": {
+   "path": "assets/lm/lm_tally_hatch.webp",
+   "source": "blender/env_interior/env_tally_house.py",
+   "owner": "env_interior",
+   "kind": "lightlayer",
+   "size": [
+    512,
+    512
+   ],
+   "format": "r8",
+   "colorSpace": "none",
+   "mips": false,
+   "wrap": "clamp",
+   "sets": [
+    "surface"
+   ],
+   "gpuBytes": 262144,
+   "lightmapScale": 2,
+   "uv": 1,
+   "neutralTexel": {
+    "px": [
+     0,
+     0,
+     4,
+     4
+    ],
+    "uv": [
+     0.00390625,
+     0.00390625
+    ],
+    "value": 0
+   },
+   "notes": "Greyscale aqua up-light from the open hatch; same UV1 as lm_tally; tinted aqua and faded in by weight (hatch_powered)."
+  },
+  "lm_gallery": {
+   "path": "assets/lm/lm_gallery.webp",
+   "source": "blender/env_interior/env_the_gallery.py",
+   "owner": "env_interior",
+   "kind": "lightmap",
+   "size": [
+    1024,
+    1024
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": false,
+   "wrap": "clamp",
+   "sets": [
+    "underground"
+   ],
+   "gpuBytes": 4194304,
+   "lightmapScale": 2,
+   "uv": 1,
+   "neutralTexel": {
+    "px": [
+     0,
+     0,
+     4,
+     4
+    ],
+    "uv": [
+     0.001953125,
+     0.001953125
+    ],
+    "value": 1
+   }
+  },
+  "lm_hall": {
+   "path": "assets/lm/lm_hall.webp",
+   "source": "blender/env_interior/env_lift_hall.py",
+   "owner": "env_interior",
+   "kind": "lightmap",
+   "size": [
+    1024,
+    1024
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": false,
+   "wrap": "clamp",
+   "sets": [
+    "underground"
+   ],
+   "gpuBytes": 4194304,
+   "lightmapScale": 2,
+   "uv": 1,
+   "neutralTexel": {
+    "px": [
+     0,
+     0,
+     4,
+     4
+    ],
+    "uv": [
+     0.001953125,
+     0.001953125
+    ],
+    "value": 1
+   }
+  },
+  "lm_bore": {
+   "path": "assets/lm/lm_bore.webp",
+   "source": "blender/env_interior/env_the_bore.py",
+   "owner": "env_interior",
+   "kind": "lightmap",
+   "size": [
+    1024,
+    1024
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": false,
+   "wrap": "clamp",
+   "sets": [
+    "underground"
+   ],
+   "gpuBytes": 4194304,
+   "lightmapScale": 2,
+   "uv": 1,
+   "neutralTexel": {
+    "px": [
+     0,
+     0,
+     4,
+     4
+    ],
+    "uv": [
+     0.001953125,
+     0.001953125
+    ],
+    "value": 1
+   },
+   "notes": "Fill layer: six aqua bay lamps, embers, cradle lamp, AO. No bore light in this layer."
+  },
+  "lm_bore_glow": {
+   "path": "assets/lm/lm_bore_glow.webp",
+   "source": "blender/env_interior/env_the_bore.py",
+   "owner": "env_interior",
+   "kind": "lightlayer",
+   "size": [
+    1024,
+    1024
+   ],
+   "format": "r8",
+   "colorSpace": "none",
+   "mips": false,
+   "wrap": "clamp",
+   "sets": [
+    "underground"
+   ],
+   "gpuBytes": 1048576,
+   "lightmapScale": 2,
+   "uv": 1,
+   "neutralTexel": {
+    "px": [
+     0,
+     0,
+     4,
+     4
+    ],
+    "uv": [
+     0.001953125,
+     0.001953125
+    ],
+    "value": 0
+   },
+   "notes": "Greyscale light from the bore alone; tinted violet -> aqua by wrong_fade (bottom-up by world height)."
+  },
+  "lm_rim": {
+   "path": "assets/lm/lm_rim.webp",
+   "source": "blender/env_exterior/env_far_rim.py",
+   "owner": "env_exterior",
+   "kind": "lightmap",
+   "size": [
+    512,
+    512
+   ],
+   "format": "rgba8",
+   "colorSpace": "srgb",
+   "mips": false,
+   "wrap": "clamp",
+   "sets": [
+    "coda"
+   ],
+   "gpuBytes": 1048576,
+   "lightmapScale": 2,
+   "uv": 1,
+   "neutralTexel": {
+    "px": [
+     0,
+     0,
+     4,
+     4
+    ],
+    "uv": [
+     0.00390625,
+     0.00390625
+    ],
+    "value": 1
+   }
+  }
+ },
+ "tiers": {
+  "min": {
+   "userSelectable": false,
+   "composer": false,
+   "antialias": "context_msaa",
+   "bloom": false,
+   "sunShadowMap": false,
+   "maxPixelRatio": 1,
+   "minPixelRatio": 0.5,
+   "maxBufferHeight": 648,
+   "maxBufferPixels": 746496,
+   "textureBudgetMB": 64,
+   "drawCalls": {
+    "typical": 100,
+    "worst": 150
+   },
+   "triangles": 120000,
+   "fullScreenDraws": 0,
+   "targets": [
+    {
+     "name": "canvas colour, 4 samples + resolve",
+     "bytesPerPixel": 20
+    },
+    {
+     "name": "canvas depth, 4 samples",
+     "bytesPerPixel": 16
+    }
+   ],
+   "notes": "Hidden emergency tier: no composer; Neutral tone map + grade inlined into every material through CustomToneMapping; context MSAA when the context was created for this tier (boot or ?tier=min), none after a runtime demotion.",
+   "bytesPerPixel": 36,
+   "renderTargetBytes": 26873856
+  },
+  "low": {
+   "userSelectable": true,
+   "composer": true,
+   "antialias": "none",
+   "bloom": false,
+   "sunShadowMap": false,
+   "maxPixelRatio": 1,
+   "minPixelRatio": 0.5,
+   "maxBufferHeight": 768,
+   "maxBufferPixels": 1049088,
+   "textureBudgetMB": 64,
+   "drawCalls": {
+    "typical": 100,
+    "worst": 150
+   },
+   "triangles": 120000,
+   "fullScreenDraws": 1,
+   "targets": [
+    {
+     "name": "canvas colour + depth",
+     "bytesPerPixel": 8
+    },
+    {
+     "name": "two RGBA16F scene buffers",
+     "bytesPerPixel": 16
+    },
+    {
+     "name": "scene depth",
+     "bytesPerPixel": 4
+    }
+   ],
+   "bytesPerPixel": 28,
+   "renderTargetBytes": 29374464
+  },
+  "high": {
+   "userSelectable": true,
+   "composer": true,
+   "antialias": "fxaa",
+   "bloom": true,
+   "sunShadowMap": true,
+   "maxPixelRatio": 1.5,
+   "minPixelRatio": 0.7,
+   "maxBufferHeight": 1080,
+   "maxBufferPixels": 2073600,
+   "textureBudgetMB": 128,
+   "drawCalls": {
+    "typical": 220,
+    "worst": 220
+   },
+   "triangles": 400000,
+   "fullScreenDraws": 12,
+   "targets": [
+    {
+     "name": "canvas colour + depth",
+     "bytesPerPixel": 8
+    },
+    {
+     "name": "two RGBA16F scene buffers",
+     "bytesPerPixel": 16
+    },
+    {
+     "name": "scene depth",
+     "bytesPerPixel": 4
+    },
+    {
+     "name": "half-resolution RGBA16F luminance",
+     "bytesPerPixel": 2
+    },
+    {
+     "name": "bloom mip chain, 5 levels down and up",
+     "bytesPerPixel": 5.33
+    }
+   ],
+   "fixed": [
+    {
+     "name": "1024 x 1024 sun shadow map (depth + colour)",
+     "bytes": 8388608
+    }
+   ],
+   "bytesPerPixel": 35.33,
+   "renderTargetBytes": 81648896
+  }
+ },
+ "allowances": {
+  "gunTris": 6000,
+  "gunDrawCalls": 2,
+  "fxTris": 2000,
+  "fxDrawCalls": {
+   "typical": 6,
+   "worst": 11
+  },
+  "skyDrawCalls": 1,
+  "staticBodyTris": 500,
+  "staticBodyDrawCalls": 2,
+  "bossAddBodies": 15,
+  "projectileTris": 1488,
+  "projectileDrawCalls": 3,
+  "pickupDropTris": 1080,
+  "liveCap": 6,
+  "overlaps": [
+   {
+    "encounters": [
+     "enc_file",
+     "enc_matador"
+    ],
+    "why": "wave B of enc_file opens door_gallery_far: the player can reach trg_enc_matador with Biders of the File still up"
+   }
+  ]
+ },
+ "zones": {
+  "the_lip": {
+   "set": "surface",
+   "env": "env_the_lip",
+   "chunks": [
+    "chunk_lip_rock",
+    "chunk_lip_upper",
+    "chunk_lip_mid",
+    "chunk_lip_gate"
+   ],
+   "cells": [
+    "cell_lip_gully",
+    "cell_lip_gate"
+   ],
+   "dressing": {
+    "tris": 1000,
+    "drawCalls": 2,
+    "assets": [
+     "prop_bottle",
+     "prop_sack"
+    ]
+   },
+   "triangles": 110632,
+   "drawCalls": {
+    "typical": 65,
+    "worst": 72
+   }
+  },
+  "plenty_street": {
+   "set": "surface",
+   "env": "env_plenty_street",
+   "chunks": [
+    "chunk_st_east",
+    "chunk_st_west",
+    "chunk_st_yard",
+    "chunk_st_works"
+   ],
+   "cells": [
+    "cell_street",
+    "cell_yard_door",
+    "cell_yard"
+   ],
+   "dressing": {
+    "tris": 6000,
+    "drawCalls": 6,
+    "assets": [
+     "prop_lantern",
+     "prop_bottle",
+     "prop_crate",
+     "prop_barrel",
+     "prop_sack",
+     "prop_strain_cloth"
+    ]
+   },
+   "triangles": 115781,
+   "drawCalls": {
+    "typical": 75,
+    "worst": 81
+   }
+  },
+  "tally_house": {
+   "set": "surface",
+   "env": "env_tally_house",
+   "chunks": [
+    "chunk_ty_hall"
+   ],
+   "cells": [
+    "cell_tally_seam",
+    "cell_tally"
+   ],
+   "dressing": {
+    "tris": 2000,
+    "drawCalls": 3,
+    "assets": [
+     "prop_lantern",
+     "prop_bottle",
+     "prop_sack"
+    ]
+   },
+   "triangles": 78297,
+   "drawCalls": {
+    "typical": 74,
+    "worst": 79
+   }
+  },
+  "the_gallery": {
+   "set": "underground",
+   "env": "env_the_gallery",
+   "chunks": [
+    "chunk_gl_stair",
+    "chunk_gl_bay",
+    "chunk_gl_gallery"
+   ],
+   "cells": [
+    "cell_gallery_stair",
+    "cell_gallery"
+   ],
+   "dressing": {
+    "tris": 6000,
+    "drawCalls": 5,
+    "assets": [
+     "prop_coat_hung",
+     "prop_hat_hung",
+     "prop_boots_pair",
+     "prop_crate"
+    ]
+   },
+   "triangles": 117500,
+   "drawCalls": {
+    "typical": 83,
+    "worst": 91
+   }
+  },
+  "lift_hall": {
+   "set": "underground",
+   "env": "env_lift_hall",
+   "chunks": [
+    "chunk_lh_hall"
+   ],
+   "cells": [
+    "cell_hall"
+   ],
+   "dressing": {
+    "tris": 2000,
+    "drawCalls": 3,
+    "assets": [
+     "prop_crate",
+     "prop_barrel"
+    ]
+   },
+   "triangles": 107875,
+   "drawCalls": {
+    "typical": 80,
+    "worst": 88
+   }
+  },
+  "the_bore": {
+   "set": "underground",
+   "env": "env_the_bore",
+   "chunks": [
+    "chunk_bo_ante",
+    "chunk_bo_chamber"
+   ],
+   "cells": [
+    "cell_bore"
+   ],
+   "dressing": {
+    "tris": 1000,
+    "drawCalls": 2,
+    "assets": [
+     "prop_crate",
+     "prop_barrel"
+    ]
+   },
+   "triangles": 80808,
+   "drawCalls": {
+    "typical": 64,
+    "worst": 72
+   }
+  },
+  "far_rim": {
+   "set": "coda",
+   "env": "env_far_rim",
+   "chunks": [
+    "chunk_rim_ledge"
+   ],
+   "cells": [
+    "cell_rim"
+   ],
+   "dressing": {
+    "tris": 500,
+    "drawCalls": 1,
+    "assets": []
+   },
+   "triangles": 27024,
+   "drawCalls": {
+    "typical": 21,
+    "worst": 26
+   }
+  }
+ },
+ "visibility": {
+  "units": {
+   "chunk_lip_rock": {
+    "asset": "env_the_lip",
+    "zone": "the_lip",
+    "tris": 8000,
+    "drawCalls": 1,
+    "box": {
+     "min": [
+      0,
+      -1,
+      -9
+     ],
+     "max": [
+      32,
+      26,
+      111
+     ]
+    },
+    "part": "high"
+   },
+   "chunk_lip_upper": {
+    "asset": "env_the_lip",
+    "zone": "the_lip",
+    "tris": 7000,
+    "drawCalls": 3,
+    "box": {
+     "min": [
+      0,
+      -1,
+      54
+     ],
+     "max": [
+      32,
+      26,
+      111
+     ]
+    },
+    "part": "low"
+   },
+   "chunk_lip_mid": {
+    "asset": "env_the_lip",
+    "zone": "the_lip",
+    "tris": 4000,
+    "drawCalls": 2,
+    "box": {
+     "min": [
+      0,
+      -1,
+      30
+     ],
+     "max": [
+      32,
+      26,
+      54
+     ]
+    },
+    "part": "low"
+   },
+   "chunk_lip_gate": {
+    "asset": "env_the_lip",
+    "zone": "the_lip",
+    "tris": 8000,
+    "drawCalls": 4,
+    "box": {
+     "min": [
+      0,
+      -1,
+      -9
+     ],
+     "max": [
+      32,
+      26,
+      30
+     ]
+    },
+    "part": "low"
+   },
+   "chunk_st_east": {
+    "asset": "env_plenty_street",
+    "zone": "plenty_street",
+    "tris": 16000,
+    "drawCalls": 4,
+    "box": {
+     "min": [
+      -37,
+      -1,
+      -16
+     ],
+     "max": [
+      0,
+      16,
+      16
+     ]
+    }
+   },
+   "chunk_st_west": {
+    "asset": "env_plenty_street",
+    "zone": "plenty_street",
+    "tris": 16000,
+    "drawCalls": 3,
+    "box": {
+     "min": [
+      -80,
+      -1,
+      -16
+     ],
+     "max": [
+      -37,
+      16,
+      16
+     ]
+    }
+   },
+   "chunk_st_yard": {
+    "asset": "env_plenty_street",
+    "zone": "plenty_street",
+    "tris": 14000,
+    "drawCalls": 3,
+    "box": {
+     "min": [
+      -111,
+      -1,
+      -16
+     ],
+     "max": [
+      -80,
+      20,
+      16
+     ]
+    }
+   },
+   "chunk_st_works": {
+    "asset": "env_plenty_street",
+    "zone": "plenty_street",
+    "tris": 8000,
+    "drawCalls": 2,
+    "box": {
+     "min": [
+      -111,
+      -1,
+      -16
+     ],
+     "max": [
+      -80,
+      20,
+      16
+     ]
+    },
+    "part": "high",
+    "solids": [
+     "yd_drum",
+     "yd_pump_tower",
+     "yd_tank",
+     "yd_tank_deck",
+     "yd_tank_boards",
+     "yd_tank_ramp",
+     "yd_tank_stilt_1",
+     "yd_tank_stilt_2",
+     "yd_tank_stilt_3",
+     "yd_tank_stilt_4"
+    ]
+   },
+   "chunk_rim_ledge": {
+    "asset": "env_far_rim",
+    "zone": "far_rim",
+    "tris": 14000,
+    "drawCalls": 3,
+    "box": {
+     "min": [
+      -2,
+      17,
+      100
+     ],
+     "max": [
+      30,
+      25,
+      121
+     ]
+    }
+   },
+   "rim_town_card": {
+    "asset": "rim_town_card",
+    "zone": "far_rim",
+    "tris": 600,
+    "drawCalls": 2
+   },
+   "env_backdrop_day": {
+    "asset": "env_backdrop_day",
+    "zone": null,
+    "tris": 2500,
+    "drawCalls": 1
+   },
+   "env_backdrop_dusk": {
+    "asset": "env_backdrop_dusk",
+    "zone": null,
+    "tris": 2000,
+    "drawCalls": 1
+   },
+   "chunk_ty_hall": {
+    "asset": "env_tally_house",
+    "zone": "tally_house",
+    "tris": 17000,
+    "drawCalls": 3,
+    "box": {
+     "min": [
+      -97,
+      -1,
+      -38
+     ],
+     "max": [
+      -81,
+      6,
+      -14
+     ]
+    }
+   },
+   "chunk_gl_stair": {
+    "asset": "env_the_gallery",
+    "zone": "the_gallery",
+    "tris": 6000,
+    "drawCalls": 2,
+    "box": {
+     "min": [
+      -95,
+      -13,
+      -36
+     ],
+     "max": [
+      -83,
+      0,
+      -18.5
+     ]
+    }
+   },
+   "chunk_gl_bay": {
+    "asset": "env_the_gallery",
+    "zone": "the_gallery",
+    "tris": 6000,
+    "drawCalls": 3,
+    "box": {
+     "min": [
+      -95,
+      -13,
+      -18.5
+     ],
+     "max": [
+      -81,
+      -6,
+      -9
+     ]
+    }
+   },
+   "chunk_gl_gallery": {
+    "asset": "env_the_gallery",
+    "zone": "the_gallery",
+    "tris": 20000,
+    "drawCalls": 3,
+    "box": {
+     "min": [
+      -81,
+      -13,
+      -19
+     ],
+     "max": [
+      -18,
+      -6,
+      -9
+     ]
+    }
+   },
+   "chunk_lh_hall": {
+    "asset": "env_lift_hall",
+    "zone": "lift_hall",
+    "tris": 36000,
+    "drawCalls": 3,
+    "box": {
+     "min": [
+      -19,
+      -16,
+      -29
+     ],
+     "max": [
+      28,
+      -2,
+      8
+     ]
+    }
+   },
+   "chunk_bo_ante": {
+    "asset": "env_the_bore",
+    "zone": "the_bore",
+    "tris": 8000,
+    "drawCalls": 3,
+    "box": {
+     "min": [
+      -3,
+      -45,
+      64
+     ],
+     "max": [
+      31,
+      -29,
+      80.3
+     ]
+    }
+   },
+   "chunk_bo_chamber": {
+    "asset": "env_the_bore",
+    "zone": "the_bore",
+    "tris": 32000,
+    "drawCalls": 3,
+    "box": {
+     "min": [
+      -3,
+      -51,
+      80.3
+     ],
+     "max": [
+      31,
+      -29,
+      117
+     ]
+    }
+   }
+  },
+  "cells": [
+   {
+    "id": "cell_lip_gully",
+    "zone": "the_lip",
+    "box": {
+     "min": [
+      0,
+      -1,
+      9
+     ],
+     "max": [
+      32,
+      26,
+      111
+     ]
+    },
+    "show": [
+     "chunk_lip_rock",
+     "chunk_lip_upper",
+     "chunk_lip_mid",
+     "chunk_lip_gate",
+     "chunk_st_east",
+     "env_backdrop_day"
+    ],
+    "why": "The overhang and the four reaches down to the forecourt. The 12 to 22 m gully walls hide the town: only the tops of the first facades show over the gate wall.",
+    "budget": {
+     "when": "always",
+     "staticTris": 45500,
+     "dynamicTris": 35166,
+     "triangles": 80666,
+     "parts": {
+      "props": 5320,
+      "dressing": 2778,
+      "live": 12500,
+      "actors": 0,
+      "bodies": 4000
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 19,
+      "props": 10,
+      "dressing": 8,
+      "enemies": 5,
+      "bodies": 2,
+      "projectiles": 3,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 55,
+      "worst": 62
+     }
+    }
+   },
+   {
+    "id": "cell_lip_gate",
+    "zone": "the_lip",
+    "show": [
+     "chunk_lip_rock",
+     "chunk_lip_upper",
+     "chunk_lip_mid",
+     "chunk_lip_gate",
+     "chunk_st_east",
+     "chunk_st_west",
+     "chunk_st_works",
+     "env_backdrop_day"
+    ],
+    "accept": [
+     {
+      "unit": "chunk_st_yard",
+      "why": "the yard floor and walls can be glimpsed only through door_yard_gate and ia_yard_door together, 80 m or more away (both are shut the first time she stands here); the yard skyline (drum, wind-pump, tank) is chunk_st_works and is drawn"
+     }
+    ],
+    "why": "The forecourt: the whole street is seen through the jug gate, and the gully back up to the overhang.",
+    "budget": {
+     "when": "always",
+     "staticTris": 69500,
+     "dynamicTris": 41132,
+     "triangles": 110632,
+     "parts": {
+      "props": 6620,
+      "dressing": 5444,
+      "live": 12500,
+      "actors": 0,
+      "bodies": 6000
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 24,
+      "props": 15,
+      "dressing": 8,
+      "enemies": 5,
+      "bodies": 2,
+      "projectiles": 3,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 65,
+      "worst": 72
+     }
+    }
+   },
+   {
+    "id": "cell_street",
+    "zone": "plenty_street",
+    "box": {
+     "min": [
+      -80,
+      -1,
+      -16
+     ],
+     "max": [
+      0,
+      16,
+      16
+     ]
+    },
+    "show": [
+     "chunk_st_east",
+     "chunk_st_west",
+     "chunk_st_yard",
+     "chunk_st_works",
+     "chunk_lip_rock",
+     "chunk_lip_gate",
+     "env_backdrop_day"
+    ],
+    "accept": [
+     {
+      "unit": "chunk_ty_hall",
+      "plug": "plug_door_tally",
+      "why": "a sliver through door_alley and door_tally: the doorway shows plug_door_tally"
+     }
+    ],
+    "why": "Front Street and the gate court. Of the lip only the skyline rock, the gate wall, the forecourt and the last reach can be seen (the blockout rays reach nothing above z = 30 at path level).",
+    "budget": {
+     "when": "always",
+     "staticTris": 72500,
+     "dynamicTris": 43281,
+     "triangles": 115781,
+     "parts": {
+      "props": 7620,
+      "dressing": 6593,
+      "live": 12500,
+      "actors": 0,
+      "bodies": 6000
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 22,
+      "props": 24,
+      "dressing": 8,
+      "enemies": 5,
+      "bodies": 2,
+      "projectiles": 3,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 72,
+      "worst": 79
+     }
+    }
+   },
+   {
+    "id": "cell_yard_door",
+    "zone": "plenty_street",
+    "box": {
+     "min": [
+      -97,
+      -1,
+      -16
+     ],
+     "max": [
+      -81,
+      16,
+      -4
+     ]
+    },
+    "show": [
+     "chunk_st_west",
+     "chunk_st_yard",
+     "chunk_st_works",
+     "chunk_lip_rock",
+     "env_backdrop_day"
+    ],
+    "showIf": [
+     {
+      "units": [
+       "chunk_ty_hall"
+      ],
+      "door": "door_tally",
+      "state": "not_closed",
+      "notDuring": [
+       "enc_street",
+       "enc_yard"
+      ],
+      "why": "door_tally opens only after the sighting, which needs enc_yard clear"
+     },
+     {
+      "units": [
+       "chunk_st_east"
+      ],
+      "door": "door_tally",
+      "state": "closed",
+      "why": "the east half of the street (60 m off: about 1 % of the blockout rays from this strip reach it, through both gateways) is traded for the hall interior at the moment the door opens"
+     }
+    ],
+    "why": "The 12 m strip in front of the Tally House door: the only place the hall interior is drawn from outside.",
+    "budget": {
+     "when": "door_tally open",
+     "staticTris": 65500,
+     "dynamicTris": 39547,
+     "triangles": 105047,
+     "parts": {
+      "props": 10460,
+      "dressing": 6519,
+      "live": 5000,
+      "actors": 0,
+      "bodies": 7000
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 18,
+      "props": 30,
+      "dressing": 11,
+      "enemies": 2,
+      "bodies": 2,
+      "projectiles": 3,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 75,
+      "worst": 81
+     }
+    }
+   },
+   {
+    "id": "cell_yard",
+    "zone": "plenty_street",
+    "show": [
+     "chunk_st_east",
+     "chunk_st_west",
+     "chunk_st_yard",
+     "chunk_st_works",
+     "chunk_lip_rock",
+     "chunk_lip_gate",
+     "env_backdrop_day"
+    ],
+    "accept": [
+     {
+      "unit": "chunk_ty_hall",
+      "plug": "plug_door_tally",
+      "why": "from the rest of the yard the open Tally House door is a dark doorway: plug_door_tally"
+     }
+    ],
+    "why": "The pump yard.",
+    "budget": {
+     "when": "always",
+     "staticTris": 72500,
+     "dynamicTris": 43281,
+     "triangles": 115781,
+     "parts": {
+      "props": 7620,
+      "dressing": 6593,
+      "live": 12500,
+      "actors": 0,
+      "bodies": 6000
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 22,
+      "props": 24,
+      "dressing": 8,
+      "enemies": 5,
+      "bodies": 2,
+      "projectiles": 3,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 72,
+      "worst": 79
+     }
+    }
+   },
+   {
+    "id": "cell_tally_seam",
+    "zone": "tally_house",
+    "box": {
+     "min": [
+      -97,
+      -5.5,
+      -38
+     ],
+     "max": [
+      -81,
+      -0.35,
+      -14
+     ]
+    },
+    "show": [
+     "chunk_ty_hall"
+    ],
+    "showIf": [
+     {
+      "units": [
+       "chunk_gl_stair"
+      ],
+      "flag": "hatch_powered",
+      "value": true,
+      "why": "the staged gallery stair (it is what she stands on)"
+     }
+    ],
+    "why": "Peg-stair flight 1, landing 1 and the top of flight 2 while the surface set is resident (zoneAt gives tally_house here until trg_set_swap).",
+    "budget": {
+     "when": "hatch_powered set",
+     "staticTris": 23000,
+     "dynamicTris": 28565,
+     "triangles": 51565,
+     "parts": {
+      "props": 7860,
+      "dressing": 3125,
+      "live": 5000,
+      "actors": 2500,
+      "bodies": 1000
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 8,
+      "props": 17,
+      "dressing": 8,
+      "enemies": 3,
+      "bodies": 2,
+      "projectiles": 0,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 47,
+      "worst": 53
+     }
+    }
+   },
+   {
+    "id": "cell_tally",
+    "zone": "tally_house",
+    "show": [
+     "chunk_ty_hall"
+    ],
+    "showIf": [
+     {
+      "units": [
+       "chunk_st_yard",
+       "chunk_st_works",
+       "env_backdrop_day"
+      ],
+      "door": "door_tally",
+      "state": "not_closed",
+      "notDuring": [
+       "enc_street",
+       "enc_yard",
+       "enc_tally"
+      ],
+      "why": "door_tally opens only after enc_yard is clear and the sighting is over, and enc_tally locks it again"
+     },
+     {
+      "units": [
+       "chunk_gl_stair"
+      ],
+      "door": "ia_hatch",
+      "state": "not_closed",
+      "why": "ajar or open: the stair shows through the gap"
+     }
+    ],
+    "accept": [
+     {
+      "unit": "chunk_st_west",
+      "why": "3 of 5 040 blockout rays reach the gatehouse roof over the yard wall through the 1.6 m door"
+     }
+    ],
+    "why": "The hall.",
+    "budget": {
+     "when": "door_tally open, ia_hatch open",
+     "staticTris": 47500,
+     "dynamicTris": 30797,
+     "triangles": 78297,
+     "parts": {
+      "props": 9160,
+      "dressing": 5569,
+      "live": 0,
+      "actors": 2500,
+      "bodies": 3000
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 18,
+      "props": 26,
+      "dressing": 14,
+      "enemies": 1,
+      "bodies": 2,
+      "projectiles": 3,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 74,
+      "worst": 79
+     }
+    }
+   },
+   {
+    "id": "cell_gallery_stair",
+    "zone": "the_gallery",
+    "box": {
+     "min": [
+      -95,
+      -9.5,
+      -36
+     ],
+     "max": [
+      -83,
+      0,
+      -18.5
+     ]
+    },
+    "show": [
+     "chunk_gl_stair",
+     "chunk_gl_bay"
+    ],
+    "why": "The peg stair after the swap. The hatch above is shut; the bay shows at the foot of flight 3.",
+    "budget": {
+     "when": "always",
+     "staticTris": 12000,
+     "dynamicTris": 34910,
+     "triangles": 46910,
+     "parts": {
+      "props": 1580,
+      "dressing": 2250,
+      "live": 15000,
+      "actors": 2500,
+      "bodies": 4500
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 7,
+      "props": 13,
+      "dressing": 5,
+      "enemies": 7,
+      "bodies": 2,
+      "projectiles": 0,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 41,
+      "worst": 49
+     }
+    }
+   },
+   {
+    "id": "cell_gallery",
+    "zone": "the_gallery",
+    "show": [
+     "chunk_gl_stair",
+     "chunk_gl_bay",
+     "chunk_gl_gallery"
+    ],
+    "showIf": [
+     {
+      "units": [
+       "chunk_lh_hall"
+      ],
+      "door": "door_gallery_far",
+      "state": "not_closed",
+      "why": "wave B of enc_file opens it and it stays open until trg_enc_matador"
+     }
+    ],
+    "why": "Proving bay and gallery.",
+    "budget": {
+     "when": "door_gallery_far open",
+     "staticTris": 68000,
+     "dynamicTris": 49500,
+     "triangles": 117500,
+     "parts": {
+      "props": 6920,
+      "dressing": 8000,
+      "live": 16500,
+      "actors": 2500,
+      "bodies": 6500
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 14,
+      "props": 45,
+      "dressing": 8,
+      "enemies": 7,
+      "bodies": 2,
+      "projectiles": 0,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 83,
+      "worst": 91
+     }
+    }
+   },
+   {
+    "id": "cell_hall",
+    "zone": "lift_hall",
+    "show": [
+     "chunk_lh_hall"
+    ],
+    "showIf": [
+     {
+      "units": [
+       "chunk_gl_gallery",
+       "chunk_gl_bay"
+      ],
+      "door": "door_gallery_far",
+      "state": "not_closed",
+      "why": "the gallery seen back through the far door from the gantry"
+     }
+    ],
+    "why": "The lift hall, gantry, cage bay and cold bay. During a ride only env_lift_shaft and the cage are drawn.",
+    "budget": {
+     "when": "door_gallery_far open",
+     "staticTris": 62000,
+     "dynamicTris": 45875,
+     "triangles": 107875,
+     "parts": {
+      "props": 6920,
+      "dressing": 6875,
+      "live": 16500,
+      "actors": 0,
+      "bodies": 6500
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 12,
+      "props": 45,
+      "dressing": 8,
+      "enemies": 6,
+      "bodies": 2,
+      "projectiles": 0,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 80,
+      "worst": 88
+     }
+    }
+   },
+   {
+    "id": "cell_bore",
+    "zone": "the_bore",
+    "show": [
+     "chunk_bo_ante",
+     "chunk_bo_chamber"
+    ],
+    "why": "Arrival bay, catwalk, antechamber and chamber: the catwalk looks into the chamber through its grille.",
+    "budget": {
+     "when": "always",
+     "staticTris": 40000,
+     "dynamicTris": 40808,
+     "triangles": 80808,
+     "parts": {
+      "props": 6240,
+      "dressing": 1000,
+      "live": 15500,
+      "actors": 0,
+      "bodies": 7500
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 10,
+      "props": 34,
+      "dressing": 2,
+      "enemies": 6,
+      "bodies": 2,
+      "projectiles": 3,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 64,
+      "worst": 72
+     }
+    }
+   },
+   {
+    "id": "cell_rim",
+    "zone": "far_rim",
+    "show": [
+     "chunk_rim_ledge",
+     "rim_town_card",
+     "env_backdrop_dusk"
+    ],
+    "why": "The far rim.",
+    "budget": {
+     "when": "always",
+     "staticTris": 16600,
+     "dynamicTris": 10424,
+     "triangles": 27024,
+     "parts": {
+      "props": 844,
+      "dressing": 500,
+      "live": 0,
+      "actors": 0,
+      "bodies": 0
+     },
+     "callParts": {
+      "fixed": 4,
+      "static": 6,
+      "props": 4,
+      "dressing": 1,
+      "enemies": 0,
+      "bodies": 0,
+      "projectiles": 0,
+      "fx": 11
+     },
+     "drawCalls": {
+      "typical": 21,
+      "worst": 26
+     }
+    }
+   }
+  ],
+  "plugs": [
+   {
+    "node": "plug_door_tally",
+    "asset": "env_plenty_street",
+    "door": "door_tally",
+    "unit": "chunk_ty_hall"
+   }
+  ]
+ },
+ "sets": {
+  "always": {
+   "textures": [
+    "tx_frontier_trim",
+    "tx_pellam_trim",
+    "tx_sand",
+    "tx_mask",
+    "tx_palette",
+    "tx_palette_emis",
+    "tx_gun",
+    "tx_matcap_steel",
+    "tx_fx",
+    "tx_noise"
+   ],
+   "textureBytes": 9109504
+  },
+  "surface": {
+   "zones": [
+    "the_lip",
+    "plenty_street",
+    "tally_house"
+   ],
+   "textures": [
+    "lm_surface",
+    "lm_tally",
+    "lm_tally_hatch"
+   ],
+   "textureBytes": 21233664,
+   "assets": [
+    "env_the_lip",
+    "env_plenty_street",
+    "env_backdrop_day",
+    "env_tally_house",
+    "pk_rounds_6",
+    "pk_rounds_12",
+    "pk_canteen",
+    "ia_ammo_box",
+    "ia_jug",
+    "prop_stock_gate",
+    "prop_well_sweep",
+    "prop_cup_tin",
+    "prop_yard_gate",
+    "ia_yard_door",
+    "knot_mech",
+    "ia_yard_bell",
+    "sec_loft_bell",
+    "prop_door_frontier",
+    "prop_lantern",
+    "prop_bottle",
+    "prop_crate",
+    "prop_barrel",
+    "prop_sack",
+    "prop_strain_cloth",
+    "card_dowser",
+    "ia_shutter",
+    "prop_share_cloth",
+    "prop_day_cell",
+    "ia_hatch",
+    "prop_grate",
+    "weapon_revolver",
+    "enemy_bider",
+    "bider_seated_static",
+    "bider_felled_static",
+    "bider_table_static",
+    "enemy_transit",
+    "proj_stake"
+   ],
+   "residentTextureMB": 28.94
+  },
+  "underground": {
+   "zones": [
+    "the_gallery",
+    "lift_hall",
+    "the_bore"
+   ],
+   "textures": [
+    "lm_gallery",
+    "lm_hall",
+    "lm_bore",
+    "lm_bore_glow"
+   ],
+   "textureBytes": 13631488,
+   "assets": [
+    "env_the_gallery",
+    "env_lift_hall",
+    "env_lift_shaft",
+    "env_the_bore",
+    "pk_rounds_6",
+    "pk_rounds_12",
+    "pk_canteen",
+    "prop_cartridge_line",
+    "ia_ammo_box",
+    "ia_line_locker",
+    "knot_mech",
+    "prop_crate",
+    "prop_barrel",
+    "ia_hatch",
+    "prop_coat_hung",
+    "prop_hat_hung",
+    "prop_boots_pair",
+    "ia_range_plate",
+    "prop_proving_step",
+    "prop_sighting_loop",
+    "ia_baffle",
+    "prop_door_pellam",
+    "prop_grate",
+    "ia_cold_bay_shutter",
+    "ia_lift_cage",
+    "ia_proving_lift_cage",
+    "ia_lift_lever",
+    "ia_bore_door",
+    "ia_cradle",
+    "prop_station_plate",
+    "weapon_revolver",
+    "enemy_bider",
+    "bider_seated_static",
+    "bider_felled_static",
+    "proj_stake",
+    "enemy_tamper",
+    "boss_windlass",
+    "proj_canister"
+   ],
+   "residentTextureMB": 21.69
+  },
+  "coda": {
+   "zones": [
+    "far_rim"
+   ],
+   "textures": [
+    "lm_rim"
+   ],
+   "textureBytes": 1048576,
+   "assets": [
+    "env_far_rim",
+    "rim_town_card",
+    "env_backdrop_dusk",
+    "env_lift_shaft",
+    "pk_rounds_6",
+    "pk_rounds_12",
+    "pk_canteen",
+    "prop_cartridge_kept",
+    "ia_proving_lift_cage",
+    "weapon_revolver"
+   ],
+   "residentTextureMB": 9.69
+  }
+ },
+ "stages": [
+  {
+   "id": "surface",
+   "when": "boot, or a restore to a surface checkpoint before hatch_powered",
+   "resident": "surface",
+   "textureBytes": 30343168,
+   "totalMB": {
+    "min": 54.6,
+    "low": 57,
+    "high": 106.8
+   }
+  },
+  {
+   "id": "seam",
+   "when": "world/hatch_powered until trg_set_swap",
+   "resident": "surface",
+   "staged": {
+    "zone": "the_gallery",
+    "assets": [
+     "env_the_gallery",
+     "ia_line_locker",
+     "ia_range_plate",
+     "prop_proving_step",
+     "prop_sighting_loop",
+     "ia_baffle",
+     "prop_door_pellam",
+     "prop_coat_hung",
+     "prop_hat_hung",
+     "prop_boots_pair"
+    ],
+    "textures": [
+     "lm_gallery"
+    ]
+   },
+   "textureBytes": 34537472,
+   "totalMB": {
+    "min": 58.6,
+    "low": 61,
+    "high": 110.8
+   }
+  },
+  {
+   "id": "underground",
+   "when": "trg_set_swap until the proving lift ride",
+   "resident": "underground",
+   "textureBytes": 22740992,
+   "totalMB": {
+    "min": 47.3,
+    "low": 49.7,
+    "high": 99.6
+   }
+  },
+  {
+   "id": "coda",
+   "when": "the proving lift ride onward",
+   "resident": "coda",
+   "textureBytes": 10158080,
+   "totalMB": {
+    "min": 35.3,
+    "low": 37.7,
+    "high": 87.6
+   }
+  }
+ ],
+ "bindings": {
+  "pickup": {
+   "pk_rounds_6": {
+    "asset": "pk_rounds_6",
+    "mode": "instance"
+   },
+   "pk_rounds_12": {
+    "asset": "pk_rounds_12",
+    "mode": "instance"
+   },
+   "pk_canteen": {
+    "asset": "pk_canteen",
+    "mode": "instance"
+   }
+  },
+  "enemy": {
+   "bider": {
+    "asset": "enemy_bider",
+    "mode": "actor"
+   },
+   "transit": {
+    "asset": "enemy_transit",
+    "mode": "actor"
+   },
+   "tamper": {
+    "asset": "enemy_tamper",
+    "mode": "actor"
+   },
+   "windlass": {
+    "asset": "boss_windlass",
+    "mode": "actor"
+   }
+  },
+  "interactable": {
+   "ia_jug_1": {
+    "asset": "ia_jug",
+    "mode": "variant",
+    "node": "jug_intact",
+    "offset": [
+     0,
+     0.81,
+     0
+    ],
+    "follow": {
+     "owner": "door_jug_gate",
+     "node": "hook_1"
+    }
+   },
+   "ia_jug_2": {
+    "asset": "ia_jug",
+    "mode": "variant",
+    "node": "jug_intact",
+    "offset": [
+     0,
+     0.81,
+     0
+    ],
+    "follow": {
+     "owner": "door_jug_gate",
+     "node": "hook_2"
+    }
+   },
+   "ia_jug_3": {
+    "asset": "ia_jug",
+    "mode": "variant",
+    "node": "jug_intact",
+    "offset": [
+     0,
+     0.81,
+     0
+    ],
+    "follow": {
+     "owner": "door_jug_gate",
+     "node": "hook_3"
+    }
+   },
+   "ia_jug_4": {
+    "asset": "ia_jug",
+    "mode": "variant",
+    "node": "jug_intact",
+    "offset": [
+     0,
+     0.81,
+     0
+    ],
+    "follow": {
+     "owner": "door_jug_gate",
+     "node": "hook_4"
+    }
+   },
+   "ia_jug_5": {
+    "asset": "ia_jug",
+    "mode": "variant",
+    "node": "jug_intact",
+    "offset": [
+     0,
+     0.81,
+     0
+    ],
+    "follow": {
+     "owner": "door_jug_gate",
+     "node": "hook_5"
+    }
+   },
+   "ia_jug_6": {
+    "asset": "ia_jug",
+    "mode": "variant",
+    "node": "jug_intact",
+    "offset": [
+     0,
+     0.81,
+     0
+    ],
+    "follow": {
+     "owner": "door_jug_gate",
+     "node": "hook_6"
+    }
+   },
+   "ia_jug_7": {
+    "asset": "ia_jug",
+    "mode": "variant",
+    "node": "jug_intact",
+    "offset": [
+     0,
+     0.81,
+     0
+    ]
+   },
+   "ia_ammo_box": {
+    "asset": "ia_ammo_box",
+    "mode": "instance"
+   },
+   "ia_yard_door": {
+    "asset": "ia_yard_door",
+    "mode": "partOf",
+    "owner": "ia_yard_door"
+   },
+   "knot_yard_latch": {
+    "asset": "knot_mech",
+    "mode": "instance",
+    "offset": [
+     0,
+     0,
+     -0.08
+    ]
+   },
+   "sec_loft_bell_rope": {
+    "asset": "sec_loft_bell",
+    "mode": "partOf",
+    "node": "rope",
+    "owner": "sec_loft_bell"
+   },
+   "ia_yard_bell": {
+    "asset": "ia_yard_bell",
+    "mode": "instance",
+    "offset": [
+     0,
+     -2.2,
+     0
+    ]
+   },
+   "ia_latch_s": {
+    "asset": "ia_shutter",
+    "mode": "partOf",
+    "node": "latch",
+    "owner": "shutter_s"
+   },
+   "ia_latch_m": {
+    "asset": "ia_shutter",
+    "mode": "partOf",
+    "node": "latch",
+    "owner": "shutter_m"
+   },
+   "ia_latch_n": {
+    "asset": "ia_shutter",
+    "mode": "partOf",
+    "node": "latch",
+    "owner": "shutter_n"
+   },
+   "ia_cloth_cord": {
+    "asset": "prop_share_cloth",
+    "mode": "partOf",
+    "node": "cord",
+    "owner": "prop_share_cloth"
+   },
+   "ia_hatch": {
+    "asset": "ia_hatch",
+    "mode": "partOf",
+    "owner": "ia_hatch"
+   },
+   "knot_hatch_latch": {
+    "asset": "knot_mech",
+    "mode": "instance",
+    "offset": [
+     0,
+     0,
+     -0.08
+    ]
+   },
+   "ia_line_locker_bay": {
+    "asset": "ia_line_locker",
+    "mode": "instance"
+   },
+   "ia_line_locker_hall": {
+    "asset": "ia_line_locker",
+    "mode": "instance"
+   },
+   "ia_line_locker_secret": {
+    "asset": "ia_line_locker",
+    "mode": "instance"
+   },
+   "ia_line_locker_bore": {
+    "asset": "ia_line_locker",
+    "mode": "instance"
+   },
+   "ia_range_plate_1": {
+    "asset": "ia_range_plate",
+    "mode": "instance",
+    "offset": [
+     0,
+     0.45,
+     0
+    ]
+   },
+   "ia_range_plate_2": {
+    "asset": "ia_range_plate",
+    "mode": "instance",
+    "offset": [
+     0,
+     0.45,
+     0
+    ]
+   },
+   "ia_range_plate_3": {
+    "asset": "ia_range_plate",
+    "mode": "instance",
+    "offset": [
+     0,
+     0.45,
+     0
+    ]
+   },
+   "knot_a": {
+    "asset": "knot_mech",
+    "mode": "instance",
+    "offset": [
+     0,
+     0,
+     -0.08
+    ],
+    "scale": 1.25
+   },
+   "knot_b": {
+    "asset": "knot_mech",
+    "mode": "instance",
+    "offset": [
+     0,
+     0,
+     -0.08
+    ],
+    "scale": 1.25
+   },
+   "knot_c": {
+    "asset": "knot_mech",
+    "mode": "instance",
+    "offset": [
+     0,
+     0,
+     -0.08
+    ],
+    "scale": 1.25
+   },
+   "ia_baffle": {
+    "asset": "ia_baffle",
+    "mode": "partOf",
+    "owner": "ia_baffle"
+   },
+   "ia_lift_lever": {
+    "asset": "ia_lift_lever",
+    "mode": "instance",
+    "offset": [
+     0,
+     -1.2,
+     0
+    ]
+   },
+   "knot_cold_bay": {
+    "asset": "knot_mech",
+    "mode": "instance",
+    "offset": [
+     0,
+     0,
+     -0.08
+    ]
+   },
+   "ia_cradle": {
+    "asset": "ia_cradle",
+    "mode": "instance",
+    "offset": [
+     0,
+     0,
+     -0.1
+    ]
+   },
+   "ia_ask_port_1": {
+    "asset": "ia_bore_door",
+    "mode": "partOf",
+    "node": "port_1",
+    "owner": "door_bore"
+   },
+   "ia_ask_port_2": {
+    "asset": "ia_bore_door",
+    "mode": "partOf",
+    "node": "port_2",
+    "owner": "door_bore"
+   },
+   "ia_ask_port_3": {
+    "asset": "ia_bore_door",
+    "mode": "partOf",
+    "node": "port_3",
+    "owner": "door_bore"
+   },
+   "ia_ask_port_4": {
+    "asset": "ia_bore_door",
+    "mode": "partOf",
+    "node": "port_4",
+    "owner": "door_bore"
+   },
+   "ia_ask_port_5": {
+    "asset": "ia_bore_door",
+    "mode": "partOf",
+    "node": "port_5",
+    "owner": "door_bore"
+   },
+   "ia_ask_port_6": {
+    "asset": "ia_bore_door",
+    "mode": "partOf",
+    "node": "port_6",
+    "owner": "door_bore"
+   },
+   "ia_ask_port_7": {
+    "asset": "ia_bore_door",
+    "mode": "partOf",
+    "node": "port_7",
+    "owner": "door_bore"
+   },
+   "ia_ask_port_8": {
+    "asset": "ia_bore_door",
+    "mode": "partOf",
+    "node": "port_8",
+    "owner": "door_bore"
+   },
+   "ia_proving_mark_1": {
+    "asset": "env_the_bore",
+    "mode": "zoneNode",
+    "node": "mark_glows",
+    "index": 0
+   },
+   "ia_proving_mark_2": {
+    "asset": "env_the_bore",
+    "mode": "zoneNode",
+    "node": "mark_glows",
+    "index": 1
+   },
+   "ia_proving_mark_3": {
+    "asset": "env_the_bore",
+    "mode": "zoneNode",
+    "node": "mark_glows",
+    "index": 2
+   },
+   "ia_proving_mark_4": {
+    "asset": "env_the_bore",
+    "mode": "zoneNode",
+    "node": "mark_glows",
+    "index": 3
+   },
+   "ia_proving_mark_5": {
+    "asset": "env_the_bore",
+    "mode": "zoneNode",
+    "node": "mark_glows",
+    "index": 4
+   },
+   "ia_proving_mark_6": {
+    "asset": "env_the_bore",
+    "mode": "zoneNode",
+    "node": "mark_glows",
+    "index": 5
+   },
+   "ia_proving_lift": {
+    "asset": "ia_proving_lift_cage",
+    "mode": "partOf",
+    "node": "control",
+    "owner": "lift_depart_bore"
+   },
+   "ia_stone_round": {
+    "asset": "prop_cartridge_kept",
+    "mode": "variant",
+    "node": "round_violet",
+    "scale": 2.6
+   }
+  },
+  "prop": {
+   "cold_camp": null,
+   "dead_pylon": null,
+   "cup": {
+    "asset": "prop_cup_tin",
+    "mode": "instance"
+   },
+   "struck_door_mark": null,
+   "insulator_bell": {
+    "asset": "sec_loft_bell",
+    "mode": "instance",
+    "offset": [
+     0,
+     1.05,
+     0
+    ]
+   },
+   "wind_pump_tower": {
+    "asset": "env_plenty_street",
+    "mode": "zoneNode",
+    "node": "pump_rotor"
+   },
+   "share_cloth": {
+    "asset": "prop_share_cloth",
+    "mode": "instance",
+    "offset": [
+     0,
+     0.855,
+     0
+    ]
+   },
+   "tally_wall": null,
+   "head_chair": null,
+   "barred_front_doors": null,
+   "bider_table_static": {
+    "asset": "bider_table_static",
+    "mode": "instance",
+    "per": "seats"
+   },
+   "peg_rows": null,
+   "bider_watcher": {
+    "asset": "enemy_bider",
+    "mode": "actor",
+    "vignette": "vig_watcher",
+    "fallback": "bider_seated_static"
+   },
+   "range_firing_point": null,
+   "ring_lift_portal": null,
+   "wall_diagram_lift_head": null,
+   "cage_lift": {
+    "asset": "ia_lift_cage",
+    "mode": "instance"
+   },
+   "tamper_clean_static": null,
+   "station_plate": {
+    "asset": "prop_station_plate",
+    "mode": "instance",
+    "offset": [
+     0,
+     0,
+     -0.05
+    ]
+   },
+   "proving_lift_cage": {
+    "asset": "ia_proving_lift_cage",
+    "mode": "instance"
+   }
+  },
+  "door": {
+   "door_jug_gate": [
+    {
+     "asset": "prop_stock_gate",
+     "mode": "instance",
+     "offset": [
+      0,
+      0,
+      -1.1
+     ]
+    },
+    {
+     "asset": "prop_well_sweep",
+     "mode": "instance",
+     "space": "world"
+    }
+   ],
+   "door_yard_gate": {
+    "asset": "prop_yard_gate",
+    "mode": "instance"
+   },
+   "ia_yard_door": {
+    "asset": "ia_yard_door",
+    "mode": "instance",
+    "offset": [
+     -1.3,
+     0,
+     -0.44
+    ]
+   },
+   "door_alley": {
+    "asset": "prop_door_frontier",
+    "mode": "instance",
+    "offset": [
+     -0.8,
+     0,
+     0
+    ]
+   },
+   "door_tally": {
+    "asset": "prop_door_frontier",
+    "mode": "instance",
+    "offset": [
+     -0.8,
+     0,
+     0
+    ]
+   },
+   "ia_hatch": {
+    "asset": "ia_hatch",
+    "mode": "instance",
+    "offset": [
+     0,
+     0.3,
+     0
+    ]
+   },
+   "ia_baffle": {
+    "asset": "ia_baffle",
+    "mode": "instance"
+   },
+   "door_gallery_far": {
+    "asset": "prop_door_pellam",
+    "mode": "instance"
+   },
+   "door_lift_cage": {
+    "asset": "ia_lift_cage",
+    "mode": "partOf",
+    "node": "gate",
+    "owner": "lift_depart_hall",
+    "tolerance": 0.6
+   },
+   "door_cold_bay": {
+    "asset": "ia_cold_bay_shutter",
+    "mode": "instance"
+   },
+   "door_bore": {
+    "asset": "ia_bore_door",
+    "mode": "instance",
+    "offset": [
+     0,
+     1.5,
+     0
+    ]
+   },
+   "door_proving_lift": {
+    "asset": "ia_proving_lift_cage",
+    "mode": "partOf",
+    "node": "gate",
+    "owner": "lift_depart_bore",
+    "tolerance": 0.6
+   }
+  },
+  "puzzleElement": {
+   "shutter_s": {
+    "asset": "ia_shutter",
+    "mode": "instance",
+    "offset": [
+     0,
+     -0.45,
+     0
+    ]
+   },
+   "shutter_m": {
+    "asset": "ia_shutter",
+    "mode": "instance",
+    "offset": [
+     0,
+     -0.45,
+     0
+    ]
+   },
+   "shutter_n": {
+    "asset": "ia_shutter",
+    "mode": "instance",
+    "offset": [
+     0,
+     -0.45,
+     0
+    ]
+   },
+   "day_cell": {
+    "asset": "prop_day_cell",
+    "mode": "instance",
+    "offset": [
+     0,
+     0,
+     -0.04
+    ]
+   },
+   "pz_proving_mark": {
+    "asset": "prop_proving_step",
+    "mode": "instance",
+    "offset": [
+     0,
+     -0.15,
+     0
+    ]
+   },
+   "pz_sighting_loop": {
+    "asset": "prop_sighting_loop",
+    "mode": "instance",
+    "offset": [
+     0,
+     -2.018,
+     0
+    ]
+   },
+   "pz_listening_lamps": {
+    "asset": "ia_bore_door",
+    "mode": "partOf",
+    "node": "listen_lamps",
+    "owner": "door_bore"
+   },
+   "bore_opening": null
+  },
+  "readable": {
+   "rd_note_lip": {
+    "asset": "rd_note",
+    "mode": "embedded",
+    "node": "note_lip"
+   },
+   "rd_note_hearth": {
+    "asset": "rd_note",
+    "mode": "embedded",
+    "node": "note_hearth"
+   },
+   "rd_note_cradle": {
+    "asset": "rd_note",
+    "mode": "embedded",
+    "node": "note_cradle"
+   },
+   "rd_note_stone": {
+    "asset": "rd_note",
+    "mode": "embedded",
+    "node": "note_stone"
+   },
+   "rd_ledger": {
+    "asset": "rd_ledger",
+    "mode": "embedded"
+   },
+   "rd_rain_tally": {
+    "asset": "rd_rain_tally",
+    "mode": "embedded"
+   },
+   "rd_plate_line": {
+    "asset": "rd_plate",
+    "mode": "embedded",
+    "node": "plate_line"
+   },
+   "rd_plate_proving": {
+    "asset": "rd_plate",
+    "mode": "embedded",
+    "node": "plate_proving"
+   },
+   "rd_plate_service": {
+    "asset": "rd_plate",
+    "mode": "embedded",
+    "node": "plate_service"
+   }
+  },
+  "entrance": {
+   "doorway": null,
+   "emerge": null,
+   "climb_out": {
+    "asset": "prop_grate",
+    "mode": "instance",
+    "offset": [
+     0,
+     0.03,
+     0
+    ]
+   }
+  },
+  "solidProp": {
+   "tipped_wagon_bed": {
+    "asset": "prop_wagon_tipped",
+    "mode": "embedded"
+   },
+   "adobe_wall_stub": null,
+   "ceramic_rib": null,
+   "pump_post": {
+    "asset": "prop_trough_pump",
+    "mode": "embedded"
+   },
+   "dry_trough": {
+    "asset": "prop_trough_pump",
+    "mode": "embedded"
+   },
+   "wind_pump_drum": null,
+   "water_cart": {
+    "asset": "prop_water_cart",
+    "mode": "embedded"
+   },
+   "water_tank": null,
+   "tank_shed": null,
+   "tally_table": {
+    "asset": "prop_tally_table",
+    "mode": "embedded"
+   },
+   "tally_table_end": null,
+   "hearth": null,
+   "hearthstone": null,
+   "head_chair": {
+    "asset": "prop_head_chair",
+    "mode": "embedded"
+   },
+   "brass_mark_step": null,
+   "pipe_bank": null,
+   "hall_rib": null,
+   "bore_rib": null,
+   "flat_stone": {
+    "asset": "prop_rim_stone",
+    "mode": "embedded"
+   }
+  },
+  "zoneEmbedded": {
+   "prop_camp_one": [
+    {
+     "asset": "prop_flat_stone",
+     "mode": "embedded"
+    },
+    {
+     "asset": "prop_coffee_pot",
+     "mode": "embedded"
+    },
+    {
+     "asset": "prop_cartridge_lead",
+     "mode": "embedded",
+     "node": "round_spent"
+    }
+   ],
+   "prop_camp_two": [
+    {
+     "asset": "prop_camp_ash",
+     "mode": "embedded",
+     "node": "ash_cold"
+    }
+   ],
+   "prop_camp_three": [
+    {
+     "asset": "prop_camp_ash",
+     "mode": "embedded",
+     "node": "ash_embers"
+    },
+    {
+     "asset": "prop_kettle",
+     "mode": "embedded"
+    }
+   ],
+   "prop_head_chair": [
+    {
+     "asset": "prop_head_chair",
+     "mode": "embedded"
+    }
+   ],
+   "prop_tally_seated": [
+    {
+     "asset": "prop_chair",
+     "mode": "embedded"
+    }
+   ],
+   "prop_front_doors": [
+    {
+     "asset": "prop_bench",
+     "mode": "embedded"
+    }
+   ],
+   "sec_cold_bay": [
+    {
+     "asset": "tamper_cold_static",
+     "mode": "embedded"
+    }
+   ],
+   "rd_note_stone": [
+    {
+     "asset": "prop_cartridge_kept",
+     "mode": "embedded",
+     "node": "round_spent"
+    }
+   ],
+   "ia_proving_mark_1": [
+    {
+     "asset": "ia_proving_mark",
+     "mode": "embedded"
+    }
+   ],
+   "ia_proving_mark_2": [
+    {
+     "asset": "ia_proving_mark",
+     "mode": "embedded"
+    }
+   ],
+   "ia_proving_mark_3": [
+    {
+     "asset": "ia_proving_mark",
+     "mode": "embedded"
+    }
+   ],
+   "ia_proving_mark_4": [
+    {
+     "asset": "ia_proving_mark",
+     "mode": "embedded"
+    }
+   ],
+   "ia_proving_mark_5": [
+    {
+     "asset": "ia_proving_mark",
+     "mode": "embedded"
+    }
+   ],
+   "ia_proving_mark_6": [
+    {
+     "asset": "ia_proving_mark",
+     "mode": "embedded"
+    }
+   ]
+  }
+ }
+}

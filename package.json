@@ -1,0 +1,46 @@
+{
+  "name": "3dshooter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "test:unit": "vitest run",
+    "test:e2e": "node --test tests/",
+    "validate": "node tools/validate_layout.mjs && node tools/validate_assets.mjs && node tools/extract_contracts.mjs --check",
+    "assets": "node tools/build-assets.mjs",
+    "assets:placeholders": "node tools/build-assets.mjs --placeholders",
+    "check:assets": "node tools/check-glb.mjs --all",
+    "assets:status": "node tools/asset-status.mjs",
+    "test:core": "node --test tests/core/",
+    "test:pipeline": "node --test tests/pipeline/",
+    "evidence": "node tests/core/evidence.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "postprocessing": "^6.39.5",
+    "three": "^0.186.1",
+    "three-mesh-bvh": "^0.9.15"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "@types/node": "^26.6.4",
+    "@types/pngjs": "^6.0.5",
+    "@types/three": "^0.186.0",
+    "meshoptimizer": "^1.3.0",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.63.0",
+    "pngjs": "^7.0.0",
+    "sharp": "^0.35.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}

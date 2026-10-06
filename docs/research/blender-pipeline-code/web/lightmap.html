@@ -1,0 +1,63 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<style>html,body{margin:0;background:#000}canvas{display:block}</style></head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+const q = new URLSearchParams(location.search);
+const mode = q.get('mode') ?? 'standard';            // standard | basic
+const W = 960, H = 540;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.NoToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const gltf = await loader.loadAsync(q.get('glb'));
+scene.add(gltf.scene);
+
+// ---- lightmap wiring (this is the snippet the doc recommends) ----
+const lmCache = new Map(), matCache = new Map();
+async function getLightmap(name) {
+  if (!lmCache.has(name)) {
+    const t = await new THREE.TextureLoader().loadAsync(`${q.get('lmdir')}/${name}.png`);
+    t.flipY = false;                         // glTF UV convention (GLTFLoader does the same for its own textures)
+    t.colorSpace = THREE.SRGBColorSpace;     // our PNG is sRGB-encoded (value / scale)
+    t.channel = 1;                           // sample with geometry attribute `uv1` (= TEXCOORD_1)
+    t.generateMipmaps = false; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter;
+    t.needsUpdate = true;
+    lmCache.set(name, t);
+  }
+  return lmCache.get(name);
+}
+const jobs = [];
+gltf.scene.traverse(o => {
+  if (!o.isMesh) return;
+  const src = o.userData.lightmap ? o : o.parent;      // multi-primitive meshes become a Group: extras live on the parent
+  const name = src.userData.lightmap; if (!name) return;
+  jobs.push((async () => {
+    const tex = await getLightmap(name);
+    const key = o.material.uuid + '|' + name + '|' + mode;
+    let m = matCache.get(key);
+    if (!m) {
+      if (mode === 'basic') { m = new THREE.MeshBasicMaterial({ color: o.material.color, map: o.material.map }); if (o.material.emissive && o.material.emissiveIntensity > 0 && o.material.emissive.getHex() !== 0) m.color = o.material.emissive.clone(); }
+      else m = o.material.clone();
+      m.lightMap = tex;
+      m.lightMapIntensity = Math.PI * src.userData.lightmapScale;   // Cycles diffuse bake = E/PI; three wants irradiance E
+      if (mode !== 'basic') { m.aoMap = null; }
+      matCache.set(key, m);
+    }
+    o.material = m;
+  })());
+});
+await Promise.all(jobs);
+let cam = gltf.cameras[0];
+if (!cam) { cam = new THREE.PerspectiveCamera(60, W / H, 0.05, 500); const b = new THREE.Box3().setFromObject(gltf.scene); b.getCenter(cam.position); cam.position.y = 1.65; cam.lookAt(b.max.x, 1.0, b.min.z); }
+cam.aspect = W / H; cam.updateProjectionMatrix();
+renderer.render(scene, cam);
+window.__result = { calls: renderer.info.render.calls, tris: renderer.info.render.triangles, textures: renderer.info.memory.textures,
+  lightmappedMaterials: matCache.size, lightmaps: [...lmCache.keys()] };
+window.__done = true;
+</script></body></html>

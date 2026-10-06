@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<style>html,body{margin:0;background:#223}canvas{display:block}</style></head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+const q = new URLSearchParams(location.search);
+const W = 960, H = 540;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x202830);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2.5));
+const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(3, 5, 4); scene.add(sun);
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const gltf = await loader.loadAsync(q.get('glb'));
+scene.add(gltf.scene);
+const tree = [];
+gltf.scene.traverse(o => {
+  let depth = 0; for (let p = o.parent; p; p = p.parent) depth++;
+  const e = { name: o.name, type: o.type, depth };
+  if (o.isMesh) { e.attrs = Object.keys(o.geometry.attributes); e.material = o.material.name; e.vertexColors = o.material.vertexColors; e.tris = (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }
+  if (o.isInstancedMesh) e.instances = o.count;
+  if (Object.keys(o.userData).length) e.userData = o.userData;
+  const wp = new THREE.Vector3(); o.getWorldPosition(wp); e.pos = o.position.toArray().map(v => +v.toFixed(3)); e.world = wp.toArray().map(v => +v.toFixed(3));
+  tree.push(e);
+});
+const clips = gltf.animations.map(c => ({ name: c.name, duration: +c.duration.toFixed(4), tracks: c.tracks.length, trackNames: c.tracks.slice(0, 4).map(t => t.name) }));
+let mixer = null;
+if (q.get('clip')) {
+  mixer = new THREE.AnimationMixer(gltf.scene);
+  const clip = THREE.AnimationClip.findByName(gltf.animations, q.get('clip'));
+  mixer.clipAction(clip).play(); mixer.setTime(parseFloat(q.get('t') ?? '0'));
+}
+gltf.scene.updateMatrixWorld(true);
+const box = new THREE.Box3().setFromObject(gltf.scene, true);
+const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length();
+const cam = new THREE.PerspectiveCamera(40, W / H, 0.05, 500);
+cam.position.copy(c).add(new THREE.Vector3(0.9, 0.6, 1.2).normalize().multiplyScalar(size * 1.1)); cam.lookAt(c);
+renderer.render(scene, cam);
+window.__result = { tree, clips, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, bbox: [box.min.toArray().map(v => +v.toFixed(3)), box.max.toArray().map(v => +v.toFixed(3))] };
+window.__done = true;
+</script></body></html>

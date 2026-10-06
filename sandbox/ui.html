@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sandbox: ui</title>
+<link rel="stylesheet" href="./sandbox.css">
+<style>
+  /* the UI sandbox shows no 3D: an image-free gradient stands in for the brightest and the darkest frames */
+  #backdrop { position: fixed; inset: 0; }
+  #backdrop.glare { background: linear-gradient(180deg, #fffaf0 0%, #ffe9b8 38%, #f3c98a 70%, #d9a362 100%); }
+  #backdrop.dark { background: linear-gradient(180deg, #0b0d12 0%, #14110f 55%, #0e1418 100%); }
+  #backdrop.mid { background: linear-gradient(180deg, #8fa6a8 0%, #c9b38a 45%, #7a5f45 75%, #3b2f28 100%); }
+  #bar { display: none; }
+  #uisb { position: fixed; right: 6px; top: 64px; bottom: 150px; width: 232px; z-index: 900; overflow: auto; padding: 6px; background: rgba(12, 10, 8, 0.86); border: 1px solid rgba(255, 255, 255, 0.14); font: 11px/1.3 ui-monospace, Menlo, Consolas, monospace; color: #e9e2d0; }
+  #uisb.hidden { display: none; }
+  #uisb h4 { margin: 8px 0 3px; font: inherit; color: #7cf2e2; }
+  #uisb h4:first-child { margin-top: 0; }
+  #uisb button { font: inherit; color: #e9e2d0; background: #2b2520; border: 1px solid #5a4d40; border-radius: 3px; padding: 2px 5px; margin: 0 3px 3px 0; cursor: pointer; }
+  #uisb button:hover { background: #3b332b; }
+  #uisb-handle { position: fixed; right: 6px; top: 40px; z-index: 901; font: 11px ui-monospace, Menlo, Consolas, monospace; color: #e9e2d0; background: #2b2520; border: 1px solid #5a4d40; border-radius: 3px; padding: 2px 6px; cursor: pointer; }
+  #uisb-handle.hidden { display: none; }
+  #sheet { position: fixed; inset: 0; z-index: 950; background: #14110f; display: none; align-items: center; justify-content: center; gap: 3vw; }
+  #sheet.on { display: flex; }
+  #sheet.pale { background: linear-gradient(90deg, #14110f 0%, #14110f 50%, #f3d9a0 50%, #f3d9a0 100%); }
+  #sheet figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; font: 13px ui-monospace, Menlo, Consolas, monospace; color: #9a917f; }
+  #sheet .k7 { position: static; overflow: visible; }
+  #sheet .mark { position: static; }
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0"></canvas>
+<div id="backdrop" class="mid"></div>
+<div id="ui"></div>
+<div id="bar"></div>
+<div id="sheet"></div>
+<script type="module" src="./ui.ts"></script>
+</body>
+</html>

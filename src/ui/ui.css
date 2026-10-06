@@ -1,0 +1,368 @@
+/* src/ui: brass, bone and ink (ART_BIBLE 10). Thin strokes, no panels, no gradients, no drop shadows beyond a 1 px ink
+   outline, NO RED ANYWHERE. Every length is `--u` (one pixel at 1080p) times a number, so the layout holds from
+   1280 x 720 to 21:9; hairlines never fall under one device pixel, inside the mark as well (its strokes are
+   non-scaling and floored, and the mark itself stops shrinking at `--mk`). Motion is transitions and keyframes started by a
+   class; the script never animates. */
+.k7 {
+  --bone: #E9E2D0;        /* all text, crosshair, health */
+  --ink: #14110F;         /* outlines, subtitle backing, scrim */
+  --brass: #C9A14A;       /* chambered rounds, selected item, rules */
+  --brass-dim: #6E5A2E;   /* empty chamber rings, disabled */
+  --aqua: #7CF2E2;        /* line round dot and pips, station label, proving prompt */
+  --violet: #B24BFF;      /* ONLY the seventh in state `violet` */
+  --pale: #F3E6CF;        /* damage arc, markers */
+  --flame: #FF9433;       /* boss pips, and the lamps of the end card */
+  --paper: rgb(233 226 208 / 0.96);
+  --enamel: #CFD6CC;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", Georgia, serif;
+  --sans: "Avenir Next", "Segoe UI", "Helvetica Neue", "DejaVu Sans", Arial, sans-serif;
+  --u: min(calc(100vh / 1080), calc(100vw / 1440));
+  --hair: max(1px, var(--u));
+  /* the six-and-one mark's own unit: it follows --u down to a legibility floor (mark.ts MARK_MIN_SCALE) and no further.
+     --mki is how many of the mark's units make one screen pixel when that is more than one (set by the script on resize:
+     CSS cannot divide two lengths), so the ring kick and the shiver are never under their screen-pixel sizes. */
+  --mk: max(var(--u), 1.08px);
+  --mki: 1;
+  --outline: -1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink), 0 -1px 0 var(--ink), 0 1px 0 var(--ink), -1px 0 0 var(--ink), 1px 0 0 var(--ink);
+  --sub-size: min(2.6vh, 2.25vw);
+  position: absolute; inset: 0; overflow: hidden;
+  pointer-events: none !important;
+  color: var(--bone); font-family: var(--sans); font-size: calc(var(--u) * 18);
+  -webkit-user-select: none; user-select: none;
+}
+.k7.sub-S { --sub-size: min(2.1vh, 2.25vw); }
+.k7.sub-L { --sub-size: min(3.2vh, 2.25vw); }
+.k7.sub-XL { --sub-size: min(4vh, 2.25vw); }
+.k7 *, .k7 *::before, .k7 *::after { box-sizing: border-box; }
+.k7 svg { overflow: visible; display: block; }
+.k7 .cap { text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; }
+
+/* ============================================================== gauges */
+.k7 .hud { position: absolute; inset: 0; visibility: hidden; opacity: 0; }
+.k7 .hud.on { visibility: visible; opacity: 1; }
+.k7 .hud.on.fade { opacity: 0; transition: opacity 0.6s linear; }
+
+/* ---- crosshair, plumb glyph, markers, damage arc */
+.k7 .xh { position: absolute; left: 50%; top: 50%; width: calc(var(--u) * 200); height: calc(var(--u) * 200); margin: calc(var(--u) * -100) 0 0 calc(var(--u) * -100); --xc: #ffffff; --xs: 1; }
+.k7 .xh .x { transform: scale(var(--xs)); }
+.k7 .xh line, .k7 .xh circle, .k7 .xh polyline, .k7 .xh path { fill: none; stroke: var(--pale); stroke-width: 2; }
+.k7 .xh .ink { stroke: var(--ink); stroke-width: 4; }
+.k7 .xh .tick, .k7 .xh .plumb { stroke: var(--xc); stroke-width: 1.5; }
+.k7 .xh .ink.tick, .k7 .xh .ink.plumb { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: square; }
+.k7 .xh .dot { fill: var(--xc); stroke: none; }
+.k7 .xh .ink.dot { fill: var(--ink); stroke: none; }
+.k7 .xh.no-outline .x .ink { display: none; }
+.k7 .xh .plumb { display: none; transform-origin: 0 -4px; transition: transform 0.12s ease-out; }
+.k7 .xh.plumbed .tick { display: none; }
+.k7 .xh.plumbed .plumb { display: inline; }
+.k7 .xh.legal .plumb { transform: scaleY(2.25); }
+
+.k7 .mk .mt, .k7 .mk .mr, .k7 .mk .mc { visibility: hidden; }
+.k7 .m-hit .mt, .k7 .m-weak .mt, .k7 .m-weak .mr, .k7 .m-kill .mt, .k7 .m-freed .mr, .k7 .m-deflected .mc { visibility: visible; }
+.k7 .m-kill.ma .mt { animation: k7-kill-a 0.16s ease-out both; }
+.k7 .m-kill.mb .mt { animation: k7-kill-b 0.16s ease-out both; }
+.k7 .m-freed.ma .mr { animation: k7-freed-a 0.16s ease-in both; }
+.k7 .m-freed.mb .mr { animation: k7-freed-b 0.16s ease-in both; }
+@keyframes k7-kill-a { from { transform: scale(1); } to { transform: scale(1.7); } }
+@keyframes k7-kill-b { from { transform: scale(1); } to { transform: scale(1.7); } }
+@keyframes k7-freed-a { from { transform: scale(1); } to { transform: scale(0.12); } }
+@keyframes k7-freed-b { from { transform: scale(1); } to { transform: scale(0.12); } }
+/* reduce flashes: the markers become thin outlines and hold still (shape still tells them apart) */
+.k7.rf .mk line:not(.ink), .k7.rf .mk circle:not(.ink), .k7.rf .mk polyline:not(.ink) { stroke-width: 0.75; }
+.k7.rf .mk .ink { stroke-width: 2.75; }
+.k7.rf .m-kill .mt { animation: none; transform: scale(1.7); }
+.k7.rf .m-freed .mr { animation: none; }
+
+.k7 .xh .arc { stroke: var(--pale); stroke-width: 3; opacity: 0; stroke-linecap: butt; }
+.k7 .xh .ink.arc { stroke: var(--ink); stroke-width: 5; }
+.k7 .xh .arc.on { animation: k7-arc 0.6s linear both; }
+@keyframes k7-arc { 0% { opacity: 0.95; } 65% { opacity: 0.8; } 100% { opacity: 0; } }
+
+/* ---- the six-and-one mark: the cylinder ring and, apart from it, the seventh */
+.k7 .mark {
+  /* the ring sits where it always did: the box is 12 units taller (mark.ts MARK_DROP) for the seventh at 1.5 times its
+     drawn size, and drops by as much */
+  position: absolute; right: calc(var(--u) * 46); bottom: calc(var(--u) * 34 - var(--mk) * 12); width: calc(var(--mk) * 88); height: calc(var(--mk) * 128);
+  /* stroke widths on screen: the 1080p width times the mark's scale, never under a device pixel (the ink under-stroke
+     is the stroke plus a pixel each side) */
+  --s1: max(1px, calc(var(--mk) * 1)); --s15: max(1.25px, calc(var(--mk) * 1.5)); --s16: max(1.6px, calc(var(--mk) * 1.6));
+  --si: max(2px, calc(var(--mk) * 2));
+}
+/* the soft ink backing under the HUD mark (mark.ts BACKING_*): the pause screen's enlarged mark stands on the scrim */
+.k7 .mark .bk { stroke: none; pointer-events: none; }
+.k7 .mark.big .bk { display: none; }
+.k7 .mark .hair, .k7 .mark .notch, .k7 .sv .so, .k7 .sv .sr { vector-effect: non-scaling-stroke; }
+.k7 .mark .hair { stroke: var(--bone); stroke-width: var(--s1); fill: none; }
+.k7 .mark .ink.hair { stroke: var(--ink); stroke-width: calc(var(--s1) + var(--si) * 0.8); opacity: 0.75; }
+.k7 .mark .notch { stroke: var(--bone); stroke-width: var(--s15); }
+.k7 .mark .ink.notch { stroke: var(--ink); stroke-width: calc(var(--s15) + var(--si)); stroke-linecap: square; }
+.k7 .ch .d { fill: var(--brass); stroke: var(--ink); stroke-width: 2; paint-order: stroke; }
+.k7 .ch .e, .k7 .ch .eu, .k7 .ch .kd { display: none; fill: none; }
+.k7 .ch.empty .d, .k7 .ch.kept .d { display: none; }
+/* a spent chamber is a bone ring at 60 % (polish round 4: the dim brass ring was lost on the gun's dark steel) */
+.k7 .ch.empty .e { display: inline; stroke: rgb(233 226 208 / 0.6); stroke-width: 1.5; }
+.k7 .ch.empty .eu, .k7 .ch.kept .eu { display: inline; stroke: var(--ink); stroke-width: 3; }
+.k7 .ch.line .d { fill: var(--aqua); }
+.k7 .ch.kept .e { display: inline; stroke: var(--aqua); stroke-width: 1.5; }
+.k7 .ch.kept .kd { display: inline; fill: #ffffff; stroke: var(--ink); stroke-width: 1; paint-order: stroke; }
+.k7 .turn.ta { animation: k7-turn-a 0.18s cubic-bezier(0.3, 0, 0.2, 1) 0.12s both; }
+.k7 .turn.tb { animation: k7-turn-b 0.18s cubic-bezier(0.3, 0, 0.2, 1) 0.12s both; }
+@keyframes k7-turn-a { from { transform: rotate(-60deg); } to { transform: rotate(0deg); } }
+@keyframes k7-turn-b { from { transform: rotate(-60deg); } to { transform: rotate(0deg); } }
+.k7 .rk.ka { animation: k7-kick-a 0.14s ease-out both; }
+.k7 .rk.kb { animation: k7-kick-b 0.14s ease-out both; }
+@keyframes k7-kick-a { 0% { transform: translateY(0); } 25% { transform: translateY(calc(-2px * var(--mki))); } 100% { transform: translateY(0); } }
+@keyframes k7-kick-b { 0% { transform: translateY(0); } 25% { transform: translateY(calc(-2px * var(--mki))); } 100% { transform: translateY(0); } }
+.k7 .mark .lp { display: none; }
+.k7 .mark .lp.on { display: inline; fill: var(--aqua); stroke: var(--ink); stroke-width: 2; paint-order: stroke; }
+.k7 .mark .rs { font: 600 12px var(--sans); font-variant-numeric: tabular-nums; fill: var(--bone); stroke: var(--ink); stroke-width: 2.2; paint-order: stroke; stroke-linejoin: round; }
+
+.k7 .sv .so { fill: none; stroke: var(--bone); stroke-width: var(--s1); stroke-linejoin: round; }
+.k7 .sv .ink.so { stroke: var(--ink); stroke-width: calc(var(--s1) + var(--si)); }
+.k7 .sv .sr { stroke: var(--bone); stroke-width: var(--s1); }
+.k7 .sv .sb { fill: var(--bone); }
+.k7 .sv .sh { fill: var(--bone); display: none; }
+/* pulse: the outline breathes 1 -> 1.6 px AND swings in brightness (dimmed bone to white, the band with it): the width
+   alone is half a pixel at 720p and read as nothing over the gully or the violet of the bore */
+.k7 .sv.pulse .so { animation: k7-pulse 2s ease-in-out infinite; }
+.k7 .sv.pulse .ink.so { animation: k7-pulse-ink 2s ease-in-out infinite; }
+.k7 .sv.pulse .sb, .k7 .sv.pulse .sr { animation: k7-pulse-band 2s ease-in-out infinite; }
+@keyframes k7-pulse { 0%, 100% { stroke-width: var(--s1); stroke: #8F8A7E; } 50% { stroke-width: var(--s16); stroke: #ffffff; } }
+@keyframes k7-pulse-band { 0%, 100% { fill: #8F8A7E; stroke: #8F8A7E; } 50% { fill: #ffffff; stroke: #ffffff; } }
+@keyframes k7-pulse-ink { 0%, 100% { stroke-width: calc(var(--s1) + var(--si)); } 50% { stroke-width: calc(var(--s16) + var(--si)); } }
+.k7 .sv.band_broken .sb { display: none; }
+.k7 .sv.band_broken .sh { display: inline; }
+.k7 .sv.chambered .sb, .k7 .sv.chambered .sr { display: none; }
+/* chambered: the round is in the ring and the slot stands empty, but it is never hidden: a dashed bone outline over a
+   solid ink one, strong enough to read over the glare */
+.k7 .sv.chambered .so { stroke-dasharray: max(2px, calc(var(--mk) * 2.2)) max(1.5px, calc(var(--mk) * 1.6)); opacity: 0.8; }
+.k7 .sv.chambered .ink.so { stroke-dasharray: none; opacity: 0.5; }
+/* spent: the bone outline at 50 % for the rest of the game, over an ink outline that stays whole (at 50 % itself it
+   was lost against a pale floor) */
+.k7 .sv.spent .so:not(.ink), .k7 .sv.spent .sr { opacity: 0.5; }
+.k7 .sv.spent .sb { display: none; }
+.k7 .sv.violet .sb { fill: var(--violet); }
+.k7 .svw.shiver { animation: k7-shiver 0.3s linear both; }
+@keyframes k7-shiver { 0%, 100% { transform: translateX(0); } 12% { transform: translateX(calc(-1.6px * var(--mki))); } 37% { transform: translateX(calc(1.6px * var(--mki))); } 62% { transform: translateX(calc(-1.2px * var(--mki))); } 87% { transform: translateX(calc(0.8px * var(--mki))); } }
+@keyframes k7-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes k7-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+/* ---- health: three thin bars (polish round 3: 6 px and more, they were 4 px at 720p and lost in the bright street; the
+   1 px ink outline is the outer box-shadow) */
+.k7 .health { position: absolute; left: calc(var(--u) * 46); bottom: calc(var(--u) * 46); display: flex; gap: calc(var(--u) * 4); }
+.k7 .seg { position: relative; width: calc(var(--u) * 46); height: max(6px, calc(var(--u) * 7)); border: var(--hair) solid var(--bone); box-shadow: 0 0 0 1px var(--ink), inset 0 0 0 1px rgb(20 17 15 / 0.55); }
+.k7 .seg .fill { position: absolute; inset: 0; display: block; background: var(--bone); transform-origin: left center; transform: scaleX(1); }
+.k7 .seg.regen .fill { top: 50%; bottom: auto; height: var(--hair); margin-top: calc(var(--hair) / -2); }
+.k7 .seg.fa { animation: k7-seg-a 0.4s linear both; }
+.k7 .seg.fb { animation: k7-seg-b 0.4s linear both; }
+@keyframes k7-seg-a { 0% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 calc(var(--u) * 4) var(--pale); } 100% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 1px var(--ink); } }
+@keyframes k7-seg-b { 0% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 calc(var(--u) * 4) var(--pale); } 100% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 1px var(--ink); } }
+
+/* ---- boss: the name over 26 pips in groups of 10 / 10 / 6 */
+.k7 .boss { position: absolute; top: calc(var(--u) * 44); left: 0; right: 0; display: none; flex-direction: column; align-items: center; gap: calc(var(--u) * 9); }
+.k7 .boss.on { display: flex; }
+.k7 .boss-name { font-size: calc(var(--u) * 15); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; text-shadow: var(--outline); padding-left: 0.18em; }
+.k7 .pips { display: flex; gap: calc(var(--u) * 9); }
+.k7 .pip-group { display: flex; gap: calc(var(--u) * 2); }
+.k7 .pip { display: block; width: max(3px, calc(var(--u) * 4)); height: calc(var(--u) * 10); border: 1px solid var(--brass-dim); box-shadow: 0 0 0 1px var(--ink); background: rgb(20 17 15 / 0.5); }
+.k7 .pip.lit { background: var(--flame); border-color: var(--flame); }
+.k7 .boss.bone .pip.lit { background: var(--bone); border-color: var(--bone); }
+
+/* ============================================================== text */
+.k7 .txt { position: absolute; inset: 0; visibility: hidden; text-shadow: var(--outline); }
+.k7 .txt.on { visibility: visible; }
+.k7 .cp { position: absolute; left: calc(var(--u) * 46); top: calc(var(--u) * 42); font-size: calc(var(--u) * 17); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; font-variant-numeric: tabular-nums; opacity: 0; transition: opacity 0.4s linear; }
+.k7 .cp.on { opacity: 1; transition: opacity 0.2s linear; }
+.k7 .card { position: absolute; left: 0; right: 0; top: 27%; top: round(27vh, 1px); display: flex; flex-direction: column; align-items: center; opacity: 0; transition: opacity 0.8s linear; }
+.k7 .card.on { opacity: 1; transition: opacity 0.6s linear; }
+/* closer, polish round 3: the end card is ink at 80 % over the still-drawn dusk, so a title card still fading out under it would show through */
+.k7:has(.scr.end.on) .card, .k7:has(.scr.end.on) .card.on { opacity: 0; transition: none; }
+.k7 .card-num { font-family: var(--serif); font-size: min(9vh, 9vw); line-height: 1; height: round(up, 1em, 1px); }
+.k7 .card-rule { width: calc(var(--u) * 120); height: var(--hair); background: var(--brass); box-shadow: 0 0 0 1px var(--ink); margin: calc(var(--u) * 20) 0 calc(var(--u) * 18); margin: round(calc(var(--u) * 20), 1px) 0 round(calc(var(--u) * 18), 1px); }
+.k7 .card-title { font-size: min(2.4vh, 2.4vw); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; padding-left: 0.18em; }
+.k7 .card.single .card-num { font-size: min(6.5vh, 6vw); letter-spacing: 0.3em; padding-left: 0.3em; }
+.k7 .card.single .card-title { display: none; }
+
+.k7 .talk { position: absolute; left: 0; right: 0; bottom: 8%; display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 10); }
+.k7 .sub { display: none; padding: calc(var(--u) * 12) calc(var(--u) * 20); background: rgb(20 17 15 / var(--sub-bg, 0.6)); font-size: var(--sub-size); line-height: 1.3; text-align: center; white-space: pre; }
+.k7 .sub.on { display: block; }
+.k7.no-sub .sub.on { display: none; }
+.k7 .sub .who { display: none; font-family: var(--sans); font-size: 0.6em; text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; padding-left: 0.18em; margin-bottom: 0.25em; }
+.k7 .sub .say { display: block; }
+.k7 .sp-narrator .say { font-family: var(--serif); font-style: italic; }
+.k7 .sp-station .who { display: block; color: var(--aqua); }
+.k7 .sp-station .say { font-family: var(--sans); font-size: 0.8em; text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; padding-left: 0.18em; }
+.k7 .sp-reeve .who { display: block; }
+.k7 .sp-reeve .say { font-family: var(--serif); font-style: normal; }
+.k7 .capt { font-size: calc(var(--sub-size) * 0.8); visibility: hidden; opacity: 0.7; white-space: pre; }
+.k7 .capt.on { visibility: visible; }
+.k7.no-capt .capt.on { visibility: hidden; }
+
+.k7 .prompt { position: absolute; left: 0; right: 0; top: 57.5%; text-align: center; font-size: max(12px, calc(var(--u) * 18)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; opacity: 0; transition: opacity 0.2s linear; white-space: pre; }
+.k7 .prompt.on { opacity: 1; }
+.k7.modal .prompt { visibility: hidden; }
+/* the pause column and the click-to-resume plate: the frozen subtitle, caption, checkpoint and card are not drawn under
+   them (the enlarged mark's label was printed across the dimmed subtitle) */
+.k7.veil .txt { display: none; }
+/* a full page (options, the story so far, credits) is not laid over the frozen subtitle, caption or crosshair */
+.k7.full .txt, .k7.full .hud .xh { display: none; }
+.k7 .prompt.hint { top: 64%; }
+.k7 .prompt.aqua { color: var(--aqua); }
+.k7 .key { display: inline-block; min-width: 1.9em; padding: 0.22em 0.4em 0.18em 0.58em; margin: 0 0.2em; border: var(--hair) solid currentColor; box-shadow: 0 0 0 1px var(--ink), inset 0 0 0 1px var(--ink); text-align: center; line-height: 1.1; }
+
+/* ============================================================== screens */
+.k7 .scr { position: absolute; inset: 0; display: none; pointer-events: auto; text-shadow: var(--outline); }
+.k7 .scr.on { display: flex; }
+.k7 .scrim { background: rgb(20 17 15 / 0.7); }
+/* the pause screen stands over the live frame, whatever it is (the boss room's lamp column showed through the enlarged
+   mark at 70 %) */
+.k7 .pause.scrim { background: rgb(20 17 15 / 0.78); }
+.k7 .menu { display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--u) * 12); }
+.k7 .mi { position: relative; padding-left: calc(var(--u) * 24); font-size: max(13px, calc(var(--u) * 22)); text-transform: uppercase; font-weight: 500; letter-spacing: 0.08em; cursor: pointer; white-space: nowrap; }
+.k7 .mi.off { display: none; }
+.k7 .mi.sel { color: var(--brass); }
+.k7 .mi.sel::before { content: ''; position: absolute; left: 0; top: 50%; width: calc(var(--u) * 12); height: var(--hair); background: var(--brass); box-shadow: 0 0 0 1px var(--ink); }
+.k7 .h { font-family: var(--serif); font-weight: normal; font-size: calc(var(--u) * 46); letter-spacing: 0.2em; margin: 0 0 calc(var(--u) * 30); }
+
+/* ---- loading */
+/* from the title the ink comes up over the live doorway shot instead of cutting to it (at boot it is there at once) */
+.k7 .loading.soft { animation: k7-row 0.25s linear both; }
+.k7.rm .loading.soft { animation: none; }
+.k7 .loading { background: var(--ink); flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 18); text-shadow: none; }
+.k7 .load-text { font-size: max(12px, calc(var(--u) * 16)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; padding-left: 0.18em; }
+.k7 .load-line { width: calc(var(--u) * 260); height: var(--hair); background: var(--brass-dim); }
+.k7 .load-line i { display: block; height: 100%; background: var(--brass); transform-origin: left center; transform: scaleX(0); }
+
+/* ---- title: the name in the dark upper left, the column in the dark lower left */
+.k7 .title-head { position: absolute; left: 7%; top: 11%; }
+.k7 .title-name { font-family: var(--serif); font-weight: normal; font-size: min(calc(var(--u) * 84), 7vw); letter-spacing: 0.3em; line-height: 1; margin: 0; white-space: nowrap; }
+.k7 .pm { height: max(calc(var(--u) * 28), 26px); width: max(calc(var(--u) * 18.2), 16.9px); margin: calc(var(--u) * 26) 0 calc(var(--u) * 12) calc(var(--u) * 4); }
+/* the title's glyph stands on the live shot (the glare, at worst): the same 1 px ink outline as every other glyph */
+.k7 .title-head .pm { filter: drop-shadow(1px 0 0 var(--ink)) drop-shadow(-1px 0 0 var(--ink)) drop-shadow(0 1px 0 var(--ink)) drop-shadow(0 -1px 0 var(--ink)); }
+.k7 .pm-stroke { stroke: var(--brass); }
+.k7 .pm-disc { fill: none; stroke: var(--brass); }
+.k7 .pm-disc.solid { fill: var(--brass); stroke: none; }
+.k7 .pm-seventh { fill: var(--brass); }
+.k7 .title-sub { font-size: max(11px, calc(var(--u) * 16)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; }
+.k7 .title .menu { position: absolute; left: 7%; bottom: 13%; }
+
+/* ---- pause */
+.k7 .pause-col { position: absolute; left: 7%; top: 16%; }
+.k7 .pause-side { position: absolute; right: 7%; top: 16%; width: 36%; display: flex; flex-direction: column; align-items: flex-start; }
+.k7 .side-label { font-size: max(11px, calc(var(--u) * 14)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; color: var(--brass); }
+.k7 .obj-text { font-family: var(--serif); font-size: max(14px, calc(var(--u) * 24)); line-height: 1.35; margin: calc(var(--u) * 8) 0 calc(var(--u) * 34); }
+/* the enlarged mark keeps its own size (mark.ts MARK_BIG_SCALE times the viewport unit, floored at MARK_BIG_MIN_SCALE):
+   the HUD mark's floor rose in polish round 3 and the column has no room for three times that at 720p */
+.k7 .mark.big { position: static; --mk: calc(max(var(--u), 0.864px) * 3); --mki: 1; width: calc(var(--mk) * 88); height: calc(var(--mk) * 128); margin-left: calc(var(--u) * 30); }
+.k7 .sv-label { font-family: var(--serif); font-style: italic; font-size: max(14px, calc(var(--u) * 22)); margin-top: calc(var(--u) * 14); }
+.k7 .line-legend { display: none; align-items: center; gap: calc(var(--u) * 10); margin-top: calc(var(--u) * 10); font-size: max(11px, calc(var(--u) * 14)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; color: var(--aqua); }
+.k7 .line-legend.on { display: flex; }
+.k7 .line-legend i { display: block; width: max(6px, calc(var(--u) * 9)); height: max(6px, calc(var(--u) * 9)); border-radius: 50%; background: var(--aqua); box-shadow: 0 0 0 1px var(--ink); }
+
+/* ---- click to resume */
+.k7 .ctr { align-items: center; justify-content: center; cursor: pointer; }
+.k7 .ctr-text { font-size: max(13px, calc(var(--u) * 20)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; padding-left: 0.18em; }
+
+/* ---- options */
+.k7 .opt { position: absolute; left: 7%; right: 7%; top: 7%; bottom: 5%; display: flex; flex-direction: column; font-size: max(12px, calc(var(--u) * 18)); }
+.k7 .opt .h { margin-bottom: calc(var(--u) * 14); font-size: calc(var(--u) * 38); }
+.k7 .tabs { display: flex; gap: calc(var(--u) * 30); margin-bottom: calc(var(--u) * 20); padding-bottom: calc(var(--u) * 12); border-bottom: var(--hair) solid var(--brass-dim); }
+.k7 .tabs.rowsel .tab.on { text-decoration: underline; text-underline-offset: 0.4em; }
+.k7 .tab { font-size: max(12px, calc(var(--u) * 19)); text-transform: uppercase; font-weight: 500; letter-spacing: 0.08em; cursor: pointer; opacity: 0.7; }
+.k7 .tab.on { color: var(--brass); opacity: 1; }
+.k7 .pane { display: none; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.k7 .pane.on { display: flex; }
+/* the first grid row is the row's whole height, so a row with a description under it (Difficulty) keeps the same pitch
+   from the row above as every other row (it sat 5 px tighter: its label was not centred in a full-height line) */
+.k7 .row { --rh: max(22px, calc(var(--u) * 37)); position: relative; display: grid; grid-template-columns: calc(var(--u) * 330) 1fr; grid-template-rows: minmax(var(--rh), auto); align-items: center; min-height: var(--rh); padding-left: calc(var(--u) * 24); }
+.k7 .row .lab { text-transform: uppercase; font-weight: 500; letter-spacing: 0.08em; }
+.k7 .row.sel .lab { color: var(--brass); }
+.k7 .row.sel::before { content: ''; position: absolute; left: 0; top: calc(var(--rh) / 2); width: calc(var(--u) * 12); height: var(--hair); background: var(--brass); box-shadow: 0 0 0 1px var(--ink); }
+.k7 .ctl { display: flex; align-items: center; flex-wrap: wrap; }
+.k7 .sl { position: relative; width: calc(var(--u) * 280); height: max(18px, calc(var(--u) * 26)); cursor: pointer; touch-action: none; }
+.k7 .sl::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--hair); background: var(--bone); box-shadow: 0 0 0 1px var(--ink); }
+.k7 .sl-knob { position: absolute; top: 50%; width: max(7px, calc(var(--u) * 9)); height: max(7px, calc(var(--u) * 9)); border-radius: 50%; background: var(--brass); box-shadow: 0 0 0 1px var(--ink); transform: translate(-50%, -50%); }
+.k7 .val { margin-left: calc(var(--u) * 18); min-width: 4em; font-variant-numeric: tabular-nums; }
+.k7 .cho { display: inline-flex; align-items: center; margin-right: calc(var(--u) * 26); cursor: pointer; text-transform: uppercase; font-weight: 500; letter-spacing: 0.08em; opacity: 0.72; }
+.k7 .cho.on { opacity: 1; }
+.k7 .cb { display: inline-block; width: max(8px, calc(var(--u) * 11)); height: max(8px, calc(var(--u) * 11)); margin-right: calc(var(--u) * 9); border-radius: 50%; border: max(1px, calc(var(--u) * 1.5)) solid var(--brass-dim); box-shadow: 0 0 0 1px var(--ink); }
+.k7 .cho.on .cb { background: var(--brass); border-color: var(--brass); }
+.k7 .sw { display: inline-block; width: max(10px, calc(var(--u) * 15)); height: max(10px, calc(var(--u) * 15)); border-radius: 50%; background: var(--c); box-shadow: 0 0 0 1px var(--ink), 0 0 0 calc(1px + var(--hair)) var(--brass-dim); }
+.k7 .cho.on .sw { box-shadow: 0 0 0 1px var(--ink), 0 0 0 calc(2px + var(--hair)) var(--brass); }
+.k7 .desc { grid-column: 2; font-family: var(--serif); font-style: italic; font-size: 0.95em; opacity: 0.9; padding: calc(var(--u) * 2) 0 calc(var(--u) * 6); }
+.k7 .row.head { --rh: max(20px, calc(var(--u) * 34)); margin-top: calc(var(--u) * 8); }
+.k7 .row.head .lab { color: var(--brass); font-weight: 600; letter-spacing: 0.18em; font-size: 0.8em; }
+.k7 .binds { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(var(--u) * 40); }
+.k7 .row.bind { grid-template-columns: calc(var(--u) * 250) 1fr; --rh: max(21px, calc(var(--u) * 35)); }
+.k7 .slot { display: inline-block; min-width: calc(var(--u) * 120); margin-right: calc(var(--u) * 10); padding: calc(var(--u) * 3) calc(var(--u) * 10); border: var(--hair) solid rgb(233 226 208 / 0.45); box-shadow: 0 0 0 1px var(--ink); text-align: center; cursor: pointer; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.85em; white-space: nowrap; }
+.k7 .slot.cur { border-color: var(--brass); color: var(--brass); }
+.k7 .slot.capturing { border-color: var(--aqua); color: var(--aqua); }
+/* what the last rebinding moved elsewhere (a swap): drawn dashed until the next change of focus */
+.k7 .slot.moved { border-color: var(--bone); border-style: dashed; color: var(--brass); }
+.k7 .opt-foot { display: flex; gap: calc(var(--u) * 40); margin-top: auto; padding-top: calc(var(--u) * 12); border-top: var(--hair) solid var(--brass-dim); }
+
+/* ---- readables: paper in her hand, enamel in Pellam's */
+.k7 .reader { align-items: center; justify-content: center; background: rgb(20 17 15 / 0.55); text-shadow: none; }
+.k7 .sheet { width: min(calc(60ch + var(--u) * 110), 88vw); padding: calc(var(--u) * 44) calc(var(--u) * 55) calc(var(--u) * 30); background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: max(14px, calc(var(--u) * 23)); line-height: 1.5; transform: rotate(-1deg); }
+.k7 .sheet-title { font-style: italic; font-size: 1.12em; padding-bottom: calc(var(--u) * 12); margin-bottom: calc(var(--u) * 18); border-bottom: var(--hair) solid rgb(20 17 15 / 0.45); }
+.k7 .sheet-body { white-space: pre-line; max-width: 60ch; min-height: 7.5em; }
+.k7 .sheet.plate { background: var(--enamel); font-family: var(--sans); font-size: max(13px, calc(var(--u) * 20)); }
+.k7 .sheet.plate .sheet-title, .k7 .sheet.plate .sheet-body { text-transform: uppercase; font-style: normal; font-weight: 600; letter-spacing: 0.18em; }
+.k7 .sheet.plate .sheet-title { font-size: 0.8em; }
+.k7 .sheet-foot { display: flex; align-items: center; justify-content: space-between; margin-top: calc(var(--u) * 26); font-family: var(--sans); }
+.k7 .dots { display: flex; gap: calc(var(--u) * 7); }
+.k7 .dots i { display: block; width: max(6px, calc(var(--u) * 8)); height: max(6px, calc(var(--u) * 8)); border-radius: 50%; border: var(--hair) solid var(--ink); }
+.k7 .dots i.on { background: var(--ink); }
+.k7 .dots i.off { display: none; }
+.k7 .sheet .menu { flex-direction: row; gap: calc(var(--u) * 30); }
+.k7 .sheet .mi { color: var(--ink); opacity: 0.6; font-weight: 600; }
+.k7 .sheet .mi.sel { color: var(--ink); opacity: 1; }
+.k7 .sheet .mi.sel::before { background: var(--ink); box-shadow: none; }
+
+/* ---- death: fade to ink, one line.
+   Polish round 4: the line is full bone (as a subtitle), comes up WITH the ink (whole at 0.6 s; it waited to 0.9 s) and
+   is not taken away at the respawn. Core respawns 1.8 s after the death (flow.ts DEATH_TICKS, not ours): the ink then
+   fades off the game in 0.5 s as before, and the line stays over it, outlined like every other text, for 1.4 s more
+   and fades in 0.4 s. Whole for 1.2 + 1.4 = 2.6 s (it was 0.9 s). It stands above the crosshair, never on it. */
+.k7 .death { background: var(--ink); align-items: center; justify-content: center; pointer-events: none; text-shadow: none; animation: k7-death-in 0.6s linear both; }
+.k7 .death-text { color: var(--bone); font-family: var(--serif); font-style: italic; font-size: max(18px, calc(var(--u) * 32)); transform: translateY(-9vh); animation: k7-death-text 0.3s linear both; }
+.k7 .death.out { display: flex; background: transparent; animation: k7-death-out 0.5s linear both; }
+.k7 .death.out .death-text { text-shadow: var(--outline); animation: k7-death-hold 1.8s linear both; }
+@keyframes k7-death-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes k7-death-text { from { opacity: 0; } to { opacity: 1; } }
+@keyframes k7-death-out { from { background-color: #14110F; } to { background-color: rgb(20 17 15 / 0); } }
+@keyframes k7-death-hold { 0%, 77.78% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes k7-death-cut { from { opacity: 1; } to { opacity: 0; } }
+
+/* ---- end card: a ledger, one row lighting at a time; the lamps set apart.
+   Polish round 4 (lead ruling R5): the camera of the coda looks straight at the fire, so the fire is the middle of the
+   frame and the lit windows are left of it. The ledger stands in the right third on its own soft ink panel, and the
+   scrim over the rest is ink at 35 % (it was 80 % over everything, with the ledger on the fire). */
+.k7 .end { background: rgb(20 17 15 / 0.35); flex-direction: row; align-items: center; justify-content: flex-end; padding-right: 4%; text-shadow: none; }
+.k7 .end-panel { display: flex; flex-direction: column; align-items: center; padding: calc(var(--u) * 34) calc(var(--u) * 36) calc(var(--u) * 30); background: rgb(20 17 15 / 0.8); box-shadow: 0 0 calc(var(--u) * 26) calc(var(--u) * 10) rgb(20 17 15 / 0.8); }
+.k7 .end-card { font-size: max(15px, calc(var(--u) * 28)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.3em; padding-left: 0.3em; margin-bottom: calc(var(--u) * 12); }
+.k7 .end-rule { width: calc(var(--u) * 120); height: var(--hair); background: var(--brass); margin-bottom: calc(var(--u) * 26); }
+.k7 .ledger { width: min(calc(var(--u) * 600), 31vw); }
+.k7 .lrow { display: flex; align-items: baseline; justify-content: space-between; padding: calc(var(--u) * 5) 0; animation: k7-row 0.5s linear both; animation-delay: calc(0.9s + var(--i) * 0.38s); }
+.k7 .lrow .lab { font-size: max(11px, calc(var(--u) * 14)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; opacity: 0.85; }
+.k7 .lrow .v { font-family: var(--serif); font-size: max(14px, calc(var(--u) * 23)); font-variant-numeric: tabular-nums; }
+.k7 .lrow.lamps { display: block; margin: calc(var(--u) * 16) 0; padding: calc(var(--u) * 14) 0; border-top: var(--hair) solid var(--brass-dim); border-bottom: var(--hair) solid var(--brass-dim); }
+.k7 .lamps-head { display: flex; align-items: baseline; justify-content: space-between; }
+.k7 .lamps .lab { color: var(--brass); opacity: 1; }
+.k7 .lamp-grid { display: grid; grid-template-columns: repeat(12, max(4px, calc(var(--u) * 6))); gap: calc(var(--u) * 5) calc(var(--u) * 6); justify-content: end; margin-top: calc(var(--u) * 10); }
+.k7 .lamp { display: none; height: max(5px, calc(var(--u) * 8)); background: var(--flame); }
+.k7 .lamp.on { display: block; }
+.k7 .end .menu { flex-direction: row; gap: calc(var(--u) * 44); margin-top: calc(var(--u) * 26); animation: k7-row 0.5s linear both; animation-delay: calc(0.9s + 9.6 * 0.38s); }
+@keyframes k7-row { from { opacity: 0; } to { opacity: 1; } }
+
+/* ============================================================== reduce motion: no kick, no shiver beyond an opacity blink, cuts for fades */
+.k7.rm .rk { animation: none; }
+.k7.rm .svw.shiver { animation: k7-blink 0.3s steps(2, jump-none) both; }
+.k7.rm .sv.pulse .so, .k7.rm .sv.pulse .ink.so, .k7.rm .sv.pulse .sb, .k7.rm .sv.pulse .sr { animation: k7-breathe 2s ease-in-out infinite; }
+.k7.rm .card, .k7.rm .card.on, .k7.rm .cp, .k7.rm .cp.on, .k7.rm .prompt, .k7.rm .hud.on.fade { transition: none; }
+.k7.rm .m-kill .mt { animation: none; transform: scale(1.7); }
+.k7.rm .m-freed .mr { animation: none; }
+.k7.rm .death, .k7.rm .death-text, .k7.rm .lrow, .k7.rm .end .menu { animation: none; }
+.k7.rm .death.out { background: transparent; }
+.k7.rm .death.out .death-text { animation: k7-death-cut 1.4s steps(1, end) both; }
+.k7.rm .xh .plumb { transition: none; }

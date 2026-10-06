@@ -1,0 +1,304 @@
+{
+ "cell": 16,
+ "cells": {
+  "adobe": {
+   "col": 5,
+   "hex": "#B98A62",
+   "row": 0
+  },
+  "adobe_base": {
+   "col": 6,
+   "hex": "#8E6549",
+   "row": 0
+  },
+  "aqua": {
+   "col": 2,
+   "emis": "#7CF2E2",
+   "hex": "#0E1418",
+   "row": 4
+  },
+  "aqua_core": {
+   "col": 3,
+   "emis": "#E6FFFB",
+   "hex": "#0E1418",
+   "row": 4
+  },
+  "ash": {
+   "col": 8,
+   "hex": "#8C8780",
+   "row": 0
+  },
+  "ash_dark": {
+   "col": 9,
+   "hex": "#2A2623",
+   "row": 0
+  },
+  "board": {
+   "col": 0,
+   "hex": "#6E4E38",
+   "row": 1
+  },
+  "board_bleached": {
+   "col": 1,
+   "hex": "#927560",
+   "row": 1
+  },
+  "board_dark": {
+   "col": 2,
+   "hex": "#3B2A22",
+   "row": 1
+  },
+  "brass": {
+   "col": 8,
+   "hex": "#B88A3A",
+   "row": 2
+  },
+  "cable": {
+   "col": 5,
+   "hex": "#1B1F24",
+   "row": 2
+  },
+  "chalk": {
+   "col": 10,
+   "hex": "#E9E4D6",
+   "row": 0
+  },
+  "clay": {
+   "col": 7,
+   "hex": "#A9623F",
+   "row": 0
+  },
+  "concrete": {
+   "col": 4,
+   "hex": "#6F7A76",
+   "row": 2
+  },
+  "cord": {
+   "col": 6,
+   "hex": "#A58B63",
+   "row": 1
+  },
+  "cuff": {
+   "col": 7,
+   "hex": "#3A3432",
+   "row": 3
+  },
+  "dowser_pale": {
+   "col": 6,
+   "hex": "#D9D2BF",
+   "row": 5
+  },
+  "enamel": {
+   "col": 0,
+   "hex": "#CFD6CC",
+   "row": 2
+  },
+  "enamel_stain": {
+   "col": 1,
+   "hex": "#AEB6A8",
+   "row": 2
+  },
+  "flame": {
+   "col": 0,
+   "emis": "#FF9433",
+   "hex": "#2A2623",
+   "row": 4
+  },
+  "flame_core": {
+   "col": 1,
+   "emis": "#FFE9B8",
+   "hex": "#2A2623",
+   "row": 4
+  },
+  "glove": {
+   "col": 4,
+   "hex": "#8A6A48",
+   "row": 3
+  },
+  "glove_worn": {
+   "col": 5,
+   "hex": "#A58460",
+   "row": 3
+  },
+  "graphite": {
+   "col": 11,
+   "hex": "#3A3A40",
+   "row": 1
+  },
+  "gun_blue": {
+   "col": 0,
+   "hex": "#1C2230",
+   "row": 3
+  },
+  "gun_worn": {
+   "col": 1,
+   "hex": "#6B7078",
+   "row": 3
+  },
+  "hazard": {
+   "col": 7,
+   "hex": "#B58A3C",
+   "row": 2
+  },
+  "husk": {
+   "col": 5,
+   "hex": "#8A8A92",
+   "row": 5
+  },
+  "kept_band": {
+   "col": 8,
+   "hex": "#CFD6CC",
+   "row": 3
+  },
+  "leather": {
+   "col": 7,
+   "hex": "#7A4E32",
+   "row": 1
+  },
+  "lens": {
+   "col": 9,
+   "hex": "#0E1418",
+   "row": 2
+  },
+  "linen": {
+   "col": 5,
+   "hex": "#D8CDB4",
+   "row": 1
+  },
+  "livery": {
+   "col": 6,
+   "hex": "#4FB8AC",
+   "row": 2
+  },
+  "rock": {
+   "col": 2,
+   "hex": "#A3563A",
+   "row": 0
+  },
+  "rock_cap": {
+   "col": 4,
+   "hex": "#C27A55",
+   "row": 0
+  },
+  "rock_dark": {
+   "col": 3,
+   "hex": "#63302A",
+   "row": 0
+  },
+  "rust": {
+   "col": 4,
+   "hex": "#B5522B",
+   "row": 1
+  },
+  "sand": {
+   "col": 0,
+   "hex": "#CDA070",
+   "row": 0
+  },
+  "sand_pale": {
+   "col": 1,
+   "hex": "#DDB98C",
+   "row": 0
+  },
+  "skin": {
+   "col": 6,
+   "hex": "#9A6B4F",
+   "row": 3
+  },
+  "stake_cool": {
+   "col": 7,
+   "hex": "#B5522B",
+   "row": 5
+  },
+  "steel": {
+   "col": 2,
+   "hex": "#36525A",
+   "row": 2
+  },
+  "steel_dark": {
+   "col": 3,
+   "hex": "#1E2F36",
+   "row": 2
+  },
+  "tin": {
+   "col": 3,
+   "hex": "#8B8478",
+   "row": 1
+  },
+  "town_paint": {
+   "col": 10,
+   "hex": "#6F9A94",
+   "row": 1
+  },
+  "ui_bone": {
+   "col": 0,
+   "hex": "#E9E2D0",
+   "row": 5
+  },
+  "ui_brass": {
+   "col": 2,
+   "hex": "#C9A14A",
+   "row": 5
+  },
+  "ui_brass_dim": {
+   "col": 3,
+   "hex": "#6E5A2E",
+   "row": 5
+  },
+  "ui_ink": {
+   "col": 1,
+   "hex": "#14110F",
+   "row": 5
+  },
+  "ui_pale": {
+   "col": 4,
+   "hex": "#F3E6CF",
+   "row": 5
+  },
+  "violet": {
+   "col": 4,
+   "emis": "#B24BFF",
+   "hex": "#8A8A92",
+   "row": 4
+  },
+  "violet_band": {
+   "col": 6,
+   "emis": "#B24BFF",
+   "hex": "#1E2F36",
+   "row": 4
+  },
+  "violet_band_core": {
+   "col": 7,
+   "emis": "#F0DCFF",
+   "hex": "#1E2F36",
+   "row": 4
+  },
+  "violet_core": {
+   "col": 5,
+   "emis": "#F0DCFF",
+   "hex": "#8A8A92",
+   "row": 4
+  },
+  "walnut": {
+   "col": 2,
+   "hex": "#3A2318",
+   "row": 3
+  },
+  "walnut_worn": {
+   "col": 3,
+   "hex": "#5A3824",
+   "row": 3
+  },
+  "workcloth": {
+   "col": 8,
+   "hex": "#5E4636",
+   "row": 1
+  },
+  "workcloth_light": {
+   "col": 9,
+   "hex": "#7A5B45",
+   "row": 1
+  }
+ },
+ "size": 256
+}
