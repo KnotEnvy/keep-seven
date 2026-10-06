@@ -104,10 +104,13 @@ export const AO_RADIUS = 0.55, AO_INTENSITY = 10, AO_FAR = 45, AO_TAPS = 16, AO_
 export const VM_DEPTH_RANGE = 0.05;
 /** how much of the contact shade is left under a sky (the mood's M_SKY) */
 export const AO_SKY = 0.35;
+/** the share of the contact shade a lit surface loses, between two DISPLAY levels of its own light (polish round 5) */
+export const AO_LIT = 0.7, AO_LIT_FROM = 0.30, AO_LIT_TO = 0.85;
 const AO_FRAGMENT = /* glsl */`
 uniform highp sampler2D uAoDepth;
 uniform vec4 uAoProj;   // tan(half fov) x, y; near; far
 uniform vec4 uAoK;      // radius in metres, strength, far fade in metres, on
+uniform float uAoExposure;
 vec3 keepAoPos( const in vec2 uv, const in float d ) {
 	float z = ( uAoProj.z * uAoProj.w ) / ( ( uAoProj.w - uAoProj.z ) * d - uAoProj.w );
 	return vec3( ( uv * 2.0 - 1.0 ) * uAoProj.xy * - z, z );
@@ -134,7 +137,7 @@ void mainImage( const in vec4 inputColor, const in vec2 uv, out vec4 outputColor
 	// stepped copies of the bezel, four turns over 2 x 2 pixels as a screen door; this is a fine stipple inside the capped
 	// radius, of the grain's own size, and the FXAA pass and the grain after it take it in
 	float turn = 6.2831853 * fract( 52.9829189 * fract( dot( gl_FragCoord.xy, vec2( 0.06711056, 0.00583715 ) ) ) );
-	float sum = 0.0;
+	float sum = 0.0, top = 0.0;
 	float r2 = uAoK.x * uAoK.x;
 	for ( int i = 0; i < ${AO_TAPS}; i ++ ) {
 		float t = ( float( i ) + 0.5 ) / ${AO_TAPS}.0;
@@ -145,8 +148,16 @@ void mainImage( const in vec4 inputColor, const in vec2 uv, out vec4 outputColor
 		vec3 v = keepAoPos( at, ds ) - p;
 		float dd = dot( v, v );
 		// over the plane by more than 5 mm and 0.4 % of the distance (flat ground at a grazing angle shades nothing), and inside the radius
-		sum += max( 0.0, dot( v, n ) - 0.005 - 0.004 * dist ) / ( dd + 0.0004 ) * step( dd, r2 ) * ( 1.0 - dd / r2 );
+		float w = max( 0.0, dot( v, n ) - 0.005 - 0.004 * dist ) / ( dd + 0.0004 ) * step( dd, r2 ) * ( 1.0 - dd / r2 );
+		sum += w; top = max( top, w );
 	}
+	// polish round 5 (visual critic: "dithered dark speckles round the wall-lamp boxes and the stuck stakes"): what ONE
+	// tap of sixteen finds is not a shade, it is the stipple: a stake a hand wide, the rim of a bezel. The strongest
+	// tap is left out (a corner or a body over the plate is found by many and keeps its shade) ...
+	sum = max( sum - top, 0.0 ) * ${(AO_TAPS / (AO_TAPS - 1)).toFixed(4)};
+	// ... and a surface in a lamp's own pool takes less of it: the shade belongs to the fill, not to direct light
+	float lit = dot( inputColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) ) * uAoExposure;
+	fade *= 1.0 - ${AO_LIT.toFixed(2)} * smoothstep( ${AO_LIT_FROM.toFixed(2)}, ${AO_LIT_TO.toFixed(2)}, lit );
 	// never darker than AO_FLOOR of the baked light: a shade, not a hole
 	float ao = mix( 1.0, max( 1.0 - sum * uAoK.x * ( uAoK.y / ${AO_TAPS}.0 ), ${AO_FLOOR.toFixed(2)} ), fade );
 	outputColor = vec4( inputColor.rgb * ao, inputColor.a );
@@ -154,8 +165,8 @@ void mainImage( const in vec4 inputColor, const in vec2 uv, out vec4 outputColor
 }
 `;
 class ContactShadeEffect extends Effect {
-  constructor(readonly depth: THREE.Uniform<THREE.Texture | null>, readonly proj: THREE.Uniform<THREE.Vector4>, readonly k: THREE.Uniform<THREE.Vector4>) {
-    super('KeepContactShade', AO_FRAGMENT, { blendFunction: BlendFunction.SRC, uniforms: new Map<string, THREE.Uniform>([['uAoDepth', depth], ['uAoProj', proj], ['uAoK', k]]) });
+  constructor(readonly depth: THREE.Uniform<THREE.Texture | null>, readonly proj: THREE.Uniform<THREE.Vector4>, readonly k: THREE.Uniform<THREE.Vector4>, exposure: THREE.Uniform<number>) {
+    super('KeepContactShade', AO_FRAGMENT, { blendFunction: BlendFunction.SRC, uniforms: new Map<string, THREE.Uniform>([['uAoDepth', depth], ['uAoProj', proj], ['uAoK', k], ['uAoExposure', exposure]]) });
   }
 }
 
@@ -260,7 +271,7 @@ export class PostChain {
       this.aoDepth.value = depth;
       this.aoK.value.w = 1;
       this.keepsDepth = true;
-      this.merged = new EffectPass(this.camera, new ContactShadeEffect(this.aoDepth, this.aoProj, this.aoK), bloom, grade);
+      this.merged = new EffectPass(this.camera, new ContactShadeEffect(this.aoDepth, this.aoProj, this.aoK, this.exposure), bloom, grade);
     } else {
       this.merged = new EffectPass(this.camera, grade);
     }

@@ -14,15 +14,21 @@ export const DISC_RADIUS = 5;
  * How much larger than ART_BIBLE 10.3's 9 x 22 the seventh is drawn (polish round 2: at 720p the load-bearing glyph was
  * 8 x 19 px, the smallest thing on screen). Everything inside the cartridge scales with it; the ring does not.
  */
-export const SEVENTH_SCALE = 1.5;
-/** the seventh: 13.5 x 33, its nearest corner 20 px from the ring's edge, lower right; the hairline ends on its nose */
-export const SEVENTH_BOX = { x: 26.25, y: 45, w: 9 * SEVENTH_SCALE, h: 22 * SEVENTH_SCALE } as const;
+export const SEVENTH_SCALE = 2;
+/**
+ * the seventh: 18 x 44 (polish round 5: it was 13.5 x 33, 15 x 36 px at 720p, and the one mark the game is named for
+ * was the smallest thing on screen), its nearest corner 19 px from the ring's edge, lower right; the hairline ends on
+ * its nose
+ */
+export const SEVENTH_BOX = { x: 25, y: 45, w: 9 * SEVENTH_SCALE, h: 22 * SEVENTH_SCALE } as const;
 /** the ring's part of the box is unchanged (88 x 116); the taller cartridge adds MARK_DROP under it (ui.css `.mark`) */
-export const MARK_DROP = 12;
+export const MARK_DROP = 23;
+/** the reserve numeral: its size in mark units (12 until polish round 5: 13 px at 720p) and its baseline */
+export const RESERVE_SIZE = 15, RESERVE_BASELINE = 51;
 export const MARK_VIEW = { x: -44, y: -44, w: 88, h: 116 + MARK_DROP } as const;
 /**
  * The legibility floor: on a small screen the HUD mark stops shrinking with the viewport (ui.css `--mk`). 1.08 keeps it
- * at 95 x 138 px, the chamber dots at 10.8 px, the seventh at 14.6 x 35.6 px and the reserve numeral at 13 px on a
+ * at 95 x 150 px, the chamber dots at 10.8 px, the seventh at 19.4 x 47.5 px and the reserve numeral at 16 px on a
  * 1280 x 720 frame (polish round 3: at 0.864 it was 76 x 111 with 8.6 px dots and was lost over the sleeve in the street).
  */
 export const MARK_MIN_SCALE = 1.08;
@@ -40,14 +46,14 @@ const KICK_CLASS: readonly string[] = ['rk', 'rk ka', 'rk kb'];
 const SHIVER_CLASS: readonly string[] = ['svw', 'svw shiver'];
 const PIP_CLASS: readonly string[] = ['lp', 'lp on'];
 /**
- * The backing (polish round 4): the HUD mark stands on the revolver's frame and grip, dark steel under dark brass. Two
- * soft ink discs lie under it, one under the ring and the numeral, one under the seventh: ink at BACKING_ALPHA out to
+ * The backing (polish round 4, when the HUD mark stood on the revolver's frame and grip; since round 5 it stands lower
+ * left, over whatever the world is there: glare sand at worst). Two soft ink discs lie under it, one under the ring and the numeral, one under the seventh: ink at BACKING_ALPHA out to
  * BACKING_CORE of the radius, then fading to nothing, so there is no panel edge. The enlarged mark of the pause screen
  * stands on the scrim and has none (ui.css `.mark.big .bk`).
  */
 export const BACKING_ALPHA = 0.5, BACKING_CORE = 0.6;
 export const BACKING_RING = { cx: 0, cy: 6, r: 54 } as const;
-export const BACKING_SEVENTH = { cx: SEVENTH_BOX.x + SEVENTH_BOX.w / 2, cy: SEVENTH_BOX.y + SEVENTH_BOX.h / 2, rx: 19, ry: 29 } as const;
+export const BACKING_SEVENTH = { cx: SEVENTH_BOX.x + SEVENTH_BOX.w / 2, cy: SEVENTH_BOX.y + SEVENTH_BOX.h / 2, rx: 23, ry: 36 } as const;
 let backingSeq = 0;
 
 export class MarkWidget {
@@ -108,7 +114,7 @@ export class MarkWidget {
 
     // line rounds: 0 to 2 pips under the ring, left of the reserve numeral
     for (let i = 0; i < 2; i++) this.pips.push(svg('circle', { cx: -23 + i * 7, cy: 45.5, r: 2.5 }, root, PIP_CLASS[0] as string));
-    this.reserve = svg('text', { x: 0, y: 50, 'text-anchor': 'middle' }, root, 'rs');
+    this.reserve = svg('text', { x: 0, y: RESERVE_BASELINE, 'text-anchor': 'middle', 'font-size': RESERVE_SIZE }, root, 'rs');
 
     // the seventh: a cartridge side-on, upright; nose up, rim down, its band a filled bar
     this.shiverGroup = svg('g', {}, root, SHIVER_CLASS[0] as string);

@@ -29,7 +29,7 @@ const DEFAULTS = {
 const options = (game) => game.page.evaluate(() => JSON.parse(JSON.stringify(window.__dbg.ext.core.ctx().options.value)));
 const screen = (game) => game.page.evaluate(() => window.__dbg.state().ui.screen);
 const item = (game, id) => game.page.evaluate((i) => document.querySelector(`.k7 .scr.on [data-item="${i}"]`).click(), id);
-const items = (game) => game.page.evaluate(() => [...document.querySelectorAll('.k7 .scr.on .mi')].filter((m) => getComputedStyle(m).display !== 'none').map((m) => m.textContent + (m.classList.contains('sel') ? '*' : '')));
+const items = (game) => game.page.evaluate(() => [...document.querySelectorAll('.k7 .scr.on .mi')].filter((m) => getComputedStyle(m).display !== 'none' && m.offsetParent !== null).map((m) => m.textContent + (m.classList.contains('sel') ? '*' : '')));
 const idle = (game) => game.page.evaluate(() => window.__dbg.ext.core.idle());
 const events = (game, name) => game.page.evaluate((n) => window.__dbg.events(0, n).map((e) => e.payload), name);
 
@@ -89,7 +89,8 @@ test('title: the name, the mark, the column; Go on only with a stored save; keyb
     await game.page.evaluate(() => window.__dbg.start({ checkpoint: 'cp_street_clear' }));
     await game.page.evaluate(() => { window.__dbg.pause(true); window.__dbg.emit('ui/action', { action: 'quit_to_title' }); });
     await idle(game);
-    assert.deepEqual(await items(game), [STORY.ui.ui_menu_play + '*', STORY.ui.ui_menu_continue, STORY.ui.ui_menu_story, STORY.ui.ui_menu_options, STORY.ui.ui_menu_credits]);
+    // polish round 5: with a save, Go on is the chosen item and names the count it goes on from (II · 1: cp_street_clear)
+    assert.deepEqual(await items(game), [STORY.ui.ui_menu_play, STORY.ui.ui_menu_continue + 'II · 1*', STORY.ui.ui_menu_story, STORY.ui.ui_menu_options, STORY.ui.ui_menu_credits]);
     await item(game, 'continue');
     await idle(game);
     const s = await game.state();
@@ -401,9 +402,10 @@ test('options from pause: the frozen subtitle and caption show under neither; th
       const shown = (sel) => { const n = document.querySelector(sel); if (getComputedStyle(n).display === 'none' || getComputedStyle(n).visibility === 'hidden') return false; for (let p = n.parentElement; p; p = p.parentElement) if (getComputedStyle(p).display === 'none') return false; return true; };
       return { screen: window.__dbg.state().ui.screen, sub: shown('.k7 .sub.on'), capt: shown('.k7 .capt.on'), xh: shown('.k7 .hud .xh'), mark: shown('.k7 .hud .mark') };
     });
-    assert.deepEqual(await look(), { screen: 'pause', sub: false, capt: false, xh: true, mark: true }, 'the pause keeps the frozen frame, without its text layer');
+    // polish round 5: the HUD's mark (lower left now, under the pause column) is not drawn under the pause, which shows it enlarged
+    assert.deepEqual(await look(), { screen: 'pause', sub: false, capt: false, xh: true, mark: false }, 'the pause keeps the frozen frame, without its text layer');
     await item(game, 'options');
-    assert.deepEqual(await look(), { screen: 'options', sub: false, capt: false, xh: false, mark: true }, 'the options page is not laid over the text');
+    assert.deepEqual(await look(), { screen: 'options', sub: false, capt: false, xh: false, mark: false }, 'the options page is not laid over the text, nor over the gauges');
     // nothing of the text layer crosses the options footer
     const overlap = await game.page.evaluate(() => {
       const foot = document.querySelector('.k7 .options .opt-foot').getBoundingClientRect();
@@ -411,7 +413,7 @@ test('options from pause: the frozen subtitle and caption show under neither; th
     });
     assert.equal(overlap, 0);
     await game.page.keyboard.press('Escape');
-    assert.deepEqual(await look(), { screen: 'pause', sub: false, capt: false, xh: true, mark: true }, 'back on the pause');
+    assert.deepEqual(await look(), { screen: 'pause', sub: false, capt: false, xh: true, mark: false }, 'back on the pause');
     // and in play the line that was up is up again (it was never ended, only not drawn)
     await game.page.evaluate(() => { window.__dbg.emit('ui/action', { action: 'resume' }); window.__dbg.step(1, true); });
     const back = await look();

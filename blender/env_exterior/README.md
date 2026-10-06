@@ -199,3 +199,23 @@ machine, almost all of it the 2048² `lm_surface` bake on the GPU (170 to 250 s)
 - **`KS_EXT_FAST=1` builds are taken as current by the driver.** After iterating with it, rebuild at full quality with
   `node tools/build-assets.mjs --only env_plenty_street --force` (and `--only env_exterior` first if the lightmap's
   inputs changed): otherwise the shipped zone keeps 64-sample vertex light.
+
+## Look team "exterior-look", polish round 5 (the rim: the maroon box, the black cage, the notch)
+
+- **The mesa east and west of the ledge is drawn by the BACKDROP** (`env_backdrop_dusk.py`: `wing`, `under_ledge`): the
+  zone's chunk may not leave its box (x -2 .. 30, `tools/check-glb.mjs`), an unlit card may. A wing is
+  `env_far_rim.cliff_column(x)` continued along a plan spline (`WING_W`, `WING_E`: the old wall's line to its two noses),
+  seven of its rows (`WING_ROWS`) plus two below the ledge, and its light is PAINTED per quad (`W_LIT`, `W_MID`, `W_SHADE`,
+  `W_CAP`: the lit cliff's own display colours at blue hour; dark at the top of a quad that ends under a lip). Change
+  `cliff_column` and the wings follow (the driver rebuilds the backdrop: it imports `env_far_rim`). The first column
+  stands 0.25 m behind the real cliff's end, so the joint is a step in the rock.
+- **`behind_rim`**: the landforms of the four rings and the hogbacks that stand wholly within 60 degrees of south of the
+  rim are not drawn (they paid for the wings: 1 965 of 2 000). `tests/art_env_exterior/rim.test.mjs` holds that no ray
+  from the ledge that leaves the rim rock under a ring's height meets that sector. Do not shorten a wing or lower its
+  skyline without running it.
+- **The cage's room is seen** (`env_far_rim.py`, Part `rim_room`): the proving lift's panels are single-sided, so from
+  inside the cage the player looks at this room. It is lit by three bake-only area lights in `setup_light`
+  (`KS_RIM_CAGE` watts, default 28; 0 switches them off): `fill_cage` stands in the plane of the cliff's face and looks
+  in (a light in front of the face leaves a red halo round the opening on the cliff), `fill_cage_back` looks from the
+  back wall at the wall the opening is cut in, `fill_brow` lies on the ledge under the brow and looks up.
+- The dynamic things in that room (the cage) take the mood `L6c` (`src/render/moods.ts` `rimCage`).

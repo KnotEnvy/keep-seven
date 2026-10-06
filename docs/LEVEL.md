@@ -255,8 +255,9 @@ gallery of pipe banks with aqua strips receding to a point.
 | Gallery | x −81..−19, z −17.5..−10.5 (7 m), 5 m high; walkway z −15.5..−12.5 between 3 m pipe banks |
 | `ia_baffle` [G4] | x −59 (22 m from the bay), opening 3 × 3 m; `cp_gallery_baffle` (−80, −12, −14) |
 | The File, wave A | `sp_file_1..6` at x −21.5..−29.5 step 1.6, z −14, facing east; `lane_gallery` x −59..−19 |
-| The File, wave B | `sp_file_7..9` wait on the lift-hall gantry behind the far door at (−17.0, −12, −15), (−15.4, −12, −14), (−13.8, −12, −13) (zone `lift_hall`, `entersThrough: door_gallery_far`). Lane-following off; lateral offsets −1 / 0 / +1 m, 2.5 m depth stagger |
-| `door_gallery_far` | x −19..−18, opening 3 × 3 m. Opens for wave B and stays open; shut again by `trg_enc_matador`. `cp_file_clear` (−23, −12, −14) when all nine are down |
+| The File, wave R (polish round 5) | `sp_file_10`, `sp_file_11` on flight 3 of the peg stair at (−86, −10.53, −20.2) and (−86, −9.6, −21.6), behind the bay's north wall (not seen from the bay or the gallery). Released with the file down to one when she is within 16 m of `door_gallery_far` (or 25 s on); they run through the bay and the length of the gallery after her |
+| The File, wave B | `sp_file_7..9` and `sp_file_12` (polish round 5) wait on the lift-hall gantry behind the far door at (−17.0, −12, −15), (−15.4, −12, −14), (−13.8, −12, −13), (−13.8, −12, −14.7) (zone `lift_hall`, `entersThrough: door_gallery_far`). Lane-following off; lateral offsets −1 / 0 / +1 / −0.4 m, 1.2 m depth stagger. Released 4 s after wave R; the door bursts 1 s later |
+| `door_gallery_far` | x −19..−18, opening 3 × 3 m. Opens for wave B and stays open; shut again by `trg_enc_matador`. `cp_file_clear` (−23, −12, −14) when all twelve are down |
 
 Because the line rises from eye height, "low / mid / high" are 2.7 / 3.4 / 4.2 m above the
 floor: knot A sits on a pipe elbow arching out of the north bank, B on a cross-pipe valve,
@@ -403,8 +404,9 @@ walk); the view from the catwalk centre to the drum.
 | `vista_rim_rule` / `vista_fire` | due north |
 | `exit_rim` | north edge strip x 8..28, z 100.4..102, `requires: trg_stone`. Before the stone has been found it is only a view |
 
-**How the stage ends (GDD 9.8).** (a) taking `ia_stone_round` (take branch); (b) 25 s after
-`trg_stone` fires (leave branch); (c) walking into `exit_rim` once `trg_stone` has fired and
+**How the stage ends (GDD 9.8).** (a) taking `ia_stone_round` (take branch); (b) 40 quiet seconds more than 4 m from the stone after its last line, the
+clock standing still while a line is on screen (leave branch; polish round 5, `ending.ts` `LEAVE_MIN`: the marker's
+`endAfterSeconds` 25 is only a floor under it); (c) walking into `exit_rim` once `trg_stone` has fired and
 its lines have played (leave branch). Walking straight out of the cage to the north edge
 does **nothing**. Fail-safes on `cp_rim`: at 60 s without `trg_stone` the glint doubles in
 size and rate and `nar_stone_1` plays as a pointer; at 150 s the ending proceeds down the
@@ -423,11 +425,11 @@ foreground (max 1.6 m); the cage frame's black silhouette.
 | `enc_street` | `trg_enc_street` | A kneeler; B four out of the two alley mouths nearest the gate (north x −14.5, south x −21.5; polish round 4); C two in file from the saddlery, 2 s after B; D one through the yard gate | — |
 | `enc_yard` | `knot_yard_latch` | T1; then T2 + T3; +2 s two from the grate; +10 s two from the alley door; a cartridge point inside the yard door (`ia_ammo_box_yard`, polish round 4) | `door_tally` (then held by `trg_dowser`) |
 | `enc_tally` | `knot_hatch_latch` (hatch ajar) | the two south-end seated, at least 14.3 m from wherever the knot can be shot | `door_tally`, `ia_hatch` |
-| `enc_file` | `ia_baffle` | A: six queued at the far door. B (polish round 4, an ambush: with the file down to one, when she is within 12 m of `door_gallery_far`, or 25 s after the file was down to one): a bang, `nar_file_more`, and 2 s later the door bursts on three abreast, not in file | `door_gallery_far` (opened by wave B) |
+| `enc_file` | `ia_baffle` | A: six queued at the far door. R (polish round 5: with the file down to one, when she is within 16 m of `door_gallery_far`, or 25 s after the file was down to one): two down the peg stair behind her, `nar_file_behind`. B (4 s after R): a bang, `nar_file_more`, and 1 s later the door bursts on four, not in file | `door_gallery_far` (opened by wave B) |
 | `enc_matador` | `trg_enc_matador`, or damage to the Tamper in its vignette | Tamper; B two grates at 40 s; C two grates at 65 s; cancelled if the Tamper is dead | `door_gallery_far`, `door_lift_cage` |
 | `enc_windlass` | `trg_enc_windlass` | boss; adds from three kerb grates (repeating) | `door_bore`, `door_proving_lift` |
 
-**Clear rules.** `enc_file`: all nine down. `enc_matador`: the Tamper dead and every Bider
+**Clear rules.** `enc_file`: all twelve down. `enc_matador`: the Tamper dead and every Bider
 already spawned down. `enc_windlass.onClear` commits no checkpoint (`cp_boss_proven` commits
 when the kept round is fired).
 
@@ -506,3 +508,25 @@ It does **not** check cover quality or pacing; those were judged on the map.
   `lh_ramp_cabinet`, the ramp's side and the gantry plinth, about (-14.7, -15, -5.7) (open for round 5).
 - **Section 6.** On a first arrival at each Windlass phase she has at least 67 health; as phase 1 breaks a
   `pk_rounds_12` falls at her feet under 12 in reserve. The world's ask comes 1.5 s into phase 3a.
+
+## 12. Polish round 5 (closer, 2026-10-06)
+
+The layout is final (268 markers); what follows is behaviour in `src/world` that the markers' notes do not show.
+
+- **Section 7, leaving the stone.** 40 quiet seconds away (more than 4 m, after the stone's last line, no line on
+  screen), not 25: the notes on `trg_stone` and `exit_rim` still say 25 and cannot change. The north edge and the
+  150 s fail-safe are unchanged. **The take** is answered on its tick (`nar_take_1`, then `nar_take_2`); none of the
+  stone's four lines is said after a take; the lamps' lines, if unsaid, follow the take's with her view eased up to
+  the plain and the town; the fire kindles after them.
+- **Section 2, the yard latch.** `nar_first_knot` is said when she first looks at `knot_yard_latch` (within 26 m and
+  14 degrees, no fight live); if she shoots first it must start within 1.5 s of the burst or is dropped. `nar_marks`
+  (and `trg_hall_diagram`'s line) is dropped if another fight is live when its turn comes.
+- **Section 4, the watcher.** `nar_watcher_1` is dropped once she is 10 m from the niche, `nar_watcher_2` once she is
+  13 m on or if the first was never shown.
+- **Section 6, the Windlass.** A retry of phase 1, 2 or 3a holds the first attack 4 s; full health on Easy and
+  Normal. The kept round's first hint is `hint_kept_1`; `nar_office` is said only after the proof.
+- **Section 7, the rim's look.** The mesa runs on east and west of the ledge as wings of the rim's own cliff (cards
+  in `env_backdrop_dusk`, outside the zone's chunk box x -2 .. 30); the rock room round the proving lift is lit by
+  the afterglow through its opening (sub-mood `L6c` beyond z 111.8). No collider, footprint or marker changed.
+- **Section 5, the lift hall's ring** stands at level 1.0 (1.5) with panel joints round it. The pocket beside
+  `lh_ramp_cabinet` is unchanged (known gap).

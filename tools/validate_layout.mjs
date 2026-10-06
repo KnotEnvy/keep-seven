@@ -49,7 +49,7 @@ const REQUIRED_MARKERS = [
   'cp_lip_start', 'cp_lip_gate', 'cp_street_clear', 'cp_yard_clear', 'cp_tally_enter', 'cp_tally_hatch', 'cp_gallery_bay', 'cp_gallery_baffle', 'cp_file_clear',
   'cp_hall_gantry', 'cp_hall_clear', 'cp_bore_ante', 'cp_boss_p1', 'cp_boss_p2', 'cp_boss_p3', 'cp_boss_proven', 'cp_rim',
 ];
-const REQUIRED_ENCOUNTERS = { enc_street: { bider: 8 }, enc_yard: { transit: 3, bider: 4 }, enc_tally: { bider: 2 }, enc_file: { bider: 9 }, enc_matador: { tamper: 1, bider: 4 }, enc_windlass: { windlass: 1 } };
+const REQUIRED_ENCOUNTERS = { enc_street: { bider: 8 }, enc_yard: { transit: 3, bider: 4 }, enc_tally: { bider: 2 }, enc_file: { bider: 12 }, enc_matador: { tamper: 1, bider: 4 }, enc_windlass: { windlass: 1 } };
 // GDD section 14 "Fixed placements": zone -> generic id -> minimum count (secret items included)
 const FIXED = {
   the_lip: { pk_rounds_12: 1, pk_rounds_6: 1, ia_ammo_box: 1 },

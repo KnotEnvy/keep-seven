@@ -250,7 +250,8 @@ export class Flow {
         const text = err instanceof Error ? err.message : String(err);
         if (!/failed to load/.test(text)) {
           ctx.save.clear();
-          console.error(`[flow] the stored save could not be applied and was dropped: ${err instanceof Error ? err.stack ?? err.message : text}`);
+          // an expected path (a save of an older build): one line, a warning, no stack (polish round 5, robustness)
+          console.warn(`[flow] the stored save could not be applied and was dropped: ${text}`);
           this.lastFailure = { message: text, state: 'loading' };
           this.enemies.clearAll();
           ctx.player.setControl(false, 'title');

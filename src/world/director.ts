@@ -140,8 +140,16 @@ export const FILE_NEAR = 12;
 /** the ambush's tell at the door: a bang on it from the far side and the Biders' own caption (no marker names them) */
 const AMBUSH_CUE = 'shutter_bang', AMBUSH_CAPTION = 'cap_bider_rattle';
 /** seconds between the three being let go behind the far door (and `nar_file_more`) and the door bursting open */
-export const FILE_BURST = 2;
-const WAVE_RULES: Readonly<Record<string, { left?: number; timeout?: number; hitTimeout?: number; afterSpawnOf?: string; aliveAtMost?: number; near?: number; nearTimeout?: number; delay?: number; burst?: number }>> = {
+export const FILE_BURST = 1;
+/** polish round 5: metres from `door_gallery_far` at which the rear pair start down the peg stair behind her */
+export const FILE_NEAR_REAR = 16;
+/** polish round 5: seconds between the rear pair starting (60 m behind her) and the bang on the far door */
+export const FILE_REAR = 4;
+/** polish round 5: a latch knot's line said on the burst starts within this many seconds of it, or is dropped */
+export const KNOT_LINE_LATE = 1.5;
+/** polish round 5: a vignette trigger's first line is about the place while she is within this many metres of it; its later lines within VIGNETTE_GONE */
+export const VIGNETTE_NEAR = 10, VIGNETTE_GONE = 13;
+const WAVE_RULES: Readonly<Record<string, { left?: number; timeout?: number; hitTimeout?: number; afterSpawnOf?: string; afterDownOf?: string; aliveAtMost?: number; near?: number; nearOf?: string; nearTimeout?: number; delay?: number; burst?: number }>> = {
   // polish round 3 (R3): B and C come sooner, so two groups are on the street at once (it cost a plain player nothing)
   'enc_street/B': { left: 0, hitTimeout: 3, timeout: 8 },
   // polish round 4 (R3): C two seconds after B (it was six), so the file of two is on the street with the alleys
@@ -155,7 +163,14 @@ const WAVE_RULES: Readonly<Record<string, { left?: number; timeout?: number; hit
   // open when she has walked to within FILE_NEAR metres of it, and they are on her together. If she never comes down
   // the gallery they come to her after `nearTimeout` (no dead end). The fixer's "2 s after the first hit" still had
   // them cross the whole corridor in her sights (plain 0 / 0 / 0 HP, careless 0 / 36 / 0).
-  'enc_file/B': { left: 1, delay: 0, near: FILE_NEAR, nearTimeout: 25, burst: FILE_BURST },
+  // Polish round 5 (R3 / R10; both critics again: one line round and three shots, nothing lost by anyone). Composition,
+  // not numbers: the walkway gets a threat at BOTH ends. With the file down to one, when she has come within
+  // `FILE_NEAR_REAR` metres of the far door (or 25 s on), two who did not queue start down flight 3 of the peg stair
+  // behind her and run the length of the gallery after her (wave R, `nar_file_behind`); `FILE_REAR` seconds later the
+  // bang on the far door, and `FILE_BURST` after that it bursts on the three (wave B). The two ends reach her within
+  // about two seconds of each other; whichever way she has turned, something is at her back.
+  'enc_file/R': { afterDownOf: 'A', left: 1, delay: 0, near: FILE_NEAR_REAR, nearOf: 'door_gallery_far', nearTimeout: 25 },
+  'enc_file/B': { afterSpawnOf: 'R', delay: FILE_REAR, burst: FILE_BURST },
 };
 const ENEMY_KINDS = ['bider', 'transit', 'tamper', 'windlass'] as const;
 
@@ -191,6 +206,7 @@ export function planWaves(enc: EncounterData, enemyOf: (spawn: MarkerId) => stri
       if (rule.hitTimeout !== undefined) p.hitTimeout = rule.hitTimeout;
       if (rule.aliveAtMost !== undefined) p.aliveAtMost = rule.aliveAtMost;
       if (rule.afterSpawnOf !== undefined) { p.mode = 'afterSpawn'; p.ref = waves.findIndex((x) => x.id === rule.afterSpawnOf); }
+      if (rule.afterDownOf !== undefined) { p.mode = 'afterDown'; p.ref = waves.findIndex((x) => x.id === rule.afterDownOf); }
       if (rule.delay !== undefined) p.delay = rule.delay;
       if (rule.near !== undefined) { p.mode = 'afterDown'; p.gated = true; p.gateTimeout = rule.nearTimeout ?? -1; p.timeout = -1; p.hitTimeout = -1; }
     }
@@ -205,6 +221,9 @@ export const DROP_CHANCE: Readonly<Record<Difficulty, number>> = { easy: 0.4, no
 export const AMMO_FLOOR = 6;
 /** polish round 4 (R1): seconds between two packets of the Tamper's ammo floor (it was one per attempt) */
 export const TAMPER_MERCY_EVERY = 10;
+/** polish round 5: this many rounds in a row off the Tamper's plate, and `hint_tamper_vent` is said (Easy and Normal) */
+export const TAMPER_PLATE_HINT = 4;
+const TAMPER_HINT_KEY = 'hint_tamper_vent';
 /** where the packet of a wholly dry player lies: one step out from the hall's line locker */
 const TAMPER_MERCY_AT = 'ia_line_locker_hall';
 /**
@@ -246,6 +265,9 @@ interface Enc {
   mercyWait: number;
   /** this encounter holds a Tamper (the floor below is its own) */
   tamper: boolean;
+  /** polish round 5: rounds turned by the Tamper's plate in a row (a vent or line hit starts the count again), and the hint said for it in this attempt */
+  plateRun: number;
+  plateHinted: boolean;
   /** a door to open once the build has nothing pending (the hatch waits for the staged gallery) */
   openWhenBuilt: MarkerId;
   openLeft: number;
@@ -372,7 +394,7 @@ class Director implements DirectorApi {
       const enc: Enc = {
         id, data: d, state: 'idle', boss, sched: new WaveScheduler(boss ? [] : planWaves(d, enemyOf)), waves, members,
         view: { id, state: 'idle', wave: '', alive: 0, spawned: 0, seconds: 0 }, freed: 0, felled: 0, lastAnnounced: false, slowDone: false,
-        vignette: vig, mercy: false, mercyWait: 0, tamper: members.some((m) => m.kind === 'tamper'), openWhenBuilt: '', openLeft: 0, lockLater: [],
+        vignette: vig, mercy: false, mercyWait: 0, tamper: members.some((m) => m.kind === 'tamper'), plateRun: 0, plateHinted: false, openWhenBuilt: '', openLeft: 0, lockLater: [],
         gates: [], burstDoor: '', burstIn: -1,
       };
       enc.sched.plans.forEach((p, wi) => {
@@ -380,7 +402,7 @@ class Director implements DirectorApi {
         const wave = waves[wi] as (typeof waves)[number];
         const rule = WAVE_RULES[id + '/' + wave.id];
         const first = data.layout.markers.find((x) => x.id === wave.spawns[0]);
-        const at = data.layout.markers.find((x) => x.id === (wave.opensDoor ?? '')) ?? first;
+        const at = data.layout.markers.find((x) => x.id === (rule?.nearOf ?? wave.opensDoor ?? '')) ?? first;
         if (at && rule && rule.near !== undefined) enc.gates.push({ wave: wi, x: at.pos[0], z: at.pos[2], near2: rule.near * rule.near });
       });
       this.encs.push(enc);
@@ -425,8 +447,41 @@ class Director implements DirectorApi {
         if (vig && vig.thenLine) s.story.unless(vig.thenLine, over);
       }
       const knot = data.layout.markers.find((x) => x.id === enc.data.trigger || (x.params.kind === 'knot' && x.params.startsEncounter === enc.id));
-      if (knot && knot.params.kind === 'knot') for (const key of paramList(knot, 'lines')) s.story.unless(key, over);
+      if (knot && knot.params.kind === 'knot') {
+        // Polish round 5 (story critic: "Something violet had knotted on the latch" was said 3 s after the latch had
+        // burst and the door stood open). A latch knot (one that opens a door) is described when she first looks at
+        // it (interact.ts); said on the burst it must start within KNOT_LINE_LATE seconds of it or not at all.
+        const latch = paramString(knot, 'opens') !== '';
+        const gone = (): boolean => enc.state === 'cleared' || (latch && this.knotAge(knot.id) > KNOT_LINE_LATE);
+        for (const key of paramList(knot, 'lines')) s.story.unless(key, gone);
+      }
     }
+    events.on('knot/burst', (e) => { if (!this.knotAt.has(e.id)) this.knotAt.set(e.id, this.tickNo); });
+    // A trigger that waits for a fight to be cleared describes the quiet after it ("Every door wore the well mark"):
+    // its lines are dropped if another fight is live when their turn comes (round 5: with the latch knot's line said
+    // on sight, the street's line would have waited through the yard and been said at the end of that fight).
+    for (const t of this.triggers) {
+      if (t.requires === '' || !t.generic) continue;
+      const mine = t.requires;
+      const fighting = (): boolean => { for (let i = 0; i < this.encs.length; i++) { const e = this.encs[i] as Enc; if (e.id !== mine && (e.state === 'active' || e.state === 'vignette')) return true; } return false; };
+      for (const key of paramList(t.marker, 'lines')) if (!s.story.keeps(key)) s.story.unless(key, fighting);
+    }
+    // Polish round 5 (story critic: the watcher's two lines were said while she stood at the bay's locker, 15 m and a
+    // flight of stairs on). A trigger that plays a vignette of its own (no fight) speaks about what she is looking at:
+    // its first line is dropped once she is VIGNETTE_NEAR metres from the place, the lines after it once she is
+    // VIGNETTE_GONE metres on or if the first was never shown.
+    for (const m of data.markersOfType('trigger')) {
+      if (m.params.vignette === undefined || m.params.encounter !== undefined) continue;
+      const lines = paramList(m, 'lines');
+      const first = lines[0] ?? '';
+      const beyond = (r: number): boolean => { const p = s.ctx.player.position, dx = p.x - m.pos[0], dz = p.z - m.pos[2]; return dx * dx + dz * dz > r * r; };
+      for (let i = 0; i < lines.length; i++) {
+        if (i === 0) s.story.unless(first, () => beyond(VIGNETTE_NEAR));
+        else s.story.unless(lines[i] as string, () => beyond(VIGNETTE_GONE) || !this.shown.has(first));
+      }
+      if (first !== '') this.watched.add(first);
+    }
+    events.on('story/line', (e) => { if (this.watched.has(e.key)) this.shown.add(e.key); });
     this.linesMarker = data.markersOfType('trigger').find((m) => namedLine(m, 'lines', 'lined') !== '');
     this.linesEnc = this.linesMarker ? this.encs.find((e) => e.data.zone === this.linesMarker?.zone && !e.boss) : undefined;
     this.bossEnc = this.encs.find((e) => e.boss);
@@ -515,8 +570,17 @@ class Director implements DirectorApi {
 
   // ---- triggers -------------------------------------------------------------------------------------
   private requirementMet(t: Trig): boolean { return t.requires === '' || this.cleared(t.requires); }
+  /** ticks of play counted here (the age of a burst knot) */
+  private tickNo = 0;
+  private readonly knotAt = new Map<MarkerId, number>();
+  /** seconds since the knot `id` burst in this timeline (long ago when a restore gave it back burst); -1 when it has not */
+  private knotAge(id: MarkerId): number { const at = this.knotAt.get(id); return at === undefined ? (this.s.flags.has('burst:' + id) ? 1e9 : -1) : (this.tickNo - at) / 60; }
+  /** first lines of the vignette triggers, and which of them have been on screen (their second lines stand on them) */
+  private readonly watched = new Set<StoryKey>();
+  private readonly shown = new Set<StoryKey>();
   tickTriggers(dt: number): void {
     const { s } = this;
+    this.tickNo++;
     const p = s.ctx.player.position;
     for (let i = 0; i < this.triggers.length; i++) {
       const t = this.triggers[i] as Trig;
@@ -547,7 +611,8 @@ class Director implements DirectorApi {
     // about the trigger's own place (on the peg stair the trigger's zone is not yet the resident set's: there, where she is)
     const about = s.ctx.data.zone(m.zone).set === s.residentSet ? m.zone : s.zone;
     // (the rim's lamps and stone: next in line, in their order; R5: the stone's lines are not left behind six others)
-    if (s.ending.front(m)) s.story.sayFrontAll(paramList(m, 'lines'));
+    // (a vignette of its own, the watcher in the niche: tied to the moment she passes it, round 5)
+    if (s.ending.front(m) || (m.params.vignette !== undefined && m.params.encounter === undefined)) s.story.sayFrontAll(paramList(m, 'lines'));
     else for (const key of paramList(m, 'lines')) s.story.say(key, about);
     const objective = paramString(m, 'objective');
     if (objective !== '' && m.params.encounter === undefined) s.story.setObjective(objective);
@@ -604,7 +669,7 @@ class Director implements DirectorApi {
     e.sched.reset();
     for (const m of e.members) if (m.state === DOWN) e.sched.memberDown(m.wave);
     e.state = e.boss || !first || first.delay <= 0 || replay ? 'active' : 'vignette';
-    e.lastAnnounced = false; e.slowDone = false; e.view.wave = ''; e.mercy = false; e.mercyWait = 0; e.burstDoor = ''; e.burstIn = -1;
+    e.lastAnnounced = false; e.slowDone = false; e.view.wave = ''; e.mercy = false; e.mercyWait = 0; e.burstDoor = ''; e.burstIn = -1; e.plateRun = 0; e.plateHinted = false;
     // a vignette never replays: on a second attempt the first wave does not wait for it
     if (replay && first) e.sched.clock = first.delay;
     const trigger = s.ctx.data.layout.markers.find((m) => m.id === e.data.trigger);
@@ -882,7 +947,8 @@ class Director implements DirectorApi {
     // (in play only: a restore sets the phase too, and gives her the respawn's own floors)
     const fresh = s.checkpoints.index(cp) > s.checkpoints.index(s.checkpoint) && s.ctx.state.current === 'playing' && s.ctx.player.alive;
     if (fresh && (phase === 'p1' || phase === 'p2' || phase === 'p3a')) this.bossFloor();
-    if (fresh && phase === 'p2') this.bossBreak();
+    // (polish round 5, the combat critic: several runs reached phase 3 with an empty reserve: the tin also at that break)
+    if (fresh && (phase === 'p2' || phase === 'p3a')) this.bossBreak();
     // what the adds of the phase behind her freed and felled is hers now
     e.freed = 0; e.felled = 0;
     s.checkpoints.reach(cp, true);
@@ -1137,7 +1203,13 @@ class Director implements DirectorApi {
     const { s } = this;
     if (!s.running || (outcome !== 'deflected' && outcome !== 'hit' && outcome !== 'weak')) return;
     const e = this.find(id, '');
-    if (!e || e.boss || e.state !== 'active' || e.mercyWait > 0) return;
+    if (!e || e.boss || e.state !== 'active') return;
+    // Polish round 5 (the combat critic: 29 rounds off the plate over three attempts, two deaths to the slam): the
+    // fourth round in a row that the plate turns says where the lead belongs, once an attempt. Not on Hard; not with
+    // hints off.
+    if (outcome !== 'deflected') e.plateRun = 0;
+    else if (++e.plateRun === TAMPER_PLATE_HINT && !e.plateHinted && s.hintsOn() && s.ctx.options.value.difficulty !== 'hard') { e.plateHinted = true; s.story.say(TAMPER_HINT_KEY); }
+    if (e.mercyWait > 0) return;
     const w = s.ctx.player.weapon;
     if (w.chambered + w.reserve > AMMO_FLOOR) return;
     e.mercy = true; e.mercyWait = TAMPER_MERCY_EVERY;
@@ -1170,8 +1242,9 @@ class Director implements DirectorApi {
 
   // ---- run, save ------------------------------------------------------------------------------------
   reset(): void {
+    this.knotAt.clear();
     for (const e of this.encs) {
-      e.state = 'idle'; e.freed = 0; e.felled = 0; e.lastAnnounced = false; e.slowDone = false; e.mercy = false; e.mercyWait = 0; e.view.wave = ''; e.openWhenBuilt = ''; e.lockLater.length = 0; e.burstDoor = ''; e.burstIn = -1;
+      e.state = 'idle'; e.freed = 0; e.felled = 0; e.lastAnnounced = false; e.slowDone = false; e.mercy = false; e.mercyWait = 0; e.plateRun = 0; e.plateHinted = false; e.view.wave = ''; e.openWhenBuilt = ''; e.lockLater.length = 0; e.burstDoor = ''; e.burstIn = -1;
       e.sched.reset();
       for (const m of e.members) { m.state = NONE; m.id = ''; }
     }

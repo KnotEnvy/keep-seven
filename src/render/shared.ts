@@ -64,6 +64,12 @@ export class SharedUniforms {
   readonly uPlaceLight = u(new THREE.Color(1, 1, 1));
   readonly uKeyDir = u(new THREE.Vector3(0, 1, 0));
   readonly uSkyCol = u(new THREE.Color(0.3, 0.4, 0.5));
+  /**
+   * High tier only (underground look, polish round 5; lead ruling R9): the sheen of the station's glazed floors and
+   * walls, the share of the baked light a lightmapped face mirrors at a grazing angle (materials.ts WORLD_LIGHT). 0 on
+   * Low and min and under every mood that has none (moods.ts SHEEN): the term is then skipped.
+   */
+  readonly uSheen = u(0);
   // ---- the grade (the `min` tier compiles it into every material; Low and High run it in the merged pass)
   /** rgb: tint, w: saturation */
   readonly uGradeA = u(new THREE.Vector4(1, 1, 1, 1));
@@ -108,7 +114,7 @@ export class SharedUniforms {
     k[48] = dyn.r; k[49] = dyn.g; k[50] = dyn.b; k[51] = this.uHdr.value;
     k[52] = pl.r; k[53] = pl.g; k[54] = pl.b; k[55] = this.uPulseCap.value;
     k[56] = kd.x; k[57] = kd.y; k[58] = kd.z; k[59] = 0;
-    k[60] = sky.r; k[61] = sky.g; k[62] = sky.b; k[63] = 0;
+    k[60] = sky.r; k[61] = sky.g; k[62] = sky.b; k[63] = this.uSheen.value;
     const ga = this.uGradeA.value, gb = this.uGradeB.value;
     k[64] = ga.x; k[65] = ga.y; k[66] = ga.z; k[67] = ga.w;
     k[68] = gb.x; k[69] = gb.y; k[70] = gb.z; k[71] = gb.w;
@@ -158,6 +164,7 @@ ${K_DECL_GLSL}
 #define uPulseCap uK[ 13 ].w
 #define uKeyDir uK[ 14 ].xyz
 #define uSkyCol uK[ 15 ].xyz
+#define uSheen uK[ 15 ].w
 #endif
 `;
 

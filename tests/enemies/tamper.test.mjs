@@ -154,7 +154,7 @@ test('Tamper: the chest vent opens for the last 0.6 s of the slam wind-up; a lea
       return out;
     });
     assert.ok(r.windupAfter >= 0);
-    assert.deepEqual(r.tele, [['slam', 1]]);
+    assert.deepEqual(r.tele, [['slam', 1.15]], 'polish round 5: 1.15 s of tell on Normal (TAMPER.slamWindupBy)');
     assert.equal(r.ring, 1, 'the slam ring is painted');
     assert.equal(r.windupVent, false, 'the chest vent is shut when the wind-up starts');
     assert.deepEqual([r.early.outcome, r.early.damage, r.early.healthLeft], ['deflected', 25, 875], 'a round at the shut vent 0.33 s in: plate');
@@ -166,7 +166,7 @@ test('Tamper: the chest vent opens for the last 0.6 s of the slam wind-up; a lea
     assert.deepEqual(r.after, ['stagger', 675, '', false], 'stagger: the attack is cancelled, the token given back');
     assert.ok(Math.abs(r.staggerTicks - 90) <= 1, `stagger lasts 1.5 s (${r.staggerTicks})`);
     assert.equal(r.hpAfterStagger, 100, 'the cancelled slam did no damage');
-    assert.ok(Math.abs(r.windupTicks - 60) <= 1, `the wind-up is 1.0 s (${r.windupTicks})`);
+    assert.ok(Math.abs(r.windupTicks - 69) <= 1, `the wind-up is 1.15 s on Normal (${r.windupTicks})`);
     assert.equal(r.hpAfterSlam, 62, '38 damage');
     assert.deepEqual(r.attack, ['slam']);
     assert.ok(Math.abs(r.slamTicks - 18) <= 1, `the slam is 0.3 s (${r.slamTicks})`);

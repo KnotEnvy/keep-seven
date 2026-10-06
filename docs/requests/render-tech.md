@@ -44,3 +44,55 @@ None.
 | Row | What | Decision |
 |---|---|---|
 | 1 | pulse sentences, `uK[13].w` | mirrored: GDD 6.8 row and section 19 item 5 in place; ARCHITECTURE 8.1 |
+
+# Polish round 5 (2026-10-06): render-tech
+
+Log: `scratch/r5-team-render-tech/NOTES.md`. Evidence: `shots/r5-team-render-tech/sheet_flash_wall.png` (top row before,
+bottom row after; frames 0, 1, 2 of one shot), `scratch/r5-team-render-tech/t_render.log`, `t_core.log`, `t_player.log`.
+
+## 1. For the closer: mirror into the documents
+
+| Document | Now says | Should say |
+|---|---|---|
+| `docs/GDD.md` 6.8, shot timeline row "0-50" (the flash) | the flash sprite is at the muzzle | add: "render places the sprite each drawn frame on the line from the eye through the view-model's `muzzle` node as drawn, at the distance the player asked for (`FLASH_PUSH`): it rides the kick. The powder smoke and the tracer begin where the muzzle of the shot's tick is seen through the world camera (the view-model pass has its own 40 degree projection)" |
+| `docs/ARCHITECTURE.md` (VfxApi `muzzleFlash`, `weapon/fired`) | `muzzleFlash(kind, x, y, z)`: flash sprite at the view-model muzzle | unchanged contract. Note: x, y, z now give the sprite's DISTANCE from the eye and the centre of the world light pulse; the sprite's direction comes from the drawn muzzle node when a view-model is attached (no node: x, y, z as given). `weapon/fired` mx, my, mz is unchanged (the true muzzle) |
+
+No number of a document was contradicted. No contract, design file or budget changed.
+
+## 2. For the look teams (gun first)
+
+- **The round-4 row "flash below-left of the barrel" is closed by this pass** (`src/render/vfx/vfx.ts` `rideMuzzle`,
+  called from `system.ts` `render()` after `poseViewModel()`). Measured at 960 x 540 in the real game: sprite to drawn
+  muzzle 0.3 to 0.6 px on all three frames of a shot (it was 81 / 169 / 203 px). Size, colour, life, shape and the
+  pulse were not touched. `__dbg.ext.render.muzzle()` gives the drawn muzzle, the sprite and the smoke start as frame fractions.
+- To judge: the barrel rises 55, 119 and 143 px (of 540) on the three frames the flash lives, and the flash now goes
+  up with it. If the flash should not travel that far, shorten the flash's life (`vfx.ts` `flashLife`) or soften the
+  first ticks of the kick (player `rig.fire` / the `fire` clip): do not un-parent it.
+- **Left as is, yours if you want it:** the smoke puff and the tracer begin where the muzzle was on the shot's tick
+  (the pose before the kick), which is correct for the frame of the shot but about 70 px below the risen barrel on
+  the first drawn frame (see the bottom-left tile of the sheet: the tracer's line points at a place under the barrel
+  tip). Re-anchoring a two-tick streak to the drawn muzzle needs per-frame state in the line pool; not done in the last round.
+- `tests/player/flash.test.mjs` (player team not active this round): the last assertion was "right of and BELOW the
+  crosshair"; it now reads "right of the crosshair, at the muzzle as drawn" (core 0.71 % of the frame, 0.62 % of the
+  body box at the crosshair: both limits of round 4 still hold).
+
+## 3. For anyone driving the bot with drawn frames on High
+
+A long `bot.play({ frameEvery })` leg never returns to the event loop, and the browser keeps what each drawn frame
+left behind: 4.4 GiB on title -> gallery on High. `gl.finish()` alone does not help (3.8 GiB, killed). What does:
+wrap `__dbg.ext.core.stepAsync` so that every 8 drawn frames it awaits `setTimeout(0)` (the `pace` function at the top
+of `tests/render/prewarm.test.mjs`): peak 1.4 GiB, same end tick. Request to the owner of `tests/e2e/lib/page-bot.js`:
+do this inside the bot's own `step()`.
+
+## 4. Requests to other owners
+
+None blocking.
+
+## Closer, polish round 5 (2026-10-06): decisions
+
+| Row | Decision |
+|---|---|
+| 1 (two sentences) | **Mirrored**: GDD 6.8 row 0-50 in place; ARCHITECTURE 8.2 "Polish round 5" (4) (outside section 5, so the contract text is untouched) |
+| 2 (the changed assertion of `tests/player/flash.test.mjs`) | **Accepted**: "below the crosshair" was a consequence of the old bug; both round-4 limits still hold |
+| 2 (smoke and tracer do not ride the kick) | **Left**: known gap |
+| 3 (pace inside `tests/e2e/lib/page-bot.js` `step()`) | **Not applied** to the shared bot in the last round (it would touch every e2e test); the closer's own High legs are short and use the pace wrapper. ARCHITECTURE 8.2 (5) records the rule |

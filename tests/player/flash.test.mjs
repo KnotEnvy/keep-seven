@@ -61,5 +61,11 @@ test('the muzzle flash stays clear of the crosshair: asked for 1.6 x farther out
   assert.ok(c.share > 0.25, `the flash is seen (${say})`);
   assert.ok(c.share < 1.2, `and is small: it was 2.1 % (${say})`);
   assert.ok(c.atCrosshair < 3, `its core does not lie on a body at the crosshair (${say})`);
-  assert.ok(c.cx > 0.5 && c.cy > 0.55, `it is right of and below the crosshair, where the muzzle is (${say})`);
+  // Polish round 5 (combat critic): render puts the sprite on the eye-to-muzzle line of the DRAWN frame, so it rides the
+  // kick. On the shot's first frame the barrel has already risen: the core is right of the crosshair, at the muzzle as
+  // this frame draws it (it used to be asserted "below the crosshair", where the muzzle had been on the shot's tick).
+  const drawn = await bot.page.evaluate(() => window.__dbg.ext.render.muzzle());
+  const off = Math.hypot((c.cx - drawn.muzzle.x) * 16 / 9, c.cy - (1 - drawn.muzzle.y));
+  console.log(`# flash: drawn muzzle (${drawn.muzzle.x.toFixed(3)}, ${(1 - drawn.muzzle.y).toFixed(3)}), core ${(off * 100).toFixed(1)} % of the frame height from it`);
+  assert.ok(c.cx > 0.5 && off < 0.04, `it is right of the crosshair, at the muzzle as drawn (${say}; ${(off * 100).toFixed(1)} % of the height away)`);
 });

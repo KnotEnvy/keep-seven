@@ -104,6 +104,9 @@ test('a save this build cannot apply: "Go on" drops it and returns to the title;
       emptyParts: { ...base, player: {}, world: {}, enemies: {} },
       partsAreStrings: { ...base, player: 'x', world: 'y', enemies: 'z' },
       worldEmpty: { ...base, world: {} },
+      // polish round 5: the two that used to pass the check and throw inside applySave (a console.error with a stack)
+      statsWithoutSecrets: { ...base, world: { ...base.world, stats: {} } },
+      nullInStatics: { ...base, enemies: { ...base.enemies, statics: [null] } },
     };
     for (const [name, save] of Object.entries(bad)) {
       const r = await reload(JSON.stringify(save));

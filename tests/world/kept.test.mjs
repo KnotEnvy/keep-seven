@@ -58,7 +58,8 @@ test('the kept ladder from boss/charge_required: T1 15 s, T2 30 s, T3 45 s (outl
     const ev = await game.events(seq);
     assert.ok(ev.some((e) => e.name === 'ui/hint' && e.payload.key === 'ui_prompt_kept' && e.payload.show));
     const lines = ev.filter((e) => e.name === 'story/line').map((e) => e.payload.key);
-    assert.ok(lines.includes('nar_office') && lines.includes('hint_kept_2'), lines.join(' '));
+    // polish round 5: tier 1 has its own line; the office is the pay-off and is kept for after the proof
+    assert.ok(lines.includes('hint_kept_1') && lines.includes('hint_kept_2') && !lines.includes('nar_office'), lines.join(' '));
     assert.ok((await game.state()).systems.render.calls.some((c) => c.startsWith('setOutline:ia_proving_mark')));
   } finally { await game.close(); }
 });
@@ -91,10 +92,12 @@ test('from cp_boss_p3 with no lead and two line rounds: the boxes give eighteen 
     const lines = ev.filter((e) => e.name === 'story/line');
     const keys = lines.map((e) => e.payload.key);
     // polish round 4: the station answers the shot (it trailed it by 10 to 15 s); the narrator after the silence
-    assert.ok(keys.indexOf('nar_seal') < keys.indexOf('stn_proven') && keys.indexOf('stn_proven') < keys.indexOf('stn_dry') && keys.indexOf('stn_dry') < keys.indexOf('nar_kept'), keys.join(' '));
-    // (nar_seal, 5.5 s, is still on screen when she fires 3.3 s after the press: the station is the next line)
-    assert.ok(lines.find((e) => e.payload.key === 'stn_proven').tick - fired <= 3 * 60, 'BORE PROVEN is the next line after the shot');
-    assert.ok(lines.find((e) => e.payload.key === 'nar_kept').tick - fired >= 240, 'after four seconds of silence');
+    // polish round 5 (R12): BORE PROVEN on the shot's tick, over the band line; nar_kept straight after it; then HEAD DRY, the office
+    assert.deepEqual(keys.filter((k) => ['nar_seal', 'stn_proven', 'nar_kept', 'stn_dry', 'nar_office'].includes(k)), ['nar_seal', 'stn_proven', 'nar_kept', 'stn_dry', 'nar_office'], keys.join(' '));
+    // (nar_seal, 5.5 s, is still on screen when she fires 3.3 s after the press: it is cut)
+    assert.ok(lines.find((e) => e.payload.key === 'stn_proven').tick - fired <= 1, 'BORE PROVEN on the shot');
+    const keptAt = lines.find((e) => e.payload.key === 'nar_kept').tick - fired;
+    assert.ok(keptAt >= 170 && keptAt <= 3.5 * 60, `nar_kept as BORE PROVEN leaves the screen (${(keptAt / 60).toFixed(2)} s after the shot; it was 9 s)`);
     assert.ok(ev.some((e) => e.name === 'audio/cue' && e.payload.cue === 'water_below'));
     assert.ok(s.systems.render.calls.includes('lamps.setMask:mark_lamps:127'), 'the cradle\'s seventh disc lights');
   } finally { await game.close(); }

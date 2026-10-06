@@ -335,7 +335,8 @@ test('restores and mercy: applySave restarts at the saved phase with the parley 
     assert.deepEqual(r.save, ['p2', true, 0]);
     assert.deepEqual(r.cleared, ['idle', 0]);
     assert.deepEqual(r.restored, ['p2', 'parked']);
-    assert.ok(r.toPattern >= 0 && r.toPattern <= 180, `the fight resumes within 3 s (${r.toPattern} ticks to the pattern)`);
+    // polish round 5: a restore into a fighting phase holds the first attack BOSS.retryLead (4 s; it was 1.5)
+    assert.ok(r.toPattern >= 235 && r.toPattern <= 300, `the fight resumes 4 to 5 s after the restore (${r.toPattern} ticks to the pattern)`);
     assert.deepEqual(r.restoredEvents, [], 'no parley');
     assert.equal(r.deaths, 2);
     assert.equal(r.phaseAfter, 'p2');

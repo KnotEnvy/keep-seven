@@ -388,6 +388,24 @@ def _orient_kerb(ob):
     bm.to_mesh(me); bm.free(); me.update()
 
 
+def _course_rows(ob, region="panel"):
+    """Polish round 5 (visual critic: "dark vertical claw-like streaks on the pillars at cover distance"). A rib's side
+    was ONE island 13 m tall, and uv.map_to_trim uses a trim row once across an island: the panel row (1.2 m of ceramic
+    with a 7 mm fastener in each corner) was stretched eleven times in height, and its fasteners drew as pairs of dark
+    0.6 m streaks beside every seam at eye height. Each course of the rib (ROWS: 0.3 to 1.2 m) now shows the row once,
+    bottom to top: fasteners are dots again, and every course has its own joint line (the cladding reads as lifts)."""
+    v0, v1 = manifest.trim_v(ic.SHEET["m_pellam"], region)
+    me = ob.data; a = uv.get(ob); mw = ob.matrix_world; n = 0
+    for p in me.polygons:
+        zs = [(mw @ me.vertices[me.loops[li].vertex_index].co).z for li in p.loop_indices]
+        lo, hi = min(zs), max(zs)
+        if hi - lo < 1e-4: continue
+        for li, z in zip(p.loop_indices, zs): a[li][1] = v0 + (z - lo) / (hi - lo) * (v1 - v0)
+        n += 1
+    uv.put(ob, a)
+    return n
+
+
 def _rib(rb, add):
     """A rib on bearing rb: plan 1.6 (tangential) x 3.0 (radial), r 7.5..10.5, corners rounded 0.15, full height, a 0.6 m
     fillet into the vault, kick plate, band, a cast plate on the face turned to the bore."""
@@ -404,6 +422,7 @@ def _rib(rb, add):
             f.append([(a[0], ROWS[j], a[1]), (b[0], ROWS[j], b[1]), (b[0], ROWS[j + 1], b[1]), (a[0], ROWS[j + 1], a[1])])
     cx, cz = W(0, 9.0)
     o = ic.from_faces(f"rib_{int(rb)}", f, "m_pellam", RIB_T, "panel", away_from=(cx, -37, cz), lm=True, smooth=50, mpr=3.6, fit='metric')
+    _course_rows(o)
     add(o)
     # fillet: quarter circle r 0.6 out onto the ceiling (corner points move along their corner's normal)
     prof = [(math.sin(math.radians(a)) * 0.6, CE - 0.6 + (1 - math.cos(math.radians(a))) * 0.6) for a in (0, 30, 60, 90)]
@@ -1026,7 +1045,8 @@ def main():
     GQ = None if ic.DRAFT else 1024
     a = ic.lm_pass(sec_lm, LM, AMB_CH, ao_distance=3.0, hide=hide_for_sector, **Q1)
     res = manifest.texture(LM)["size"][0]
-    soft_objs = [o for o in sec_lm if o.name == "kerb" or o.name.startswith("rib_")]
+    # polish round 5: the lining's facets as well (at arm's length their fill still showed a faint mottle on High)
+    soft_objs = [o for o in sec_lm if o.name == "kerb" or o.name.startswith(("rib_", "wall_"))]
     soft = _uv_mask(soft_objs, res); cover = _uv_mask([o for o in everything + emi if ic.is_lm(o)], res)
     print(f"NOTE soften: {len(soft_objs)} objects ({', '.join(sorted(o.name for o in soft_objs))}), {int(soft.sum())} texels of {int(cover.sum())} covered, sigma {SOFT_SIGMA}")
     a = _soften(a, soft, cover)

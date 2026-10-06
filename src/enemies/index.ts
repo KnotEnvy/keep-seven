@@ -92,6 +92,10 @@ class Enemies implements EnemySystem, DebugHost {
     this.off.push(on.on('encounter/reset', (e) => this.clearEncounter(e.id)));
     this.off.push(on.on('player/died', () => { this.deathsPhase = this.bossImpl.save().bossPhase; this.bossImpl.onDied(); }));
     this.off.push(on.on('vignette/state', (e) => this.vignettes.onVignetteState(e)));
+    // polish round 5: the Windlass says phase 3b's lines only into a free line box, and fills her health on a retry
+    this.off.push(on.on('story/line', () => this.bossImpl.onLine(true)));
+    this.off.push(on.on('story/line_end', () => this.bossImpl.onLine(false)));
+    this.off.push(on.on('player/respawned', () => this.bossImpl.onRespawned()));
     ctx.debug.register('enemies', createExt(S, this));
   }
 

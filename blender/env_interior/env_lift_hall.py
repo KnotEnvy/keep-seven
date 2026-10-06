@@ -37,7 +37,7 @@ XW, XE, ZN, ZS = -18.0, 20.0, -28.0, 0.0
 LMH = 4.0
 RIB_X = [-9.0, -3.0, 3.0, 9.0, 15.0]; RIB_Z = [-18.0, -10.0]
 WIDE_T, WIDE_R, WIDE_P = _env("KS_WIDE_T", 0.16), _env("KS_WIDE_R", 10.5), _env("KS_WIDE_P", 1.5)        # the pendant's pool (polish round 2)
-RING_T = _env("KS_RING_T", 1.5)
+RING_T = _env("KS_RING_T", 1.0)     # polish round 5: 1.5 drew the gate's surround as one flat near-white mint field from the hall's checkpoint; at 1.0 its panel joints read
 STREAK_T, STREAK_SPREAD = _env("KS_STREAK_T", 1.6), _env("KS_STREAK_S", 24.0)
 DEAD = {"light_hall_4_n", "light_hall_2_s"}                       # one lamp in eight is dead (dark, not flickering)
 RESERVE = {"tamper_cold_static": 1.0, "rd_plate": 1.0 / 3.0}
@@ -446,7 +446,23 @@ def build_ring(gate):
     outer = [pt(R, a0 + (a1 - a0) * i / n, xf) for i in range(n + 1)]
     inner = [pt(ri, b0 + (b1 - b0) * i / n, xf) for i in range(n + 1)]
     front = [[outer[i], outer[i + 1], inner[i + 1], inner[i]] for i in range(n)]
-    add(ic.from_faces("ring_front", front, "m_pellam", ENAMEL, "panel", away_from=(XE + 5, cy, cz), lm=True, mpr=3.6, smooth=20))
+    rf = ic.from_faces("ring_front", front, "m_pellam", ENAMEL, "panel", away_from=(XE + 5, cy, cz), lm=True, mpr=3.6, smooth=20)
+    # polish round 5 (visual critic: "the portal surround is a flat near-white field"): the ring's face was one island,
+    # so the panel row was stretched once over its 9 m (its seams 3 m apart, its fasteners smears). The row now runs
+    # ROUND the ring: V from the reveal to the rim (0.95 m of a 1.2 m row), U along the arc, a whole number of 1.2 m
+    # panels: a joint every panel, a fastener in each corner, an arris along both edges.
+    v0, v1 = manifest.trim_v(ic.SHEET["m_pellam"], "panel")
+    n_pan = max(3, round((R + ri) / 2 * math.radians(a1 - a0) / 1.2))
+    a = uv.get(rf); me = rf.data; mw = rf.matrix_world
+    for l in me.loops:
+        g = layout.to_game(mw @ me.vertices[l.vertex_index].co)
+        rad = math.hypot(g[1] - cy, g[2] - cz); ang = math.degrees(math.atan2(g[1] - cy, -(g[2] - cz)))
+        if ang < -90.0: ang += 360.0
+        is_out = rad > (R + ri) / 2
+        t = (ang - a0) / (a1 - a0) if is_out else (ang - b0) / (b1 - b0)
+        a[l.index] = (t * n_pan / 3.0, v1 if is_out else v0)
+    uv.put(rf, a)
+    add(rf)
     ob = [[pt(R, a0 + (a1 - a0) * i / n, xf), pt(R, a0 + (a1 - a0) * i / n, xb), pt(R, a0 + (a1 - a0) * (i + 1) / n, xb), pt(R, a0 + (a1 - a0) * (i + 1) / n, xf)] for i in range(n)]
     add(ic.from_faces("ring_outer", ob, "m_pellam", ENAMEL, "panel", away_from=(XE - 0.6, cy, cz), lm=True, mpr=3.6, smooth=20))
     # the reveal: 1.2 m deep, the strip runs round it 0.35 m in from the front
@@ -458,7 +474,9 @@ def build_ring(gate):
             p = lambda ang, x: pt(ri, ang, x)
             aa, ab = b0 + (b1 - b0) * i / n, b0 + (b1 - b0) * (i + 1) / n
             rv.append([p(aa, xs[j]), p(ab, xs[j]), p(ab, xs[j + 1]), p(aa, xs[j + 1])])
-    add(ic.from_faces("ring_reveal", rv, "m_pellam", ENAMEL, "panel_rib", toward=(XE - 0.6, cy, cz), lm=True, mpr=3.6, smooth=20))
+    # polish round 5: the reveal is the stained glaze (it was the white enamel: 0.3 m from its own strip it drew as the
+    # brightest and largest shape of the frame at the gate, a flat mint sheet); the strip in it is the light
+    add(ic.from_faces("ring_reveal", rv, "m_pellam", tuple(ic.mix(STAIN, "steel", 0.25)), "panel_rib", toward=(XE - 0.6, cy, cz), lm=True, mpr=3.6, smooth=20))
     strip = []
     for i in range(n):
         aa, ab = b0 + (b1 - b0) * i / n, b0 + (b1 - b0) * (i + 1) / n
@@ -705,7 +723,7 @@ def main():
         c = [layout.to_game(o.matrix_world @ Vector(b)) for b in o.bound_box]
         return max(p[0] for p in c) > XE - 9.0
     with bake.only_lights(others): la = ic.lm_pass(lm_objs, LM, AMBIENT, ao_distance=5.0, samples=None if ic.DRAFT else 192)     # fix pass 1: 64 spp left the south wall mottled under thirty lamps
-    with bake.only_lights(rl): lb = ic.lm_pass([o for o in lm_objs if near_ring(o)], LM, None, samples=(24 if ic.DRAFT else 256))
+    with bake.only_lights(rl): lb = ic.lm_pass([o for o in lm_objs if near_ring(o)], LM, None, samples=(24 if ic.DRAFT else 1024))     # polish round 5: 256 left the reveal and the ring's foot mottled once the strip no longer clipped them
     ic.save_lm(la + lb, LM); t_lm = time.perf_counter() - tb
     t_vl = ic.bake_vertex(vl_objs, AMBIENT, ao_distance=5.0)
     print(f"BAKED {LM} {t_lm:.1f}s, vertex light {sum(len(o.data.polygons) for o in vl_objs)} faces {t_vl:.1f}s; ambient at an open floor {AMBIENT.max():.2f}; build {time.perf_counter() - t0:.1f}s")

@@ -360,12 +360,13 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
 function startSlam(S: Shared, e: Actor): void {
   e.unseen = !S.inViewFlat(e.x, e.z);
   const scale = S.tellScale(e.unseen, e.x, e.z);
-  const seconds = TAMPER.slamWindup * scale;
+  // polish round 5: the wind-up by difficulty (defs.ts slamWindupBy); the clip is authored for `slamWindup` seconds
+  const seconds = TAMPER.slamWindupBy[S.difficultyId] * scale;
   e.timer = seconds;
   e.ventChest = false;
   e.ringX = e.x + faceX(e.yaw) * TAMPER.slamReach; e.ringY = e.y; e.ringZ = e.z + faceZ(e.yaw) * TAMPER.slamReach;
   S.pool.setState(e, 'slam_windup');
-  S.pool.play(e, 'slam_windup', 0.1, 1 / scale);
+  S.pool.play(e, 'slam_windup', 0.1, TAMPER.slamWindup / seconds);
   S.telegraph(e, 'slam', seconds);
   S.ctx.render.vfx.ring('slam', e.ringX, e.ringY, e.ringZ, TAMPER.slamRadius, seconds, TAMPER.slam);
 }

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import layoutJson from '../../design/layout.json';
 import type { EncounterData, EncounterId, LayoutData } from '../../src/core/contracts.ts';
-import { AMMO_FLOOR, DROP_CHANCE, FILE_BURST, FILE_NEAR, WaveScheduler, decideDrop, planWaves } from '../../src/world/director.ts';
+import { AMMO_FLOOR, DROP_CHANCE, FILE_BURST, FILE_NEAR, FILE_NEAR_REAR, FILE_REAR, WaveScheduler, decideDrop, planWaves } from '../../src/world/director.ts';
 import { lampCount } from '../../src/world/internals.ts';
 
 const layout = layoutJson as unknown as LayoutData;
@@ -44,13 +44,18 @@ describe('planWaves reads the layout (its machine-readable fields win over the `
     const p = planWaves(enc('enc_matador'), enemyOf);
     expect(p.map((x) => [x.id, x.mode, x.clockAt, x.cancelIfDown])).toEqual([['A', 'start', -1, -1], ['B', 'clock', 15, 0], ['C', 'clock', 35, 0]]);
   });
-  it('enc_file wave B is gated (polish round 4): the file down to one, then her coming near the far door, or 25 s', () => {
+  it('enc_file (polish round 5): the rear pair R is gated on the far door with the file down to one, or 25 s; the door ambush B is 4 s after R', () => {
     const p = planWaves(enc('enc_file'), enemyOf);
-    expect(p[1]).toMatchObject({ id: 'B', mode: 'afterDown', ref: 0, left: 1, delay: 0, gated: true, gateTimeout: 25, timeout: -1, hitTimeout: -1 });
+    expect(p.map((x) => x.id)).toEqual(['A', 'R', 'B']);
+    expect(p.map((x) => x.size)).toEqual([6, 2, 4]);
+    expect(p[1]).toMatchObject({ id: 'R', mode: 'afterDown', ref: 0, left: 1, delay: 0, gated: true, gateTimeout: 25, timeout: -1, hitTimeout: -1 });
+    expect(p[2]).toMatchObject({ id: 'B', mode: 'afterSpawn', ref: 1, delay: FILE_REAR, gated: false });
     expect(FILE_NEAR).toBe(12);
-    expect(FILE_BURST).toBe(2);
+    expect(FILE_NEAR_REAR).toBe(16);
+    expect(FILE_REAR).toBe(4);
+    expect(FILE_BURST).toBe(1);
     // no other wave of the stage is gated
-    for (const e of layout.encounters) for (const w of planWaves(e, enemyOf)) if (!(e.id === 'enc_file' && w.id === 'B')) expect(w.gated).toBe(false);
+    for (const e of layout.encounters) for (const w of planWaves(e, enemyOf)) if (!(e.id === 'enc_file' && w.id === 'R')) expect(w.gated).toBe(false);
   });
   it('the boss encounter plans no waves of its own (the boss spawns its adds)', () => {
     expect(planWaves({ ...enc('enc_windlass'), waves: enc('enc_windlass').waves.filter((w) => w.repeating) }, enemyOf)).toEqual([]);
@@ -81,18 +86,21 @@ describe('WaveScheduler', () => {
     expect(slow.at.B3).toBe(-1);
     expect(simulate('enc_yard', 80, [[65, 2], [66, 2]]).at.B3).toBe(66);
   });
-  it('enc_file: wave B when the file is down to one AND she has come near the far door; 25 s after that if she never does', () => {
+  it('enc_file: the rear pair when the file is down to one AND she has come near the far door (25 s after that if she never does); the door 4 s later', () => {
     const six: [number, number][] = [8, 9, 10, 11, 12, 13].map((t) => [t, 0]);
-    // the gate opens at 20 s (she has walked down the gallery): B on that tick
-    expect(simulate('enc_file', 60, six, [], [[20, 1]]).at.B).toBe(20);
+    // the gate opens at 20 s (she has walked down the gallery): R on that tick, B four seconds on
+    expect(simulate('enc_file', 60, six, [], [[20, 1]]).at).toMatchObject({ R: 20, B: 24 });
     // she is already near when the fifth falls (12 s): at once
-    expect(simulate('enc_file', 60, six, [], [[5, 1]]).at.B).toBe(12);
+    expect(simulate('enc_file', 60, six, [], [[5, 1]]).at).toMatchObject({ R: 12, B: 16 });
     // she never comes: 25 s after the file was down to one (the fifth, at 12 s): never a dead end
-    expect(simulate('enc_file', 60, six).at.B).toBe(37);
-    // near the door with the file still up: nobody is let out behind it; a hit on the file starts no clock any more
-    expect(simulate('enc_file', 60, [], [[6, 0]], [[5, 1]]).at.B).toBe(-1);
-    // the encounter is clear only when the three are down too
-    expect(simulate('enc_file', 60, [...six, [30, 1], [31, 1], [32, 1]], [], [[20, 1]]).clearAt).toBe(32);
+    expect(simulate('enc_file', 60, six).at).toMatchObject({ R: 37, B: 41 });
+    // near the door with the file still up: nobody comes from either end; a hit on the file starts no clock
+    expect(simulate('enc_file', 60, [], [[6, 0]], [[5, 1]]).at).toMatchObject({ R: -1, B: -1 });
+    // the door's four do not wait for the rear pair to fall: both ends are up together
+    expect(simulate('enc_file', 60, [...six, [40, 1], [41, 1]], [], [[20, 1]]).at.B).toBe(24);
+    // the encounter is clear only when all twelve are down
+    expect(simulate('enc_file', 60, [...six, [26, 1], [27, 1], [30, 2], [31, 2], [32, 2], [33, 2]], [], [[20, 1]]).clearAt).toBe(33);
+    expect(simulate('enc_file', 60, [...six, [26, 1], [27, 1], [30, 2], [31, 2], [32, 2]], [], [[20, 1]]).clearAt).toBe(-1);
     expect(simulate('enc_file', 60, six, [], [[20, 1]]).clearAt).toBe(-1);
   });
   it('enc_matador: the Tamper dead before 15 s -> no Bider ever and clear on its death; dead at 20 s -> wave C never spawns', () => {

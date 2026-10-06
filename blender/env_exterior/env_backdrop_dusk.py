@@ -15,6 +15,8 @@ from lib import scene, layout, export
 import ext_cards as cards
 from ext_cards import hexlin
 from ext_kit import mix, mul, clamp, smooth, vnoise
+import ext_rock as rock
+import env_far_rim as rimz                         # the rim's own cliff: cliff_column() is continued east and west of the ledge (wings)
 
 ASSET = "env_backdrop_dusk"
 CENTRE = (14.0, 0.0, 60.0)                       # under the rim
@@ -49,6 +51,95 @@ def facing_poly(card, pts, cols, toward):
 EYE = (10.0, 19.65, 103.0)                       # an eye on the ledge
 
 
+def behind_rim(form):
+    """Polish round 5: a landform of the far country that stands wholly within 60 degrees of SOUTH of the rim is never
+    seen: the mesa the ledge is cut into (its cliff, 4 to 7 m over the eye at 0 to 40 m, and its wings east and west)
+    covers every bearing south of the line through its two noses (-24, 106.5) and (57, 102.5) from anywhere she can
+    stand (x -0.65 .. 29.65, z 101.35 .. 111). Those triangles pay for the wings."""
+    return all(abs(((p[0] - math.pi + math.pi) % (2 * math.pi)) - math.pi) < math.radians(60.0) for p in form)
+
+
+# ---- polish round 5 (the visual critic, major: "a flat, untextured maroon cuboid with hard edges next to the layered
+# cliff: it reads as greybox in the zone that carries the last image"). The mesa the ledge is cut into went on east and
+# west of it as five plain quads in two colours, 0.3 m from the ledge's ends. They are WINGS of the same cliff now:
+# env_far_rim.cliff_column (the rim's own profile, continued along the wall's line with the same noise, so its beds,
+# buttresses and broken skyline run on), drawn here because the zone's chunk may not leave its box (x -2 .. 30) and this
+# card may. Unlit like everything on this card: the light is painted (the lit cliff beside it reads `#381C2A` on a
+# bed's face, `#251626` in a recess and `#15132A` under a lip in the game at blue hour).
+W_LIT = hexlin("#44232A"); W_MID = hexlin("#2A1820"); W_SHADE = hexlin("#14121F"); W_CAP = hexlin("#4C2C2E"); W_SCREE = hexlin("#221C2A")
+WING_W = [(-1.9, 111.25), (-7.0, 110.75), (-12.0, 109.9), (-18.0, 108.3), (-24.0, 106.4), (-27.0, 107.3)]
+WING_E = [(29.9, 111.25), (34.0, 110.5), (38.5, 108.7), (43.0, 106.2), (48.0, 104.0), (53.0, 102.9), (57.0, 102.4), (60.0, 103.1)]
+WING_ROWS = (0, 2, 3, 5, 8, 10, 13)               # of cliff_column's rows: foot, the proud bed's foot and top, the recess's top, two lips, the rim
+
+
+def _spline(ctrl, sub):
+    """Catmull-Rom through the control points, `sub` steps a segment (one more on the two segments next to the ledge,
+    where the wing is seen from a few metres): [(x, z)]."""
+    P = [ctrl[0]] + list(ctrl) + [ctrl[-1]]
+    out = []
+    for k in range(1, len(P) - 2):
+        p0, p1, p2, p3 = P[k - 1], P[k], P[k + 1], P[k + 2]
+        n = sub + (1 if k <= 2 else 0)
+        for j in range(n):
+            t = j / n
+            out.append(tuple(0.5 * (2 * p1[a] + (p2[a] - p0[a]) * t + (2 * p0[a] - 5 * p1[a] + 4 * p2[a] - p3[a]) * t * t + (3 * p1[a] - p0[a] - 3 * p2[a] + p3[a]) * t ** 3) for a in (0, 1)))
+    out.append(tuple(ctrl[-1]))
+    return out
+
+
+def wing(card, ctrl, sgn):
+    """One wing of the rim's cliff along `ctrl` (plan, from the cliff's end outward; sgn -1 west, +1 east)."""
+    pts = _spline(ctrl, 2)
+    FL = rimz.FLOOR
+    cols = []
+    s_ = 0.0
+    for i, (px, pz) in enumerate(pts):
+        if i: s_ += math.hypot(px - pts[i - 1][0], pz - pts[i - 1][1])
+        a = pts[max(i - 1, 0)]; b = pts[min(i + 1, len(pts) - 1)]
+        tx, tz = b[0] - a[0], b[1] - a[1]; l = math.hypot(tx, tz) or 1.0
+        nx, nz = tz / l, -tx / l                                   # across the wall ...
+        if nz > 0: nx, nz = -nx, -nz                               # ... outward: toward the plain (north)
+        xv = ctrl[0][0] + sgn * s_                                 # where this column would stand if the cliff ran straight on: the same beds
+        prof = rimz.cliff_column(xv)
+        top = prof[13][1]
+        h0 = 8.0 + 2.0 * vnoise(px * 0.1, pz * 0.1, 5)             # the scree's head (as the old wall's foot)
+        rows = [(h0 - 0.6, 1.0), (FL - 2.0 - 0.5 * vnoise(xv / 3.0, 0.2, 71), 0.55 + 0.3 * vnoise(xv / 4.0, 0.7, 72))]
+        rows += [(prof[r][1], -(prof[r][2] - rimz.ZF)) for r in WING_ROWS]          # (height, how far out from the wall's line)
+        cols.append(([(px + nx * o, y, pz + nz * o) for (y, o) in rows], (nx, nz), xv, top))
+    for i in range(len(cols) - 1):
+        (A, n0, xa, ta), (B, n1, xb, tb) = cols[i], cols[i + 1]
+        toward = (A[3][0] + n0[0] * 400.0, 19.0, A[3][2] + n0[1] * 400.0)
+        for r in range(len(A) - 1):
+            q = [A[r], B[r], B[r + 1], A[r + 1]]
+            if q[2][1] - q[1][1] < 0.04 and q[3][1] - q[0][1] < 0.04: continue      # a bed that the skyline cut off
+            tone = [0.78 + 0.44 * vnoise(v[0] * 0.21 + v[2] * 0.17, v[1] * 0.5, 34) for v in q]
+            bed = [rock.bed_tone(0.25 * sum(v[1] for v in q))] * 4                  # one bed, one tone
+            if r == 0: lo, hi_ = W_SCREE, mix(W_SHADE, W_MID, 0.55)                 # the foot going into the scree
+            elif r == 1: lo, hi_ = mix(W_SHADE, W_MID, 0.6), mix(W_MID, W_SHADE, 0.45)   # under the ledge's level, to the cliff's undercut foot
+            elif r == 2: lo, hi_ = mix(W_MID, W_SHADE, 0.2), W_SHADE                # the soft bed under the proud one: dark under its lip
+            elif r == 3: lo, hi_ = W_LIT, mix(W_LIT, W_CAP, 0.25)                   # the proud bed's face
+            elif r == 4: lo, hi_ = mix(W_MID, W_LIT, 0.55), mix(W_MID, W_SHADE, 0.35)    # the recess over it, battered back
+            elif r == 5: lo, hi_ = mix(W_MID, W_LIT, 0.3), W_SHADE                  # to the first lip: shadow under it
+            elif r == 6: lo, hi_ = W_LIT, mix(W_MID, W_SHADE, 0.6)                  # between the lips
+            else: lo, hi_ = mix(W_LIT, W_CAP, 0.35), mix(W_CAP, ember_at(math.atan2(q[0][0] - CENTRE[0], -(q[0][2] - CENTRE[2]))), 0.10)   # the rim rock: it holds the last light
+            cl = [mul(lo, tone[0] * bed[0]), mul(lo, tone[1] * bed[1]), mul(hi_, tone[2] * bed[2]), mul(hi_, tone[3] * bed[3])]
+            facing_poly(card, q, cl, toward)
+
+
+def under_ledge(card):
+    """The rock the ledge's two ends stand on (the zone draws 0.94 m of each end's broken face, then nothing): dark,
+    battered out to the scree, seen only by looking down over an end."""
+    FL = rimz.FLOOR
+    for (x0, sgn) in ((-1.5, -1.0), (29.5, 1.0)):
+        zs = [100.3, 105.6, 111.3]
+        prof = [(FL - 0.9, 0.0, mix(W_MID, W_SHADE, 0.5)), (FL - 5.0, 0.9, mix(W_MID, W_SHADE, 0.75)), (8.4, 2.4, W_SCREE)]
+        for j in range(len(zs) - 1):
+            for r in range(len(prof) - 1):
+                (ya, oa, ca), (yb, ob, cb) = prof[r], prof[r + 1]
+                q = [(x0 + sgn * oa, ya, zs[j]), (x0 + sgn * oa, ya, zs[j + 1]), (x0 + sgn * ob, yb, zs[j + 1]), (x0 + sgn * ob, yb, zs[j])]
+                facing_poly(card, q, [ca, ca, cb, cb], (x0 + sgn * 400.0, 19.0, 105.0))
+
+
 def build(card):
     # the same country as the day backdrop (same seeds, heights and radii: cards.mesas), re-coloured to the blue hour.
     # The renderer fogs these cards by at most 55 % (FARFOG), so they are authored DARK: the land is the dark third of
@@ -69,14 +160,14 @@ def build(card):
             if level == 2: return mul(base, 0.82)                                            # the cliff: the darkest band
             return mix(base, ember_at(theta), 0.22 + 0.2 * f)                                # the rim catches the afterglow
         forms = cards.mesas(seed, H, R, low=north_low, clear=fire_clear if R < 400 else None, detail=1.0 if R < 500 else 0.5)
-        cards.mesa_cards(card, CENTRE, R, forms, col)
+        cards.mesa_cards(card, CENTRE, R, [f for f in forms if not behind_rim(f)], col)
     # the valley floor between the rim and the first mesas: low hogbacks, darker than the plain behind them (depth by
     # overlap: ART_BIBLE 2.3), none in the north where the pylon line runs out to the fire
     lowc = lambda theta, level: mix(hexlin("#121426"), PLAIN, 0.75 if level == 0 else 0.0)
     tp = layout.marker("vista_plenty")["params"]["target"]
     tb_ = math.atan2(tp[0] - CENTRE[0], -(tp[2] - CENTRE[2])) % (2 * math.pi)                 # the town's bearing: no ridge stands behind or before it
     town = lambda b0, b1: abs(((0.5 * (b0 + b1) - tb_ + math.pi) % (2 * math.pi)) - math.pi) < math.radians(38) + 0.5 * (b1 - b0)
-    cards.mesa_cards(card, CENTRE, 118.0, cards.mesas(9, 15.0, 118.0, low=lambda b: 0.55 * north_low(b), clear=town), lowc, y0=-1.5)
+    cards.mesa_cards(card, CENTRE, 118.0, [f for f in cards.mesas(9, 15.0, 118.0, low=lambda b: 0.55 * north_low(b), clear=town) if not behind_rim(f)], lowc, y0=-1.5)
     cards.disc(card, CENTRE, 2.0, 140.0, -0.6, PLAIN, PLAIN, segs=24)        # the plain under and round the rim: no hole below the town
     # the far plain goes to the haze of ITS bearing (cold in the east, the ember band's colour under the afterglow),
     # and never brighter than the mesas that stand on it: no flat blue wedge between two buttes
@@ -98,13 +189,14 @@ def build(card):
             n_ = ((q[1][1] - q[0][1]) * (q[2][2] - q[0][2]) - (q[1][2] - q[0][2]) * (q[2][1] - q[0][1]), 0.0, (q[1][0] - q[0][0]) * (q[2][1] - q[0][1]) - (q[1][1] - q[0][1]) * (q[2][0] - q[0][0]))
             cols = [cliff, cliff, cliff_top, cliff_top]
             if n_[0] * nx + n_[2] * nz < 0: q = q[::-1]; cols = cols[::-1]
-            card.poly(q, cols)
+            if not (-24.5 < 0.5 * (x0 + x1) < 57.5): card.poly(q, cols)                    # polish round 5: nearer than the two noses the cliff is a WING (below), not this quad
             f0 = (x0 + nx * 13.0, -0.6, z0 + nz * 13.0); f1 = (x1 + nx * 13.0, -0.6, z1 + nz * 13.0)
             q = [f0, f1, (x1, h1, z1), (x0, h0, z0)]
             n_y = (q[1][2] - q[0][2]) * (q[2][0] - q[0][0]) - (q[1][0] - q[0][0]) * (q[2][2] - q[0][2])
             cols = [PLAIN, PLAIN, scree, scree]
             if n_y < 0: q = q[::-1]; cols = cols[::-1]
             card.poly(q, cols)
+    wing(card, WING_W, -1.0); wing(card, WING_E, 1.0); under_ledge(card)
     # the pylon line on the plain, north
     py = layout.marker("prop_pylon")["pos"]
     d = 70.0; h = 15.0

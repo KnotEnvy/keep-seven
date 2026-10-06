@@ -194,6 +194,13 @@ export const STAKES = {
 export const TAMPER = {
   turnWalk: 90, turnCharge: 20,   // degrees per second
   slamRange: 4.5, slamWindup: 1.0, slam: 0.3, slamRadius: 3.5, slamRecover: 1.5, slamVentOpen: 0.5,
+  /**
+   * Polish round 5 (R1, the playthrough critic): the slam's wind-up by difficulty, before `telegraphScale`. The Tamper
+   * was the stage's peak, above the Windlass: a 0.5 s-reaction proxy died to it twice (slam 178 of 248 damage). 0.15 s
+   * more tell on Normal and Easy (Easy: 1.15 x 1.2 = 1.38 s); Hard keeps GDD 7.3's 1.0. The vent's window is unchanged:
+   * it still opens `slamVentLateBy` before the arm comes down. The clip (authored for `slamWindup`) is played slower.
+   */
+  slamWindupBy: { easy: 1.15, normal: 1.15, hard: 1.0 } as Readonly<Record<Difficulty, number>>,
   /** polish round 3 (R3): the chest vent opens this long before the arm comes down, not for the whole wind-up (GDD 7.3 follows) */
   slamVentLate: 0.6,
   /**
@@ -281,6 +288,19 @@ export const BOSS = {
   addMinDistance: 7, addRetry: 1.0,
   addGrateClear: 1.0,            // an add does not rise through a body within this of its grate (fix round 1)
   mercyDeaths: 1, mercyScale: 0.85,
+  /**
+   * Polish round 5 (the playthrough critic): a respawn or a continue into a fighting phase. The head holds its first
+   * attack this long (it was 1.5 s: a player who stood to get her bearings was dead again in 9 to 10 s, three times
+   * running), and on the difficulties named she comes back with full health (the checkpoint gave 67).
+   */
+  retryLead: 4.0,
+  retryFullHealth: { easy: true, normal: true, hard: false } as Readonly<Record<Difficulty, boolean>>,
+  /**
+   * Polish round 5 (the story critic): phase 3b's two HAULINGs and the narrator's line are said only when the line box
+   * has been free this long (so they are shown at once, never queued behind the narrator): one queued at dry + 8 s was
+   * shown 9.5 s after the Windlass had died, after THANK YOU FOR YOUR PATIENCE.
+   */
+  dryLineQuiet: 0.5,
   /** polish round 3 (R2): the teaching line is said at the first haul of a try from this many deaths on: 0 = every try, the first included */
   teachDeaths: 0,
   /** polish round 3 (R2): false = a burst pawl stays burst for the rest of phase 2 (it was reset at the end of every haul: 110 to 290 s phases) */

@@ -15,7 +15,7 @@ import { Hud } from './hud.ts';
 import { MARK_MIN_SCALE, MarkWidget, pellamMark } from './mark.ts';
 import { MenuList, Reader } from './menu.ts';
 import { OptionsScreen, repairBindings } from './optionsScreen.ts';
-import { clockTime, format, uiOr, useStoryUi } from './text.ts';
+import { clockTime, format, roman, uiOr, useStoryUi } from './text.ts';
 
 type UiAction = GameEvents['ui/action']['action'];
 type Cue = 'ui_move' | 'ui_select' | 'ui_back';
@@ -69,6 +69,12 @@ class UiSystemImpl implements UiSystem {
   private hud!: Hud;
   private readonly nodes = {} as Record<UiScreen, HTMLElement>;
   private titleMenu!: MenuList;
+  /** Begin over a stored save asks first (polish round 5): its own column, in place of the title's */
+  private askMenu!: MenuList;
+  private askBox!: HTMLDivElement;
+  /** the stored count beside "Go on", on the title and in the question ("V · 1") */
+  private readonly storedCount: HTMLSpanElement[] = [];
+  private asking = false;
   private pauseMenu!: MenuList;
   private endMenu!: MenuList;
   private reader!: Reader;
@@ -145,6 +151,7 @@ class UiSystemImpl implements UiSystem {
       screen: this.screen, modal: this.modalOpen, ...this.visibleText(), hud: this.hud.debug(),
       reader: { key: this.reader.key, card: this.reader.index, cards: this.reader.count },
       lockSeen: this.lockSeen, capturing: this.options.capturing, endLocked: this.endMenu.locked, endLockLeft: +this.endLockLeft.toFixed(4),
+      asking: this.asking,
     };
   }
 
@@ -181,11 +188,19 @@ class UiSystemImpl implements UiSystem {
     pellamMark(head, 'pm', 0);
     setText(el('div', 'title-sub', head), ui('ui_subtitle'));
     this.titleMenu = new MenuList(title, move, select);
-    this.titleMenu.add('play', ui('ui_menu_play'), () => this.act('play'));
-    this.titleMenu.add('continue', ui('ui_menu_continue'), () => this.act('continue'));
+    this.titleMenu.add('play', ui('ui_menu_play'), () => this.begin());
+    this.storedCount.push(el('span', 'mi-count', this.titleMenu.add('continue', ui('ui_menu_continue'), () => this.act('continue')).node));
     this.titleMenu.add('story', ui('ui_menu_story'), () => this.openSheet('story'));
     this.titleMenu.add('options', ui('ui_menu_options'), () => this.openOptions('title'));
     this.titleMenu.add('credits', ui('ui_menu_credits'), () => this.openSheet('credits'));
+    // Begin over a stored save: the question, then the count she would lose (chosen), Begin, Back. One habitual press
+    // of Enter on the title, or two, never throws a run away. Every word is one story.json already had.
+    this.askBox = el('div', 'title-ask', title);
+    setText(el('div', 'ask-head', this.askBox), ui('ui_menu_play') + '?');
+    this.askMenu = new MenuList(this.askBox, move, select);
+    this.storedCount.push(el('span', 'mi-count', this.askMenu.add('ask_continue', ui('ui_menu_continue'), () => this.act('continue')).node));
+    this.askMenu.add('ask_play', ui('ui_menu_play'), () => this.act('play'));
+    this.askMenu.add('ask_back', ui('ui_opt_back'), () => { this.cue('ui_back'); this.ask(false); this.titleMenu.selectId('play'); });
     this.nodes.title = title;
 
     // ---- pause: the column, the work at hand, the mark three times its size with the seventh named
@@ -285,6 +300,15 @@ class UiSystemImpl implements UiSystem {
     on.push(e.on('weapon/reload', () => hud.onReload()));
     on.push(e.on('weapon/kept', (p) => hud.onKept(p)));
     on.push(e.on('boss/phase', () => hud.onBossPhase()));
+    // a new timeline (Begin, Walk it again, Go on: `player/spawned` is the placing of a run, never a respawn)
+    on.push(e.on('game/new_run', () => hud.newRun()));
+    on.push(e.on('player/spawned', () => hud.newRun()));
+    // a movement card gives way to a fight (hud.ts CARD_MIN_SECONDS)
+    const threat = (): void => hud.onThreat();
+    on.push(e.on('enemy/telegraph', threat));
+    on.push(e.on('enemy/attack', threat));
+    on.push(e.on('encounter/started', threat));
+    on.push(e.on('encounter/wave', threat));
     on.push(e.on('boss/pips', (p) => hud.onBossPips(p)));
     on.push(e.on('ride/state', (p) => hud.onRide(p)));
     on.push(e.on('ending/card', (p) => this.openEnd(p.stats)));
@@ -344,6 +368,7 @@ class UiSystemImpl implements UiSystem {
   private onGameState(e: Readonly<GameEvents['game/state']>): void {
     if (e.to === 'playing') this.lockSeen = this.ctx.input.pointerLocked;
     if (e.to === 'loading' || e.to === 'title') this.hud.reset();
+    if (e.to === 'title') this.hud.newRun();
     if (e.to !== 'ending') this.endShown = false;
     if (e.to !== 'paused') this.readableKey = '';
     this.sync();
@@ -392,6 +417,7 @@ class UiSystemImpl implements UiSystem {
     if (prev === next) return;
     const { ctx } = this;
     const sameNode = prev !== '' && next !== '' && this.nodes[prev] === this.nodes[next];
+    if (prev === 'title') this.ask(false);                       // the question never outlives the title it was asked on
     if (prev !== '') {
       if (!sameNode) {
         const node = this.nodes[prev];
@@ -413,7 +439,9 @@ class UiSystemImpl implements UiSystem {
     if (next !== '') {
       this.prepare(next);
       const node = this.nodes[next];
-      if (next === 'death') flag(node, 'out', false);
+      // the line held over the respawned game (`.death.out`) is taken away by any screen that opens meanwhile (a quick
+      // pause and quit after a respawn left "She went down" standing on the title)
+      flag(this.nodes.death, 'out', false);
       if (next === 'loading') flag(node, 'soft', prev === 'title');      // no hard cut from the live title shot to ink
       flag(node, 'on', true);
       this.screenPayload.screen = next; this.screenPayload.open = true;
@@ -433,10 +461,18 @@ class UiSystemImpl implements UiSystem {
   private prepare(screen: UiScreen): void {
     const { ctx } = this;
     switch (screen) {
-      case 'title':
-        this.titleMenu.show('continue', ctx.save.hasStoredSave());
-        this.titleMenu.first();
+      case 'title': {
+        // with a save, "Go on" is the item under the player's hand and says where it goes on from
+        const stored = ctx.save.readStored();
+        this.titleMenu.show('continue', stored !== null);
+        if (stored !== null) {
+          const count = this.countOf(stored.checkpoint);
+          for (const node of this.storedCount) setText(node, count);
+          this.titleMenu.selectId('continue');
+        } else this.titleMenu.first();
+        this.ask(false);
         break;
+      }
       case 'pause':
         this.fillPause();
         this.pauseMenu.first();
@@ -465,6 +501,33 @@ class UiSystemImpl implements UiSystem {
     this.pauseMark.setSeventh(w.seventh);
     setText(this.seventhLabel, ctx.data.ui(SEVENTH_LABEL[w.seventh]));
     flag(this.lineLegend, 'on', w.lineRounds > 0);
+  }
+
+  // =============================================================== the title's question
+  /** "Begin": at once on a fresh page; over a stored save it asks first, and only the question's own Begin starts. */
+  private begin(): void {
+    if (!this.ctx.save.hasStoredSave()) { this.act('play'); return; }
+    this.ask(true);
+  }
+  private ask(on: boolean): void {
+    if (on === this.asking) return;
+    this.asking = on;
+    flag(this.nodes.title, 'asking', on);
+    if (on) this.askMenu.selectId('ask_continue');
+  }
+  /** a checkpoint as the HUD names it when it is saved ("V · 1"): the movement is its zone, the section its place there (as core's flow numbers them) */
+  private countOf(id: string): string {
+    const data = this.ctx.data, marker = data.marker(id);
+    let movement = 1, section = 0;
+    if (marker) {
+      movement = Math.max(1, data.layout.zones.findIndex((z) => z.id === marker.zone) + 1);
+      for (const m of data.layout.markers) {
+        if (m.type !== 'checkpoint' || m.zone !== marker.zone) continue;
+        section++;
+        if (m.id === id) break;
+      }
+    }
+    return format(data.ui('ui_checkpoint'), this.ctx.options.value.bindings, { movement: roman(movement), n: String(Math.max(1, section)) });
   }
 
   // =============================================================== actions and cues
@@ -591,7 +654,11 @@ class UiSystemImpl implements UiSystem {
     if (screen === 'end' && this.endMenu.locked) { e.preventDefault(); return; }
     let used = true;
     switch (screen) {
-      case 'title': used = this.menuKey(this.titleMenu, code, false); break;
+      case 'title':
+        if (!this.asking) used = this.menuKey(this.titleMenu, code, false);
+        else if (code === 'Escape') { this.cue('ui_back'); this.ask(false); this.titleMenu.selectId('play'); }
+        else used = this.menuKey(this.askMenu, code, false);
+        break;
       case 'pause':
         if (code === 'Escape') { this.cue('ui_back'); this.act('resume'); }
         else used = this.menuKey(this.pauseMenu, code, false);

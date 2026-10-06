@@ -38,7 +38,14 @@ export class Feedback {
   /** events handled since boot, by name (tests) */
   readonly handled: Record<string, number> = {};
 
-  constructor(private readonly ctx: GameContext, private readonly vfx: Vfx, private readonly simTime: () => number) {
+  /** where the last shot's smoke and tracer began (world) */
+  readonly muzzle = { x: 0, y: 0, z: 0 };
+
+  /**
+   * `seen(e, out)`: the world point that the world camera draws where the view-model pass draws the muzzle of the shot
+   * `e`; false when it cannot say (then the event's own muzzle is used).
+   */
+  constructor(private readonly ctx: GameContext, private readonly vfx: Vfx, private readonly simTime: () => number, private readonly seen: ((e: Readonly<GameEvents['weapon/fired']>, out: { x: number; y: number; z: number }) => boolean) | null = null) {
     for (let i = 0; i < MAX_PICKUPS; i++) this.pickupId.push('');
     const layout = ctx.data.layout;
     const camp = layout.markers.find((m) => m.id === 'prop_camp_three');
@@ -56,9 +63,13 @@ export class Feedback {
   subscribe(): void {
     const vfx = this.vfx;
     this.on('weapon/fired', (e) => {
-      vfx.burst('powder_smoke', e.mx, e.my, e.mz, e.dx, e.dy, e.dz);
-      if (e.ammo === 'lead_round') vfx.line('tracer', e.mx, e.my, e.mz, e.endX, e.endY, e.endZ);
-      else if (e.ammo === 'line_round') vfx.line('line_round', e.mx, e.my, e.mz, e.endX, e.endY, e.endZ);
+      // where the muzzle is SEEN (polish round 5): the event's muzzle is a point of the view-model pass's own narrow
+      // projection, and the smoke and the tracer are drawn by the world camera. The event's point is the fallback.
+      const m = this.muzzle;
+      if (!this.seen || !this.seen(e, m)) { m.x = e.mx; m.y = e.my; m.z = e.mz; }
+      vfx.burst('powder_smoke', m.x, m.y, m.z, e.dx, e.dy, e.dz);
+      if (e.ammo === 'lead_round') vfx.line('tracer', m.x, m.y, m.z, e.endX, e.endY, e.endZ);
+      else if (e.ammo === 'line_round') vfx.line('line_round', m.x, m.y, m.z, e.endX, e.endY, e.endZ);
       // kept_round: nothing more; its flash and the ring come by the direct calls and by boss/proven
     });
     this.on('combat/hit', (e) => {

@@ -239,7 +239,7 @@ const STREET = { x0: -73, x1: 0, zHalf: 7, facadeDepth: 5, alleyOuter: 15 };
   box('yd_shed', Z, 'wall', 'adobe', -110, -106, 0, 3, 10, 14, { prop: 'tank_shed', note: 'T3 emerges from its east door' });
 
   // --- markers: street
-  trig('trg_enc_street', Z, [-3, 0, 0], [3, 3, 6], { encounter: 'enc_street', cards: ['card_ii'], lines: ['nar_plenty', 'nar_kneeler'], note: 'passing the jug gate posts' });
+  trig('trg_enc_street', Z, [-3, 0, 0], [3, 3, 6], { encounter: 'enc_street', cards: ['card_ii'], lines: ['nar_kneeler', 'nar_plenty'], note: 'passing the jug gate posts. Polish round 5: the kneeler line first (behind nar_plenty it was said after the kneeler was down). Wave A stays at 3 s: a trial of 6 s, so the line would begin while it kneels, took the cost out of the fight (scratch/r5-fixer/proxy/a_street_*: plain 0 / 0 / 0, careless 0 / 0 / 54)' });
   mk('vista_kneeler', Z, 'vista', [-2, 0, 0], { subject: 'the kneeler at the dry trough, 43 m down the street centre', target: V(-44.5, 0.8, -1.9) }, FACE.w);
   trig('lane_street', Z, [-37, 0, 0], [58, 3, 3], { kind: 'lane', note: 'Biders follow in file here (wave C)' });
   spawn('sp_street_kneeler', Z, 'bider', [-44.5, 0, -1.9], FACE.n, { dormant: 'scoop_kneel', rise: 'kneel_to_stand', wave: 'A', prop: 'cup', vignette: { id: 'vig_kneeler' } });
@@ -464,6 +464,10 @@ const GAL = { floor: -12, ceil: -7, x0: -81, x1: -19, axisZ: -14, baffleX: -59 }
   cp('cp_gallery_baffle', Z, [-80, F, -14], FACE.e, { when: 'proving_line solved', restocks: 'ia_line_locker_bay', objective: 'obj_file' });
   trig('lane_gallery', Z, [-39, F, GAL.axisZ], [40, 3, 3], { kind: 'lane', note: 'the File: Biders follow in file, no overtaking' });
   for (let i = 0; i < 6; i++) spawn(`sp_file_${i + 1}`, Z, 'bider', [-21.5 - i * 1.6, F, GAL.axisZ], FACE.e, { dormant: 'queue_stand', rise: 'turn_about', file: true, order: i + 1 });
+  // polish round 5 (R3 / R10: the file cost nothing in three rounds of number changes): two who did not queue come down
+  // flight 3 of the peg stair BEHIND her as she nears the far door with the file down. Out of sight of the bay and the
+  // gallery (the bay's north wall), on the stair's own nav nodes; they run through the bay and down the walkway after her.
+  [[-86, -20.2], [-86, -21.6]].forEach(([x, z], i) => spawn(`sp_file_${i + 10}`, Z, 'bider', [x, r2(F + ((-18 - z) / 6) * 4), z], FACE.s, { entrance: 'doorway', wave: 'R', encounter: 'enc_file', file: false, laneFollowing: false, order: i + 10, note: 'the rear pair (polish round 5): on flight 3, behind the bay wall, out of sight of the bay and the gallery; released when she nears the far door with the file down to one (src/world/director.ts WAVE_RULES enc_file/R)' }));
   trig('trg_file_lines', Z, [-57, F, GAL.axisZ], [3, 3, 3], { lines: { seen: 'nar_file', lined: 'nar_file_lined' } });
   door('door_gallery_far', Z, [-18.5, F, GAL.axisZ], 90, 3, 3, { opens: 'enc_file wave B: it slides open to let the three in, and stays open', closesBehind: 'trg_enc_matador', connects: ['the_gallery', 'lift_hall'] });
   cp('cp_file_clear', Z, [-23, F, GAL.axisZ], FACE.e, { when: 'enc_file clear' });
@@ -508,7 +512,8 @@ const CAGE = { w: 6, d: 6, h: 3.5, hall: V(24, -15, -14), bore: V(2, -36, 83) };
   trig('trg_hall_gantry', Z, [-16.5, F + 3, -14], [3, 3, 3], { cards: ['card_v'], lines: ['nar_tamper_1'], vignette: { id: 'vig_tamper', seconds: 8, skippable: true, actors: ['sp_hall_tamper', 'sp_hall_vig_bider'], clip: 'pound_bulkhead', caption: 'cap_tamper_pound' }, once: true });
   cp('cp_hall_gantry', Z, [-16.5, F + 3, -14], FACE.e, { when: 'entering the gantry', objective: 'obj_hall' });
   // enc_file wave B waits here, behind door_gallery_far, and runs west through it (GDD 10). Not in file.
-  [[-17.0, -15.0, -1], [-15.4, -14.0, 0], [-13.8, -13.0, 1]].forEach(([x, z, off], i) => spawn(`sp_file_${i + 7}`, Z, 'bider', [x, F + 3, z], FACE.w, { entrance: 'doorway', wave: 'B', entersThrough: 'door_gallery_far', encounter: 'enc_file', file: false, laneFollowing: false, lateralOffset: off, depthStagger: 1.2, order: i + 7, note: 'the ambush (polish round 4): spawned behind the shut door_gallery_far up to 2 s before it bursts open; the three gather abreast behind it and come through together, 6 to 8 m in front of her' }));
+  // (polish round 5: a fourth, sp_file_12, so the answer to the line shot is six: the two on the stair and these four)
+  [[-17.0, -15.0, -1, 7], [-15.4, -14.0, 0, 8], [-13.8, -13.0, 1, 9], [-13.8, -14.7, -0.4, 12]].forEach(([x, z, off, n]) => spawn(`sp_file_${n}`, Z, 'bider', [x, F + 3, z], FACE.w, { entrance: 'doorway', wave: 'B', entersThrough: 'door_gallery_far', encounter: 'enc_file', file: false, laneFollowing: false, lateralOffset: off, depthStagger: 1.2, order: n, note: 'the ambush (polish round 4; four since round 5): spawned behind the shut door_gallery_far 1 s before it bursts open; they gather behind it and come through together' }));
   mk('vista_tamper', Z, 'vista', [-17, F + 3, -14], { subject: 'the Tamper pounding the sealed bulkhead, 16 m off and 3 m below', target: V(-6, F + 1.4, -25.3) }, -43);
   pickup('pk_rounds_12_gantry', Z, 'pk_rounds_12', [-14, F + 3, -18]);
   pickup('pk_canteen_gantry', Z, 'pk_canteen', [-14, F + 3, -16.8]);
@@ -645,7 +650,7 @@ const polar = (bearingDeg, r) => [BORE.cx + r * Math.sin(rad(bearingDeg)), BORE.
   mk('bore_opening', Z, 'puzzle_element', [B.cx, F + B.kerbH, B.cz], { role: 'bore_opening', keptRoundTarget: true,
     volume: { shape: 'cylinder', radius: B.boreR, top: r2(F + B.kerbH), bottom: r2(F - 6), axis: V(B.cx, 0, B.cz) },
     test: 'the kept round fires when the aim ray enters this volume; bo_kerb*, bo_kerb_guard and the Windlass are ignored (GDD 6.6 rule 4)',
-    notches: { bearingsDeg: [0, 60, 120, 180, 240, 300], arcDeg: 35, kerbHeight: B.kerbLow }, lines: { lead: 'stn_bore_lead', line: 'stn_bore_line_short', notInBore: 'nar_down_the_bore', denied: 'nar_not_for_firing', seal: 'nar_seal', office: 'nar_office', kept: 'nar_kept', proven: 'stn_proven', hint2: 'hint_kept_2' },
+    notches: { bearingsDeg: [0, 60, 120, 180, 240, 300], arcDeg: 35, kerbHeight: B.kerbLow }, lines: { lead: 'stn_bore_lead', line: 'stn_bore_line_short', notInBore: 'nar_down_the_bore', denied: 'nar_not_for_firing', seal: 'nar_seal', hint1: 'hint_kept_1', office: 'nar_office', kept: 'nar_kept', proven: 'stn_proven', hint2: 'hint_kept_2' },
     note: 'pos is the centre of the TOP disc (kerb-top height, y -42.8), not the floor' });
   trig('trg_bore_kill', Z, [B.cx, F - 1, B.cz], [B.boreR * 2, 1, B.boreR * 2], { kind: 'kill', shape: 'cylinder', note: 'unreachable in normal play (kerb)' });
   for (let k = 0; k < 6; k++) {
@@ -722,12 +727,13 @@ encounters.push(
   { id: 'enc_tally', zone: 'tally_house', trigger: 'knot_hatch_latch', maxAlive: 2, composition: { bider: 2 }, locksDoors: ['door_tally', 'ia_hatch'],
     waves: [{ id: 'A', spawns: ['sp_tally_riser_w', 'sp_tally_riser_e'], delay: 0.8, when: 'the knot bursts: the hatch parts to ajar (impassable); cap_chairs plays 0.8 s before movement' }],
     onClear: { checkpoint: 'cp_tally_hatch', lines: ['nar_nine'], opens: 'ia_hatch', opensWithinSeconds: 1.5 } },
-  { id: 'enc_file', zone: 'the_gallery', trigger: 'ia_baffle', maxAlive: 6, composition: { bider: 9 }, locksDoors: ['door_gallery_far'],
+  { id: 'enc_file', zone: 'the_gallery', trigger: 'ia_baffle', maxAlive: 6, composition: { bider: 12 }, locksDoors: ['door_gallery_far'],
     waves: [
       { id: 'A', spawns: ['sp_file_1', 'sp_file_2', 'sp_file_3', 'sp_file_4', 'sp_file_5', 'sp_file_6'], delay: 3, when: 'the baffle grinds open over 3 s; turn_about 1.5 s', lane: 'lane_gallery' },
-      { id: 'B', spawns: ['sp_file_7', 'sp_file_8', 'sp_file_9'], delay: 4, when: 'an ambush at the far door (polish round 4): once wave A is down to one, the three are spawned behind the shut door_gallery_far when she comes within 12 m of it, or 25 s after the file was down to one; nar_file_more, a bang on the door, and it bursts open 2 s later. With the file still standing no wave B comes (src/world/director.ts WAVE_RULES enc_file/B)', afterWaveDownSeconds: 4, orAtSeconds: 25, notRead: 'afterWaveDownSeconds and orAtSeconds are no longer read for this wave', opensDoor: 'door_gallery_far', doorStaysOpen: true, lines: ['nar_file_more'], laneFollowing: false, lateralOffsets: [-1, 0, 1], depthStagger: 1.2 },
+      { id: 'R', spawns: ['sp_file_10', 'sp_file_11'], delay: 0, when: 'the rear pair (polish round 5, R3 / R10): once wave A is down to one, when she comes within 16 m of door_gallery_far (or 25 s after the file was down to one), two who did not queue start down flight 3 of the peg stair behind her and run the length of the gallery after her; nar_file_behind names them (src/world/director.ts WAVE_RULES enc_file/R, FILE_NEAR_REAR)', lines: ['nar_file_behind'], laneFollowing: false },
+      { id: 'B', spawns: ['sp_file_7', 'sp_file_8', 'sp_file_9', 'sp_file_12'], delay: 4, when: 'the ambush at the far door (polish round 4; four, and timed from the rear pair, since round 5): FILE_REAR (4 s) after the rear pair start, the four are spawned behind the shut door_gallery_far; nar_file_more, a bang on the door, and it bursts open FILE_BURST (1 s) later, so both ends of the walkway reach her within about two seconds. With the file still standing neither wave comes (src/world/director.ts WAVE_RULES enc_file/B)', afterWaveDownSeconds: 4, orAtSeconds: 25, notRead: 'afterWaveDownSeconds and orAtSeconds are no longer read for this wave', opensDoor: 'door_gallery_far', doorStaysOpen: true, lines: ['nar_file_more'], laneFollowing: false, lateralOffsets: [-1, 0, 1, -0.4], depthStagger: 1.2 },
     ],
-    onClear: { checkpoint: 'cp_file_clear', clearRule: 'all nine down' } },
+    onClear: { checkpoint: 'cp_file_clear', clearRule: 'all twelve down' } },
   { id: 'enc_matador', zone: 'lift_hall', trigger: 'trg_enc_matador', maxAlive: 3, composition: { tamper: 1, bider: 4 }, locksDoors: ['door_gallery_far', 'door_lift_cage'],
     waves: [
       { id: 'A', spawns: ['sp_hall_tamper'], delay: 0, when: 'trigger' },

@@ -221,6 +221,10 @@ test('a lamp\'s halo is tight; the kept round\'s flash has no flame tint', async
 test('the aim tell is a beam 3 px wide or more, also when it comes at the eye, and brighter at the end of the aim', async () => {
   await jump('cp_street_clear');
   await view([-30, 0, 0], [-60, 1.5, 0], null, 6);
+  // look team gun, polish round 5: the beam is measured without the view-model. The side beam's right end passes 8 px
+  // over the muzzle since the gun was raised 3.5 % of the frame (R13), and the barrel hid the lower glow of the late,
+  // thicker beam: x1.65 with the round-4 placement, x1.15 to x1.32 with the new one, by how the gun had settled.
+  await show('viewModel', false);
   // across the view, 18 m off, and one that ends 0.4 m under the eye
   const measure = async (ax, ay, az, bx, by, bz, name) => {
     await page.evaluate(async (v) => { const d = window.__dbg, h = d.ext.core.ctx().render.vfx.acquireLine('sighting_thread'); h.setPosition(v[0], v[1], v[2]); h.setEnd(v[3], v[4], v[5]); window.__thread = h; await d.ext.core.stepAsync(3, true); }, [ax, ay, az, bx, by, bz]);
@@ -243,6 +247,7 @@ test('the aim tell is a beam 3 px wide or more, also when it comes at the eye, a
   assert.ok(grow > 1.2, `it brightens over the aim (x${grow.toFixed(2)})`);
   const atEye = await measure(-48, 1.3, 0, -30.2, 1.25, 0.25, 'beam_at_eye');
   const te = thickness(atEye.late, true);
+  await show('viewModel', true);
   console.log(`a thread that comes at the eye: ${te.lines} rows, ${te.median} px thick at the median, ${te.least} at the 10th percentile (round 2: a wedge thinning to a dotted hair)`);
   assert.ok(te.lines > 60 && te.least >= 3, `it keeps its width down the screen: ${te.least} px at its thinnest tenth over ${te.lines} rows`);
 });

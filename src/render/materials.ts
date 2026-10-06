@@ -23,6 +23,8 @@ const ZONE_EVERY = 12;
 /** seconds of the cross-fade of a dynamic object's zone light */
 const ZONE_FADE = 0.3;
 const MAX_EMITTERS = 256;
+/** a lamp set of more lamps than this on one mesh is a dense one (MaterialFactory.denseHold) */
+export const DENSE_LAMPS = 8;
 const MAX_ISLANDS = 48;
 
 function inPlaceholder(mesh: THREE.Object3D): boolean {
@@ -63,7 +65,9 @@ uniform vec4 uObj[ ${OBJ_SLOTS} ];
 // the left of every barrel and flute), the rim a narrow lobe on what faces straight up (top strap, hammer, the cylinder's crown).
 const VM_KEY_DIR = new THREE.Vector3(-0.62, 0.70, 0.35).normalize(), VM_RIM_DIR = new THREE.Vector3(0.22, 0.93, -0.30).normalize();
 /** dark steel shows by what it reflects: the gun's diffuse term is lifted by this, its hands take this share of the rig */
-const GUN_GAIN = 1.0, VM_HANDS = 0.75;
+const GUN_GAIN = 1.0, VM_HANDS = 0.88;   // look team gun, round 5: the hands' share of the rig 0.75 -> 0.88 (the gloves sat at L* 22 indoors, 'two brown lumps'; the cuff is in the frame now and was the view-model's only black)
+/** look team gun, round 5: the studio the blued steel mirrors (the GUN branch of DYN_FRAG): the horizon's tilt and height, the floor's two ambient terms and its key term, the sky's base, the horizon band */
+const GUN_HZ_X = 0.20, GUN_HZ_0 = 0.12, GUN_FLOOR_A = 0.16, GUN_FLOOR_A2 = 0.18, GUN_FLOOR_K = 0.022, GUN_SKY_A = 0.16, GUN_BAND_K = 1.30, GUN_TOE = 0.25, GUN_RIM = 0.70;
 
 const WORLD_VERT_PARS = /* glsl */`
 #ifdef FARCARD
@@ -171,6 +175,27 @@ const WORLD_LIGHT = /* glsl */`
 	keepLight *= 1.0 - uCloud.w * ( 1.0 - texture2D( uNoise, vWPos.xz * uCloud.z + uCloud.xy ).r );
 	#endif
 	outgoingLight = diffuseColor.rgb * keepLight;
+	#if defined( LM )
+	if ( uSheen > 0.0 ) {
+		// High tier, underground look, polish round 5 (lead ruling R9: "High must look visibly richer than Low wherever a
+		// player would compare them"; in the gallery, the hall and the bore the tiers measured 1.4 to 2.3 of 255 apart). The
+		// station is glazed ceramic and satin plate, and a baked room has no highlight: a lightmapped face mirrors a share
+		// of the light baked ONTO it toward an eye that sees it at a grazing angle (the far floor carries the lamp pools as
+		// streaks toward her; a wall beside her shines along its length), the pools more than the fill. Floors in full,
+		// walls a third, ceilings nothing. One uniform, no define: 0 on Low and min, where the branch is skipped.
+		vec3 keepSn = cross( dFdx( vWPos ), dFdy( vWPos ) );
+		keepSn /= max( length( keepSn ), 1e-12 );
+		vec3 keepSv = cameraPosition - vWPos;
+		float keepSf = 1.0 - clamp( dot( keepSv / max( length( keepSv ), 1e-4 ), keepSn ), 0.0, 1.0 );
+		keepSf *= keepSf;
+		float keepSw = keepSn.y > 0.0 ? mix( 0.15, 1.0, smoothstep( 0.5, 0.9, keepSn.y ) ) : 0.15 * ( 1.0 - smoothstep( 0.3, 0.7, - keepSn.y ) );
+		float keepSl = dot( keepLight, vec3( 0.2126, 0.7152, 0.0722 ) );
+		// ... and only into the room it has: a pool that already draws white takes none (the hall's floor before the ring
+		// and the gallery's walkway went to one flat white field); the plate between the pools takes the most
+		float keepSh = clamp( 1.0 - dot( outgoingLight, vec3( 0.2126, 0.7152, 0.0722 ) ) / 0.42, 0.0, 1.0 );
+		outgoingLight += keepLight * mix( diffuseColor.rgb, vec3( dot( diffuseColor.rgb, vec3( 0.3333 ) ) ), 0.5 ) * ( uSheen * keepSf * keepSw * keepSh * ( 0.15 + 0.85 * min( keepSl, 1.6 ) ) );
+	}
+	#endif
 	if ( keepPulseOn() ) {
 		// no normal attribute reaches a world material: the face's own, from screen derivatives (it always faces the eye).
 		// shared.ts PULSE_GLSL: the ring as before, a filled pulse (the muzzle) shaded by N.L and held under the cap
@@ -354,12 +379,18 @@ void main() {
 		vec3 rf = reflect( ve, vn );
 		float fr = 1.0 - max( dot( -ve, vn ), 0.0 );
 		fr = 0.30 + 0.70 * fr * fr;
-		float hz = rf.y + 0.20 * rf.x;
-		float sky = smoothstep( -0.02, 0.10, hz );
+		// look team gun, round 5 (the critic: "a pale flat-grey slab ... primer-grey plastic"): rounds 3 and 4 kept the gun
+		// out of black with a FLAT floor (0.58 of the ambient + 0.20 of the key on every face that mirrors the ground), and
+		// seen from its side that floor was the whole frame plate: one even L* 37. The studio now has a value structure:
+		// a dark floor that still falls away under the gun (never flat, never black), the horizon tilted and LOWERED so its
+		// hard line runs across the frame plate and along the barrel at the idle pose, and a sky that carries the mood.
+		float hz = rf.y + ${GUN_HZ_X.toFixed(2)} * rf.x + ${GUN_HZ_0.toFixed(2)};
+		float sky = smoothstep( -0.04, 0.06, hz );
 		float band = sky * exp( -hz * 5.0 );
-		vec3 env = uObjAmbient * ( 0.58 + 0.45 * sky * ( 0.35 + 0.65 * hz ) ) + uObjKey * ( 0.20 + 0.50 * band );   // look team gun, round 4: floors 0.45 / 0.17 -> 0.58 / 0.20 (seen from its side the gun shows more faces that mirror the floor: 4 to 11 % of it sat under L* 12 in the bore and on the rim)
+		float under = smoothstep( -0.75, 0.0, hz );
+		vec3 env = uObjAmbient * ( ${GUN_FLOOR_A.toFixed(2)} + ${GUN_FLOOR_A2.toFixed(2)} * under + sky * ( ${GUN_SKY_A.toFixed(2)} + 0.40 * hz ) ) + uObjKey * ( ${GUN_FLOOR_K.toFixed(2)} + ${GUN_BAND_K.toFixed(2)} * band );
 		// a face turned to the eye mirrors her, not the room: dark (the blue reads there); and the blue tints what it mirrors
-		env *= 1.0 - 0.45 * smoothstep( -0.10, 0.75, rf.z );
+		env *= 1.0 - 0.32 * smoothstep( -0.10, 0.75, rf.z );
 		env *= mix( vec3( 1.0 ), albedo / max( max( albedo.r, max( albedo.g, albedo.b ) ), 0.02 ), 0.55 );
 		float nh = max( dot( rf, vKeyV ), 0.0 );
 		float nk = max( dot( vn, vKeyV ), 0.0 );
@@ -367,13 +398,18 @@ void main() {
 		#ifdef TEXTURED
 		c += texture2D( uMatcap, vn.xy * 0.5 + 0.5 ).rgb * gloss * vKeyCol * 0.35;
 		#endif
-		c += vRim * ( 0.25 + 0.75 * gl );
+		c += vRim * ( ${GUN_RIM.toFixed(2)} * ( 0.25 + 0.75 * gl ) );   // round 5: the cool rim from above painted every upward face lavender (x 1 until then)
 		// integration: a NARROW rim. The revolver is seen from behind and above: nearly every face of the barrel and the
 		// frame is at a grazing angle, and rim^3 x 0.35 of the sky colour washed the whole gun pale teal out of doors on
 		// High (shots/integrate-art/game_high/cp_street_clear.png). It stays the darkest thing in the frame.
 		float rim = 1.0 - max( vn.z, 0.0 );
 		float rim2 = rim * rim;
 		c += uSkyCol * ( uFresnel * rim2 * rim2 * rim * 0.10 );
+		// round 5: "never black" is held by a toe, not by a flat floor on every face: only what would fall under the
+		// rig's own shadow level is lifted to it (in the ambient's hue), so the dark faces keep their gradient above it
+		vec3 toe = uObjAmbient * ${GUN_TOE.toFixed(2)};
+		float tl = dot( toe, vec3( 0.2126, 0.7152, 0.0722 ) );
+		c += toe * clamp( 1.0 - dot( c, vec3( 0.2126, 0.7152, 0.0722 ) ) / ( 2.5 * tl + 1e-5 ), 0.0, 1.0 );
 	}
 	#else
 	#ifdef TEXTURED
@@ -510,6 +546,8 @@ export interface LampInfo {
   at: Float32Array;
   /** intensity (COLOR_0.r), flicker group (G), wrong_fade share (B), hue index per lamp */
   rgbh: Float32Array;
+  /** many lamps packed close (see lampInfoOf): held under the High tier's bloom (MaterialFactory.denseHold) */
+  dense: boolean;
 }
 class EmisState {
   count = 0; mask = 0; boost = 1; triggered = false;
@@ -612,7 +650,25 @@ function lampInfoOf(geometry: THREE.BufferGeometry, lampCount: number, textured:
     at[g * 4 + 3] = Math.max((max[g * 3] as number) - (min[g * 3] as number), (max[g * 3 + 1] as number) - (min[g * 3 + 1] as number), (max[g * 3 + 2] as number) - (min[g * 3 + 2] as number));
     rgbh[g * 4] = (sum[g * 4] as number) / k; rgbh[g * 4 + 1] = (sum[g * 4 + 1] as number) / k; rgbh[g * 4 + 2] = (sum[g * 4 + 2] as number) / k;
   }
-  return { count, at, rgbh };
+  // a DENSE set: more than DENSE_LAMPS lamps whose nearest neighbour stands within its own size of it (the Windlass's
+  // gauge: 26 segments of 0.3 m on a 0.15 m pitch; not fifteen pendants 6 m apart on one mesh)
+  let dense = false;
+  if (count > DENSE_LAMPS) {
+    let close = 0;
+    for (let g = 0; g < count; g++) {
+      let best = Infinity;
+      for (let h = 0; h < count; h++) {
+        if (h === g) continue;
+        const dx = (at[g * 4] as number) - (at[h * 4] as number), dy = (at[g * 4 + 1] as number) - (at[h * 4 + 1] as number), dz = (at[g * 4 + 2] as number) - (at[h * 4 + 2] as number);
+        const d = dx * dx + dy * dy + dz * dz;
+        if (d < best) best = d;
+      }
+      const reach = Math.max(at[g * 4 + 3] as number, 0.02);
+      if (best < reach * reach) close++;
+    }
+    dense = close > count * 0.75;
+  }
+  return { count, at, rgbh, dense };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -714,6 +770,14 @@ export class MaterialFactory {
   readonly uFlicker: Uniform<number>;
   readonly uFresnel: Uniform<number> = { value: 0 };
   haloScale = 1;
+  /**
+   * High tier (underground look, polish round 5): the level a DENSE lamp set (LampInfo.dense: more than DENSE_LAMPS
+   * lamps packed close on one mesh: the Windlass's gauge of 26 segments 5 cm apart) is drawn at, 0..1 of its lamp value. Pushed EMISSIVE_HDR over white
+   * like a single lamp, the gauge bloomed into one solid white bar and High showed less than Low in the boss room. The
+   * system sets it every frame so that such a set sits just over the mood's bloom threshold: white pips, a thin glow,
+   * dark gaps. 1 on Low and min (no bloom, nothing changes there).
+   */
+  denseHold = 1;
 
   constructor(private readonly ctx: GameContext, private readonly shared: SharedUniforms) {
     this.uFlicker = shared.uFlicker;
@@ -984,8 +1048,9 @@ export class MaterialFactory {
     const lamp = (m.uniforms.uLamp as Uniform<THREE.Vector4>).value;
     const count = s.triggered ? s.count : 1e6, trig = s.triggered ? 1 : 0, n = s.lamps > 1 ? s.lamps : 1, mask = s.triggered ? s.mask | 0 : 0;
     const maskU = m.uniforms.uLampMask as Uniform<number>;
-    if (lamp.x !== count || lamp.y !== s.boost || lamp.z !== trig || lamp.w !== n || maskU.value !== mask) {
-      lamp.x = count; lamp.y = s.boost; lamp.z = trig; lamp.w = n; maskU.value = mask;
+    const level = s.info !== null && s.info.dense ? s.boost * this.denseHold : s.boost;
+    if (lamp.x !== count || lamp.y !== level || lamp.z !== trig || lamp.w !== n || maskU.value !== mask) {
+      lamp.x = count; lamp.y = level; lamp.z = trig; lamp.w = n; maskU.value = mask;
       m.uniformsNeedUpdate = true;
     }
   }

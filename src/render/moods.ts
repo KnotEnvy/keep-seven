@@ -5,7 +5,7 @@
 import type { MoodId, ZoneId } from '../core/contracts.ts';
 
 /** the moods of the contract plus the two sub-volumes of the bore (ART_BIBLE 3.6) */
-export type MoodKey = MoodId | 'L5a' | 'L5c';
+export type MoodKey = MoodId | 'L5a' | 'L5c' | 'L6c';
 
 // ---- field offsets -------------------------------------------------------------------------------------------
 export const M_FOG_A = 0;          // rgb: fog colour away from the sun (exterior) / near (interior)
@@ -54,6 +54,13 @@ export const MOOD_SIZE = 69;
  * pools glow on the plate. Low and min have no bloom and read none of this.
  */
 export const BLOOM_T_DEFAULT = 1.15, BLOOM_K_DEFAULT = 0.9;
+/**
+ * High tier only (underground look, polish round 5, lead ruling R9): how much of its baked light a lightmapped face of
+ * the station mirrors at a grazing angle under each mood (SharedUniforms.uSheen; materials.ts WORLD_LIGHT). The works
+ * are glazed ceramic and satin plate: the gallery's walkway, the hall's floor under its pendants and the chamber's
+ * plate carry their lamps as streaks toward the eye. Adobe, plank and sand have none. Low and min draw none of it.
+ */
+export const SHEEN: Readonly<Partial<Record<MoodKey, number>>> = { L3: 2.2, L4: 2.2, L5: 2.2, L5c: 1.2, L5p: 2.2 };
 
 /**
  * The view-model's rig (polish round 3; R6: "clearly lit and readable in every zone's mood"). The revolver took the
@@ -105,6 +112,10 @@ interface MoodSpec {
   rim?: number; rimK?: number;
   /** hue of the view-model's rim (the zone's own edge light); VM_COOL when absent */
   vmRim?: number;
+  /** hue of the view-model's key where the room's own light is not the mood's key (look team gun, round 5: the Tally House's lamp-orange; without it a mood with keyK 0 lit the gun warm white in an orange room) */
+  vmKey?: number;
+  /** hue of the view-model's ambient, when the room's bounce is not the mood's ambient hue (look team gun, round 5) */
+  vmAmb?: number;
   /** the view-model rig's level in this mood against the floors (a bright room wants more, a dark gallery less); 1 when absent */
   vmK?: number;
   /** she stands in shade (L0, under the overhang): the view-model's key is the rig's floor in a warm white, not the mood's sun */
@@ -155,7 +166,7 @@ function build(s: MoodSpec): Float32Array {
   const key = [m[M_KEY] as number, m[M_KEY + 1] as number, m[M_KEY + 2] as number];
   const vmK = s.vmK ?? 1;
   const ambL = Math.max(luma3(amb), VM_AMB / ex) * vmK, keyL = (s.vmShade ? VM_KEY / ex : Math.max(luma3(key), VM_KEY / ex)) * vmK;
-  const ambH = hueOf(s.ambient), keyH = hueOf(s.keyK > 0 && !s.vmShade ? s.key : VM_WARM), warm = hueOf(VM_WARM), rimH = hueOf(s.vmRim ?? VM_COOL);
+  const ambH = hueOf(s.vmAmb ?? s.ambient), keyH = hueOf(s.vmKey ?? (s.keyK > 0 && !s.vmShade ? s.key : VM_WARM)), warm = hueOf(VM_WARM), rimH = hueOf(s.vmRim ?? VM_COOL);
   for (let i = 0; i < 3; i++) {
     m[M_VM_AMB + i] = (0.5 * (ambH[i] as number) + 0.5) * ambL;
     m[M_VM_KEY + i] = (0.7 * (keyH[i] as number) + 0.3 * (warm[i] as number)) * keyL;
@@ -195,12 +206,14 @@ export const MOODS: Readonly<Record<MoodKey, Float32Array>> = {
   L2: build({
     fogA: 0x1c1318, fogB: 0x1c1318, density: 0.020, falloff: 0.35, extra: 0,
     ambient: 0x4a3a44, ambientK: 0.35, key: 0xffd09a, keyK: 0, keyDir: S,
-    vmK: 0.88,   // look-dev r3: the darkened hall behind the gun (L* 16 to 24): at 1 the view-model stood 23 over it
+    vmK: 0.86,   // look team gun r5 (was 0.88; tests/render/moods.spec holds every mood at 0.85 or more) <- look-dev r3: the darkened hall behind the gun (L* 16 to 24): at 1 the view-model stood 23 over it
+    vmAmb: 0x8a6450, vmKey: 0xffa866,   // look team gun r5: the lamp-lit boards are this room's light; the gun took a warm WHITE key and stood grey-white in the orange room
     exposure: 2.5, tint: [1.05, 0.98, 0.90], lift: [0.012, 0.007, 0.009], saturation: 0.92, contrast: 1.16, vignette: 0.55, pulse: 1,
   }),
   L3: build({
     fogA: 0x0a1424, fogB: 0x14343e, mixDist: 1 / 40, density: 0.023, extra: 0,
-    ambient: 0x1e3a5c, ambientK: 0.45, key: 0x7cf2e2, keyK: 0.5, keyDir: [0, 1, 0], vmK: 0.95,
+    ambient: 0x1e3a5c, ambientK: 0.45, key: 0x7cf2e2, keyK: 0.5, keyDir: [0, 1, 0], vmK: 1.08,   // look team gun r5: 0.95 -> 1.08 (the darker studio left 2.2 % of highlight in the gallery)
+   
     exposure: 1.75, tint: [0.96, 1.0, 1.04], lift: [0.004, 0.008, 0.016], saturation: 0.88, contrast: 1.15, vignette: 0.50, pulse: 1,
     sunDir: [1, 0, 0],
     bloomT: 0.55, bloomS: 0.40, bloomK: 1.0,
@@ -211,7 +224,9 @@ export const MOODS: Readonly<Record<MoodKey, Float32Array>> = {
     vmK: 1.25,   // look-dev r3: the gun's reflections are its light now; at 1 the hall left 12 % of it under L* 12
     exposure: 1.9, tint: [1.0, 1.0, 1.0], lift: [0.004, 0.007, 0.014], saturation: 0.80, contrast: 1.16, vignette: 0.50, pulse: 1,
     sunDir: [1, 0, 0],
-    bloomT: 0.55, bloomS: 0.40, bloomK: 1.0,
+    // underground look, polish round 5: 0.55 -> 0.68. The ring's lit surround (a field at about 0.6 to 0.75 of display
+    // white from the hall's checkpoint) bloomed into one flat mint sheet on High; the pools and lamps are over 1 and still glow
+    bloomT: 0.68, bloomS: 0.40, bloomK: 1.0,
   }),
   // the chamber, unproven: violet from the bore; the height term stands on the kerb top
   L5: build({
@@ -223,8 +238,11 @@ export const MOODS: Readonly<Record<MoodKey, Float32Array>> = {
     // polish round 3: lit from above only, its flanks and back were a black mass at fight distance. A slate ambient
     // (no longer violet), and a teal fill on upright faces and the silhouette (M_RIM); the grade's violet cast is halved.
     ambient: 0x41507a, ambientK: 0.55, key: 0x7cf2e2, keyK: 0.35, keyDir: [0.12, 1, -0.2], rim: 0x9ad2d8, rimK: 1.0,
-    vmK: 1.35,   // look-dev r3: the view-model in the chamber (21 % of the gun under L* 12 at 1)
+    vmK: 1.35,   // (r5: stands) <- look-dev r3: the view-model in the chamber (21 % of the gun under L* 12 at 1)
     exposure: 2.2, tint: [1.0, 0.98, 1.04], lift: [0.006, 0.005, 0.014], saturation: 1.0, contrast: 1.18, vignette: 0.50, pulse: 1,
+    // underground look, polish round 5 (R7, R9): the boss room on High. At the plain 1.15 only the lamps bloomed; the
+    // bore's own light in the pit and the bay pools on the plate are the lights of this frame and now glow
+    bloomT: 0.80, bloomS: 0.45, bloomK: 0.9,
   }),
   // the antechamber: the Dowser's embers, not violet
   L5a: build({
@@ -232,22 +250,25 @@ export const MOODS: Readonly<Record<MoodKey, Float32Array>> = {
     // integration: the baked room is dark violet-slate with one small pool of ember light at the camp; a 0.6 ember KEY
     // on every dynamic thing in the room drew the enamel bore door, the cradle and the station plate bright orange
     // against it (shots/integrate-art/game_low/x_cradle.png). The embers are a hint of warmth on them, not their light.
-    ambient: 0x3a3252, ambientK: 0.45, key: 0xff9433, keyK: 0.16, keyDir: [-0.4, -0.35, -0.85], vmK: 1.4,
+    ambient: 0x3a3252, ambientK: 0.45, key: 0xff9433, keyK: 0.16, keyDir: [-0.4, -0.35, -0.85], vmK: 1.44,
     // closer, polish round 2 (docs/requests/art-env-interior.md, fixer row 2): the antechamber is not violet (ART_BIBLE 2.4):
     // a warm lift and tint instead of the chamber's
     exposure: 1.3, tint: [1.03, 1.0, 0.97], lift: [0.010, 0.006, 0.007], saturation: 0.78, contrast: 1.18, vignette: 0.55, pulse: 1,
+    bloomT: 0.75, bloomS: 0.40, bloomK: 0.9,   // underground look, polish round 5: the embers and the cradle's lamp glow on High
   }),
   // the catwalk: lit from below through the grille
   L5c: build({
     fogA: 0x181230, fogB: 0x181230, density: 0.018, extra: 0,
     ambient: 0x4a4a78, ambientK: 0.40, key: 0x9a8ed0, keyK: 0.5, keyDir: [0, -1, 0], rim: 0x9ad2d8, rimK: 0.4,
     exposure: 1.7, tint: [1.0, 0.98, 1.04], lift: [0.008, 0.005, 0.016], saturation: 1.0, contrast: 1.16, vignette: 0.55, pulse: 1,
+    bloomT: 0.48, bloomS: 0.45, bloomK: 1.0,   // underground look, polish round 5: from the dark catwalk the lit drum, the pit and the bay pools are the lights of the frame (the Windlass is first seen from here); at 0.8 High drew Low's frame (0.6 of 255 apart)
   }),
   L5p: build({
     fogA: 0x0c262c, fogB: 0x0c262c, density: 0.012, extra: 0,
     ambient: 0x2a6a70, ambientK: 0.50, key: 0x7cf2e2, keyK: 0.6, keyDir: [0, -1, 0], rim: 0xbfeee6, rimK: 0.5,
     vmK: 1.3,   // look-dev r3
     exposure: 1.8, tint: [0.96, 1.02, 1.02], lift: [0.004, 0.010, 0.014], saturation: 0.90, contrast: 1.15, vignette: 0.45, pulse: 1,
+    bloomT: 0.75, bloomS: 0.45, bloomK: 1.0,   // underground look, polish round 5: the proven chamber glows aqua on High
   }),
   // blue hour: the ember band is the horizon toward the afterglow, cold `#4D5578` in the east; fog equals it all round
   L6: build({
@@ -265,12 +286,35 @@ export const MOODS: Readonly<Record<MoodKey, Float32Array>> = {
     zenith: 0x0e1630, mid: 0x443c72, glow: 0xffb888, midSin: 0.4226, sunDisc: 0,
     ambient: 0x4a5a96, ambientK: 0.50, key: 0xff9e6b, keyK: 0.35, keyDir: [-0.70, 0.10, -0.70],
     // the grade's contrast (1.22) crushes the rig's shadow side: 18 % of the view-model sat under L* 12 at vmK 1
-    vmK: 1.25,   // look team gun r4: 0.9 left 8 % of the view-model under L* 12, 1.05 left 5 and 1.15 left 4.1 (tests/render polish3 R6 allows 4); at 1.25 its mean is about L* 28. Was 0.9 -> polish r4 (exterior look): 1.35 made the gun the lightest large shape of the last image (mean L* 32 over a ledge of 13); at 0.9 its body sits near L* 24 and only its highlight is bright
+    vmK: 1.25,   // (r5: stands) <- look team gun r4: 0.9 left 8 % of the view-model under L* 12, 1.05 left 5 and 1.15 left 4.1 (tests/render polish3 R6 allows 4); at 1.25 its mean is about L* 28. Was 0.9 -> polish r4 (exterior look): 1.35 made the gun the lightest large shape of the last image (mean L* 32 over a ledge of 13); at 0.9 its body sits near L* 24 and only its highlight is bright
     exposure: 1.12, tint: [0.98, 0.98, 1.06], lift: [0.005, 0.007, 0.018], saturation: 0.95, contrast: 1.22, vignette: 0.50, pulse: 0.7,
     sunDir: [-0.70, 0.10, -0.70], rule: 1, sky: 1,
     bloomT: 0.25, bloomS: 0.40, bloomK: 1.0,
   }),
+  // the rim's lift cage (look team exterior, polish round 5): filled from L6 below (rimCage)
+  L6c: new Float32Array(MOOD_SIZE),
 };
+
+/**
+ * L6c, the rock room the proving lift opens from (look team exterior, polish round 5; the visual critic: "the cage
+ * interior is pure black with no lit surface"). The cage is enamel black-teal (albedo about 0.03): under the blue hour's
+ * dynamic light (ambient 0.5, an ember key of 0.35 from the north-west, exposure 1.12) every panel of it drew at L* 7,
+ * one flat ink with the gate's opening cut out of it. A DYNAMIC thing that stands inside the frame (z beyond
+ * RIM_CAGE_MIN_Z: only the cage does) takes the afterglow that comes in through the gate instead: an ember key from
+ * the north, a little above the horizon (the back wall and the floor toward the gate take it, the side walls do
+ * not), a dusk-violet ambient, and a fill on upright faces. Everything else is L6's, the view-model's rig included:
+ * the frame, the fog, the sky and the revolver do not change when she steps out.
+ */
+function rimCage(from: Float32Array, out: Float32Array): void {
+  out.set(from);
+  hexToLinear(0x6a5a96, out, M_AMBIENT, RIM_CAGE_AMBIENT); hexToLinear(0xff9e6b, out, M_KEY, RIM_CAGE_KEY);
+  out[M_KEY_DIR] = 0; out[M_KEY_DIR + 1] = 0.24; out[M_KEY_DIR + 2] = -0.97;
+  hexToLinear(0x9a7aa8, out, M_RIM, RIM_CAGE_FILL);
+}
+export const RIM_CAGE_AMBIENT = 0.5, RIM_CAGE_KEY = 2.4, RIM_CAGE_FILL = 1.2;
+/** the rim's cage stands south of the cliff's face (z 111): a dynamic thing beyond this z is inside the rock */
+export const RIM_CAGE_MIN_Z = 111.8;
+rimCage(MOODS.L6, MOODS.L6c);
 
 export function isMoodKey(s: string): s is MoodKey { return Object.prototype.hasOwnProperty.call(MOODS, s); }
 
@@ -297,6 +341,7 @@ export const BORE_KERB_TOP_Y = -43.4;
  * of that zone; `wrong` is wrong_fade (the proven chamber is L5p).
  */
 export function moodAt(zone: ZoneId | null, zoneMood: MoodId, y: number, z: number, wrong: number): MoodKey {
+  if (zone === 'far_rim' && zoneMood === 'L6' && z > RIM_CAGE_MIN_Z) return 'L6c';
   if (zone !== 'the_bore') return zoneMood;
   if (z < BORE_ANTE_MAX_Z && y < BORE_CATWALK_MIN_Y) return 'L5a';
   if (y >= BORE_CATWALK_MIN_Y) return wrong >= 0.5 ? 'L5p' : 'L5c';

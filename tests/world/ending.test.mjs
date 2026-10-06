@@ -38,7 +38,7 @@ test('walking to the north edge first does nothing; the take branch: the round, 
   } finally { await game.close(); }
 });
 
-test('the leave branch: 25 s AWAY from the stone after its lines (coming back starts it again); or the north edge once the stone lines are over', async () => {
+test('the leave branch: 40 quiet seconds AWAY from the stone after its lines (round 5; coming back starts it again); or the north edge once the stone lines are over', async () => {
   let game = await open(srv, { checkpoint: 'cp_rim' });
   try {
     const seq = await mark(game);
@@ -54,12 +54,14 @@ test('the leave branch: 25 s AWAY from the stone after its lines (coming back st
     // and comes back: the clock starts again
     await game.run([{ call: ['teleport', STONE.pos[0], STONE.pos[1], STONE.pos[2], 0, 0] }, { steps: 30 }, { call: ['teleport', AWAY[0], AWAY[1], AWAY[2], 0, 0] }, { steps: 1 }]);
     const left = (await game.state()).tick;
-    await game.run([{ steps: 24 * 60 }]);
-    assert.equal((await ending(game, seq))['ending/stone'], undefined, 'coming back started the 25 s again');
-    await game.run([{ steps: 70 }]);
+    await game.run([{ steps: 39 * 60 }]);
+    assert.equal((await ending(game, seq))['ending/stone'], undefined, 'coming back started the clock again; 25 s is not enough (round 5: 40)');
+    await game.until({ event: 'ending/stone' }, 30 * 60);
     const e = await ending(game, seq);
     assert.equal(e['ending/stone'].payload.taken, false);
-    assert.ok(Math.abs(e['ending/stone'].tick - left - 1500) <= 70, `25 s after she walked away (${e['ending/stone'].tick - left} ticks)`);
+    // (the clock stands still while a line is on screen: what was said after she walked away is added)
+    const spoken = (await game.events(seq, 'story/line')).filter((x) => x.tick >= left && x.tick < e['ending/stone'].tick).reduce((n, x) => n + Math.round(x.payload.seconds * 60), 0);
+    assert.ok(Math.abs(e['ending/stone'].tick - left - 2400 - spoken) <= 70, `40 quiet seconds after she walked away (${e['ending/stone'].tick - left} ticks, ${spoken} of them spoken over)`);
     const end = await game.until({ event: 'ending/card' }, 80 * 60);
     assert.ok(end.met);
     const lines = (await game.events(seq, 'story/line')).map((x) => x.payload.key);
@@ -123,10 +125,14 @@ test('R5: a brisk take keeps the lamps lines (the end card counts lamps); once s
     const end = await game.until({ event: 'ending/card' }, 120 * 60);
     assert.ok(end.met);
     const lines = (await game.events(seq, 'story/line')).map((x) => x.payload.key);
-    for (const k of ['nar_lamps', 'nar_lamps_count', 'nar_stone_1', 'nar_take_1', 'nar_take_2', 'nar_fire', 'nar_last']) assert.ok(lines.includes(k), `${k} was said (${lines.join(' ')})`);
+    for (const k of ['nar_lamps', 'nar_lamps_count', 'nar_take_1', 'nar_take_2', 'nar_fire', 'nar_last']) assert.ok(lines.includes(k), `${k} was said (${lines.join(' ')})`);
     // polish round 4: what describes a round she has already pocketed is not said ("And a seventh, unfired" came 25 s after)
-    for (const k of ['nar_stone_2', 'nar_stone_3', 'nar_stone_4', 'nar_rim_2', 'nar_rim_3']) assert.ok(!lines.includes(k), `${k} is not said after the round is taken (${lines.join(' ')})`);
-    assert.ok(order(lines, 'nar_lamps_count', 'nar_take_1') && order(lines, 'nar_take_2', 'nar_fire'), 'lamps, stone, branch, fire');
+    // polish round 5: none of the stone's four ("Six spent cases on a flat stone" came 11 s after the take)
+    for (const k of ['nar_stone_1', 'nar_stone_2', 'nar_stone_3', 'nar_stone_4', 'nar_rim_2', 'nar_rim_3']) assert.ok(!lines.includes(k), `${k} is not said after the round is taken (${lines.join(' ')})`);
+    // round 5 (R12): the take is answered at once; the lamps follow it; the fire waits for the lamps
+    assert.ok(order(lines, 'nar_take_1', 'nar_take_2') && order(lines, 'nar_take_2', 'nar_lamps') && order(lines, 'nar_lamps_count', 'nar_fire'), `take, lamps, fire (${lines.join(' ')})`);
+    const tookAt = (await ending(game, seq))['ending/stone'].tick;
+    assert.ok((await game.events(seq, 'story/line')).find((x) => x.payload.key === 'nar_take_1').tick - tookAt <= 1, 'nar_take_1 on the take');
     const card = (await game.events(seq, 'ending/card')).at(-1);
     assert.ok((await game.events(seq, 'story/line')).every((x) => x.tick + Math.round(x.payload.seconds * 60) <= card.tick + 1), 'every line is over before the card');
   } finally { await game.close(); }

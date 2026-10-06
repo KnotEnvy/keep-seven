@@ -23,6 +23,27 @@ function hook() {
     return lp.call(this, p);
   };
 }
+/**
+ * Polish round 5 (robustness critic): the bot submits drawn frames from one unbroken chain of microtasks, and what a
+ * drawn frame leaves behind in the browser is only released when the page returns to its event loop: on the High leg
+ * the browser reached 4.4 GiB and the memory watchdog killed it (not a leak of the game: the same frames with yields
+ * plateau under 1 GiB). Every `every` drawn frames the bot's next step now waits for the rasteriser (gl.finish) and
+ * gives the event loop one turn. Ticks, input and the order of everything the game does are unchanged.
+ */
+function pace(every) {
+  const d = window.__dbg, core = d.ext.core, gl = d.ext.render.system().renderer.getContext(), step = d.step, stepAsync = core.stepAsync;
+  let due = 0;
+  window.__paced = { frames: 0, yields: 0 };
+  d.step = function (k, render) {
+    const out = step.call(d, k, render);
+    if (render) { window.__paced.frames++; due++; }
+    return out;
+  };
+  core.stepAsync = async function (n, render) {
+    if (due >= every) { due = 0; window.__paced.yields++; gl.finish(); await new Promise((r) => setTimeout(r, 0)); }
+    return stepAsync.call(core, n, render);
+  };
+}
 const describe = (rows) => rows.map((r) => `tick ${r.tick} ${r.cell} ${r.name} [${r.defs}]`).join('; ');
 
 for (const tier of ['low', 'high']) {
@@ -34,11 +55,15 @@ for (const tier of ['low', 'high']) {
         await bot.page.evaluate(() => { for (let k = 0; k < 3; k++) window.__dbg.step(0, true); });
         await bot.startFromTitle();
         await bot.page.evaluate(hook);
+        await bot.page.evaluate(pace, 8);
         const programs0 = await bot.page.evaluate(() => window.__dbg.ext.render.programs());
         const run = await bot.play({ until: 'cp_gallery_bay', frameEvery: 4 });
         assert.equal(run.checkpoint, 'cp_gallery_bay', `the bot reached the gallery (state ${run.state})`);
         let rows = await bot.page.evaluate(() => window.__late.splice(0));
         let late = rows.filter((r) => r.state === 'playing');
+        const paced = await bot.page.evaluate(() => window.__paced);
+        assert.ok(paced.frames > 500 && paced.yields > paced.frames / 40, `frames were drawn and paced (${JSON.stringify(paced)})`);
+        console.log(`${tier}: ${paced.frames} frames drawn, ${paced.yields} turns of the event loop given`);
         console.log(`${tier}: title -> cp_gallery_bay (tick ${run.tick}): ${rows.length} links, ${late.length} of them in play; ${programs0} programs at "Begin" (round 2 ${tier === 'low' ? 'Low: 4' : 'High: 17'} in play)`);
         assert.equal(late.length, 0, `programs linked in play: ${describe(late)}`);
         if (tier === 'low') {

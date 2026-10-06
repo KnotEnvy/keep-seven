@@ -49,6 +49,21 @@ export function tone(g: Graph, out: AudioNode, t: number, dur: number, type: Osc
   osc.start(t); osc.stop(t + dur + 0.01);
 }
 
+/**
+ * tone() that stays at its level for `hold` seconds before it decays over `dur`: a knock with a body. A sound whose
+ * peak is at the limiter already can only gain level over a room's tail by lasting (hold 0 is tone() itself).
+ */
+export function toneHeld(g: Graph, out: AudioNode, t: number, hold: number, dur: number, type: OscillatorType, f0: number, f1: number, gain: number, attack = 0.002): void {
+  if (hold <= 0) { tone(g, out, t, dur, type, f0, f1, gain, attack); return; }
+  const osc = g.osc(type, g.hz(f0)), amp = g.gain(0), end = t + hold + dur;
+  if (f1 !== f0) { osc.frequency.setValueAtTime(g.hz(f0), t); osc.frequency.exponentialRampToValueAtTime(g.hz(f1), end); }
+  amp.gain.setValueAtTime(FLOOR, t); amp.gain.exponentialRampToValueAtTime(gain, t + attack);
+  amp.gain.setValueAtTime(gain, t + attack + hold);
+  amp.gain.exponentialRampToValueAtTime(FLOOR, end);
+  osc.connect(amp); amp.connect(out);
+  osc.start(t); osc.stop(end + 0.01);
+}
+
 /** An oscillator with a linear attack, a hold and a linear release; pitch f0 -> f1 over the whole length. */
 export function toneHold(g: Graph, out: AudioNode, t: number, dur: number, type: OscillatorType, f0: number, f1: number, gain: number, attack: number, release: number): OscillatorNode {
   const osc = g.osc(type, g.hz(f0)), amp = g.gain(0);

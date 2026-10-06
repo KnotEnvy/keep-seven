@@ -150,13 +150,13 @@ export const SWAY_RATE = 14;
 // Polish round 4 (look team gun): turned 3.5 degrees further and rolled 10 degrees the other way, 4 cm farther from the
 // eye: more of the left side (cylinder flutes, trigger guard) and less of the top strap and the back; the muzzle stands
 // about 100 px right and 70 px below the crosshair at 720p (it was 52 / 50), the rear and the gun hand are in frame.
-export const VIEW_PLACE = { x: 0.004, y: 0.013, z: 0.023, pitchDeg: -7, yawDeg: 8.5, rollDeg: -14 } as const;
+export const VIEW_PLACE = { x: 0, y: 0.025, z: 0.026, pitchDeg: -7, yawDeg: 7.5, rollDeg: -13 } as const;   // look team gun, polish round 5: raised 3.5 % of the frame height so the thumb, the gloved fingers and the walnut grip are in the frame (was 0.004, 0.013, 0.023, -7, 8.5, -14)
 /**
  * Where the whole view-model stands during a clip in which the hands work on the gun (reload, the line round, the kept
  * round): the clips are staged for the authored pose and a 52 degree view; in the 40 degree view-model pass they are
  * framed by this (same axes as VIEW_PLACE) so the gun sits whole in the right half and the gloves leave by the bottom edge.
  */
-export const VIEW_PLACE_HANDLING = { x: -0.02, y: -0.04, z: -0.03, pitchDeg: 0, yawDeg: 0, rollDeg: 0 } as const;
+export const VIEW_PLACE_HANDLING = { x: -0.02, y: -0.07, z: -0.03, pitchDeg: 0, yawDeg: 0, rollDeg: 0 } as const;
 /** seconds over which the placement leaves for a clip in which the hands work on the gun, and returns (viewModel.ts isHandling) */
 export const VIEW_PLACE_BLEND = 0.15;
 export const VIEW_BOB_SCALE = 2.5;

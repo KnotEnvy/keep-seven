@@ -17,6 +17,15 @@ export const ARC_SECONDS = 0.6;
 export const SEGMENT_FLASH_SECONDS = 0.4;
 export const CHECKPOINT_SECONDS = 2;
 export const CARD_FADE_OUT = 0.8;
+/**
+ * Polish round 5: a movement card never stands over a fight. Once a threat shows (a telegraph, an encounter or a wave
+ * starting, a boss phase, a hit on her, her own shot) a card that is up has CARD_MIN_SECONDS on screen in all and then
+ * goes in CARD_FADE_QUICK (ui.css `.card.quick`), and one that arrives within CARD_THREAT_SECONDS after a threat is
+ * shown that briefly from the start. A card is shown once a run: the restore of a checkpoint does not show it again.
+ */
+export const CARD_MIN_SECONDS = 1;
+export const CARD_FADE_QUICK = 0.3;
+export const CARD_THREAT_SECONDS = 6;
 /** GDD 17 "Captions": a caption holds 2 s and the same key is not shown again within 4 s */
 export const CAPTION_REPEAT_SECONDS = 4;
 /**
@@ -134,6 +143,12 @@ export class Hud {
   private readonly cardTitle: HTMLDivElement;
   private cardHold = 0;
   private cardLeft = 0;
+  /** seconds the card on screen has been up */
+  private cardAge = 0;
+  /** tick of the last threat (-1: none in this life) */
+  private threatAt = -1;
+  /** keys of the cards shown in this run (seven movements, the title, the end: nine at most) */
+  private readonly cardsShown = new Set<StoryKey>();
 
   private gaugesOn = false;
   private gaugesFade = false;
@@ -216,9 +231,12 @@ export class Hud {
   }
   setTexts(on: boolean): void { flag(this.texts, 'on', on); }
   onRide(e: Readonly<GameEvents['ride/state']>): void { this.riding = e.stage === 'started'; this.applyGauges(); }
+  /** a new run (Begin, Go on, Walk it again, the title): every card may be shown once more */
+  newRun(): void { this.cardsShown.clear(); }
   /** a run begins or a checkpoint is restored: nothing of the last life stays on screen */
   reset(): void {
     this.riding = false;
+    this.threatAt = -1;
     this.keptSettle = false;
     this.keptLoading = false;
     this.captionShownAt.clear();
@@ -267,6 +285,7 @@ export class Hud {
       this.turnLeft = RING_TURN_DELAY + RING_TURN_SECONDS;
     }
     this.kick();
+    this.cutCard();                      // she is shooting: the card is not what she is looking at
   }
   /** `weapon/reload`: the chambers are re-read at once (a round seats dot by dot); a pending close-up is moot */
   onReload(): void {
@@ -308,6 +327,7 @@ export class Hud {
     this.markerGroup.setAttribute('class', 'mk');
   }
   onDamaged(e: Readonly<GameEvents['player/damaged']>): void {
+    this.onThreat();
     const p = this.ctx.player, f = p.forward, pos = p.position;
     // the source against the current view, on the ground plane: 0 = ahead (the arc sits above the crosshair), clockwise
     const rx = e.fromX - pos.x, rz = e.fromZ - pos.z;
@@ -351,7 +371,7 @@ export class Hud {
   onSegment(e: Readonly<GameEvents['player/health_segment']>): void { this.segRegen[e.segment] = e.regenerating ? 1 : 0; }
 
   // =============================================================== boss events
-  onBossPhase(): void { this.bossLitEvent = -1; }
+  onBossPhase(): void { this.bossLitEvent = -1; this.onThreat(); }
   onBossPips(e: Readonly<GameEvents['boss/pips']>): void { this.bossLitEvent = e.lit; }
 
   // =============================================================== story events
@@ -395,20 +415,44 @@ export class Hud {
     flag(this.captionBox, 'on', false);
   }
   onCard(e: Readonly<GameEvents['story/card']>): void {
+    // once a run: a death or "back to the last count" restores a checkpoint whose card she has already been shown
+    if (e.key !== '') {
+      if (this.cardsShown.has(e.key)) return;
+      this.cardsShown.add(e.key);
+    }
     const parts = splitCard(e.text);
     this.card = e.text;
     setText(this.cardNumeral, parts.numeral === '' ? parts.title : parts.numeral);
     setText(this.cardTitle, parts.numeral === '' ? '' : parts.title);
     flag(this.cardBox, 'single', parts.numeral === '');
     flag(this.cardBox, 'on', true);
+    flag(this.cardBox, 'quick', false);
     const seconds = e.seconds > 0 ? e.seconds : 3.5;
     this.cardLeft = seconds;
     this.cardHold = Math.max(0, seconds - CARD_FADE_OUT);
+    this.cardAge = 0;
+    // a fight is already on (she came back into it): the card is brief from the start
+    if (this.threatAt >= 0 && this.ticks - this.threatAt < Math.round(CARD_THREAT_SECONDS / FIXED_DT)) this.cutCard();
   }
   private endCard(): void {
     if (this.card === '') return;
-    this.card = ''; this.cardLeft = 0; this.cardHold = 0;
+    this.card = ''; this.cardLeft = 0; this.cardHold = 0; this.cardAge = 0;
     flag(this.cardBox, 'on', false);
+  }
+  /** A threat has shown itself (system.ts wires the enemy and encounter events here). */
+  onThreat(): void {
+    this.threatAt = this.ticks;
+    this.cutCard();
+  }
+  /** The card that is up gives way: CARD_MIN_SECONDS on screen in all, then the quick fade. Never lengthens one. */
+  private cutCard(): void {
+    if (this.card === '' || this.cardLeft <= 0) return;
+    const hold = Math.max(0, CARD_MIN_SECONDS - this.cardAge);
+    if (hold >= this.cardHold) return;
+    this.cardHold = hold;
+    this.cardLeft = hold + CARD_FADE_QUICK;
+    flag(this.cardBox, 'quick', true);
+    if (hold <= 1e-6) flag(this.cardBox, 'on', false);
   }
   onCheckpoint(e: Readonly<GameEvents['checkpoint/saved']>): void {
     const text = format(this.ctx.data.ui('ui_checkpoint'), this.ctx.options.value.bindings, { movement: roman(e.movement), n: String(e.section) });
@@ -494,7 +538,7 @@ export class Hud {
     if (this.captionLeft > 0 && (this.captionLeft -= dt) <= 1e-6) this.endCaption();
     if (this.checkpointLeft > 0 && (this.checkpointLeft -= dt) <= 1e-6) this.endCheckpoint();
     if (this.cardLeft > 0) {
-      this.cardLeft -= dt; this.cardHold -= dt;
+      this.cardLeft -= dt; this.cardHold -= dt; this.cardAge += dt;
       if (this.cardLeft <= 1e-6) this.endCard();
       else if (this.cardHold <= 1e-6) flag(this.cardBox, 'on', false);
     }
@@ -566,6 +610,7 @@ export class Hud {
       gauges: this.gaugesOn && !this.riding, ringTurns: this.mark.turns, ringAngleDeg: this.mark.turns * 60, ringTurning: this.turnLeft > 0,
       ringTurnLeft: +this.turnLeft.toFixed(4), marker: this.markerKind, markerLeft: +this.markerLeft.toFixed(4), arcDeg: this.arcDeg,
       shiver: this.mark.isShivering, seventh: w.seventh, plumb: this.plumb, legal: this.legal, bossLit, bossShown,
+      cardLeft: +this.cardLeft.toFixed(4),
       segments: [this.segFill[0], this.segFill[1], this.segFill[2]],
     };
   }

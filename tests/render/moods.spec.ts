@@ -18,7 +18,7 @@ const KEYS = Object.keys(MOODS) as MoodKey[];
 
 describe('mood table (code-render 4.3)', () => {
   it('has the eight moods of the contract and the two sub-volumes of the bore, all finite', () => {
-    expect(KEYS.sort()).toEqual(['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L5a', 'L5c', 'L5p', 'L6']);
+    expect(KEYS.sort()).toEqual(['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L5a', 'L5c', 'L5p', 'L6', 'L6c']);
     for (const k of KEYS) { expect(MOODS[k].length).toBe(MOOD_SIZE); for (const v of MOODS[k]) expect(Number.isFinite(v)).toBe(true); }
   });
   it('L1 fog: 20 % at 40 m, 50 % at 120 m, 87 % at 350 m', () => {
@@ -109,6 +109,14 @@ describe('mood table (code-render 4.3)', () => {
     expect(moodAt('the_bore', 'L5', -36, 83, 0)).toBe('L5c');
     expect(moodAt('the_bore', 'L5', -44, 96, 1)).toBe('L5p');
     expect(moodAt('plenty_street', 'L1', 0, 0, 0)).toBe('L1');
+    // look team exterior, polish round 5: a dynamic thing inside the rim's rock frame (the lift cage) takes L6c, which is
+    // L6 in everything but the dynamic ambient, key and fill (the frame, the fog, the sky and the view-model do not change)
+    expect(moodAt('far_rim', 'L6', 18, 114, 0)).toBe('L6c');
+    expect(moodAt('far_rim', 'L6', 18, 104, 0)).toBe('L6');
+    for (let i = 0; i < MOOD_SIZE; i++) {
+      const dyn = (i >= 26 && i < 35) || (i >= 54 && i < 57);   // M_AMBIENT, M_KEY, M_KEY_DIR; M_RIM
+      if (!dyn && MOODS.L6c[i] !== MOODS.L6[i]) throw new Error(`L6c differs from L6 at field ${i}`);
+    }
     expect(cellHeightExtra('the_lip', 'cell_lip_gully')).toBe(1.0);
     expect(cellHeightExtra('plenty_street', 'cell_street')).toBe(0.6);
     expect(cellHeightExtra('plenty_street', 'cell_yard')).toBe(0);

@@ -5564,10 +5564,10 @@
      "prop_sack"
     ]
    },
-   "triangles": 78297,
+   "triangles": 99297,
    "drawCalls": {
-    "typical": 74,
-    "worst": 79
+    "typical": 77,
+    "worst": 85
    }
   },
   "the_gallery": {
@@ -5592,7 +5592,7 @@
      "prop_crate"
     ]
    },
-   "triangles": 117500,
+   "triangles": 119000,
    "drawCalls": {
     "typical": 83,
     "worst": 91
@@ -5615,7 +5615,7 @@
      "prop_barrel"
     ]
    },
-   "triangles": 107875,
+   "triangles": 109375,
    "drawCalls": {
     "typical": 80,
     "worst": 88
@@ -6306,28 +6306,28 @@
     "budget": {
      "when": "hatch_powered set",
      "staticTris": 23000,
-     "dynamicTris": 28565,
-     "triangles": 51565,
+     "dynamicTris": 44565,
+     "triangles": 67565,
      "parts": {
       "props": 7860,
       "dressing": 3125,
-      "live": 5000,
+      "live": 15000,
       "actors": 2500,
-      "bodies": 1000
+      "bodies": 7000
      },
      "callParts": {
       "fixed": 4,
       "static": 8,
       "props": 17,
       "dressing": 8,
-      "enemies": 3,
+      "enemies": 7,
       "bodies": 2,
       "projectiles": 0,
       "fx": 11
      },
      "drawCalls": {
-      "typical": 47,
-      "worst": 53
+      "typical": 49,
+      "worst": 57
      }
     }
    },
@@ -6372,28 +6372,28 @@
     "budget": {
      "when": "door_tally open, ia_hatch open",
      "staticTris": 47500,
-     "dynamicTris": 30797,
-     "triangles": 78297,
+     "dynamicTris": 51797,
+     "triangles": 99297,
      "parts": {
       "props": 9160,
       "dressing": 5569,
-      "live": 0,
+      "live": 15000,
       "actors": 2500,
-      "bodies": 3000
+      "bodies": 9000
      },
      "callParts": {
       "fixed": 4,
       "static": 18,
       "props": 26,
       "dressing": 14,
-      "enemies": 1,
+      "enemies": 7,
       "bodies": 2,
       "projectiles": 3,
       "fx": 11
      },
      "drawCalls": {
-      "typical": 74,
-      "worst": 79
+      "typical": 77,
+      "worst": 85
      }
     }
    },
@@ -6420,14 +6420,14 @@
     "budget": {
      "when": "always",
      "staticTris": 12000,
-     "dynamicTris": 34910,
-     "triangles": 46910,
+     "dynamicTris": 36410,
+     "triangles": 48410,
      "parts": {
       "props": 1580,
       "dressing": 2250,
       "live": 15000,
       "actors": 2500,
-      "bodies": 4500
+      "bodies": 6000
      },
      "callParts": {
       "fixed": 4,
@@ -6467,14 +6467,14 @@
     "budget": {
      "when": "door_gallery_far open",
      "staticTris": 68000,
-     "dynamicTris": 49500,
-     "triangles": 117500,
+     "dynamicTris": 51000,
+     "triangles": 119000,
      "parts": {
       "props": 6920,
       "dressing": 8000,
       "live": 16500,
       "actors": 2500,
-      "bodies": 6500
+      "bodies": 8000
      },
      "callParts": {
       "fixed": 4,
@@ -6513,14 +6513,14 @@
     "budget": {
      "when": "door_gallery_far open",
      "staticTris": 62000,
-     "dynamicTris": 45875,
-     "triangles": 107875,
+     "dynamicTris": 47375,
+     "triangles": 109375,
      "parts": {
       "props": 6920,
       "dressing": 6875,
       "live": 16500,
       "actors": 0,
-      "bodies": 6500
+      "bodies": 8000
      },
      "callParts": {
       "fixed": 4,

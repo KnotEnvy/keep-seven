@@ -106,11 +106,12 @@ test('the proof: "BORE PROVEN." answers the shot at once, "HEAD DRY." is said, t
       const keys = ev.map((e) => e.payload.key);
       const at = (k) => ev.find((e) => e.payload.key === k)?.tick;
       for (const k of ['stn_proven', 'stn_dry', 'nar_kept', 'nar_office']) assert.ok(keys.includes(k), `${k} (${keys.join(' ')})`);
-      assert.deepEqual(keys.filter((k) => ['stn_proven', 'stn_dry', 'nar_kept', 'nar_office'].includes(k)), ['stn_proven', 'stn_dry', 'nar_kept', 'nar_office'], 'in this order, each once');
-      // nar_seal (5.5 s) may still be on screen when she fires 0.5 s after the press: the station is next, never later
-      const limit = narrating ? 6 * 60 : 2;
-      assert.ok(at('stn_proven') - fired <= limit, `BORE PROVEN ${((at('stn_proven') - fired) / 60).toFixed(2)} s after the shot (it was 10 to 15 s)`);
-      assert.ok(at('stn_dry') - fired >= 240 - 2 && at('stn_dry') - fired <= (narrating ? 10 : 5) * 60, `HEAD DRY as phase 3b begins (${((at('stn_dry') - fired) / 60).toFixed(2)} s)`);
+      // (polish round 5, R12: nar_kept straight after BORE PROVEN, HEAD DRY behind it)
+      assert.deepEqual(keys.filter((k) => ['stn_proven', 'stn_dry', 'nar_kept', 'nar_office'].includes(k)), ['stn_proven', 'nar_kept', 'stn_dry', 'nar_office'], 'in this order, each once');
+      // nar_seal (5.5 s) may still be on screen when she fires 0.5 s after the press: it is cut (round 5; it held the station 3 s)
+      assert.ok(at('stn_proven') - fired <= 2, `BORE PROVEN ${((at('stn_proven') - fired) / 60).toFixed(2)} s after the shot (it was 10 to 15 s, then 3 s)`);
+      assert.ok(at('nar_kept') - fired <= 3.5 * 60, `nar_kept ${((at('nar_kept') - fired) / 60).toFixed(2)} s after the shot (it was 9 s)`);
+      assert.ok(at('stn_dry') - fired >= 240 - 2 && at('stn_dry') - fired <= 10 * 60, `HEAD DRY after phase 3b begins, behind nar_kept (${((at('stn_dry') - fired) / 60).toFixed(2)} s)`);
       assert.ok(at('nar_office') - fired <= 22 * 60, `the office within 22 s (${((at('nar_office') - fired) / 60).toFixed(1)} s)`);
       for (const k of ['stn_service', 'stn_thanks', 'nar_rim_1']) assert.ok(!keys.slice(0, keys.indexOf('nar_office')).includes(k), `${k} does not stand in front of the proof's lines`);
       assert.ok((await game.events(seq, 'audio/cue')).some((e) => e.payload.cue === 'water_below'), 'water far below');
@@ -119,7 +120,7 @@ test('the proof: "BORE PROVEN." answers the shot at once, "HEAD DRY." is said, t
 });
 
 // ---- the file: the three who had not queued ---------------------------------------------------------------------------
-test('enc_file wave B is an ambush: let go behind the far door when she comes near it, the door bursts two seconds later; never a dead end', async () => {
+test('enc_file (polish round 5): near the far door the rear pair start down the stair behind her, 4 s later the bang, 1 s later the door bursts on four; never a dead end', async () => {
   const far = marker('door_gallery_far');
   for (const walks of [true, false]) {
     const game = await open(srv, { checkpoint: 'cp_gallery_baffle' });
@@ -135,27 +136,43 @@ test('enc_file wave B is an ambush: let go behind the far door when she comes ne
       const downs = (await game.events(0)).filter((e) => (e.name === 'enemy/felled' || e.name === 'enemy/freed') && e.payload.encounter === 'enc_file');
       assert.equal(downs.length, 6, 'the six are down');
       await game.run([{ steps: 8 * 60 }]);
-      assert.equal(await waveTick(game, 'enc_file', 'B'), undefined, 'eight seconds on, 21 m from the door: nobody has come (they crossed 40 m of corridor in her sights)');
+      assert.equal(await waveTick(game, 'enc_file', 'R'), undefined, 'eight seconds on, 21 m from the door: nobody has come from either end');
+      assert.equal(await waveTick(game, 'enc_file', 'B'), undefined);
       assert.equal((await game.state()).world.doors.door_gallery_far, 'closed');
       const seq = await mark(game);
       if (walks) {
         await game.run([{ call: ['teleport', far.pos[0] - 9, -12, -14, -90, 0] }, { steps: 3 }]);
+        const r = await waveTick(game, 'enc_file', 'R');
+        assert.ok(r && r >= (await game.state()).tick - 3, 'within 16 m of the door: the rear pair are let go');
+        const rear = alive(await game.state(), 'enc_file');
+        assert.equal(rear.length, 2, 'two, and nobody at the door yet');
+        for (const e of rear) assert.ok(e.x < -84 && e.z < -18.5, `the rear pair start on the peg stair behind the bay wall (${e.x}, ${e.z})`);
+        assert.equal(await waveTick(game, 'enc_file', 'B'), undefined);
+        await game.run([{ steps: 60 }]);
+        assert.ok((await lineKeys(game, seq)).includes('nar_file_behind'), 'the narrator names the two behind her');
+        await game.run([{ steps: 4 * 60 - 60 }]);
         const b = await waveTick(game, 'enc_file', 'B');
-        assert.ok(b && b >= (await game.state()).tick - 3, 'within 9 m of the door: they are let go');
-        assert.equal(alive(await game.state(), 'enc_file').length, 3, 'three behind the door');
+        assert.ok(b && Math.abs(b - r - 4 * 60) <= 2, `the door's four are let go 4 s after the rear pair (${b ? (b - r) / 60 : 'never'})`);
+        assert.equal(alive(await game.state(), 'enc_file').filter((e) => e.x > -19).length, 4, 'four behind the door');
         assert.equal((await game.state()).world.doors.door_gallery_far, 'closed', 'the door is still shut');
         assert.ok((await game.events(seq, 'audio/cue')).some((e) => e.payload.cue === 'shutter_bang' && Math.abs(e.payload.x - far.pos[0]) < 0.1 && e.tick === b), 'a bang on the door from the far side, on the tick they are let go');
         assert.ok((await game.events(seq, 'story/caption')).some((e) => e.payload.key === 'cap_bider_rattle'), 'and the rattle\'s caption');
-        await game.run([{ steps: 150 }]);
+        await game.run([{ steps: 90 }]);
         const opening = (await game.events(seq, 'door/state')).find((e) => e.payload.id === 'door_gallery_far' && e.payload.state === 'opening');
-        assert.ok(opening && Math.abs(opening.tick - b - 120) <= 2, `the door bursts 2 s after (${opening ? (opening.tick - b) / 60 : 'never'})`);
-        assert.ok((await lineKeys(game, seq)).includes('nar_file_more'), 'and the narrator has named them before it does');
+        assert.ok(opening && Math.abs(opening.tick - b - 60) <= 2, `the door bursts 1 s after (${opening ? (opening.tick - b) / 60 : 'never'})`);
+        await game.run([{ steps: 5 * 60 }]);
+        assert.ok((await lineKeys(game, seq)).includes('nar_file_more'), 'and the narrator names the four');
+        // (this suite runs beside the stub enemies, which stand where they are spawned: that the rear pair reach her is
+        // measured with the real ones, tests/e2e and scratch/r5-fixer/proxy/t5_file_c1.log)
       } else {
         // she never comes down the gallery: they come to her 25 s after the file was down to one
         const fifth = downs[4].tick;
         await game.run([{ steps: 20 * 60 }]);
+        const r = await waveTick(game, 'enc_file', 'R');
+        assert.ok(r && Math.abs(r - fifth - 25 * 60) <= 2, `R 25 s after the fifth fell (${r ? (r - fifth) / 60 : 'never'})`);
+        await game.run([{ steps: 5 * 60 }]);
         const b = await waveTick(game, 'enc_file', 'B');
-        assert.ok(b && Math.abs(b - fifth - 25 * 60) <= 2, `B 25 s after the fifth fell (${b ? (b - fifth) / 60 : 'never'})`);
+        assert.ok(b && Math.abs(b - r - 4 * 60) <= 2, `B 4 s after R (${b ? (b - r) / 60 : 'never'})`);
       }
     } finally { await game.close(); }
   }

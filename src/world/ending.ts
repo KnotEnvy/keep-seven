@@ -2,8 +2,9 @@
 // stone glints, and ONLY the stone arms the ending: taking its round (take branch), or walking away from it (leave).
 // Polish round 3, lead ruling R5 ("no fail-safe may take the final choice away while the player is still arriving"):
 // the choice is hers for as long as she stands at the stone. "Leave" is the north edge once the stone's lines are
-// over, or 25 s (trg_stone.endAfterSeconds) spent more than STONE_NEAR metres from the stone after its last line has
-// been heard; the clock starts again whenever she comes back. Walking to the edge before the stone does nothing.
+// over, or LEAVE_MIN seconds (round 5: 40; trg_stone.endAfterSeconds says 25) spent more than STONE_NEAR metres from
+// the stone after its last line has been heard, with no line on screen; the clock starts again whenever she comes
+// back. Walking to the edge before the stone does nothing.
 // Fail-safes from cp_rim, counted from the moment she steps out of the lift cage (a player who lingers in the cage has
 // not been on the rim yet): at 60 s the glint doubles and the first stone line points; at 150 s the stage ends from
 // wherever she stands (never while she is within FAIL_NEAR metres of the stone: she is arriving), and if she never
@@ -36,6 +37,8 @@ const BRANCH_LIMIT = 90, FIRE_LIMIT = 90;
 const CAGE_MARGIN = 0.3;
 /** R5: within this many metres of the stone she has not walked away from it: the leave clock does not run */
 export const STONE_NEAR = 4;
+/** R5, round 5: the least time away from the stone, with nothing being said, before walking away is her answer */
+export const LEAVE_MIN = 40;
 /** within this many metres of a stone she has not found yet she is arriving: the 150 s fail-safe waits */
 const FAIL_NEAR = 8;
 /** the fire is seen while it is inside this cone of her view (the Dowser's test, GDD 9.3) */
@@ -88,6 +91,8 @@ class Ending implements EndingApi {
   private kindleT = 0;
   private seenT = 0;
   private lookWait = 0;
+  /** the view has been eased up for the lamps' lines of a quick take (once a branch) */
+  private lampTurned = false;
   private turn = -1;
   private yaw0 = 0; private pitch0 = 0; private yaw1 = 0; private pitch1 = 0; private setYaw = 0; private setPitch = 0;
   /** the arrival cage of the lift that brings her here: centre and half extent (0 = no cage: the clocks run from arrival) */
@@ -134,8 +139,7 @@ class Ending implements EndingApi {
     }
     for (const k of this.lampLines) { this.spareSeen.push(k); this.spareUnseen.push(k); }
     for (const k of lines) this.spareSeen.push(k);
-    for (const k of this.lampLines) this.spareTaken.push(k);
-    if (lines[0]) this.spareTaken.push(lines[0]);
+    for (const k of this.lampLines) this.spareTaken.push(k);       // (round 5: none of the stone's own once she has taken the round)
     const town = data.markersInZone(this.zone).find((m) => m.type === 'vista' && m.params.lampsFormula !== undefined);
     const townTarget = town?.params.target as [number, number, number] | undefined;
     if (townTarget) this.townAt = [townTarget[0], townTarget[1], townTarget[2]];
@@ -227,8 +231,26 @@ class Ending implements EndingApi {
     // (polish round 4: when she has TAKEN the round, the stone's lines that had not started are dropped with the rest,
     // all but the first: "And a seventh, unfired" was said 25 s after she had pocketed it)
     s.story.flush(unseen ? this.spareUnseen : branch === 'take' ? this.spareTaken : this.spareSeen);
+    if (branch === 'take' && own.length > 0) {
+      // Polish round 5 (R12; story critic: after a quick take the narrator still counted lamps and said "Six spent
+      // cases on a flat stone" 11 s after she had pocketed the round, and "He had not taken hers." came 7 to 16 s
+      // late). Her own act is answered on its tick: the first line of the take is on screen at once, over whatever
+      // is there, and the second follows it. The stone's lines that had not started are dropped, all of them; the
+      // lamps' lines that have not been said come after the take's (the end card counts lamps: they are never
+      // lost), and the fire waits for them (tick, BRANCH).
+      for (const key of this.lampLines) s.story.defer(key);
+      s.story.sayOver(own[0] as string);
+      for (let i = 1; i < own.length; i++) s.story.sayFront(own[i] as string);
+      for (const key of this.lampLines) s.story.say(key);
+      return;
+    }
     s.story.sayFrontAll(this.lampLines);                 // not yet said (she never stood where the town shows): now
     for (const key of own) s.story.say(key);
+  }
+  /** a lamps line is on screen or waiting: the fire is not kindled over the count of the windows */
+  private lampsPending(): boolean {
+    for (let i = 0; i < this.lampLines.length; i++) if (this.s.story.holds(this.lampLines[i] as string)) return true;
+    return false;
   }
   /** the lamps' and the stone's triggers: what she has walked up to is told next, ahead of the arrival's scenery lines */
   front(m: LayoutMarker): boolean {
@@ -309,8 +331,13 @@ class Ending implements EndingApi {
         // clock counts only time spent away from the stone after its last line; coming back starts it again.
         const told = this.lastStoneLine === '' || s.story.finished(this.lastStoneLine);
         const away = this.stoneD2() > STONE_NEAR * STONE_NEAR;
-        if (told && away) this.sinceStone += dt; else this.sinceStone = 0;
-        if (this.stone && this.sinceStone >= paramNumber(this.stone, 'endAfterSeconds', 25)) { this.begin(paramString(this.stone, 'endBranch') === 'take' ? 'take' : 'leave'); return; }
+        // Polish round 5 (R5; the story critic stepped 6 m back to look at the Rule, as the note on the stone tells
+        // her to, and 25 s later the leave ending had been taken for her while the rim's own lines were on screen):
+        // the clock stands still while any line is on screen (she is being told something: she is still deciding), and
+        // it runs LEAVE_MIN seconds at least, whatever the marker says (its 25 cannot change: the design data is final).
+        if (!(told && away)) this.sinceStone = 0;
+        else if (s.story.current === '') this.sinceStone += dt;
+        if (this.stone && this.sinceStone >= Math.max(LEAVE_MIN, paramNumber(this.stone, 'endAfterSeconds', 25))) { this.begin(paramString(this.stone, 'endBranch') === 'take' ? 'take' : 'leave'); return; }
         // the north edge, once the stone has been found and its lines are over: she walks on
         const p = s.ctx.player.position;
         if (told && this.exit && inVolume(this.exit, p.x, p.y, p.z)) this.begin('leave');
@@ -334,8 +361,15 @@ class Ending implements EndingApi {
     this.phaseT += dt;
     if (this.phase === BRANCH) {
       // the branch's last line has been heard (with no line of its own: whatever is still being said)
-      const told = this.branchLast === '' ? s.story.idle : s.story.finished(this.branchLast);
-      if (!told && this.phaseT < BRANCH_LIMIT) return;
+      const said = this.branchLast === '' ? s.story.idle : s.story.finished(this.branchLast);
+      if (said && this.lampsPending() && this.phaseT < BRANCH_LIMIT) {
+        // (round 5: a quick take leaves the lamps to be counted after it; her view is eased up from the stone to the
+        // plain and the town first, so the windows are in frame while they are counted and the fire kindles in view)
+        if (!this.lampTurned) { this.lampTurned = true; this.startTurn(); }
+        this.tickTurn();
+        return;
+      }
+      if (!said && this.phaseT < BRANCH_LIMIT) return;
       // the fire is next: her view is brought to it first, so it kindles where she is looking
       this.phase = FIRE; this.phaseT = 0;
       this.kindled = false; this.kindleT = 0; this.seenT = 0; this.lookWait = 0;
@@ -381,7 +415,7 @@ class Ending implements EndingApi {
   reset(): void {
     this.arrived = false; this.sinceArrive = 0; this.sinceStone = 0; this.phase = IDLE; this.phaseT = 0; this.lit = -1; this.lampsSaid = false;
     this.boosted = false; this.glintT = 0; this.branchLast = ''; this.fireLast = ''; this.out = false; this.sinceOut = 0;
-    this.kindled = false; this.kindleT = 0; this.seenT = 0; this.lookWait = 0; this.turn = -1;
+    this.kindled = false; this.kindleT = 0; this.seenT = 0; this.lookWait = 0; this.turn = -1; this.lampTurned = false;
     if (this.fire) { this.fire.release(); this.fire = null; }
     if (this.windows) this.s.ctx.render.lamps.setCount(this.windows, 0);
   }

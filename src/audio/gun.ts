@@ -3,9 +3,10 @@
 import type { SurfaceType } from '../core/contracts.ts';
 import { BUS_FX, BUS_GUN, BUS_KEPT } from './graph.ts';
 import type { Graph } from './graph.ts';
+import { IR_CONFIRM_HOLD } from './reverb.ts';
 import { PRIO_CONFIRM, PRIO_GUN, PRIO_OTHER, baked, makeParams, snd } from './sound.ts';
 import type { SoundDef, SoundParams, SoundTable } from './sound.ts';
-import { bell, click, noise, noiseHold, tone, toneHold } from './synth.ts';
+import { bell, click, noise, noiseHold, tone, toneHeld, toneHold } from './synth.ts';
 import { D4, D5, FOURTH_DOWN, LINE_SHARP, degree } from './tuning.ts';
 
 /** layer mask of gun_report's `c` (0 = everything): tests solo a layer */
@@ -39,6 +40,13 @@ const CONFIRM = 3.4, CONFIRM_LOW = 2.4;
 const TICK = CONFIRM * 1.334, PARRY = CONFIRM * 1.585;
 /** how long the tick's knock takes to fall 80 dB */
 const TICK_SECONDS = 0.13;
+/**
+ * `a` of the tick, the tink, the parry and the kill: seconds their level holds before it decays (the engine passes the
+ * room's IR_CONFIRM_HOLD). They are pre-rendered once per value a room uses.
+ */
+const HOLDS: readonly number[] = Array.from(new Set(IR_CONFIRM_HOLD)).sort((x, y) => x - y);
+function pickHold(p: Readonly<SoundParams>): number { return HOLDS.indexOf(p.a); }
+const HELD_CONFIRMS: readonly string[] = ['hit_tick', 'hit_weak', 'hit_kill', 'hit_parry'];
 /** footsteps: walk and sprint (5 dB apart). A walk step peaks near the reload's seat-click. */
 export const STEP_WALK = 2.0, STEP_SPRINT = 3.6;
 
@@ -214,11 +222,11 @@ export function gunSounds(): SoundTable {
     // ---- hit confirms: dry and close, the same wherever the target stands
     // a tick: a short knock at 1.9 kHz with a grain of noise above it. The knock rings 130 ms to nothing (90 ms until
     // polish round 4): its peak is at the limiter already, so what it gains over a room's tail it gains by lasting
-    hit_tick: snd(BUS_FX, PRIO_CONFIRM, 0.14, 0, (g, out, t) => { noise(g, out, t, 0.02, 'bandpass', 3400, 3000, 4, 0.25 * TICK, 0.0005); tone(g, out, t, TICK_SECONDS, 'sine', 1900, 1820, 0.38 * TICK, 0.0005); }),
+    hit_tick: snd(BUS_FX, PRIO_CONFIRM, 0.18, 0, (g, out, t, p) => { noise(g, out, t, 0.02, 'bandpass', 3400, 3000, 4, 0.25 * TICK, 0.0005); toneHeld(g, out, t, p.a, TICK_SECONDS, 'sine', 1900, 1820, 0.38 * TICK, 0.0005); }),
     // a glass tink at 3.1 and 5 kHz, where nothing of the report is left
-    hit_weak: snd(BUS_FX, PRIO_CONFIRM, 0.2, 0.05, (g, out, t) => { tone(g, out, t, 0.18, 'sine', 3120, 3100, 0.3 * CONFIRM, 0.0008); tone(g, out, t, 0.11, 'sine', 4990, 4950, 0.16 * CONFIRM, 0.0008); noise(g, out, t, 0.008, 'highpass', 6000, 6000, 0.7, 0.2 * CONFIRM, 0.0005); }),
+    hit_weak: snd(BUS_FX, PRIO_CONFIRM, 0.22, 0.05, (g, out, t, p) => { toneHeld(g, out, t, p.a, 0.18, 'sine', 3120, 3100, 0.3 * CONFIRM, 0.0008); toneHeld(g, out, t, p.a, 0.11, 'sine', 4990, 4950, 0.16 * CONFIRM, 0.0008); noise(g, out, t, 0.008, 'highpass', 6000, 6000, 0.7, 0.2 * CONFIRM, 0.0005); }),
     // a low thud once the boom has let go, with a knock at 200 Hz for the speakers that cannot play the thud
-    hit_kill: snd(BUS_FX, PRIO_CONFIRM, 0.22, 0.05, (g, out, t) => { tone(g, out, t, 0.2, 'sine', 112, 52, 0.7 * CONFIRM_LOW, 0.002); tone(g, out, t, 0.14, 'triangle', 205, 170, 0.45 * CONFIRM_LOW, 0.002); noise(g, out, t, 0.08, 'lowpass', 320, 120, 0.7, 0.2 * CONFIRM_LOW, 0.002); }),
+    hit_kill: snd(BUS_FX, PRIO_CONFIRM, 0.24, 0.05, (g, out, t, p) => { toneHeld(g, out, t, p.a, 0.2, 'sine', 112, 52, 0.7 * CONFIRM_LOW, 0.002); toneHeld(g, out, t, p.a, 0.14, 'triangle', 205, 170, 0.45 * CONFIRM_LOW, 0.002); noise(g, out, t, 0.08, 'lowpass', 320, 120, 0.7, 0.2 * CONFIRM_LOW, 0.002); }),
     // the bell voice falling, then a breath
     hit_freed: snd(BUS_FX, PRIO_CONFIRM, 1.15, 0.25, (g, out, t) => {
       bell(g, out, t, degree(5, 4), 0.9, 0.3 * CONFIRM_LOW, FOURTH_DOWN, 0.5);
@@ -232,7 +240,7 @@ export function gunSounds(): SoundTable {
       const f = degree(2, 6) * 0.972;
       bell(g, out, t + 0.012, f, 0.12, 0.34 * c); bell(g, out, t + 0.058, f, 0.1, 0.2 * c); bell(g, out, t + 0.094, f, 0.09, 0.12 * c);
     }),
-    hit_parry: snd(BUS_FX, PRIO_CONFIRM, 0.24, 0.2, (g, out, t) => { const c = PARRY; /* GDD 8 'a sour note': falling and a tritone apart, not the rising confirm (closer, polish round 2) */ tone(g, out, t, 0.2, 'sine', 1480, 990, 0.22 * c, 0.001); tone(g, out, t, 0.16, 'triangle', 1047, 700, 0.14 * c, 0.001); noise(g, out, t, 0.02, 'highpass', 5000, 5000, 0.7, 0.24 * c, 0.0005); }),
+    hit_parry: snd(BUS_FX, PRIO_CONFIRM, 0.24, 0.2, (g, out, t, p) => { const c = PARRY; /* GDD 8 'a sour note': falling and a tritone apart, not the rising confirm (closer, polish round 2) */ toneHeld(g, out, t, p.a, 0.2, 'sine', 1480, 990, 0.22 * c, 0.001); toneHeld(g, out, t, p.a, 0.16, 'triangle', 1047, 700, 0.14 * c, 0.001); noise(g, out, t, 0.02, 'highpass', 5000, 5000, 0.7, 0.24 * c, 0.0005); }),
     hit_pass: snd(BUS_FX, PRIO_CONFIRM, 0.1, 0.1, (g, out, t) => { noiseHold(g, out, t, 0.1, 'bandpass', 1900, 1300, 0.7, 0.09, 0.02, 0.07); }),
     break_clay: snd(BUS_FX, PRIO_CONFIRM, 0.14, 0.25, (g, out, t, p) => { noise(g, out, t, 0.1, 'bandpass', 1500 * p.pitch, 520, 0.9, 0.5, 0.0008); tone(g, out, t, 0.06, 'triangle', 380 * p.pitch, 210, 0.25, 0.001); noise(g, out, t + 0.03, 0.12, 'highpass', 2600, 1800, 0.7, 0.1, 0.01); }, 22),
     break_glass: snd(BUS_FX, PRIO_CONFIRM, 0.3, 0.25, (g, out, t, p) => { noise(g, out, t, 0.12, 'highpass', 4200 * p.pitch, 3000, 0.7, 0.4, 0.0005); tone(g, out, t, 0.2, 'sine', 3800 * p.pitch, 3760, 0.12, 0.001); tone(g, out, t + 0.03, 0.22, 'sine', 5300 * p.pitch, 5260, 0.08, 0.001); noise(g, out, t + 0.07, 0.2, 'highpass', 6000, 5000, 0.7, 0.07, 0.02); }, 22),
@@ -270,6 +278,6 @@ export function gunSounds(): SoundTable {
   }
   // what every shot sounds, pre-rendered at load (bake.ts): a start is one buffer source, not a graph
   baked(s.gun_report as SoundDef, [4, 1], 3, pickReport);
-  for (const name of BAKED_CONFIRMS) baked(s[name] as SoundDef);
+  for (const name of BAKED_CONFIRMS) { if (HELD_CONFIRMS.includes(name)) baked(s[name] as SoundDef, HOLDS, 1, pickHold); else baked(s[name] as SoundDef); }
   return s;
 }

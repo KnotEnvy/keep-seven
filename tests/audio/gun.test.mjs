@@ -187,9 +187,9 @@ test('the tick, the tink and the parry stand level with the report at their mome
 
 // What the room gives way under a confirm: 5 dB for 120 ms in the open; 10 dB for 200 ms in the bore, whose room answers the
 // report 7 dB louder at that moment (reverb.ts IR_TAIL_DUCK_DB). The step starts 8 ms before the confirm (142 ms).
-test('the report\'s tail steps back under a confirm (5 dB in the street, deeper and longer in the bore) and is whole again after; a miss and a kill leave it alone', async () => {
+test('the report\'s tail steps back under a confirm (5 dB in the street, deeper and longer in the bore) and is whole again after; a miss leaves it alone, and so does a kill in the open', async () => {
   const T = 0.2;
-  for (const [zone, lo, hi, late] of [['plenty_street', -6, -3, -1], ['the_bore', -11, -7, -6]]) {
+  for (const [zone, lo, hi, late] of [['plenty_street', -6, -3, -1], ['the_bore', /* r5: the held parry keeps the limiter down a little longer: -11.0 */ -12.5, -7, -6]]) {
     const o = { zone, quiet: true, seed: 7 };
     await renderScript(game, [fired(T, 4)], 1.6, o);
     const shot = await grab(game);
@@ -207,7 +207,9 @@ test('the report\'s tail steps back under a confirm (5 dB in the street, deeper 
     assert.ok(late < -3 ? parry(0.27, 0.33) <= late : parry(0.33, 0.4) >= late, `${zone}: the tail at 270-330 ms ${parry(0.27, 0.33).toFixed(1)} dB, at 330-400 ms ${parry(0.33, 0.4).toFixed(1)} dB`);
     assert.ok(Math.abs(parry(0.55, 0.9)) < 1, `${zone}: the tail is whole again from 550 ms: ${parry(0.55, 0.9).toFixed(2)} dB`);
     const kill = await rest('kill', 'bider');
-    assert.ok(Math.abs(kill(0.17, 0.26)) < 1.5, `${zone}: a kill's thud does not move the tail: ${kill(0.17, 0.26).toFixed(2)} dB`);
+    // polish round 5: in the bore (and the hall) the tail steps back under the kill's thud too, from 182 ms; in the open it stays
+    if (zone === 'the_bore') assert.ok(kill(0.21, 0.3) <= -4 && kill(0.21, 0.3) >= -12.5 && Math.abs(kill(0.6, 0.9)) < 1 && Math.abs(kill(0, 0.17)) < 0.5, `${zone}: the tail under the kill's thud, 210-300 ms: ${kill(0.21, 0.3).toFixed(1)} dB (0-170 ms: ${kill(0, 0.17).toFixed(2)} dB)`);
+    else assert.ok(Math.abs(kill(0.17, 0.26)) < 1.5, `${zone}: a kill's thud does not move the tail: ${kill(0.17, 0.26).toFixed(2)} dB`);
     await renderScript(game, [fired(T, 4), hit(T, 'impact', 'stone', 'world')], 1.6, { ...o, tap: 'reverb' }); const miss = await grab(game);
     await renderScript(game, [fired(T, 4)], 1.6, { ...o, tap: 'reverb' }); const none = await grab(game);
     await renderScript(game, [fired(T, 4), hit(T, 'parried', 'none', 'windlass')], 1.6, { ...o, tap: 'reverb' }); const room = await grab(game);
@@ -241,4 +243,51 @@ test('in the bore, with ambience and music, every confirm is over the report\'s 
     }
   }
   console.log(`gun: confirm over the bed, the critic's measure, with ambience and music: ${rows.join('; ')}`);
+});
+
+// ---- polish round 5 (critic "combat"): in the bore hit, weak, kill and parry sat only about 1 dB over the bed -----------
+// scratch/r5-combat/audio.log, same measure as above: the_bore with ambience and music hit +0.9, weak +0.8, kill +1.0,
+// parried +0.6 dB, and over the bed for 30 ms only. All four peak at the limiter, so round 4's lift bought nothing. They
+// now HOLD their level in the two big rooms (reverb.ts IR_CONFIRM_HOLD: 12 ms in the hall, 20 ms in the bore) and the
+// tail steps back under the kill's thud there as well. Measured after: +5.9, +4.1, +6.5, +4.1 dB in the bore.
+test('in the bore and the hall, with ambience and music, hit, weak, kill and parry stand at least 3 dB over the bed; the report is still the loudest thing and the street is as it was', async () => {
+  const T = 0.2, rows = [];
+  const step = (outcome, entityKind) => ({ t: T, ev: 'combat/hit', p: { x: 0, y: 1.2, z: -10, outcome, entityKind, part: 'body', surface: 'cloth', ammo: 'lead_round' } });
+  const shotEv = { t: T, ev: 'weapon/fired', p: { ammo: 'lead_round', chambersLeft: 4, shotId: 1 } };
+  const peakOf = (x) => { let m = 0; for (let i = 0; i < x.length; i++) { const v = Math.abs(x[i]); if (v > m) m = v; } return m; };
+  for (const [zone, floor, ceiling] of [['the_bore', 3, 9], ['lift_hall', 3, 9], ['plenty_street', 1.3, 4.5]]) {
+    const o = { zone, quiet: false };
+    await renderScript(game, [shotEv], 1.6, o);
+    const shot = await grab(game);
+    const first = rmsDb(shot.x, shot.sr, T, T + 0.06), shotPeak = peakOf(shot.x);
+    for (const outcome of ['hit', 'weak', 'kill', 'parried']) {
+      await renderScript(game, [shotEv, step(outcome, 'bider')], 1.6, o);
+      const both = await grab(game);
+      const diff = minus(both, shot), added = loudest(diff, both.sr, T);
+      const over = added.level - rmsDb(shot.x, shot.sr, added.at, added.at + 0.06);
+      // how long it stays over the bed, in 20 ms windows from 140 ms
+      let ms = 0; for (let t = T + 0.14; t < T + 1; t += 0.01) if (rms(diff, both.sr, t, t + 0.02) > rms(shot.x, shot.sr, t, t + 0.02)) ms += 10;
+      rows.push(`${zone} ${outcome} +${over.toFixed(1)} dB, ${ms} ms`);
+      if (outcome === 'kill' && zone === 'plenty_street') assert.ok(over >= 7, `${zone}: the kill is ${over.toFixed(1)} dB over the bed, as before`);
+      else assert.ok(over >= floor && over <= ceiling, `${zone}: ${outcome} is ${over.toFixed(1)} dB against the bed at ${Math.round((added.at - T) * 1000)} ms (wanted ${floor} to ${ceiling})`);
+      if (zone !== 'plenty_street') assert.ok(ms >= 40, `${zone}: ${outcome} is over the bed for ${ms} ms (it was 30)`);
+      // the gun is still the loudest thing: the confirm's loudest 60 ms is under the report's first 60 ms, and adds no peak
+      assert.ok(added.level <= first - 3, `${zone}: ${outcome} at ${added.level.toFixed(1)} dB is under the report's first 60 ms (${first.toFixed(1)} dB)`);
+      assert.ok(peakOf(both.x) <= shotPeak + 0.005, `${zone}: ${outcome} adds no peak (${peakOf(both.x).toFixed(3)} against ${shotPeak.toFixed(3)})`);
+    }
+  }
+  console.log(`gun: r5 confirm over the bed with ambience and music: ${rows.join('; ')}`);
+});
+
+test('a held confirm is the same sound, longer: same pitch, same peak, no click, and the pre-rendered take is the recipe', async () => {
+  for (const [name, lo, hi] of [['hit_tick', 1700, 2100], ['hit_weak', 2900, 3500], ['hit_parry', 900, 1600], ['hit_kill', 60, 220]]) {
+    const dry = await render(game, name, { a: 0 });
+    const held = await render(game, name, { a: 0.02 });
+    const recipe = await render(game, name, { a: 0.02, baked: false });
+    assert.ok(held.stats.centroidHz >= lo && held.stats.centroidHz <= hi, `${name} held: centroid ${Math.round(held.stats.centroidHz)} Hz`);
+    assert.ok(Math.abs(db(held.stats.peak) - db(dry.stats.peak)) <= 1.5, `${name}: the held take peaks at ${db(held.stats.peak).toFixed(1)} dB, the short one at ${db(dry.stats.peak).toFixed(1)} dB`);
+    assert.ok(db(held.stats.rms) >= db(dry.stats.rms) + 1.5, `${name}: holding adds level (${db(held.stats.rms).toFixed(1)} against ${db(dry.stats.rms).toFixed(1)} dB rms)`);
+    assert.ok(held.stats.duration <= dry.stats.duration + 0.06, `${name}: still short (${held.stats.duration.toFixed(3)} s against ${dry.stats.duration.toFixed(3)} s)`);
+    assert.ok(Math.abs(db(held.stats.rms) - db(recipe.stats.rms)) <= 1, `${name}: the baked held take (${db(held.stats.rms).toFixed(1)} dB) is the recipe (${db(recipe.stats.rms).toFixed(1)} dB)`);
+  }
 });

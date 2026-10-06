@@ -1,13 +1,319 @@
 # Integration report
 
-Eight parts. **Part H** (first below) is the closing pass of polish round 4: its gate, fights, numbers, hero frames
-and known gaps (H.1 to H.6) are the current ones, and where it differs from Parts A to G, Part H holds. **Part G** is
-the cross-cutting fix and tuning pass that opened polish round 4. **Part F** is the closing pass of polish round 3.
-**Part E** is the cross-cutting fix and tuning pass that opened polish round 3. **Part D** is the closing pass of
-polish round 2. **Part C** (at the end) is the cross-cutting fix pass that followed the first critic panel of polish
-round 2. **Part A** is the code integration (the real game wired, played, built and measured; A.1 is how to run and
-play, A.5 how to drive the real game). **Part B** is the art integration that came before it (`B.1` to `B.6`: where
-another document says "INTEGRATION_REPORT section 6" it means B.6).
+Ten parts. **Part J** (first below) is the closing pass of polish round 5, the last round of changes: **its gate, fights, numbers, hero frames and known-gaps list (J.1 to J.6) describe the game as handed to the player**, and where it differs from any other part, Part J holds. **Part I** (after it) is the cross-cutting fix and tuning pass that opened polish round 5, the last
+round of changes: its gate, fights and numbers (I.1 to I.5) are the current ones for what it measured, and where it
+differs from Parts A to H, Part I holds. The round's code and look teams work after it; what they change is in their
+own request files. **Part H** is the closing pass of polish round 4 (its hero frames and its known-gaps list H.6 stand
+unless I.5 names them). **Part G** is the cross-cutting fix and tuning pass that opened polish round 4. **Part F** is
+the closing pass of polish round 3. **Part E** is the cross-cutting fix and tuning pass that opened polish round 3.
+**Part D** is the closing pass of polish round 2. **Part C** (at the end) is the cross-cutting fix pass that followed
+the first critic panel of polish round 2. **Part A** is the code integration (the real game wired, played, built and
+measured; A.1 is how to run and play, A.5 how to drive the real game). **Part B** is the art integration that came
+before it (`B.1` to `B.6`: where another document says "INTEGRATION_REPORT section 6" it means B.6).
+
+# Part J. Closing pass, polish round 5 (2026-10-06): the game as handed to the player
+
+The cross-cutting fixer (Part I), the round's code teams (enemies, world, ui, audio, render-tech) and look teams (gun,
+exterior-look, underground-look) had finished; this pass decided their request rows, mirrored the documents, confirmed
+every asset is built from its final source, ran the whole gate on the final tree one suite at a time, replayed the
+plain and careless proxies through the whole stage, measured, and took the hero frames. **No game code, test or design
+file was changed in this pass**: the tree the teams left was sound. Evidence: `shots/round-5/` (twelve hero frames +
+`hero_sheet.jpg`), `shots/r5-closer/` (every leg's frames), `scratch/r5-closer/` (`NOTES.md`, `gate/`, `perf/`,
+`proxy/`, `build_assets.log`, `before/` = the documents as they stood before this pass).
+**Memory:** one browser at a time throughout, every suite at `--test-concurrency=1`, every drawn leg in its own
+browser from a checkpoint; the watchdog killed nothing in this pass.
+
+## J.0 Run and play
+
+`npm run dev` (the dev page, with the debug hook; `?cp=<checkpoint>` jumps) or `npm run build` and serve `dist/` (the
+public page: no debug hook, `?cp=` ignored). Keys and the rest: A.1, unchanged except: the HUD's six-and-one mark is
+now **lower left** over the health bars; on the title, with a save, **Go on** is the chosen item and **Begin asks
+first**. Driving the real game from a script: A.5; a bot that clicks `[data-item="play"]` over a save must then click
+`[data-item="ask_play"]`. Legs started from `cp_boss_p1/p2/p3` have a 4 s lead-in before the first attack.
+
+## J.1 The gate (one command after another, on the final tree; `scratch/r5-closer/gate/summary.txt` and one log each)
+
+| Command | Result |
+|---|---|
+| `npx tsc --noEmit` | 0 errors |
+| `npm run validate` | layout (309 solids, 268 markers), manifest, `contracts.ts` = ARCHITECTURE section 5: pass (run again after the last document edit) |
+| `npm run test:unit` | 25 files, 440 pass |
+| `node tools/build-assets.mjs`, `npm run check:assets` | 102 items, all up to date (the teams' rebuilds of `weapon_revolver`, `env_far_rim`, `env_backdrop_dusk`, `env_the_bore`, `env_lift_hall` and their lightmaps are the final ones; nothing embeds them); 84 assets, 18 textures, 9.69 MB: all pass |
+| `node --test tests/player/` `enemies/` `world/` `render/` | 41, 65, 101, **58** pass, 0 fail (`prewarm` High passes now: paced) |
+| `node --test tests/ui/` `audio/` `pipeline/` | 47, 44, 83 pass, 0 fail |
+| `node --test tests/art_weapons/` `art_enemies/` `art_boss/` `art_props/` `art_env_interior/` `art_env_exterior/` | 24, 33, 39, 97, 17, 23 pass, 0 fail |
+| `node --test tests/core/` (core stubs) | 70 pass, 6 skipped, 0 fail |
+| `KEEP7_REAL=all node --test tests/core/` | 76 pass, 0 fail (339 s) |
+| `node --test tests/e2e/` | **8 pass**: "Go on" at every checkpoint; the playthrough by input from the title to the end card (**30 378 ticks, 8.2 min of play, 86 rounds, 36 freed, 0 deaths, no god mode, hash `fd5db816`**); the same tick and hash on a second load; the other ending; a death at each of the 17 checkpoints (108 ticks to control); the production bundle booted as the public page with no debug hook; `?cp=` ignored there; the file that will not come |
+| `npm run build` | `dist/js/index-*.js` 1 917 164 B (540 kB gzip), CSS 25 375 B, one script; `dist` 105 files, 12 104 234 B = **11.54 MiB of 20** |
+
+## J.2 Seams and requests
+
+No seam needed a code fix. The shared render files three look teams edited at once (`src/render/moods.ts`,
+`materials.ts`, `system.ts`, `shared.ts`, `post.ts`, `vfx/vfx.ts`) were checked first: every team's stated entry is in
+the file (`L6c` and `rimCage`, `SHEEN`, the bloom fields, `vmKey` / `vmAmb`, L5a `vmK` 1.44, `uSheen`, `DENSE_*`,
+`SHADOW_HALF` 26, `AO_LIT`, `rideMuzzle`, `GUN_TOE`, `VM_HANDS` 0.88), unit and `tests/render` are green: no lost or
+half-applied edit. `tests/render/moods.spec.ts`, which two teams saw failing mid-round, passes.
+
+| # | File | What |
+|---|---|---|
+| 1 | `docs/GDD.md` (6.6, 6.8, 7.3, 8.2, 8.3, 9.8, 12.2, 12.3, 15 in place + **23.10**) | every number and behaviour of the round's teams |
+| 2 | `docs/ART_BIBLE.md` (10.3 in place + "Amendments, polish round 5"), `docs/ARCHITECTURE.md` (8.1, 8.2, 8.4; nothing in section 5), `docs/LEVEL.md` (7 in place + section 12) | the same |
+| 3 | `docs/requests/*.md` (nine files) | a "Closer, polish round 5" decision table at the end of each |
+
+**Ruled, not applied:** the moot rule for `stn_boss_hauling` / `stn_boss_indexing` after the kill (a guard for a case
+nobody has seen); pacing inside the shared e2e bot's `step()`; the `env_backdrop_dusk` note in `design/assets.json`
+(frozen data; it would rebuild 102 assets for a note). **Accepted:** the gun team's edit of
+`tests/render/polish3.test.mjs` and render-tech's of `tests/player/flash.test.mjs` (no bound relaxed).
+
+## J.3 The fights (Normal, final tree; `scratch/r5-closer/proxy/w_*`, `whole_summary.txt`)
+
+Three plain and three careless runs through the whole stage. **Each run is nine legs, each in a fresh browser from a
+checkpoint** (the memory rule), so every leg starts on full health with 6 + 24 rounds: what a hurt arrival costs is
+not in these numbers, except in one run that by accident played from the gallery bay to the end card in one page
+(`w_p1_L4_ranon`, last row). "Plain": 0.45 s to react, aim error 0.12 m + 0.012 m per metre, back-pedals inside 6 m.
+"Careless": 0.60 / 0.67 / 0.55 s, no back-pedalling, stands still in a fight (it keeps moving at the Windlass: R2's
+player). Seconds are section times (the walk in included); HP is damage taken.
+
+| | Plain (seeds 101 / 202 / 303) | Careless (seeds 5 / 66 / 777) |
+|---|---|---|
+| Whole stage (sum of legs) | 9:24 / 9:18 / 9:48; **0 / 0 / 0 deaths** | 9:35 / 10:14 / 9:26; **0 / 1 / 0 deaths** (the Tamper) |
+| Front Street | 40 / 36 / 47 s; 18 / 36 / 18 HP | 37 / 42 / 36 s; 54 / 88 / 18 HP |
+| the yard | 38 / 38 / 53 s; **0 / 0 / 0 HP** | 50 / 50 / 44 s; 0 / 86 / 0 HP |
+| Tally House (the seated) | 0 HP | 18 / 18 / 18 HP |
+| the file | 31 / 31 / 28 s; **0 / 0 / 0 HP** | 32 / 33 / 29 s; 54 / 54 / 0 HP |
+| the Tamper | 49 s; 76 / 76 / 76 HP (two slams; the leg does not vary with the seed); 0 deaths | 42 s, 0 HP / **29 s to a death, then 42 s; 147 HP** / 42 s, 0 HP |
+| Windlass phase 1 | 50 / 50 / 47 s; 0 / 76 / 63 HP; 0 deaths | 40 / 49 / 50 s; 0 / 0 / 76 HP; 0 deaths |
+| Windlass phase 2 | 61 / 59 / 59 s; 0 / 63 / 68 HP; 0 deaths; reaches phase 3 with 12 to 18 in reserve | 61 / 60 / 57 s; 38 / 88 / 0 HP; 0 deaths |
+| One continuous run, gallery bay to end card (plain, 101) | file 0 HP; Tamper 76 (leaves on 67); phase 1 30 s; **one death in phase 2** (canister 134 + stake 22 from an arrival on 67), then 56 s | |
+
+Honest reading against the rulings. **R2: met** by these proxies: no death at the Windlass in six runs from its
+checkpoints and one in the continuous run; phase 1 is 40 to 50 s (4 s of it the new lead-in), phase 2 57 to 61 s;
+nothing drags and nothing is over in a blink. **R3 / R10: met for a careless player, not for the plain proxy.** Front
+Street costs everyone something (18 to 88). **The yard, from its own checkpoint, costs the plain proxy nothing** and
+the careless one 86 in one run of three; **the file costs the plain proxy nothing** in three of three (it turns on
+whatever is nearest the tick it appears) and the careless one 54 in two of three. The Tamper is now the fight that
+always costs (76 to the plain proxy, a death for the slowest careless one) and never runs anyone dry. **R11:** nothing
+new was found or made; not re-probed in this pass. These proxies see everything around them at once and repeat their
+mistakes; **no person has played this tree**, and Easy and Hard were not run.
+
+## J.4 Numbers
+
+| What | Low | High | Cap (Low / High) |
+|---|---|---|---|
+| Worst cell, encounters cleared, 1280 x 720 (`perf/cells_*`, `cells_rest.log`): draw calls | 67 (`cell_gallery`) | 92 (`cell_yard`) | 100 / 220 |
+| Worst cell: triangles | 86 024 (`cell_yard`) | 109 982 (`cell_yard_door`) | 120 000 / 400 000 |
+| Worst cell: textures + render targets | 57.5 MiB (`cell_tally`; 50.5 by the GL hook) | 72.0 MiB (`cell_tally`; 75.5 by the GL hook) | 64 / 128 |
+| Peak seen in the played High legs (enemies alive, effects) | | 89 dc / 114 179 tris (Front Street) | |
+
+Per cell, Low dc / tris: gully 47 / 57 190, gate 53 / 76 477, street 53 / 82 661, yard door 48 / 85 925, yard
+60 / 86 024, tally seam 36 / 47 713, tally 54 / 68 473, gallery stair 39 / 46 433, gallery 67 / 77 084, hall
+63 / 72 702, bore 58 / 60 820, rim 15 / 17 361. High: 74 / 71 131, 81 / 92 332, 82 / 99 452, 91 / 109 982,
+92 / 105 471, 47 / 47 726, 65 / 68 486, 50 / 46 444, 78 / 77 095, 74 / 72 713, 69 / 60 831, 26 / 17 372. Memory by set
+(Low / High, claimed): surface 53.6 / 68.0, with the Tally House 57.5 / 72.0, underground 46.3 / 60.8, coda
+34.3 / 48.7 MiB. The file's fight with six alive: I.4 (Low 45 dc, 63 310 tris). Low at 1080p was not re-measured.
+
+| What | Measured |
+|---|---|
+| JS per fixed tick, six real systems, live fights (`perf/fightms.log`; no drawing) | median 0.011 ms (yard), 0.031 (the file, six alive), 0.031 (Tamper), 0.030 (Windlass phase 2); worst single tick of 1 200: 0.6 ms (the file). Budget 4 ms |
+| Allocation per tick + drawn frame (`perf/alloc.log`) | yard 5 236 B, file 4 890, Tamper 5 019, **Windlass phase 2 5 535** (test limit 6 144). Tick only: 1 472 / 1 497 / 1 690 / 2 271 B |
+| Total download (production build) | **11.54 MiB of 20** (105 files): assets 9.69 MB in 102 files, JS 1.83 MiB, CSS 24.8 KiB |
+| Bundle | `index-*.js` 1 917 164 B (540 kB gzip), one script; CSS 25 375 B (5.6 kB gzip) |
+| Playthrough | the test's bot 30 378 ticks, **8.2 game minutes** of play (8.4 by the clock); the proxies 9.3 to 10.2 min. A first-time person: an estimated 12 to 16 minutes (GDD 4.2) |
+| Death to control | 108 ticks (1.8 s) at each of the 17 checkpoints |
+
+## J.5 Hero frames (`shots/round-5/`, the real game, High, 1280 x 720)
+
+`hero_01` the title over the overhang · `02` the opening view · `03` Front Street mid-shot: the flash star on the
+muzzle, two Biders · `04` Plenty's street, the kneeler at the trough · `05` the Dowser on the skyline at the crosshair
+· `06` the Tally House: the blade of light over the seated, the hatch latch's knot, the aqua line · `07` the gallery:
+the knot in the sighting loop · `08` the Tamper charging down the aisle, a round on its way · `09` the Windlass at the
+parley · `10` a phase-2 haul, mid-shot, the flash on the muzzle · `11` the seventh: the line down the bore on the
+shot's first frame · `12` the far rim: the fire, the lamps of Plenty, the pylon, the two threads. 01, 02, 04 to 07, 09
+and 10 are the e2e bot's own frames, playing by input, one leg per browser (`scratch/r5-closer/heroseg.mjs`); 03 and
+08 are `flash.mjs` / `tamper.mjs` (a debug jump to the checkpoint, then walked and fired by input; 08 in god mode: a
+frame, not a measurement); 11 is a canvas capture from the underground team's `seventh.mjs` (the game's frame without
+the DOM HUD); 12 is the TRUE last image (she takes the round and the game eases the view itself: the exterior team's
+`end.mjs`). **All twelve and the sheet were opened at full size; no asset was rebuilt after them.**
+
+Seen in them and not fixed: on High in the Tally House the gun is a pale copper-pink, the lightest large shape of the
+frame (06); the gun is pale against the blue hour (12) and fills the lower right of every idle frame; the seventh's
+frame shows a fine stipple along the pit's edges (High's contact shade has no blur) (11); the Tamper is small at 10 m
+(08); the title of a fresh boot shows the revolver in front of the doorway (01).
+
+## J.6 Known gaps of the handed-over game (current; this list replaces H.6 and I.5)
+
+Closed in round 5: the narrator's wrong count on the street; the file as a walk-through for a careless player; the save
+that read like a crash; the empty reserve at phase 3; Begin wiping a run; the HUD mark on the gun hand; the smallest
+seventh; the flash below-left of the barrel; the confirms lost in the bore; HAULING after the kill; the maroon box and
+the ink cage on the rim; the gauge as one white bar; `prewarm` killed by the watchdog; `nar_office` spent early; the
+stone's lines after a take; 25 s to lose the choice.
+
+**Play**
+- **The plain proxy is unhurt by the yard (from its checkpoint) and by the file**; the careless one is unhurt by each
+  in one or two runs of three. Both fights punish standing still and not looking round, neither punishes a proxy that
+  sees behind itself.
+- The Tamper is the stage's dearest fight before the boss (76 HP plain; one careless death). Its slower wind-up clip
+  was not judged as a picture.
+- A player who never moves after a respawn into Windlass phase 2 still dies (13 to 15.5 s).
+- Stepping back from the stone ends the stage after 40 quiet seconds with no warning line.
+- A brisk player does not hear `nar_marks`; one who runs past the niche hears neither watcher line. "HEAD DRY." is on
+  screen about 4.5 s after phase 3b begins.
+- The title's question reads "Begin?" with no sentence saying the count is lost. After "Quit to title" the title's
+  backdrop is the run's last frame.
+- The pocket between `lh_ramp_cabinet`, the ramp and the gantry plinth; the "Windlass seen" beat facing the bay's corner.
+- The e2e bot shoots the Tamper's back vent from in front (green, dearer).
+
+**Picture**
+- The gun: light for the Tally House (copper-pink on High); a little silver on High; the frame's plain left flank; the
+  hand is a thumb, a forefinger and a grip; smoke and tracer start about 70 px (of 540) under the risen barrel on the
+  first drawn frame. 21:9 and 4:3 were not looked at with the new placement.
+- The rim: from the ledge's far ends the mesa's wings are painted bands; `ia_proving_lift_cage` and `ia_lift_cage`
+  have single-sided panels (from inside she looks through the walls and roof); `ia_lift_cage`'s lattice and flat floor.
+- High: no outdoor term this round (no glow round the rim fire or the lit windows, no shafts); within 1 to 2.4 of 255
+  of Low from the catwalk and in the Tally House; the contact shade's stipple on edges; the sheen is satin, not
+  reflection; the sun shadow at 20 to 26 m was not captured.
+- The hall's ring is still the brightest large shape from `cp_hall_clear`. The Cycles previews in `shots/art-weapons/`
+  show older gloves.
+
+**Budgets and build**
+- JS + CSS 1.85 MiB against a 1.5 MiB share (total 11.54 of 20); one 1.92 MB script.
+- Low's memory 57.5 of 64 MiB; allocation 5.5 kB per tick + frame in the Windlass (limit 6 144).
+- A full asset rebuild is about 490 to 520 s.
+
+**Not verified**
+- **No real GPU**: frame rate on integrated graphics, the cost of High's sheen and 20 depth reads.
+- **Nobody has listened**: the held confirms (a 20 ms "tick" may read as a "pip"), the narrator inside the four silent seconds.
+- Easy and Hard; a whole-stage proxy run in one page (the memory rule); R11 was not re-probed; Low at 1080p.
+- **No person has played this tree.**
+
+# Part I. Cross-cutting fix and tuning pass, polish round 5 (2026-10-06)
+
+The fifth critic panel (playthrough 8.1, visual 7.8, combat 7.8, story-ux 8.3, robustness 8.0) filed one major and
+three minors against core, the design data and the story text, and two majors against the file: "still not a fight"
+after three rounds of number changes (lead rulings R3 and R10). This pass took them in `src/core`, `tests/`,
+`tools/gen_layout.mjs` (then the generated `design/layout.json`, `design/assets.json`), `design/story.json`, the wave
+table and two small reads of `src/world/director.ts`, and the docs. No number of `src/enemies` or `src/player` was
+changed. What the piece owners must follow up is in `docs/requests/polish-r5-fixer.md`. Log:
+`scratch/r5-fixer/NOTES.md`; proxy runs: `scratch/r5-fixer/proxy/` (`t*_` trials, `a_*` after); the gate:
+`scratch/r5-fixer/gate/` (`summary.txt` and one log per command); frames: `shots/r5-fixer/`. Run and play: A.1.
+**Memory:** every browser run of this pass was one page at a time, in the foreground, in legs of one fight.
+
+## I.1 The gate after this pass (one command after another, on the tree as it stands)
+
+| Command | Result |
+|---|---|
+| `npx tsc --noEmit` | 0 errors |
+| `npm run validate` | layout (309 solids, 268 markers), manifest, `contracts.ts` = ARCHITECTURE section 5: pass (no contract change) |
+| `npm run test:unit` | 25 files, 439 pass |
+| `node tools/build-assets.mjs`, `npm run check:assets` | 102 items built in 487 s after the design change (`scratch/r5-fixer/build_assets.log`); 84 assets, 18 textures, 9.66 MB: all pass |
+| `node --test tests/player/` `enemies/` `world/` | 41, 62, 94 pass, 0 fail |
+| `node --test tests/render/` | **51 pass, 1 fail**: `prewarm.test.mjs` "high: no program links in play from the title to the gallery" ends in "Target crashed": the memory watchdog killed its browser at 4 569 MiB (`scratch/mem-watchdog.log`, 10:51). The robustness critic saw the same on the unchanged tree; it is the render team's test and is listed for it. Not rerun |
+| `node --test tests/ui/` `audio/` `pipeline/` | 41, 42, 83 pass, 0 fail |
+| `node --test tests/art_weapons/` `art_enemies/` `art_boss/` `art_props/` `art_env_interior/` `art_env_exterior/` | 24, 33, 39, 97, 17, 21 pass, 0 fail |
+| `node --test tests/core/` (core stubs) | 70 pass, 6 skipped, 0 fail |
+| `KEEP7_REAL=all node --test tests/core/` | 76 pass, 0 fail (335 s) |
+| `node --test tests/e2e/` | **8 pass**: "Go on" at every checkpoint; the playthrough by input from the title to the end card (**29 775 ticks, 8.0 min of play, 85 rounds, 34 freed, 0 deaths, no god mode, hash `d9519973`**); the same tick and hash on a second load; the other ending; a death at each of the 17 checkpoints (108 ticks to control); the production bundle; `?cp=` ignored there; the file that will not come |
+| `npm run build` | `dist/js/index-*.js` 1 904 270 B (535 kB gzip), CSS 24 230 B, one script; `dist` 105 files, 12 053 957 B = **11.50 MiB of 20** |
+
+## I.2 What was fixed
+
+| # | Issue | Change | Proof |
+|---|---|---|---|
+| 1 | Major (story-ux): the narrator says "Seven of them" after Front Street sends eight | `design/story.json` `nar_street_after`: "Eight of them. She had started with six in the gun." The composition is the same on Easy, Normal and Hard (the director reads the difficulty only for drops) | `scratch/r5-fixer/street_lines.log` (real game, the bot from `cp_lip_gate`): 8 `enemy/freed`, `encounter/cleared` and the line on the same tick, 17.6 s |
+| 2 | Major (world's, both the playthrough and the combat critic; R3, R10): the file is not a fight | **composition, not numbers.** The answer to the line shot comes from both ends of the walkway: with the file down to one, when she is within 16 m of the far door, two Biders start down flight 3 of the peg stair behind her (out of sight behind the bay wall) and run the gallery after her (`nar_file_behind`); 4 s later the bang on the far door and 1 s after it (it was 2) the door bursts on four (it was three). Layout: `sp_file_10`, `sp_file_11`, `sp_file_12`, wave `R`; `WAVE_RULES` `enc_file/R`, `enc_file/B`; two rule fields (`afterDownOf`, `nearOf`) | I.3; `tests/world/director.spec.ts`, `tests/world/polish_r4.test.mjs` (rewritten, pass); `shots/r5-fixer/file_rear_pair.png` and `file_door_2.png` (opened: two violet crowns 35 m down the walkway under "Four more, from the far door"; three crowns bursting out of the far door, the hall behind them) |
+| 3 | Minor (robustness): a dropped save logs a `console.error` with a `TypeError` stack | `src/core/save.ts` `readStored` checks what `applySave` indexes into (`stats.secrets`, the stat numbers, every list entry, each puzzle and its `data`, the doors, the cylinder, `bossPhase`, every `statics` entry): such a save is no save. `src/core/flow.ts`: what still cannot be applied is dropped with one `console.warn` line, no stack | `tests/core/save.spec.ts` (new test: the critic's two shapes and fifteen more return null); `tests/core/robust.test.mjs` (the two shapes are never offered as "Go on") |
+| 4 | Minor (combat): phase 2 of the Windlass can end with an empty reserve; a mis-aiming player dies twice to the Tamper's slam | `src/world/director.ts`: the tin of twelve of the phase-2 break also at the break into phase 3a (when she holds under twelve); the fourth round in a row that the Tamper's plate turns says `hint_tamper_vent` ("Lead rang off its plate. The vents stood open only after the blow."), once an attempt, Easy and Normal, hints on | `tests/world/polish_r5.test.mjs` (new, 2 pass); I.3: the plain proxy reaches phase 3a with 12 to 18 in reserve (it was 0) |
+| 5 | Minor (playthrough): fights run at a third of the beat sheet's length | `docs/GDD.md` header and 4.2 rewritten with the measured times; 10 `enc_file`; 23.9 | the document |
+| 6 | (world's minor, the data half) lines after the thing they describe | `trg_enc_street` lists `nar_kneeler` first: it is on screen at 0.0 s, the kneeler stands at 3.0 s (it was said 7 s after the kneeler was freed). A trial that held wave A to 6 s took the cost out of the fight and was reverted (I.4) | `scratch/r5-fixer/street_lines.log` |
+| 7 | (ui's minor, the text half) "A clean six at the last" explains nothing | `ui_end_clean_six`: "Six dry mouths, one cylinder" | `design/story.json`; `tests/ui/` 41 pass |
+| 8 | (world's minor, the data half) the kept round's first hint spends `nar_office` | the line `hint_kept_1` and its name `hint1` in the bore target's `lines` exist; **not wired** (`src/world/kept.ts` is the world's) | `npm run validate` |
+| 9 | The e2e bot skipped the death at `cp_file_clear` | `tests/e2e/lib/page-play.js`: the file section ends on the clear; the tidying is the next section's | `node --test tests/e2e/`: 17 of 17 restores |
+
+Other owners' files edited (each listed in `docs/requests/polish-r5-fixer.md`): `src/world/director.ts` (`WAVE_RULES`,
+`FILE_BURST` 1, `FILE_NEAR_REAR` 16, `FILE_REAR` 4, `TAMPER_PLATE_HINT` 4; reads of `afterDownOf` and `nearOf`; the
+plate count in `onTamperHit`; `bossBreak()` at `p3a`); `tests/world/director.spec.ts`, `polish_r4.test.mjs`, the new
+`polish_r5.test.mjs`. Nothing in `src/enemies`, `src/player`, `src/render`, `src/ui`, `src/audio`.
+
+## I.3 The fights, before and after (Normal; three runs each)
+
+"Plain": the critics' proxy (`page-human.js`, `page-plainboss.js`, copied unchanged) at 0.40 / 0.45 / 0.35 s to react
+and an aim error of 0.10 / 0.12 / 0.09 m + 0.012 m per metre, back-pedalling inside 6 m. "Careless": 0.60 / 0.67 /
+0.55 s, no back-pedalling, standing still in a fight (at the Windlass it keeps moving: R2's player). "Before" is the
+critics' own fresh legs on the unchanged tree (`scratch/r5-playthrough/v_*.log`, `scratch/r5-combat/v2_*.log`,
+`batch2.out`); "after" is `scratch/r5-fixer/proxy/a_*.log` and, for the file, `t6_*.log`. Each leg starts at the
+fight's checkpoint with full health and 6 + 24 rounds. Seconds are section times (the walk in included) unless marked
+"enc" (trigger to clear); HP is damage taken. These proxies see everything around them at once; a person does not.
+
+| Fight | Before: seconds / deaths / HP | After: seconds / deaths / HP |
+|---|---|---|
+| Front Street, plain | enc 21 to 26 s; 0 deaths; 18 / 0 / 0 | 42 / 61 / 41 s; 0; 0 / 0 / 0 (untouched but for the line order) |
+| Front Street, careless | 23 to 30 s; 0; 54 / 88 / 36 | 37 / 42 / 36 s; 0; 54 / 88 / 18 |
+| the yard, plain | 27 / 27 / 38 s; 0; 0 / 0 / 0 (whole runs, arriving hurt: 86 / 44 / 108) | 38 / 38 / 34 s; 0; 0 / 0 / 0 (untouched) |
+| the yard, careless | 36 s; 0; 0 (whole runs: three deaths in three) | 50 / 50 / 44 s; 0; 0 / 86 / 0 |
+| **the file, plain, a line round** | enc 24 s; 0; **0 / 0** (4 rounds fired) | enc 32 / 32 / 28 s; 0; **0 / 0 / 0** (she reloads between the two ends or ends on an empty cylinder) |
+| **the file, careless, a line round** | enc 24 s; 0; **0 / 0 / 18** | enc 33 / 34 / 30 s; 0; **72 / 54 / 0** |
+| the file, no line round, plain | enc 28 to 29 s; 0; 0 | enc 37 s; 0; 0 |
+| the file, no line round, careless | enc 28 s; 0; 36 | enc 35 s; 0; 54 |
+| the Tamper, plain | enc 25 to 31 s; 0 to 2 deaths (the 0.5 s proxy: slam 190); 38 to 108 | 48 / 47 / 51 s; **0 deaths**; 38 / 38 / 56; ends 2 to 5 + 23 to 29 |
+| the Tamper, careless | 28 s; 0; 69 | 43 / 45 / 43 s; 0; 0 / 91 / 38 |
+| Windlass phase 1, plain | 27 to 43 s; 0 deaths | 34 / 44 / 34 s; 0 deaths |
+| Windlass phase 2, plain | 59 to 77 s; 0 deaths; 38 to 76 HP over both; **reaches phase 3 with 0 in reserve** in several runs | 57 / 62 / 64 s; 0 deaths; 81 / 38 / 63 HP over both; **reaches phase 3 with 12 / 12 / 18 in reserve** |
+| Windlass, careless (moving) | phase 1 30 to 41 s, phase 2 48 to 77 s; 0 deaths | phase 1 44 / 40 / 42 s, phase 2 58 / 73 / 58 s; 0 deaths; 63 / 123 / 76 HP |
+| The whole stage, plain | 9:19 / 9:25 of play (`plainFull2`, `3`), 0 deaths; careless-standing (`careFull1`) 2 deaths in the yard, 3 at the Tamper, 3 in phase 2 | **not rerun as one page** (the memory rule); the sum of the legs is about 10 s longer at the file |
+
+Honest reading against the rulings. **R2: met**, unchanged: no death at the Windlass in six legs, phase 1 34 to 44 s,
+phase 2 57 to 73 s. **R3 / R10, the file:** the careless proxy now loses 54 to 72 HP in two runs of three and nothing
+in the third; the plain proxy still loses nothing, because it turns on whatever is nearest the instant it appears and
+back-pedals. What changed is the shape: twelve Biders, six of them answering the line shot from both ends inside
+about two seconds. A person who does not look behind her will pay more than either proxy;
+no person has played it. **The street** costs the careless proxy 18 to 88 and the plain one nothing in these three
+legs (the critic's had 18 in one of three): as before. **The yard** from its own checkpoint at full health costs the
+plain proxy nothing; it bites a player who arrives hurt (the critics' whole runs). **The Tamper** is a 43 to 51 s duel
+that costs 38 to 91 HP, kills nobody at these presets and leaves nobody dry; the critic's 0.5 s-reaction proxy died
+twice to its slam, which the new hint line addresses for a player who is shooting plate, and nothing addresses for
+one who is slow (the wind-up is the enemies team's). **R11:** no perch was found or made; the gantry stander is still
+reached and killed (the critics' `v_gantry.log`; not rerun). Easy and Hard were not run in this pass.
+
+## I.4 Numbers that moved
+
+| What | Before | After |
+|---|---|---|
+| Layout | 265 markers | 268 (`sp_file_10`, `sp_file_11`, `sp_file_12`); `enc_file` 12 Biders in three waves |
+| `cell_gallery` bound (assets.json, ARCHITECTURE 7.5) | 117 500 triangles, 83 / 91 calls | 119 000, 83 / 91 (cap 120 000 / 100 typical, 150 worst): two more static bodies; the alive cap is still six |
+| `cell_hall`, `cell_gallery_stair` bounds | 107 875; 46 910 | 109 375; 48 410 |
+| `cell_tally`, `cell_tally_seam` bounds | 78 297, 74 / 79; 51 565, 47 / 53 | 99 297, 77 / 85; 67 565, 49 / 57 (the stair's two spawn markers stand in a chunk those cells can show; nobody is alive there while she is in the Tally House) |
+| Measured in the file's fight, 1280 x 720, six alive, the far door open (`scratch/r5-fixer/file_perf.mjs`) | | Low 45 draw calls, 63 310 triangles, 46.4 MiB; High 56, 63 321, 60.8 MiB |
+| Playthrough (the bot) | 29 338 ticks, 82 rounds, 31 freed, hash `155622f7` | 29 775 ticks, 85 rounds, 34 freed, hash `d9519973` (the same on a second load) |
+| Story | | new `nar_file_behind`, `hint_tamper_vent`, `hint_kept_1`; changed `nar_street_after`, `nar_file_more`, `ui_end_clean_six` |
+| Unit tests; world browser tests | 438; 92 | 439; 94 |
+| Assets | | all 102 items rebuilt against the final design data (487 s), `check:assets` passes; download 11.50 MiB of 20 |
+
+**Tried and taken back:** wave A of the street held to 6 s (so the kneeler line would begin while it kneels): the
+plain proxy lost 0 / 0 / 0 and the careless one 0 / 0 / 54 (`scratch/r5-fixer/proxy/x6_street_*.log`); with the line
+first in the trigger's list the line is on screen at 0.0 s anyway. The file's first trial (the rear pair 2 s after the
+line shot, three at the door: `t1_`, `t3_`): careless 18 / 18 / 0. Per-cell budgets other than the file's fight were
+not re-measured: nothing else that is drawn changed. H.4 stands otherwise.
+
+## I.5 Not done, and why (H.6 stands unless named here)
+
+- **Closed since H.6:** "the file costs nothing" (I.3: it costs the careless proxy; the plain proxy is still unhurt);
+  the narrator's count on Front Street; the save that read like a crash; the empty reserve at phase 3.
+- **The plain proxy is unhurt by the file and by Front Street.** Both fights now punish a player who stands or does
+  not look round; neither punishes a proxy that sees behind itself. No person has played either.
+- **The fourth Bider at the far door arrives late** when five others and the dormant Tamper are up (the stage's cap
+  of six alive): a straggler, not a bug; `nar_file_more` says "Four more" while three are in the doorway.
+- **The Tamper is the stage's peak, the Windlass gentler** (the playthrough critic's minor): the slam wind-up and the
+  respawn into phase 2 are the enemies team's; nothing here changed them.
+- **`hint_kept_1` is data without wiring**: until the world reads it, tier 1 of the kept round's ladder still says
+  `nar_office`.
+- **The moot rules for `nar_watcher_*`, `nar_first_knot` and the stone's lines on a quick take; the final choice made
+  by stepping 4 m back from the stone for 25 s:** the world's code. `trg_stone.endAfterSeconds` stays 25.
+- **`tests/render/prewarm.test.mjs` (High)** is killed by the memory watchdog; render's.
+- **The pocket beside `lh_ramp_cabinet`:** not moved (a solid there moves a prop, a bake and the charge-stun bait, and
+  could not be verified safely in the last round).
+- **Not run:** Easy and Hard; a whole-stage proxy run in one page (the memory rule; the legs stand in for it); the
+  out-of-level sweep; the per-cell budget table. **No real GPU, nobody has listened, no person has played this tree.**
 
 # Part H. Closing pass, polish round 4 (2026-10-05)
 
@@ -740,9 +1046,9 @@ motion, reduce flashes, subtitles (size S to XL, background), captions for sound
 sprint hold / toggle, fire click / hold, key bindings, crosshair size / colour / outline, hints off / normal / fast,
 graphics auto / low / high, resolution scale, three volumes.
 
-**The stage, as a player meets it:** the lip (a note, seven jugs for six rounds), Plenty's street (seven Biders), the
+**The stage, as a player meets it:** the lip (a note, seven jugs for six rounds), Plenty's street (eight Biders), the
 yard (a knot on the door, three Transits and four Biders, the man on the far rim), the Tally House (three shutters, a
-cord, the hatch knot, two risers), the gallery (the proving line, the file of nine), the lift hall (the Tamper), the
+cord, the hatch knot, two risers), the gallery (the proving line, the file of six and the six who did not queue), the lift hall (the Tamper), the
 lift, the antechamber (three questions), the Windlass (parley, two phases of lead, the kept round, six dry mouths),
 the proving lift, the far rim (the lamps, the stone, the end card). The bot plays it in 7.8 minutes; GDD 4.2 expects 15
 (skilled) to 25 minutes of a person.

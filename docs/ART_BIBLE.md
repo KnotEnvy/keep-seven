@@ -1433,6 +1433,13 @@ In-world lettering uses Blender's built-in font (section 5.6), not these stacks.
 
 ### 10.3 HUD (positions and behaviour are GDD 12.2; this is the look)
 
+**Polish round 5: the mark stands lower LEFT, over the health bars** (ring's left edge on the bars' left edge, the
+box's bottom 66 u up; at 1280 x 720 the box is x 14 to 109, y 526 to 676). Nothing of the gauges is in the lower right:
+the gun and, in a reload, both hands have it. The seventh is drawn at 2 x the chamber glyph (18 x 44 units, 19 x 48 px
+at 720p; the mark's box 88 x 139 units), the reserve numeral at 15 units. The soft ink backing is kept (`BACKING_ALPHA`
+0.5): the mark now stands on the world, glare sand at worst. Where the text below says "lower right" or gives the
+older sizes, this holds.
+
 - **Cylinder ring.** Six brass discs (10 px at 1080p) on a 64 px ring, 1 px ink outline;
   empty = a 1.5 px ring of bone `#E9E2D0` at 60 % (polish round 4; `ui_brass_dim` vanished on the gun's dark steel); the chamber under the hammer marked by a small
   notch tick at the top. A line round is an aqua disc. The whole ring turns 60° per
@@ -1841,3 +1848,92 @@ no blur, a per-pixel rotation). The view-model neither takes nor gives it. Low i
 
 Shaded by N.L per pixel with a floor of 0.12 (`PULSE_WRAP`), paler toward its centre (`PULSE_CORE` 0.7), and capped
 at 0.6 of display white (`PULSE_CAP`) on every material that takes it, static world surfaces included.
+
+## Amendments, polish round 5 (closer, 2026-10-06): the look as handed to the player (lead rulings R6, R7, R9, R13)
+
+Section 10.3 was edited in place. The rest is here; where a section above says otherwise, this holds. Evidence:
+`shots/r5-team-gun/`, `shots/r5-team-exterior-look/`, `shots/r5-team-underground-look/`, `shots/r5-team-ui/`,
+`shots/r5-team-render-tech/`, `shots/round-5/`.
+
+### 8.1 The Assize six: the steel
+
+The studio the steel mirrors has a value structure instead of a flat floor: the reflected ground is dark and falls
+away (0.16 + 0.18 x "under" of the ambient, 0.022 of the key; it was a flat 0.58 / 0.20), the horizon is tilted and
+lowered so its line runs across the frame plate at the idle pose, with a thin hot band on it (1.30 x the key); a
+dimmer sky (0.16 + 0.40 hz). "Never black" is held by a shadow toe (0.25 of the ambient, only under 2.5 x its level),
+not by lifting every face. The cool rim from above is x 0.70 on the steel. Idle on Low: gun mean L* street 35.9,
+Tally House 34.5, hall 29.7, bore 29.3, rim 27.3; no gun pixel under L* 12. Still open: the frame's left flank is one
+plain surface carrying the horizon line (no side-plate seam or engraving); on High the steel reads a little more
+silver; in the Tally House the gun is the room's hue but light for the room.
+
+### 8.2 Hands and arms
+
+Gloves: finger radii x 0.9 (a gap shows between fingers), right thumb 11.3 mm (12.6), left thumb 13.8 mm (16.5: it was
+33 mm thick, a mitten), a vertex-colour crease across each finger joint (0.66), finger sides darker than their backs
+(0.36). Same vertices, triangles (2 792 of 2 800), bones and weights. The hands' share of the view-model rig is 0.88
+(0.75). The hand reads as a thumb, a forefinger and a wooden grip; no stitching or nails.
+
+### 8.3 View-model camera
+
+`VIEW_PLACE` = x 0, y 0.025, z 0.026, pitch -7, yaw 7.5, roll -13 degrees: 3.5 % of the frame height higher than
+round 4. At 720p gun + hands 11.6 to 12.1 % of a 16:9 frame on Low (11.7 to 12.2 High), hands alone 3.5 %, the muzzle
+98 px right of and 47 px below the crosshair (15 % of the frame height away: R13), nothing left of 0.566 of the width
+or above 0.522 of the height. `VIEW_PLACE_HANDLING` y -0.07 (-0.04): every clip in which the hands work on the gun is
+drawn about 9 % of the frame height lower (12.8 to 13.4 % of the frame; crosshair and left half clear). The muzzle
+flash rides the drawn muzzle (ARCHITECTURE 8.2, polish round 5).
+
+### 3 / 11.1 The view-model's rig by mood
+
+L2 (the Tally House): `vmAmb` `#8A6450`, `vmKey` `#FFA866`, `vmK` 0.86 (its key was a warm white because the mood's own
+key is 0: the gun stood grey-white in the orange room). L3 `vmK` 1.08 (0.95). L5a `vmK` 1.44 (1.4). L6c copies L6's rig.
+
+### The coda (far rim)
+
+- **The mesa's wings.** East and west of the ledge the cliff runs on as wings of the rim's own cliff column (same
+  beds, buttresses and broken skyline), 26 m west and 33 m east, down to the scree, painted light on unlit cards in
+  `env_backdrop_dusk` (a bed's face `#44232A`, a recess `#2A1820`, under a lip `#14121F`, the rim rock `#4C2C2E`). It
+  was a plain maroon box in every view east or west. From the ledge's two far ends (2 to 5 m away) the wings still
+  read as painted bands beside the textured, lightmapped cliff.
+- **The cage's room is lit rock.** The rock room round the proving lift is the mesa's stone lit by the afterglow
+  through its opening (three bake-only area lights): walls L* 9 to 14 with their beds, the reveal 18 to 24. The cage's
+  own posts, rail, floor and call station take the sub-mood `L6c` (an ember key from the north 2.4, a dusk-violet
+  ambient 0.5 and fill 1.2). The opening's top is a bite a hand deep with shoulders a pace long, not a 0.56 m notch.
+  The pylon stump on the ledge is x 0.32 (it was the lightest thing on the ledge, L* 65).
+- The far country within 60 degrees of south of the rim is not drawn (it stands behind the mesa from anywhere on the
+  ledge). `env_backdrop_dusk` 1 965 of 2 000 triangles, `env_far_rim` 8 316 of 14 000.
+- **Open:** `ia_proving_lift_cage` and `ia_lift_cage` have single-sided panels: from inside a cage she looks through
+  its walls and roof.
+
+### Underground
+
+- **`env_the_bore` ribs.** The 1.2 m panel row is mapped once per course (it was stretched eleven times over a 13 m
+  island: fasteners drew as 0.6 m dark "claw" streaks); the lining's facets share the ribs' lightmap smoothing.
+- **`env_lift_hall` ring.** `RING_T` 1.0 (1.5); the ring's front mapped round the ring (15 panels of 1.2 m with a
+  joint each); the reveal the stained glaze, not white enamel; its bake pass 1024 samples. It is still the brightest
+  large shape from `cp_hall_clear`, by design.
+
+### 11.1 High only (replaces the round-4 rows for L4, L5, L5a, L5c, L5p)
+
+| Mood | Bloom threshold | Knee | Intensity | Sheen |
+|---|---|---|---|---|
+| L3 | 0.55 | 0.40 | 1.0 | 2.2 |
+| L4 | 0.68 | 0.40 | 1.0 | 2.2 |
+| L5 | 0.80 | 0.45 | 0.9 | 2.2 |
+| L5p | 0.75 | 0.45 | 1.0 | 2.2 |
+| L5c | 0.48 | 0.45 | 1.0 | 1.2 |
+| L5a | 0.75 | 0.40 | 0.9 | 0 |
+
+The sheen (High only): a lightmapped face mirrors a share of its own baked light at a grazing angle: floors in full,
+walls 0.15, ceilings none. It reads as satin plate, not as reflections of the lamps. A dense lamp set (the Windlass's
+gauge, 26 segments 5 cm apart) is held just over the bloom threshold so it draws as pips with dark gaps. The contact
+shade leaves out its strongest tap and eases off in a lamp's own pool. The sun's shadow square is 52 m. Low against
+High (mean absolute difference of 255 at 320 x 180): gallery 7.1 (2.3), gallery bay 6.0, the file's end 4.3, hall
+checkpoint 6.9, gantry 3.1, boss room 4.9; from the catwalk and in the Tally House High is still within 1 to 2.4 of
+Low. Outdoors High has no new term this round (no glow round the rim fire or the lit windows, no shafts).
+
+### 10 Screens
+
+Title: with a save, Go on is the chosen item and names its count; Begin over a save asks first. Pause: the HUD's own
+mark is not drawn under it; the pause column is capped at 47 % and wraps; under 700 px wide or 420 px tall the side
+column starts at 8 %. End card: under 900 px wide the ledger labels are tracked 0.03 em and do not wrap; no checkpoint
+numeral behind it. A movement card is shown once a run and gives way to a fight (1.0 s + 0.3 s).

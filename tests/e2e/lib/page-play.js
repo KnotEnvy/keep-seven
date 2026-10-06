@@ -264,11 +264,15 @@
     });
     void lined;
     if (done !== 'cleared') return;
-    await tidy();
+    // polish round 5: the section ends on the clear itself. Since the door's four, a packet can lie on the gantry side
+    // of the far door, and picking it up here walked her through cp_hall_gantry before play() had seen cp_file_clear
+    // (the death at that checkpoint was skipped). The tidying is the next section's first act.
     await beat('clear:enc_file');
-    await go('cp_file_clear', { maxTicks: 60 * 90 });
   }
   async function toGantry() {
+    await tidy();
+    if (checkpoint() !== 'cp_file_clear') return;
+    await go('cp_file_clear', { maxTicks: 60 * 90 });
     await go('cp_hall_gantry', { maxTicks: 60 * 60 });
     await until(() => checkpoint() === 'cp_hall_gantry' || dead(), 240);
   }

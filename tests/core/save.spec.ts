@@ -62,6 +62,33 @@ describe('SaveStore', () => {
     expect(read({ ...sample(), enemies: { ...sample().enemies, statics: null } })).toBeNull();
     expect(new SaveStoreImpl(storage, known).hasStoredSave()).toBe(false);
   });
+  it('polish round 5: the parts applySave indexes into are checked here, so a stale save is refused and never throws', () => {
+    const storage = new MemoryStorage();
+    const read = (data: unknown): SaveData | null => { storage.setItem(SAVE_KEY, JSON.stringify(data)); return new SaveStoreImpl(storage).readStored(); };
+    const w = (patch: Record<string, unknown>): unknown => ({ ...sample(), world: { ...sample().world, ...patch } });
+    const e = (patch: Record<string, unknown>): unknown => ({ ...sample(), enemies: { ...sample().enemies, ...patch } });
+    const p = (patch: Record<string, unknown>): unknown => ({ ...sample(), player: { ...sample().player, ...patch } });
+    expect(read(sample())).toEqual(sample());
+    // the two cases the robustness critic stored (TypeError: reading 'slice' / reading 'asset')
+    expect(read(w({ stats: {} }))).toBeNull();
+    expect(read(e({ statics: [null] }))).toBeNull();
+    expect(read(w({ stats: { ...sample().world.stats, secrets: undefined } }))).toBeNull();
+    expect(read(w({ stats: { ...sample().world.stats, deaths: 'two' } }))).toBeNull();
+    expect(read(w({ stats: { ...sample().world.stats, secrets: [3] } }))).toBeNull();
+    expect(read(w({ zone: 7 }))).toBeNull();
+    expect(read(w({ objective: null }))).toBeNull();
+    expect(read(w({ onceFlags: [1, 2] }))).toBeNull();
+    expect(read(w({ puzzles: { seven_jugs: true } }))).toBeNull();
+    expect(read(w({ puzzles: { seven_jugs: { solved: true, step: 7 } } }))).toBeNull();
+    expect(read(w({ doors: { door_jug_gate: 1 } }))).toBeNull();
+    expect(read(e({ statics: [{ asset: 'bider_seated_static', x: 1, y: 0, z: 2 }] }))).toBeNull();
+    expect(read(e({ statics: [{ asset: 5, x: 1, y: 0, z: 2, rotY: 0 }] }))).toBeNull();
+    expect(read(e({ statics: ['bider'] }))).toBeNull();
+    expect(read(e({ bossPhase: undefined }))).toBeNull();
+    expect(read(p({ cylinder: [1, 2, 3, 4, 5, 6] }))).toBeNull();
+    expect(read(p({ health: null }))).toBeNull();
+    expect(read(e({ statics: [] }))).not.toBeNull();
+  });
   it('clear removes the slot and current', () => {
     const storage = new MemoryStorage();
     const store = new SaveStoreImpl(storage);

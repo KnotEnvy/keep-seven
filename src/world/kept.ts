@@ -53,7 +53,7 @@ class Kept implements KeptApi {
   private flare = 0;
   private readonly hintPayload: GameEvents['ui/hint'] = { key: 'ui_prompt_kept', show: false };
   private readonly lineDown: string; private readonly lineDenied: string; private readonly lineSeal: string; private readonly lineOffice: string;
-  private readonly lineKept: string; private readonly lineProven: string; private readonly lineHint2: string;
+  private readonly lineKept: string; private readonly lineProven: string; private readonly lineHint1: string; private readonly lineHint2: string;
   private readonly encounter: EncounterId;
   private readonly provenCheckpoint: CheckpointId;
 
@@ -103,6 +103,7 @@ class Kept implements KeptApi {
     this.lineOffice = named('office', 'nar_office');
     this.lineKept = named('kept', 'nar_kept');
     this.lineProven = named('proven', 'stn_proven');
+    this.lineHint1 = named('hint1', 'hint_kept_1');
     this.lineHint2 = named('hint2', 'hint_kept_2');
     this.encounter = data.layout.encounters.find((e) => e.zone === this.zone && Object.keys(e.composition).includes('windlass'))?.id ?? 'enc_windlass';
     this.provenCheckpoint = (data.markersOfType('checkpoint').find((m) => m.zone === this.zone && /kept round/.test(String(m.params.when)))?.id ?? 'cp_boss_proven') as CheckpointId;
@@ -193,23 +194,29 @@ class Kept implements KeptApi {
     // Polish round 4 (the story critic's major: "BORE PROVEN." trailed the shot by 10 to 15 s, behind the narrator and
     // the Windlass's own talk). What was waiting to be said about a fight that is over is dropped (never a line the
     // story stands on), and the station answers the shot at once: on screen now, or next if the narrator is speaking.
-    s.story.flushWhere((key) => s.story.keeps(key) && key !== LINE_ONE_LEFT);
+    // Polish round 5 (R12: the lines that pay off the seventh shot land with the shot). "BORE PROVEN." is on screen on
+    // the shot's own tick, OVER whatever is there (fired promptly, it waited 3 s behind the 5.5 s band line), and
+    // `nar_kept` is next, straight after it (it was queued behind HEAD DRY at the end of the 4 s silence and came 9 s
+    // after the shot). HEAD DRY and the office follow from `dry`, behind it.
+    s.story.flushWhere((key) => s.story.keeps(key) && key !== LINE_ONE_LEFT && key !== this.lineKept);
     s.story.defer(this.lineOffice);                        // (it follows `nar_kept`: `dry`)
-    s.story.sayNow(this.lineProven);
+    s.story.sayOver(this.lineProven);
+    s.story.sayFront(this.lineKept);
     s.director.commitTallies(this.encounter);
     s.checkpoints.reach(this.provenCheckpoint, true);
   }
 
   /**
-   * Phase 3b begins (four seconds after the shot): "HEAD DRY.", then the narrator: `nar_kept` and, if she has not heard
-   * it, the office. Next in line and in this order, behind "BORE PROVEN." if that is still to come.
+   * Phase 3b begins (four seconds after the shot): "HEAD DRY.", then the office. Next in line and in this order, behind
+   * `nar_kept`, which `fired` put straight after "BORE PROVEN." (round 5; it is asked for again here for a proof that
+   * came without it: the once-only rule refuses it when it is on screen, waiting or heard).
    */
   private dry(): void {
     const { s } = this;
     if (this.drySaid) { if (s.flags.has('proven') && !s.story.holds(LINE_DRY)) s.story.sayFront(LINE_DRY); return; }
     this.drySaid = true;
-    s.story.sayFront(LINE_DRY);
     s.story.sayFront(this.lineKept);
+    s.story.sayFront(LINE_DRY);
     s.story.sayFront(this.lineOffice);
   }
 
@@ -258,8 +265,9 @@ class Kept implements KeptApi {
     // a restore inside the ladder: what tier 3 put on screen is put back (a restore took it down)
     if (tier === 0) { if (this.clock.tier >= 3 && !this.hintShown && s.hintsOn()) this.showPrompt(); return; }
     s.hint('kept', tier);
-    if (tier === 1) s.story.say(this.lineOffice);
-    else if (tier === 2) s.story.say(this.lineHint2);
+    // (round 5: tier 1 has a line of its own, `hint_kept_1`; it said `nar_office`, the line that pays off the shot)
+    if (tier === 1) s.story.say(this.lineHint1);
+    else if (tier === 2) { s.story.drop(this.lineHint1); s.story.say(this.lineHint2); }   // (the plainer line replaces the first)
     else if (tier === 3) this.showPrompt();
   }
   private floor = 0;
@@ -302,6 +310,8 @@ class Kept implements KeptApi {
     // the second death in the phase: the line that names the mark, the seventh round and the bore is said at once
     const died3a = s.bossDeathPhase === 'p3a' || s.bossDeathPhase === 'hush';
     this.floor = in3a && !warp && died3a && s.bossDeaths >= SAY_AFTER_DEATHS ? (HINT_KEPT[1] as number) : 0;
+    // (the tier-1 line a death cut off is not said again in front of it: `hint_kept_1` is a hint line, round 5)
+    if (this.floor > 0) s.story.cancelHint();
     this.phase3a = in3a;
     this.active = this.phase3a && !s.flags.has('proven') && s.build.isBuilt(this.zone);
     this.light();

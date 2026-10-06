@@ -78,11 +78,12 @@
 .k7 .xh .arc.on { animation: k7-arc 0.6s linear both; }
 @keyframes k7-arc { 0% { opacity: 0.95; } 65% { opacity: 0.8; } 100% { opacity: 0; } }
 
-/* ---- the six-and-one mark: the cylinder ring and, apart from it, the seventh */
+/* ---- the six-and-one mark: the cylinder ring and, apart from it, the seventh.
+   Polish round 5: it stands LOWER LEFT, over the health bars (the ring's left edge on the bars' left edge), not lower
+   right: the revolver, its hand and, in the reload, both hands fill the lower right of the frame, and the mark was
+   printed across them. The box is 88 x 139 mark units (mark.ts MARK_VIEW: the seventh is drawn at twice its size). */
 .k7 .mark {
-  /* the ring sits where it always did: the box is 12 units taller (mark.ts MARK_DROP) for the seventh at 1.5 times its
-     drawn size, and drops by as much */
-  position: absolute; right: calc(var(--u) * 46); bottom: calc(var(--u) * 34 - var(--mk) * 12); width: calc(var(--mk) * 88); height: calc(var(--mk) * 128);
+  position: absolute; left: calc(var(--u) * 46 - var(--mk) * 15.6); bottom: calc(var(--u) * 66); width: calc(var(--mk) * 88); height: calc(var(--mk) * 139);
   /* stroke widths on screen: the 1080p width times the mark's scale, never under a device pixel (the ink under-stroke
      is the stroke plus a pixel each side) */
   --s1: max(1px, calc(var(--mk) * 1)); --s15: max(1.25px, calc(var(--mk) * 1.5)); --s16: max(1.6px, calc(var(--mk) * 1.6));
@@ -115,7 +116,7 @@
 @keyframes k7-kick-b { 0% { transform: translateY(0); } 25% { transform: translateY(calc(-2px * var(--mki))); } 100% { transform: translateY(0); } }
 .k7 .mark .lp { display: none; }
 .k7 .mark .lp.on { display: inline; fill: var(--aqua); stroke: var(--ink); stroke-width: 2; paint-order: stroke; }
-.k7 .mark .rs { font: 600 12px var(--sans); font-variant-numeric: tabular-nums; fill: var(--bone); stroke: var(--ink); stroke-width: 2.2; paint-order: stroke; stroke-linejoin: round; }
+.k7 .mark .rs { font-family: var(--sans); font-weight: 600; font-variant-numeric: tabular-nums; fill: var(--bone); stroke: var(--ink); stroke-width: 2.2; paint-order: stroke; stroke-linejoin: round; }
 
 .k7 .sv .so { fill: none; stroke: var(--bone); stroke-width: var(--s1); stroke-linejoin: round; }
 .k7 .sv .ink.so { stroke: var(--ink); stroke-width: calc(var(--s1) + var(--si)); }
@@ -175,8 +176,12 @@
 .k7 .cp.on { opacity: 1; transition: opacity 0.2s linear; }
 .k7 .card { position: absolute; left: 0; right: 0; top: 27%; top: round(27vh, 1px); display: flex; flex-direction: column; align-items: center; opacity: 0; transition: opacity 0.8s linear; }
 .k7 .card.on { opacity: 1; transition: opacity 0.6s linear; }
+/* a fight has begun under it (hud.ts CARD_FADE_QUICK) */
+.k7 .card.quick { transition: opacity 0.3s linear; }
 /* closer, polish round 3: the end card is ink at 80 % over the still-drawn dusk, so a title card still fading out under it would show through */
 .k7:has(.scr.end.on) .card, .k7:has(.scr.end.on) .card.on { opacity: 0; transition: none; }
+/* nor a checkpoint numeral (R5: nothing stands behind the end card) */
+.k7:has(.scr.end.on) .cp, .k7:has(.scr.end.on) .cp.on { opacity: 0; transition: none; }
 .k7 .card-num { font-family: var(--serif); font-size: min(9vh, 9vw); line-height: 1; height: round(up, 1em, 1px); }
 .k7 .card-rule { width: calc(var(--u) * 120); height: var(--hair); background: var(--brass); box-shadow: 0 0 0 1px var(--ink); margin: calc(var(--u) * 20) 0 calc(var(--u) * 18); margin: round(calc(var(--u) * 20), 1px) 0 round(calc(var(--u) * 18), 1px); }
 .k7 .card-title { font-size: min(2.4vh, 2.4vw); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; padding-left: 0.18em; }
@@ -204,8 +209,12 @@
 /* the pause column and the click-to-resume plate: the frozen subtitle, caption, checkpoint and card are not drawn under
    them (the enlarged mark's label was printed across the dimmed subtitle) */
 .k7.veil .txt { display: none; }
-/* a full page (options, the story so far, credits) is not laid over the frozen subtitle, caption or crosshair */
+/* a full page (options, the story so far, credits) is not laid over the frozen subtitle, caption or crosshair, nor
+   (polish round 5) over the gauges: the health bars stood under "Restore defaults" and the boss pips under the heading */
 .k7.full .txt, .k7.full .hud .xh { display: none; }
+.k7.full .hud.on { visibility: hidden; }
+/* the pause screen shows the mark enlarged and named: the HUD's own, now in the pause column's corner, is not drawn under it */
+.k7.veil .hud .mark { visibility: hidden; }
 .k7 .prompt.hint { top: 64%; }
 .k7 .prompt.aqua { color: var(--aqua); }
 .k7 .key { display: inline-block; min-width: 1.9em; padding: 0.22em 0.4em 0.18em 0.58em; margin: 0 0.2em; border: var(--hair) solid currentColor; box-shadow: 0 0 0 1px var(--ink), inset 0 0 0 1px var(--ink); text-align: center; line-height: 1.1; }
@@ -245,19 +254,37 @@
 .k7 .pm-seventh { fill: var(--brass); }
 .k7 .title-sub { font-size: max(11px, calc(var(--u) * 16)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; }
 .k7 .title .menu { position: absolute; left: 7%; bottom: 13%; }
+/* "Go on" names the count it goes on from (the checkpoint as the HUD shows it when it is saved) */
+.k7 .mi-count { margin-left: 1.1em; letter-spacing: 0.18em; font-weight: 600; font-size: 0.78em; color: var(--bone); opacity: 0.85; font-variant-numeric: tabular-nums; }
+/* Begin over a stored save asks first (polish round 5): the question and its three answers stand where the column stood */
+.k7 .title-ask { position: absolute; left: 7%; bottom: 13%; display: none; flex-direction: column; align-items: flex-start; }
+.k7 .title-ask .menu { position: static; }
+.k7 .title.asking > .menu { display: none; }
+.k7 .title.asking .title-ask { display: flex; }
+.k7 .ask-head { font-family: var(--serif); font-size: max(17px, calc(var(--u) * 30)); letter-spacing: 0.2em; margin: 0 0 calc(var(--u) * 16) calc(var(--u) * 24); }
 
 /* ---- pause */
-.k7 .pause-col { position: absolute; left: 7%; top: 16%; }
+/* the column never runs under the work at hand (which starts at 57 %): a long item wraps instead (polish round 5: at
+   480 x 270 "Back to the last count (checkpoint)" was overprinted by the objective) */
+.k7 .pause-col { position: absolute; left: 7%; top: 16%; max-width: 47%; }
+.k7 .pause-col .mi { white-space: normal; }
 .k7 .pause-side { position: absolute; right: 7%; top: 16%; width: 36%; display: flex; flex-direction: column; align-items: flex-start; }
 .k7 .side-label { font-size: max(11px, calc(var(--u) * 14)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; color: var(--brass); }
 .k7 .obj-text { font-family: var(--serif); font-size: max(14px, calc(var(--u) * 24)); line-height: 1.35; margin: calc(var(--u) * 8) 0 calc(var(--u) * 34); }
 /* the enlarged mark keeps its own size (mark.ts MARK_BIG_SCALE times the viewport unit, floored at MARK_BIG_MIN_SCALE):
    the HUD mark's floor rose in polish round 3 and the column has no room for three times that at 720p */
-.k7 .mark.big { position: static; --mk: calc(max(var(--u), 0.864px) * 3); --mki: 1; width: calc(var(--mk) * 88); height: calc(var(--mk) * 128); margin-left: calc(var(--u) * 30); }
+.k7 .mark.big { position: static; --mk: calc(max(var(--u), 0.864px) * 3); --mki: 1; width: calc(var(--mk) * 88); height: calc(var(--mk) * 139); margin-left: calc(var(--u) * 30); }
 .k7 .sv-label { font-family: var(--serif); font-style: italic; font-size: max(14px, calc(var(--u) * 22)); margin-top: calc(var(--u) * 14); }
 .k7 .line-legend { display: none; align-items: center; gap: calc(var(--u) * 10); margin-top: calc(var(--u) * 10); font-size: max(11px, calc(var(--u) * 14)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; color: var(--aqua); }
 .k7 .line-legend.on { display: flex; }
 .k7 .line-legend i { display: block; width: max(6px, calc(var(--u) * 9)); height: max(6px, calc(var(--u) * 9)); border-radius: 50%; background: var(--aqua); box-shadow: 0 0 0 1px var(--ink); }
+/* a very small window (polish round 5): the side column starts higher and its mark is sized to the height that is left */
+@media (max-height: 420px), (max-width: 700px) {
+  .k7 .pause-col { top: 8%; max-width: 44%; }
+  .k7 .pause-side { top: 8%; right: 4%; width: 42%; }
+  .k7 .obj-text { margin-bottom: calc(var(--u) * 14); }
+  .k7 .mark.big { --mk: min(calc(100vh / 320), calc(42vw / 92)); margin-left: 0; }
+}
 
 /* ---- click to resume */
 .k7 .ctr { align-items: center; justify-content: center; cursor: pointer; }
@@ -345,6 +372,8 @@
 .k7 .ledger { width: min(calc(var(--u) * 600), 31vw); }
 .k7 .lrow { display: flex; align-items: baseline; justify-content: space-between; padding: calc(var(--u) * 5) 0; animation: k7-row 0.5s linear both; animation-delay: calc(0.9s + var(--i) * 0.38s); }
 .k7 .lrow .lab { font-size: max(11px, calc(var(--u) * 14)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; opacity: 0.85; }
+/* a narrow frame (800 x 600): the labels are at their 11 px floor and the ledger is 31 vw; the longest label keeps its line */
+@media (max-width: 900px) { .k7 .lrow .lab { letter-spacing: 0.03em; white-space: nowrap; } }
 .k7 .lrow .v { font-family: var(--serif); font-size: max(14px, calc(var(--u) * 23)); font-variant-numeric: tabular-nums; }
 .k7 .lrow.lamps { display: block; margin: calc(var(--u) * 16) 0; padding: calc(var(--u) * 14) 0; border-top: var(--hair) solid var(--brass-dim); border-bottom: var(--hair) solid var(--brass-dim); }
 .k7 .lamps-head { display: flex; align-items: baseline; justify-content: space-between; }
@@ -359,7 +388,7 @@
 .k7.rm .rk { animation: none; }
 .k7.rm .svw.shiver { animation: k7-blink 0.3s steps(2, jump-none) both; }
 .k7.rm .sv.pulse .so, .k7.rm .sv.pulse .ink.so, .k7.rm .sv.pulse .sb, .k7.rm .sv.pulse .sr { animation: k7-breathe 2s ease-in-out infinite; }
-.k7.rm .card, .k7.rm .card.on, .k7.rm .cp, .k7.rm .cp.on, .k7.rm .prompt, .k7.rm .hud.on.fade { transition: none; }
+.k7.rm .card, .k7.rm .card.on, .k7.rm .card.quick, .k7.rm .cp, .k7.rm .cp.on, .k7.rm .prompt, .k7.rm .hud.on.fade { transition: none; }
 .k7.rm .m-kill .mt { animation: none; transform: scale(1.7); }
 .k7.rm .m-freed .mr { animation: none; }
 .k7.rm .death, .k7.rm .death-text, .k7.rm .lrow, .k7.rm .end .menu { animation: none; }

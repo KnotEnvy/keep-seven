@@ -46,6 +46,8 @@ const LOCKER_ROUND = 'prop_cartridge_line';
 const MERCY_DEATHS = 2;
 /** a knot left alone: after its one line, a wordless pulse this often */
 const KNOT_PULSE_EVERY = 30;
+/** a latch knot is "seen" inside this many metres and this cone of her view: its line is said then (polish round 5) */
+const KNOT_SEEN = 26, KNOT_SEEN_COS = Math.cos(14 * Math.PI / 180);
 /** with no lead at all, a boss-room cartridge point that can give glints this often, its lamp this much brighter */
 const EMPTY_PULSE_EVERY = 2.5, EMPTY_LAMP_BOOST = 2.5;
 
@@ -90,7 +92,7 @@ interface Pickup {
 }
 interface LazyHint { key: StoryKey; flag: string; needed: boolean; timer: number; shown: boolean; immediate: boolean; shownFor: number; shows: number }
 interface Look { marker: LayoutMarker; timer: number; flag: string; x: number; y: number; z: number }
-interface Loose { marker: LayoutMarker; shot: Shot; role: number; done: boolean; idle: number; nudges: number; outlined: boolean }
+interface Loose { marker: LayoutMarker; shot: Shot; role: number; done: boolean; idle: number; nudges: number; outlined: boolean; seenFlag: string }
 const KNOT = 0, BELL = 1, PLATE = 2, ROPE = 3, BORE = 4;
 
 class Interact implements InteractApi, ShotOwner {
@@ -186,7 +188,7 @@ class Interact implements InteractApi, ShotOwner {
     this.byEntity.set(m.id, t);
   }
   private addLoose(m: LayoutMarker, role: number, kind: 'knot' | 'bell' | 'range_plate' | 'rope' | 'bore'): void {
-    const l: Loose = { marker: m, shot: new Shot(this, m.id, kind, this.loose.length, m), role, done: false, idle: 0, nudges: 0, outlined: false };
+    const l: Loose = { marker: m, shot: new Shot(this, m.id, kind, this.loose.length, m), role, done: false, idle: 0, nudges: 0, outlined: false, seenFlag: 'seen:' + m.id };
     this.loose.push(l);
     if (role === KNOT) this.s.forcers.set(m.id, (announce = false) => this.burstKnot(l, announce));
   }
@@ -611,10 +613,20 @@ class Interact implements InteractApi, ShotOwner {
     for (let i = 0; i < this.loose.length; i++) {
       const l = this.loose[i] as Loose;
       if (l.role !== KNOT || l.done || l.shot.volume < 0) continue;
+      const dx = p.x - l.shot.x, dz = p.z - l.shot.z;
+      const d2 = dx * dx + dz * dz;
+      // Polish round 5 (story critic: the latch knot's line was said after the door it held had burst open): a knot
+      // on a latch is described the first time she looks at it from near, out of a fight; the burst still says it
+      // if she shot first (and the director drops it there if it cannot start at once)
+      if (d2 <= KNOT_SEEN * KNOT_SEEN && !s.director.live && l.marker.params.opens !== undefined && !s.flags.has(l.seenFlag)
+        && s.lookCos(l.shot.x, l.shot.y, l.shot.z) >= KNOT_SEEN_COS) {
+        s.flags.add(l.seenFlag);
+        const lines = paramList(l.marker, 'lines');
+        s.story.sayFrontAll(lines);                                         // what she is looking at: next in line
+      }
       const hint = l.marker.params.hint as { T2?: string; atSeconds?: number } | undefined;
       if (!hint || !hint.T2) continue;
-      const dx = p.x - l.shot.x, dz = p.z - l.shot.z;
-      if (dx * dx + dz * dz > 144 || s.director.live) continue;
+      if (d2 > 144 || s.director.live) continue;
       l.idle += FIXED_DT;
       if (l.idle < (l.nudges === 0 ? (hint.atSeconds ?? 60) : KNOT_PULSE_EVERY)) continue;
       l.idle = 0;

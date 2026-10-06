@@ -8,7 +8,7 @@ You play the last sworn Reeve. She carries six rounds for the work and a sealed
 seventh she has vowed never to fire, and she is tracking a man who spoils wells through
 a shuttered desert town and down into the machine under it.
 
-![Twelve frames from the game, start to finish](docs/media/hero-round-4.jpg)
+![Twelve frames from the game, start to finish](docs/media/hero-round-5.jpg)
 
 ## Play it
 
@@ -39,8 +39,12 @@ quality. Adding `?cp=<checkpoint id>` to the dev URL starts at a checkpoint.
 ## Status
 
 A vertical-slice demo, built over one pre-production pass, one production round and
-three polish rounds (rounds 2 to 4), each judged by reviewers who had not built the
+four polish rounds (rounds 2 to 5), each judged by reviewers who had not built the
 work. A scripted bot finishes the stage from the title to the end card by input alone.
+
+Final review scores out of 10, against a bar of 8.5: robustness 8.8, performance 8.6,
+playthrough 8.5, combat 8.5, story and UX 8.5, visuals 8.0. The one major issue left
+open is the revolver at rest: the hand is crude and the gun reads as a smooth casting.
 
 **Not yet verified by a person:** frame rate on a real GPU (all automated testing ran
 on a software renderer), the audio (it is synthesized at runtime and has only been

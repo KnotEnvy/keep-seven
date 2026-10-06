@@ -52,3 +52,62 @@ needs from other owners. Log and evidence: `scratch/r4-team-world/NOTES.md`; ima
 | 2.4 | `nar_take_1` on the leave branch | **Ruled: stays.** The line is about her own kept round and is true on both branches; the story critic passed the leave branch |
 | 2.5 | layout texts | done (row 1). No new field for the ambush: `WAVE_RULES` holds it |
 | 2.6 | the far door's leaf speed | stands |
+
+## Fixer, polish round 5 (2026-10-06): decisions
+
+| Row | What | Decision |
+|---|---|---|
+| 2.2 (round 4) | `BOSS.chargeRequiredAt` 12 -> about 2 s | **Ruled: stays 12 s.** No round-5 critic raised it; it also sets phase 3a's adds clock. Closed |
+| the file (R3 / R10) | composition and wave rules | **Applied** in the layout and `WAVE_RULES`: `docs/requests/polish-r5-fixer.md` code-world 1 |
+| `hint_kept_1` | a line of its own for the kept round's first hint tier | **Data applied** (`design/story.json`, the bore's `lines.hint1`); the wiring in `kept.ts` is the world's |
+
+
+# Code team "world", polish round 5 (2026-10-06)
+
+What the world team changed against the fifth critic panel, for the closer to mirror into `docs/GDD.md` and
+`docs/LEVEL.md` (the design data is final: nothing here asks for a data edit). Log: `scratch/r5-team-world/NOTES.md`;
+real-game timelines: `scratch/r5-team-world/proxy/*.log`; frames: `shots/r5-team-world/`; tests:
+`tests/world/polish_r5.test.mjs` (7 new), pins updated in `ending.test.mjs`, `kept.test.mjs`, `polish_r2.test.mjs`,
+`polish_r4.test.mjs`. Everything is in `src/world/` (`kept.ts`, `ending.ts`, `director.ts`, `interact.ts`).
+
+## R5.1 Behaviour and numbers that changed (lead rulings R5, R12 outrank the documents): mirror
+
+| # | Where it is written now | What the game does now | Measured (real game) |
+|---|---|---|---|
+| 1 | GDD 6.6 ("four seconds of true silence before the narrator speaks"), 8.2 "The seventh" steps 5 and 6, round-4 row 4 (`stn_proven`, then at phase 3b `stn_dry`, `nar_kept`, `nar_office`) | **On the shot's tick "BORE PROVEN." is on screen, over whatever is there** (the 5.5 s band line is cut), **`nar_kept` is the next line, straight after it**, then `stn_dry` (phase 3b has begun by then) and `nar_office`. The narrator now speaks about 3.3 s after the shot, inside the four seconds before phase 3b. `kept.ts` `fired` / `dry` | `proxy/s7.log`: shot 4.1 s, `stn_proven` 4.1 (+0.0; was +3.0), `nar_kept` 7.4 (+3.3; was +9.0), `stn_dry` 12.6, `nar_office` 15.4 (+11.3; was +14.3). Frames `s7_01_boss_the_seventh.png`, `s7_02_boss_p3b.png` |
+| 2 | GDD 8.2 "Hints" (kept ladder tier 1 = `nar_office`) | **Tier 1 says `hint_kept_1`** (the bore marker's `lines.hint1`); `nar_office` is said only after the proof. Tier 2 replaces a tier-1 line still on screen; after a second death in the phase the cut tier-1 line is not said again in front of tier 2 | `tests/world/polish_r5.test.mjs`, `kept.test.mjs` |
+| 3 | GDD 9.8, LEVEL.md 7, `trg_stone.endAfterSeconds` 25 and its note, `exit_rim.endsWhen` ("trg_stone + 25 s") | **Walking away is her answer after 40 quiet seconds** (`ending.ts` `LEAVE_MIN`; the marker's 25 is read but 40 is the floor): more than 4 m from the stone, after its last line, and **the clock stands still while any line is on screen**; coming back starts it again. The north edge and the 150 s fail-safe are unchanged | `proxy/e7_away.log`: stepped 6 m back at 63.5 s, the rim's two lines 65.5 to 75.8 s, leave at 114.0 s (it was 89.0 s) |
+| 4 | GDD 9.8 take branch, round-4 row 5 ("of the stone's lines only `nar_stone_1` is kept") | **Take:** `nar_take_1` is on screen on the take's tick, over whatever is there; `nar_take_2` follows; **none of the stone's four lines is said after the take**; the lamps' two lines, if not yet said, follow the take's (her view is eased up to the plain and the town for them); the fire kindles after them | `proxy/e7_brisk2.log` (High): take 3.5 s, `nar_take_1` 3.5 (was 19.1), `nar_take_2` 7.7, lamps 12.0 / 16.2, fire 20.8, card 34.8. Frames `e7_brisk_fire.png`, `e7_brisk_card.png` |
+| 5 | GDD 9.2 / LEVEL.md (the yard latch: `nar_first_knot` on the burst) | **The latch knot's line is said when she first looks at it** (within 26 m, 14 degrees, no fight live; `interact.ts` `KNOT_SEEN`), next in line. Said on the burst (she shot first) it must start within 1.5 s of it or is dropped (`director.ts` `KNOT_LINE_LATE`) | `proxy/knot3.log`: line 29.6 s, burst 32.9 s (it was said 3 s after the burst) |
+| 6 | (new) | A trigger that waits for a fight's clear and describes the quiet after it (`trg_marks`, `trg_hall_diagram`; never a load-bearing line) drops its lines if **another fight is live** when their turn comes | same log: `nar_marks` is not said in the yard fight |
+| 7 | GDD 9.5 / LEVEL.md (the watcher: `trg_watcher` lines) | A vignette trigger's lines are next in line; **`nar_watcher_1` is dropped once she is 10 m from the niche, `nar_watcher_2` once she is 13 m on or if the first was never shown** (`director.ts` `VIGNETTE_NEAR`, `VIGNETTE_GONE`) | `proxy/watch.log`: the bot is at the bay locker 3.7 s after the vignette: neither line (both were said there) |
+
+## R5.2 The file (R3, R10)
+
+Done by the cross-cutting fixer in the layout and `WAVE_RULES` before this pass (`docs/requests/polish-r5-fixer.md` row 1);
+not redone. Re-measured on this tree, careless proxy with a line round, Normal, three presets
+(`scratch/r5-team-world/proxy/f_c1..3.log`): **72 / 54 / 0 HP lost, 33.2 / 33.6 / 29.6 s** from trigger to clear, no
+deaths: the fixer's numbers. Against the critics' target (careless 36 to 70, plain 0 to 36, 35 to 50 s): two of three
+careless runs are in or just over the band and one is unhurt; the fight is 30 to 34 s. The plain proxy was not rerun
+here (the fixer: 0 / 0 / 0).
+
+## R5.3 Known gaps
+
+- A player as brisk as the bot (the latch shot 3.3 s after first seeing it) no longer hears `nar_marks` ("Every door
+  wore the well mark"): the latch line is on screen and the yard fight has begun before its turn. A walker hears both.
+- The watcher's lines are heard by a player who is within 10 m of the niche when the stair's first line ends; one who
+  runs straight down to the locker hears neither.
+- "HEAD DRY." is on screen about 4.5 s after phase 3b begins (behind `nar_kept`); the objective changes on the phase.
+- Stepping back from the stone still ends the stage in the end (40 quiet seconds, no warning line: none exists in the
+  final text).
+- No person has played any of this; the world tests drive the real world beside core stubs, the timelines above are
+  the e2e bot and the story critic's rim script on the real game.
+
+## Closer, polish round 5 (2026-10-06): decisions
+
+| Row | Decision |
+|---|---|
+| R5.1 rows 1 to 7 | **Mirrored**: GDD 6.6 rule 3, 8.2 hints, 9.8 in place and 23.10; LEVEL 7 in place and section 12. The layout notes on `trg_stone` / `exit_rim` still say 25 s (frozen data): the documents say so |
+| R5.2 the file | **Stands** as the fixer left it; re-measured at the close (INTEGRATION_REPORT J.3) |
+| `tests/core` not rerun after the two late edits | rerun at the close on the final tree (J.1) |
+| R5.3 known gaps | carried to J.6 |

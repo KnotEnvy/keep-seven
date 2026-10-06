@@ -277,7 +277,7 @@ export function enterDry(B: Boss): void {
   B.hits = 0;
   B.clearDark();
   B.setAllMouths(true);
-  B.dryClock = 0; B.drySaid = 0; B.shots3b = 0; B.reload3b = false; B.cleanSix = false;
+  B.dryClock = 0; B.drySaid = 0; B.drySaidAt = 0; B.shots3b = 0; B.reload3b = false; B.cleanSix = false;
   B.discharging = -1;
   B.S.tokens.limit = 0;
   B.setPhase('p3b');
@@ -311,10 +311,15 @@ function tickDry(B: Boss, dt: number): void {
         B.discharged('dry', 0, false);
         B.cue('dry_click_big');
       }
-      // stn_boss_hauling twice, 4 s apart; nar_hauling after the second
-      if (B.drySaid === 0 && B.t >= BOSS.dryHaulGap) { B.drySaid = 1; S.say('stn_boss_hauling'); }
-      else if (B.drySaid === 1 && B.t >= BOSS.dryHaulGap * 2) { B.drySaid = 2; S.say('stn_boss_hauling'); }
-      else if (B.drySaid === 2 && B.t >= BOSS.dryHaulGap * 2 + 2) { B.drySaid = 3; S.say('nar_hauling'); }
+      // stn_boss_hauling twice, 4 s apart; nar_hauling after the second.
+      // Polish round 5: each only once the line box has stood free for `dryLineQuiet` (Boss.lineQuiet), so it is shown
+      // as it is said. Said on the clock alone, the second one waited behind the narrator's lines of the proof and was
+      // shown 9.5 s after the Windlass had died. A line the kill overtakes is not said at all (sub is 'kill_run').
+      if (B.lineQuiet >= BOSS.dryLineQuiet - EPS) {
+        if (B.drySaid === 0 && B.t >= BOSS.dryHaulGap) { B.drySaid = 1; B.drySaidAt = B.t; S.say('stn_boss_hauling'); }
+        else if (B.drySaid === 1 && B.t >= B.drySaidAt + BOSS.dryHaulGap) { B.drySaid = 2; B.drySaidAt = B.t; S.say('stn_boss_hauling'); }
+        else if (B.drySaid === 2 && B.t >= B.drySaidAt + 2) { B.drySaid = 3; S.say('nar_hauling'); }
+      }
       return;
     }
     case 'kill_run': {

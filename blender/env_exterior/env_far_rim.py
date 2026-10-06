@@ -248,7 +248,14 @@ def build_drifts(S):
 # ---------------------------------------------------------------------------------------------------------- the cliff
 LOW = [(-0.3, 0.05), (0.55, 0.12), (0.6, -0.14), (1.7, -0.07), (1.75, 0.12), (2.95, 0.2), (3.0, 0.0)]     # (height above the ledge, z offset from the face: negative = out over the ledge)
 LM_ROWS = 6                                                # cells below LOW[6] (3.0 m) are lightmapped
-OPEN_TOP = [(12.5, 3.0), (13.4, 3.0), (14.3, 3.02), (14.62, 3.56), (15.15, 3.44), (15.5, 3.12)]     # the opening's top edge: the notch upper RIGHT (seen from inside)
+OPEN_TOP = [(12.5, 3.0), (13.4, 3.03), (14.3, 3.0), (14.62, 3.1), (15.15, 3.14), (15.5, 3.04)]      # the opening's top edge (polish round 5: it stepped up 0.56 m at the upper right, a notch with a plumb side that read as missing geometry; now a lintel that is only a little out of true)
+# polish round 5 (the visual critic: "the cage interior is pure black with no lit surface"). The proving lift's cage is
+# drawn from outside only (its panels are single-sided), so what she stands in when the gate opens is THIS rock room,
+# and it was painted rock_dark x 0.9 and vertex-lit in a closed box: ink. It is the mesa's own stone now (ROOM_DARK of
+# the way to rock_dark), and the afterglow that comes in through the opening lights it (setup_light: fill_cage).
+ROOM_DARK = 0.40
+JAMB_DARK = (0.5, 0.68)                                    # the reveal: toward the ledge, toward the room (it was 0.9 / 0.96)
+CAGE_WATTS = float(os.environ.get("KS_RIM_CAGE", "28"))
 JAMB = [0.0, 0.05, 0.0, 0.09, 0.02, 0.07, 0.0]             # how far each jamb row stands back from the 3 m opening (outward only)
 SX0, SX1 = 10.6, 17.4                                      # the opening's surround: the profile is exact here (the cage's jambs and lintel are the layout's)
 ZF = 111.0
@@ -319,8 +326,12 @@ def brow_lip(x):
     shape = smooth((x - 9.3) / 1.8) * smooth((18.9 - x) / 1.8)
     proj = (2.05 + 0.18 * fbm(x / 1.9, 0.6, 81, 2)) * shape
     y = 2.82 + 0.05 * fbm(x / 1.3, 0.2, 82, 2) - 0.5 * (1.0 - smooth((x - 9.6) / 2.6)) - 0.45 * (1.0 - smooth((18.6 - x) / 2.6))
-    notch = smooth((x - 14.35) / 0.3) * smooth((15.75 - x) / 0.4)
-    return proj * (1.0 - 0.62 * notch), y + 0.5 * notch
+    # polish round 5 (the visual critic: "a stepped notch at the top that looks like missing geometry"): the notch was a
+    # slot half a metre deep with one plumb side, cut 62 % back into the brow: from the cage it stood as a black
+    # rectangle with a corner bitten out of it. It is a BITE now: a hand deep, its shoulders a pace long, the brow's
+    # lip running through it unbroken (the overhang's mouth has the same kind of bite at its upper left).
+    notch = smooth((x - 13.75) / 0.7) * smooth((16.05 - x) / 0.6)
+    return proj * (1.0 - 0.22 * notch), y + 0.15 * notch
 
 
 def build_frame(S):
@@ -402,13 +413,14 @@ def build_frame(S):
             for t in range(1, 4):
                 if all(kit.vlen(kit.vsub(q[t], q[s_])) > 0.02 for s_ in keep): keep.append(t)
             if len(keep) < 3: continue
-            dark_ = 0.85 if r == 0 else (0.3 if r in (2, 4) else 0.05)
+            dark_ = 0.55 if r == 0 else (0.3 if r in (2, 4) else 0.05)      # (the underside was 0.85: an ink band over the view from the cage)
             up = 0.7 if r in (2, 4, 6) else 0.0
             keep = keep[::-1]                                              # outward: the underside looks down, the beds' faces north
             brow.poly([q[t] for t in keep], "m_frontier", [rock.strata_uv(q[t][0], q[t][1]) if r else rock.strata_uv(q[t][0], q[t][2] - 90.0) for t in keep],
                       [rock.rock_colour(q[t][1], FLOOR + 6.0, up, dark_, 36, q[t][0], q[t][2]) for t in keep], final=True, weld=True)
     # ---- the opening: reveal (1 m of rock, dark), the frame's inner face, the room round the cage
     iw = xs.index(12.5); ie = xs.index(15.5)
+    room = Part("rim_room", Z, smooth=None)
     sbcols = cols
     dark = lambda v, k=0.88: rock.rock_colour(v[1], None, 0.0, k, 36, v[0], v[2])
     zi = zf + 1.0
@@ -423,15 +435,15 @@ def build_frame(S):
     for r in range(len(W) - 1):                               # west jamb, faces east
         A, D = W[r], W[r + 1]
         q = [A, D, (D[0], D[1], zi), (A[0], A[1], zi)]
-        lmp.poly(q, "m_frontier", [rock.strata_uv(v[2] * 2.0, v[1]) for v in q], [dark(v, 0.9 if v[2] < zi - 0.5 else 0.96) for v in q], ch_r, [(v[2] - zf, v[1]) for v in q], final=True)
+        lmp.poly(q, "m_frontier", [rock.strata_uv(v[2] * 2.0, v[1]) for v in q], [dark(v, JAMB_DARK[0] if v[2] < zi - 0.5 else JAMB_DARK[1]) for v in q], ch_r, [(v[2] - zf, v[1]) for v in q], final=True)
     for r in range(len(E) - 1):                               # east jamb, faces west
         A, D = E[r], E[r + 1]
         q = [A, (A[0], A[1], zi), (D[0], D[1], zi), D]
-        lmp.poly(q, "m_frontier", [rock.strata_uv(v[2] * 2.0, v[1]) for v in q], [dark(v, 0.9 if v[2] < zi - 0.5 else 0.96) for v in q], ch_r, [(v[2] - zf + 3.0, v[1]) for v in q], final=True)
+        lmp.poly(q, "m_frontier", [rock.strata_uv(v[2] * 2.0, v[1]) for v in q], [dark(v, JAMB_DARK[0] if v[2] < zi - 0.5 else JAMB_DARK[1]) for v in q], ch_r, [(v[2] - zf + 3.0, v[1]) for v in q], final=True)
     for i in range(len(T) - 1):                               # the lintel's underside
         A, Bq = T[i], T[i + 1]
         q = [A, Bq, (Bq[0], Bq[1], zi), (A[0], A[1], zi)]
-        hi.poly(q, "m_frontier", [rock.strata_uv(v[0], v[2]) for v in q], [dark(v, 0.85) for v in q], final=True)
+        hi.poly(q, "m_frontier", [rock.strata_uv(v[0], v[2]) for v in q], [dark(v, 0.6) for v in q], final=True)
     # the frame's inner face (z = 112, toward the cage): opening outline -> the room's section
     O = [(v[0], v[1]) for v in W] + [(v[0], v[1]) for v in T[1:-1]] + [(v[0], v[1]) for v in E[::-1]]
     Q = [(12.0, v[1]) for v in W] + [(v[0], FLOOR + 3.5) for v in T[1:-1]] + [(16.0, v[1]) for v in E[::-1]]
@@ -448,16 +460,17 @@ def build_frame(S):
         if len(pts) < 3: continue
         n = kit.vcross(kit.vsub(pts[1], pts[0]), kit.vsub(pts[2], pts[0]))
         if n[2] < 0: pts = pts[::-1]
-        hi.poly(pts, "m_frontier", [rock.strata_uv(v[0], v[1]) for v in pts], [dark(v, 0.93) for v in pts], final=True)
+        room.poly(pts, "m_frontier", [rock.strata_uv(v[0], v[1]) for v in pts], [dark(v, ROOM_DARK + 0.15) for v in pts], final=True)
     room_y = FLOOR + 3.5
     walls = [((12.0, zi), (12.0, 116.0)), ((12.0, 116.0), (16.0, 116.0)), ((16.0, 116.0), (16.0, zi))]
     for (a, b_) in walls:
         q = [(a[0], FLOOR, a[1]), (a[0], room_y, a[1]), (b_[0], room_y, b_[1]), (b_[0], FLOOR, b_[1])]
-        hi.poly(q, "m_frontier", [rock.strata_uv(v[0] + v[2], v[1]) for v in q], [dark(v, 0.9) for v in q], final=True)
-    hi.poly([(12.0, room_y, zi), (16.0, room_y, zi), (16.0, room_y, 116.0), (12.0, room_y, 116.0)], "m_frontier", rock.strata_uv(0.2, 21.5), rock.rock_colour(21.5, None, 0.0, 0.92, 38), final=True)
+        room.poly(q, "m_frontier", [rock.strata_uv(v[0] + v[2], v[1]) for v in q], [dark(v, ROOM_DARK) for v in q], final=True)
+    room.poly([(12.0, room_y, zi), (16.0, room_y, zi), (16.0, room_y, 116.0), (12.0, room_y, 116.0)], "m_frontier", [rock.strata_uv(v[0], v[2] - 90.0) for v in ((12.0, room_y, zi), (16.0, room_y, zi), (16.0, room_y, 116.0), (12.0, room_y, 116.0))], rock.rock_colour(21.5, None, 0.0, ROOM_DARK + 0.2, 38), final=True)
     lmp.poly([(12.0, FLOOR, 111.3), (12.0, FLOOR, 116.0), (16.0, FLOOR, 116.0), (16.0, FLOOR, 111.3)], "m_frontier", flat_uv("m_frontier"),
              mul(rock.rock_colour(18.0, None, 0.0, 0.6, 39), 0.9), kit.chart("rim_cage_floor", 1.0), [(12.0, 111.3), (12.0, 116.0), (16.0, 116.0), (16.0, 111.3)], final=True)
     kit.tessellate(hi, 1.6)
+    kit.tessellate(room, 0.95)                                 # vertex light needs vertices: the door's light falls off along these walls
     # the fallen slab: a bed of the brow that came down. It lies FLAT at the lower LEFT of the opening, one end propped
     # on the block it broke over: angular, struck-off corners, nothing upright (the overhang has its slab lower right)
     slab = Part("rim_slab", Z, smooth=20)
@@ -470,7 +483,7 @@ def build_frame(S):
     rock.rock_box(slab, (10.95, FLOOR + 0.42, 110.5), (1.25, 0.95, 0.62), rot=14.0, seed=304, n=2, bulge=0.035, chamfer=0.06, chart="rim_slab2", ground=ledge_y, cuts=5, cut_depth=(0.22, 0.42), slope=0.22,
                   lean=(0.12, 0.2))
     rock.rock_box(slab, (13.75, FLOOR + 0.09, 108.2), (0.6, 0.22, 0.45), rot=-48.0, seed=305, n=2, bulge=0.03, chamfer=0.05, chart="rim_slab3", ground=ledge_y, cuts=3, cut_depth=(0.08, 0.16))
-    return [lmp, hi, brow, slab]
+    return [lmp, hi, room, brow, slab]
 
 
 def build_rocks(S):
@@ -545,6 +558,9 @@ def build_rocks(S):
     for a_, b_ in zip(run[:-1], run[1:]): kit.add_prism(sp, a_, b_, 0.075, 0.075, "m_frontier", cab, chamfer=0.0, segs=2, final=True)
     pin = run[-1]
     kit.add_prism(sp, (pin[0], pin[1] - 0.1, pin[2]), (pin[0] + 0.04, pin[1] + 0.26, pin[2] + 0.03), 0.06, 0.06, "m_frontier", mul(lin("rust"), 0.7), chamfer=0.0, caps="b", final=True)
+    # polish round 5: under the blue hour the stump's pale enamel was the lightest thing on the ledge (L* 65 beside rock
+    # at 15: a blank blue-white shard in every view east). Weathered ceramic at dusk: a third of that.
+    darken(sp, 0, 0.32)
     out.append(sp)
     mk = Part("rim_mark", Z)
     Fm = fr.Frame((16.05, FLOOR, ZF - 0.1), (-1.0, 0.0))                  # the face east of the opening, looking north
@@ -587,6 +603,22 @@ def setup_light():
     L.new(pw.outputs[0], mixc.inputs["Factor"]); L.new(mixc.outputs["Result"], bg.inputs["Color"])
     sun_e, world_e, reading = bake.calibrate(KEY, KEY, sun=None, world=bg, samples=64 if FAST else 256)
     print(f"CALIBRATED (no sun) world {world_e:.3f} -> up-facing {reading['ambient']:.3f}")
+    # the cage's room: the afterglow through the opening, as one soft ember area light standing just inside the frame
+    # and looking in and a little down (a light, not a mesh: nothing exported). Brightest on the back wall and the
+    # floor's middle, grazing on the side walls and the roof: the room is a warm dark that falls off away from the door.
+    if CAGE_WATTS > 0:
+        from mathutils import Vector
+        # (name, at, looking at, size, colour, share of CAGE_WATTS). The second is what the lit back wall gives back to
+        # the wall the opening is cut in: cool and weak, so the frame round the view is rock with beds, not a cut-out.
+        for (nm, at, to, size, colour, k) in (("fill_cage", (14.0, FLOOR + 1.75, ZF + 0.05), (14.0, FLOOR + 1.2, 116.0), (2.7, 2.1), (1.0, 0.70, 0.58), 1.0),
+                                              ("fill_brow", (14.0, FLOOR + 0.25, 109.9), (14.0, FLOOR + 3.0, 109.95), (5.0, 1.4), (0.58, 0.50, 0.92), 0.6),
+                                              ("fill_cage_back", (14.0, FLOOR + 1.6, 115.85), (14.0, FLOOR + 2.0, ZF + 1.0), (3.4, 2.4), (0.62, 0.50, 0.95), 1.2)):
+            ld = bpy.data.lights.new(nm, 'AREA'); ld.shape = 'RECTANGLE'; ld.size = size[0]; ld.size_y = size[1]
+            ld.energy = CAGE_WATTS * k; ld.color = colour; ld.spread = math.radians(150.0)
+            ob = bpy.data.objects.new(nm, ld); bpy.context.scene.collection.objects.link(ob)
+            a = Vector(layout.to_blender(at)); b = Vector(layout.to_blender(to))
+            ob.location = a; ob.rotation_euler = (b - a).to_track_quat('-Z', 'Y').to_euler()
+            ob.visible_camera = False; ob.visible_glossy = False
     return world_e
 
 

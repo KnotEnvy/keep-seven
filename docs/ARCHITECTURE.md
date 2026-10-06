@@ -2532,11 +2532,11 @@ nodes of zones that have a visible chunk, and chunkless world-space assets.
 | `cell_street` | `plenty_street`, x > −80 | the four street chunks, `chunk_lip_rock`, `chunk_lip_gate`, `env_backdrop_day` | — | 115 781 | 72 / 79 |
 | `cell_yard_door` | `plenty_street`, x −97..−81, z < −4 (the strip before the Tally door) | `chunk_st_west`, `chunk_st_yard`, `chunk_st_works`, `chunk_lip_rock`, `env_backdrop_day` | `chunk_ty_hall` while `door_tally` is not closed; `chunk_st_east` while it is closed | 105 047 | 75 / 81 |
 | `cell_yard` | `plenty_street`, the rest of the yard | the four street chunks, `chunk_lip_rock`, `chunk_lip_gate`, `env_backdrop_day` | — | 115 781 | 72 / 79 |
-| `cell_tally_seam` | `tally_house`, y < −0.35 (the stair, surface resident) | `chunk_ty_hall` | `chunk_gl_stair` while flag `hatch_powered` | 51 565 | 47 / 53 |
-| `cell_tally` | `tally_house`, the hall | `chunk_ty_hall` | `chunk_st_yard`, `chunk_st_works`, `env_backdrop_day` while `door_tally` is not closed; `chunk_gl_stair` while `ia_hatch` is not closed | 78 297 | 74 / 79 |
-| `cell_gallery_stair` | `the_gallery`, the stair shaft | `chunk_gl_stair`, `chunk_gl_bay` | — | 46 910 | 41 / 49 |
-| `cell_gallery` | `the_gallery`, bay and gallery | the three gallery chunks | `chunk_lh_hall` while `door_gallery_far` is not closed | 117 500 | 83 / 91 |
-| `cell_hall` | `lift_hall` | `chunk_lh_hall` | `chunk_gl_gallery`, `chunk_gl_bay` while `door_gallery_far` is not closed | 107 875 | 80 / 88 |
+| `cell_tally_seam` | `tally_house`, y < −0.35 (the stair, surface resident) | `chunk_ty_hall` | `chunk_gl_stair` while flag `hatch_powered` | 67 565 | 49 / 57 |
+| `cell_tally` | `tally_house`, the hall | `chunk_ty_hall` | `chunk_st_yard`, `chunk_st_works`, `env_backdrop_day` while `door_tally` is not closed; `chunk_gl_stair` while `ia_hatch` is not closed | 99 297 | 77 / 85 |
+| `cell_gallery_stair` | `the_gallery`, the stair shaft | `chunk_gl_stair`, `chunk_gl_bay` | — | 48 410 | 41 / 49 |
+| `cell_gallery` | `the_gallery`, bay and gallery | the three gallery chunks | `chunk_lh_hall` while `door_gallery_far` is not closed | 119 000 | 83 / 91 |
+| `cell_hall` | `lift_hall` | `chunk_lh_hall` | `chunk_gl_gallery`, `chunk_gl_bay` while `door_gallery_far` is not closed | 109 375 | 80 / 88 |
 | `cell_bore` | `the_bore` | both bore chunks | — | 80 808 | 64 / 72 |
 | `cell_rim` | `far_rim` | `chunk_rim_ledge`, `rim_town_card`, `env_backdrop_dusk` | — | 27 024 | 21 / 26 |
 
@@ -2665,6 +2665,14 @@ or a skin (`tests/render/prewarm.test.mjs` names the missing pairs). High: bloom
 was 1.0 of scene light), intensity 0.9, radius 0.8, emissive things drawn x 2.0; sun shadow opacity 0.55, and the
 shadow pass (not `castShadow`) stops indoors.
 
+**Polish round 5.** `SharedUniforms` slot `uK[15].w` is `uSheen` (High only; 0 on Low and min, where the branch is
+skipped): in `WORLD_LIGHT` a lightmapped face mirrors a share of its own baked light at a grazing angle
+((1 - N.V)^2; floors in full, walls 0.15, ceilings none; none where the face already draws near white). The value is
+per mood (`moods.ts` `SHEEN`: L3, L4, L5, L5p 2.2; L5c 1.2; others 0) and eased over 0.6 s. One uniform, no new
+define, program or texture read. The `GUN` branch of `DYN_FRAG` mirrors a studio with a value structure (a dark
+falling floor, a tilted horizon with a thin hot band, a dimmer sky, a toe `GUN_TOE` 0.25 of the ambient under 2.5 x
+its level) instead of flat floors; `MoodSpec.vmKey` / `vmAmb` are optional hues for the view-model's rig (L2 uses them).
+
 **Polish round 4.** `SharedUniforms` slot `uK[13].w` is `uPulseCap` (`PULSE_CAP` 0.6 / exposure): the muzzle pulse is
 shaded by N.L per pixel (a world material uses the face normal from screen derivatives), floored at 0.12, capped, and
 skipped on frames where both slots are at rest; free block slots left: `k[43]`, `k[59]`, `k[63]`. A mood is 69 numbers
@@ -2727,6 +2735,23 @@ The numbers are `assets.json` `tiers`.
 High stay 12); bloom takes its threshold, knee and intensity from the mood (8.1). `post.aoK.value.w = 0` switches the
 shade off at run time, `= 2` shows it alone.
 
+**Polish round 5 (High; Low and min untouched).** (1) *Dense lamp sets.* Every emissive thing is drawn `EMISSIVE_HDR`
+over white on High; a lamp set of more than `DENSE_LAMPS` 8 lamps whose nearest neighbour stands within its own size
+(only the Windlass's `gauge`; `LampInfo.dense`, `MaterialFactory.denseHold`) is instead held at `DENSE_OVER` 1.08 x the
+mood's bloom threshold, never under `DENSE_MIN` 0.92 of display white: pips with dark gaps, not one white bar.
+(2) *Contact shade.* The strongest of the sixteen taps is left out (one tap is the stipple), and a surface in a lamp's
+own pool loses up to `AO_LIT` 0.7 of the shade between display levels 0.30 and 0.85 (`uAoExposure`); `AO_INTENSITY`
+stays 10. No pass, target or program was added. (3) *Mood keys.* `MoodKey` is `MoodId | 'L5a' | 'L5c' | 'L6c'`:
+`L6c` (the rock room of the proving lift on the rim) is L6 in everything but the dynamic ambient, key, key direction
+and fill; `moodAt('far_rim', 'L6', y, z)` returns it beyond `RIM_CAGE_MIN_Z` 111.8. (4) *The flash.* `VfxApi.muzzleFlash
+(kind, x, y, z)` is unchanged as a contract; with a view-model attached x, y, z now give the sprite's distance from the
+eye and the centre of the world light pulse, and the sprite's direction comes each drawn frame from the drawn `muzzle`
+node (`vfx.ts` `rideMuzzle`, called from `system.ts` `render()` after `poseViewModel()`); without a node, x, y, z as
+given. `weapon/fired` mx, my, mz is unchanged (the true muzzle). `__dbg.ext.render.muzzle()` reports the drawn muzzle,
+the sprite and the smoke start as frame fractions. (5) *Driving drawn frames on High from a test:* give the event loop
+a turn every 8 drawn frames (`pace()` in `tests/render/prewarm.test.mjs`): the browser otherwise keeps what each frame
+left behind (4.4 GiB against 1.4 GiB over the same leg).
+
 ### 8.3 Draw-call ledger (Low)
 
 The ledger is computed per visibility cell by the same model as the triangles (7.5) and
@@ -2778,6 +2803,9 @@ textures add under 0.1 MiB. If the R8 upload path proves unavailable (section 15
 always-resident set grows by 7.4 MiB and the hatch layer by 0.75, and the `seam` stage on
 Low would reach 69.1: the fallback is then Low's buffer cap at 1280 × 720 (24.6) and
 `tx_fx` at 512² (−2.1), 63.6.
+
+**Polish round 5 (High).** The sun's shadow square is 52 m (`SHADOW_HALF` 26; it was 36 m): the same map and cost,
+5 cm a texel.
 
 **Polish round 4 (High).** The composer's input buffer carries a 24-bit depth TEXTURE instead of a depth renderbuffer
 (the contact shade reads it): the same 4 bytes a pixel, so the table's totals stand.

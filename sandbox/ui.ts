@@ -85,7 +85,8 @@ function build(sb: Sandbox): void {
     const l = ctx.data.line(key);
     ev.emit('story/line', { key, speaker: l.speaker, text: l.text, seconds: l.seconds });
   };
-  const card = (key: StoryKey): void => { const l = ctx.data.line(key); ev.emit('story/card', { key, text: l.text, seconds: l.seconds }); };
+  // a card is shown once a run (polish round 5): the button starts the count of shown cards again, so it always shows
+  const card = (key: StoryKey): void => { const l = ctx.data.line(key); ev.emit('game/new_run', { difficulty: ctx.options.value.difficulty }); ev.emit('story/card', { key, text: l.text, seconds: l.seconds }); };
   const caption = (key: StoryKey): void => { const l = ctx.data.line(key); ev.emit('story/caption', { key, text: l.text, seconds: l.seconds }); };
   const lines = ctx.data.story.lines;
   const firstOf = (speaker: string): StoryKey => Object.keys(lines).find((k) => lines[k]?.speaker === speaker) ?? '';
@@ -176,6 +177,8 @@ function build(sb: Sandbox): void {
   for (const k of CARDS) add('card', k.replace('card_', ''), () => card(k));
   add('screen', 'title (save)', () => toTitle(true));
   add('screen', 'title (no save)', () => toTitle(false));
+  add('screen', 'title (Begin over a save)', async () => { await toTitle(true); click('play'); });
+  add('card', 'a fight starts (the card gives way)', () => ev.emit('enemy/telegraph', { x: 0, y: 0, z: -6, id: 'sandbox#1', kind: 'tamper', attack: 'charge', seconds: 0.9 }));
   add('screen', 'story', async () => { await toTitle(true); click('story'); });
   add('screen', 'credits', async () => { await toTitle(true); click('credits'); });
   add('screen', 'options (title)', async () => { await toTitle(true); click('options'); });

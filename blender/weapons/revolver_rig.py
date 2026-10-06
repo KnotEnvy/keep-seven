@@ -109,7 +109,7 @@ def left_hand_matrix():
 
 
 def left_hand():
-    return hands.Hand("l", LEFT_CURLS, LEFT_THUMB, thumb_r=(16.5, 13.6, 11.6, 9.2), forearm=(0.0, -1.0, 0.0), forearm_up=(0, 0, 1), loop=True), left_hand_matrix()
+    return hands.Hand("l", LEFT_CURLS, LEFT_THUMB, thumb_r=(13.8, 11.8, 10.3, 8.3), forearm=(0.0, -1.0, 0.0), forearm_up=(0, 0, 1), loop=True), left_hand_matrix()
 
 
 def frame_from(origin, axis_y, hint_z):

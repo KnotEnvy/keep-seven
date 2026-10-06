@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { FIXED_DT } from '../core/contracts.ts';
 import type {
-  AssetDef, DebugSnapshot, GameContext, InstanceApi, LampApi, LayoutMarker, MoodId, PerfStats, RenderSystem, RenderTier, TextureId, VfxApi, ZoneId,
+  AssetDef, DebugSnapshot, GameContext, GameEvents, InstanceApi, LampApi, LayoutMarker, MoodId, PerfStats, RenderSystem, RenderTier, TextureId, VfxApi, ZoneId,
 } from '../core/contracts.ts';
 import { Feedback } from './feedback.ts';
 import { Instances } from './instances.ts';
@@ -15,10 +15,10 @@ import { HaloSpec, MaterialFactory, writeHalo } from './materials.ts';
 import {
   BORE_KERB_TOP_Y, MOODS, MOOD_SIZE, M_AMBIENT, M_CLOUD, M_CONTRAST, M_DENSITY, M_EXPOSURE, M_FOG_A, M_FOG_B, M_FOG_MIX_DIST, M_FOG_MIX_SUN, M_GLOW,
   M_HEIGHT_EXTRA, M_HEIGHT_FALLOFF, M_KEY, M_KEY_DIR, M_LIFT, M_MID, M_MID_SIN, M_PLACE, M_PULSE, M_RULE, M_SATURATION, M_SKY, M_SUN_COL, M_SUN_DIR, M_SUN_DISC,
-  M_TINT, M_VIGNETTE, M_ZENITH, M_BLOOM_T, M_BLOOM_K, M_BLOOM_S, BLOOM_T_DEFAULT, BLOOM_K_DEFAULT, cellHeightExtra, isMoodKey, lerpMood, moodAt, smoothstep01,
+  M_TINT, M_VIGNETTE, M_ZENITH, M_BLOOM_T, M_BLOOM_K, M_BLOOM_S, BLOOM_T_DEFAULT, BLOOM_K_DEFAULT, SHEEN, cellHeightExtra, isMoodKey, lerpMood, moodAt, smoothstep01,
 } from './moods.ts';
 import type { MoodKey } from './moods.ts';
-import { AO_INTENSITY, AO_SKY, PostChain, VM_DEPTH_RANGE } from './post.ts';
+import { AO_INTENSITY, AO_SKY, EMISSIVE_HDR, PostChain, VM_DEPTH_RANGE } from './post.ts';
 import { HUE, SharedUniforms } from './shared.ts';
 import { Sky } from './sky.ts';
 import { Vfx, VFX_IDS } from './vfx/vfx.ts';
@@ -31,7 +31,13 @@ const DEFAULT_MOOD_FADE = 1.5;
 const TRAUMA_DECAY = 1.8;
 const SHAKE_PITCH = 1.2 * Math.PI / 180, SHAKE_YAW = 1.2 * Math.PI / 180, SHAKE_ROLL = 1.5 * Math.PI / 180;
 const SHADOW_MAP_BYTES = 8 * 1024 * 1024;
-const SHADOW_HALF = 18;
+/** half the side of the sun shadow map's square (High). Polish round 5: 18 -> 26 m, so a Bider coming up the street or across the yard carries its shadow from the first sight of it, not from 18 m (5 cm a texel under PCF; the map and its cost are the same) */
+const SHADOW_HALF = 26;
+/**
+ * High: a dense lamp set (materials.ts LampInfo.dense, the Windlass's gauge) is drawn DENSE_OVER of the mood's bloom
+ * threshold and never under DENSE_MIN of display white; DENSE_LUMA is the luminance of its aqua-white lamp value.
+ */
+const DENSE_OVER = 1.08, DENSE_MIN = 0.92, DENSE_LUMA = 0.95;
 const MAX_OUTLINE_MESHES = 12;
 /** share of a lit particle's light that is neutral (and how bright that neutral part is against the mood's brightest channel) */
 const LIT_NEUTRAL = 0.3, LIT_NEUTRAL_GAIN = 1.5;
@@ -161,6 +167,8 @@ export class RenderSystemImpl implements RenderSystem {
   private haloCount = 0;
   private readonly textureIds: TextureId[];
   private readonly scratch = new THREE.Vector3();
+  private muzzleOf: THREE.Object3D | null = null;
+  private muzzleFound: THREE.Object3D | null = null;
   private readonly clearColor = new THREE.Color();
   private coverageTarget: THREE.WebGLRenderTarget | null = null;
   private warmUps = 0;
@@ -189,7 +197,7 @@ export class RenderSystemImpl implements RenderSystem {
     this.inst = new Instances(ctx, (x, y, z) => this.materials.moodOf(x, y, z), (m, g) => this.materials.instancedTwin(m, g));
     this.instances = this.inst;
     this.lamps = this.materials.lamps;
-    this.feedback = new Feedback(ctx, this.fx, () => this.ctx.clock.simTime);
+    this.feedback = new Feedback(ctx, this.fx, () => this.ctx.clock.simTime, (e, out) => this.muzzleSeen(e, out));
     this.exteriorAt = (x, y, z) => {
       const zone = this.ctx.data.zoneAt(x, y, z, this.ctx.world.residentSet);
       return zone !== null && this.exteriorZones.has(zone);
@@ -536,6 +544,21 @@ export class RenderSystemImpl implements RenderSystem {
       post.aoK.value.y = AO_INTENSITY * (1 - (1 - AO_SKY) * (cur[M_SKY] as number));
       post.applyGrain();
     }
+    // High (underground look, polish round 5): the sheen of the station's glaze eases to the mood's (moods.ts SHEEN), and a
+    // dense lamp set (the Windlass's gauge) is held just over the mood's bloom threshold instead of EMISSIVE_HDR over
+    // white: x (1 + (hdr - 1) x) of its lamp value is DENSE_OVER of the threshold on display (materials.ts EMIS_FRAG)
+    {
+      const bloom = ctx.quality.features.bloom && post !== null && !this.overIdentity;
+      const sheen = bloom ? SHEEN[this.moodKey] ?? 0 : 0;
+      s.uSheen.value += (sheen - s.uSheen.value) * Math.min(1, dt / 0.6);
+      if (s.uSheen.value < 1e-3 && sheen === 0) s.uSheen.value = 0;
+      let hold = 1;
+      if (bloom && post) {
+        const level = Math.max(post.bloomThreshold * DENSE_OVER, DENSE_MIN) / Math.max(this.exposure, 1e-3) / DENSE_LUMA, h = EMISSIVE_HDR - 1;
+        hold = Math.min(1, h > 1e-3 ? (Math.sqrt(1 + 4 * h * level) - 1) / (2 * h) : level);
+      }
+      this.materials.denseHold = Math.round(hold * 64) / 64;
+    }
     // sky
     const sky = this.sky;
     if (sky) {
@@ -702,6 +725,44 @@ export class RenderSystemImpl implements RenderSystem {
     sun.target.updateMatrixWorld();
   }
 
+  /** The view-model's `muzzle` node (design/assets.json), looked up once per attached instance; null without one. */
+  private muzzleNode(): THREE.Object3D | null {
+    const vm = this.ctx.scene.viewModel, first = vm.children.length > 0 ? vm.children[0] as THREE.Object3D : null;
+    if (first !== this.muzzleOf) {
+      this.muzzleOf = first;
+      this.muzzleFound = first ? vm.getObjectByName('muzzle') ?? null : null;
+    }
+    return this.muzzleFound;
+  }
+
+  /**
+   * The muzzle of a shot as the WORLD camera must be given it (polish round 5). `weapon/fired` carries the muzzle as a
+   * camera-space point of the view-model pass put into the world; that pass has its own projection (40 degrees, and a
+   * shift on shapes wider than 16:9), so the world camera drew the smoke and the tracer's start nearer the crosshair
+   * than the barrel. The point is moved across the view so that both projections put it on the same pixel, at the same
+   * depth. Camera axes are rebuilt from the shot's aim (the camera object holds the pose of the last drawn frame).
+   */
+  private muzzleSeen(e: Readonly<GameEvents['weapon/fired']>, out: { x: number; y: number; z: number }): boolean {
+    // right = aim x up, upward = right x aim
+    let rx = -e.dz, rz = e.dx;
+    const rl = Math.hypot(rx, rz);
+    if (!(rl > 1e-3)) return false;
+    rx /= rl; rz /= rl;
+    const ux = -rz * e.dy, uy = rz * e.dx - rx * e.dz, uz = rx * e.dy;
+    const vx = e.mx - e.ox, vy = e.my - e.oy, vz = e.mz - e.oz;
+    const depth = vx * e.dx + vy * e.dy + vz * e.dz;
+    if (!(depth > 1e-3)) return false;
+    const vp = this.viewCamera.projectionMatrix.elements, wp = this.ctx.scene.camera.projectionMatrix.elements;
+    const w0 = wp[0] as number, w5 = wp[5] as number;
+    if (!(w0 > 1e-6) || !(w5 > 1e-6)) return false;
+    const x = (vx * rx + vz * rz) * (vp[0] as number) / w0 - (vp[8] as number) * depth / w0;
+    const y = (vx * ux + vy * uy + vz * uz) * (vp[5] as number) / w5;
+    out.x = e.ox + e.dx * depth + rx * x + ux * y;
+    out.y = e.oy + e.dy * depth + uy * y;
+    out.z = e.oz + e.dz * depth + rz * x + uz * y;
+    return true;
+  }
+
   /** Camera space -> world: the group takes the world camera's pose, and the 52 degree camera stands where it does. */
   private poseViewModel(): void {
     const roots = this.ctx.scene, vm = roots.viewModel, cam = roots.camera;
@@ -766,7 +827,11 @@ export class RenderSystemImpl implements RenderSystem {
         roots.viewModel.visible = true;
         r.render(roots.viewModel, this.viewCamera);
       }
-      if (flash.visible) r.render(flash, this.viewCamera);
+      if (flash.visible) {
+        // the sprite rides the muzzle as this frame draws it (the kick, the camera's recoil and the shake included)
+        this.fx.rideMuzzle(this.muzzleNode(), this.viewCamera.matrixWorld);
+        r.render(flash, this.viewCamera);
+      }
       if (gl) gl.depthRange(0, 1);
     }
     post.finish(FIXED_DT, this.ctx.clock.tick, this.exposure);
@@ -1062,7 +1127,7 @@ export class RenderSystemImpl implements RenderSystem {
       }),
       /** the mood's numbers as they are now: fog colours, density, exposure, grade (linear) */
       mood: fn(() => ({ id: this.mood, key: this.moodKey, t: this.moodT, values: Array.from(this.moodCur), exposure: this.exposure, heightExtra: this.heightExtra, fogBase: this.fogBase })),
-      setMoodKey: fn((key: string, seconds: number) => { if (isMoodKey(key)) { if (key !== 'L5a' && key !== 'L5c') this.mood = key; this.retarget(key, seconds); } }),
+      setMoodKey: fn((key: string, seconds: number) => { if (isMoodKey(key)) { if (key !== 'L5a' && key !== 'L5c' && key !== 'L6c') this.mood = key; this.retarget(key, seconds); } }),
       programs: fn(() => (this.renderer.info.programs ? this.renderer.info.programs.length : 0)),
       /** every material x mesh-shape pair handed out since boot (the generator of prewarm.ts) */
       recipes: fn(() => this.materials.recipeList()),
@@ -1082,6 +1147,23 @@ export class RenderSystemImpl implements RenderSystem {
       /** share of the frame's pixels within Delta E 25 of the violet `#B24BFF` (ART_BIBLE 2.4: under 2 % until the bore) */
       violetShare: fn(() => this.violetShare()),
       viewModelCoverage: fn(() => this.viewModelCoverage()),
+      /**
+       * Polish round 5: where the pass draws the muzzle and the flash sprite now (fractions of the frame, y up), and
+       * where the last shot's smoke and tracer began, through the world camera. Read after a drawn frame.
+       */
+      muzzle: fn(() => {
+        this.poseViewModel();
+        const node = this.muzzleNode(), cam = this.ctx.scene.camera, f = this.fx.flashMesh, m = this.feedback.muzzle;
+        const at = (v: THREE.Vector3, c: THREE.Camera): { x: number; y: number } => { v.project(c); return { x: (v.x + 1) / 2, y: (v.y + 1) / 2 }; };
+        cam.updateMatrixWorld(true);
+        cam.matrixWorldInverse.copy(cam.matrixWorld).invert();
+        return {
+          node: node !== null,
+          muzzle: node ? at(new THREE.Vector3().setFromMatrixPosition(node.matrixWorld), this.viewCamera) : null,
+          flash: at(f.position.clone(), this.viewCamera), flashVisible: f.visible, rides: this.fx.counts.flashRides,
+          smoke: at(new THREE.Vector3(m.x, m.y, m.z), cam), smokeWorld: [m.x, m.y, m.z],
+        };
+      }),
       viewModelProject: fn((x: number, y: number, z: number) => {
         this.poseViewModel();
         const v = this.scratch.set(x, y, z).project(this.viewCamera);

@@ -14,7 +14,7 @@ import type { Graph } from './graph.ts';
 import { CONFIRM_DELAY, KILL_DELAY, gunSounds } from './gun.ts';
 import { MUSIC_NAMES, Music } from './music.ts';
 import type { MusicHost, MusicStateName } from './music.ts';
-import { IR_CONFIRM_LIFT, zoneIr } from './reverb.ts';
+import { IR_CONFIRM_HOLD, IR_CONFIRM_LIFT, zoneIr } from './reverb.ts';
 import { PRIO_CONFIRM, PRIO_GUN, PRIO_OTHER, PRIO_STATION, makeParams, resetParams, snd } from './sound.ts';
 import type { SoundDef, SoundParams, SoundTable } from './sound.ts';
 import { stationSounds } from './station.ts';
@@ -261,6 +261,8 @@ export class Engine implements MusicHost {
     p.gain *= IR_CONFIRM_LIFT[zoneIr(this.zone)] as number;
     if (this.play(name, p) >= 0 && this.graph && this.graph.active) this.graph.duckTail(this.graph.now() + p.delay);
   }
+  /** How long the tick, the tink, the sour note and the kill's thud hold their level in the room she stands in (their `a`). */
+  private hold(): number { return IR_CONFIRM_HOLD[zoneIr(this.zone)] as number; }
   /** A sound with its caption: the caption is raised only when the sound really started. */
   private captioned(name: string, p: SoundParams, key: string): void {
     if (this.play(name, p) >= 0) this.env.say(key);
@@ -431,11 +433,16 @@ export class Engine implements MusicHost {
           break;
         // the confirms are for her, not for the room: dry, centred, the same at any range. They are logged on the
         // tick of the hit and SOUND a moment later, after the report they would otherwise be buried under
-        case 'hit': p.positional = false; p.delay = CONFIRM_DELAY; this.confirm('hit_tick', p); break;
-        case 'weak': p.positional = false; p.delay = CONFIRM_DELAY; this.confirm('hit_weak', p); break;
-        case 'kill': p.positional = false; p.delay = KILL_DELAY; this.play('hit_kill', p); break;
+        case 'hit': p.positional = false; p.delay = CONFIRM_DELAY; p.a = this.hold(); this.confirm('hit_tick', p); break;
+        case 'weak': p.positional = false; p.delay = CONFIRM_DELAY; p.a = this.hold(); this.confirm('hit_weak', p); break;
+        case 'kill':
+          p.positional = false; p.delay = KILL_DELAY; p.a = this.hold();
+          // in the hall and the bore the thud is held and the report's tail steps back under it as under the others
+          // (no lift: it is at the limiter); in the open it is 8 dB over the bed without either, and nothing moves
+          if (this.play('hit_kill', p) >= 0 && p.a > 0 && this.graph && this.graph.active) this.graph.duckTail(this.graph.now() + p.delay);
+          break;
         case 'freed': p.positional = false; p.delay = CONFIRM_DELAY; this.play('hit_freed', p); break;
-        case 'parried': p.positional = false; p.delay = CONFIRM_DELAY; this.confirm('hit_parry', p); break;
+        case 'parried': p.positional = false; p.delay = CONFIRM_DELAY; p.a = this.hold(); this.confirm('hit_parry', p); break;
         case 'passed': this.play('hit_pass', p); break;
         case 'deflected':
           p.delay = CONFIRM_DELAY;

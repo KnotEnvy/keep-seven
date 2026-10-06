@@ -235,6 +235,8 @@ export class Vfx implements VfxApi {
   private flashT0 = -1; private flashLife = 0; private flashSize = 0.35; private flashRoll = 0;
   /** a drawn frame has shown the current flash */
   private flashShown = true;
+  /** how far from the eye the current flash was asked for: kept while it rides the drawn muzzle (rideMuzzle) */
+  private flashDist = 0;
   private readonly flashColor: Uniform<THREE.Vector4> = { value: new THREE.Vector4(1, 1, 1, 0) };
   private readonly flashRect: Uniform<THREE.Vector4> = { value: new THREE.Vector4() };
   private readonly flashMono: Uniform<number> = { value: 0 };
@@ -251,7 +253,7 @@ export class Vfx implements VfxApi {
   additiveLoad = 0;
   smokeLoad = 0;
   /** bursts asked for / drawn / refused by the quiet, since boot */
-  readonly counts = { bursts: 0, quiet: 0, capped: 0, dropped: 0, lines: 0, rings: 0, flashes: 0, pulses: 0, decals: 0, provingRings: 0, provingIgnored: 0 };
+  readonly counts = { bursts: 0, quiet: 0, capped: 0, dropped: 0, lines: 0, rings: 0, flashes: 0, flashRides: 0, pulses: 0, decals: 0, provingRings: 0, provingIgnored: 0 };
   reduceFlashes = false;
   private readonly rng;
   private readonly cam = new THREE.Vector3();
@@ -433,6 +435,8 @@ export class Vfx implements VfxApi {
     this.flashColor.value.set(c.r, c.g, c.b, 1);
     this.flashMono.value = kind === 'lead' ? 0 : 1;
     this.flashMesh.position.set(x, y, z);
+    const eye = this.ctx.player.eye;
+    this.flashDist = Math.hypot(x - eye.x, y - eye.y, z - eye.z);
     this.flashRoll = this.rng.next() * 6.2831853;
     // the kept round's pulse (look-dev, polish round 3): pure aqua x 3.2 over 9 m clipped everything she aims at to one
     // flat `#7CF2E2` for the two frames of the shot. An aqua-white at x 1.0 over 14 m and twice as long: the room is LIT
@@ -800,6 +804,27 @@ export class Vfx implements VfxApi {
       d[o + 12] = 2; d[o + 13] = 0.2; d[o + 14] = 0.3; d[o + 15] = 0;
       d[o + 16] = SHAPE_LINE; d[o + 17] = 1; d[o + 18] = 0; d[o + 19] = FLAG_ADD | FLAG_PX;
     }
+  }
+
+  /**
+   * Polish round 5 (combat critic: "the flash is drawn away from the muzzle and stays put while the barrel recoils").
+   * The caller asks for the flash at a WORLD point computed from the pose of the shot's tick; by the first drawn frame
+   * the camera has kicked and the gun has risen, and the sprite stood 80 px (then 200 px) from the barrel at 540p. While
+   * it lives, the sprite is put on the line from the eye through the view-model's DRAWN muzzle, as far out as it was
+   * asked for (so its size on the screen is the one the caller chose). `muzzle` is the view-model's muzzle node with its
+   * world matrix of this frame, `eye` the world matrix of the camera that draws it. No node (a page without a
+   * view-model): the asked position stands.
+   */
+  rideMuzzle(muzzle: THREE.Object3D | null, eye: THREE.Matrix4): void {
+    if (!muzzle || this.flashDist < 1e-3) return;
+    const m = muzzle.matrixWorld.elements, e = eye.elements;
+    const ex = e[12] as number, ey = e[13] as number, ez = e[14] as number;
+    const dx = (m[12] as number) - ex, dy = (m[13] as number) - ey, dz = (m[14] as number) - ez;
+    const len = Math.hypot(dx, dy, dz);
+    if (!(len > 1e-4)) return;
+    const k = this.flashDist / len;
+    this.flashMesh.position.set(ex + dx * k, ey + dy * k, ez + dz * k);
+    this.counts.flashRides++;
   }
 
   /** A frame was drawn (not the hidden warm-up one): the flash and the streaks it showed may now end on time. */

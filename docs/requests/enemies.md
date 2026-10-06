@@ -79,3 +79,53 @@ logic was touched).
 | 4.2 | the pocket beside `lh_ramp_cabinet` | **Open for round 5** (level + interior art + nav: moving a solid moves the prop, the bake and the charge-stun bait). Listed in the report's known gaps |
 | 4.3 | the yard after the passing Transit | measured at the close: Part H.3 |
 | 4.4 | the Tamper seen at 1 m on the gantry | not judged by a look team this round (no creatures team reported); the Tamper at 3 to 5 m is `shots/round-4/hero_08.png` |
+
+---
+
+# Polish round 5 (2026-10-06): the enemies team
+
+Three minors from the fresh critics, all closed in `src/enemies/`. Log: `scratch/r5-team-enemies/NOTES.md`; legs:
+`scratch/r5-team-enemies/a_*.log` (after), `b_mat_3.log` (before). Tests: `tests/enemies/polish_r5.test.mjs` (3).
+
+## 1. What changed
+
+| # | Issue | Change | Proof (Normal, real game, plain-skill proxies) |
+|---|---|---|---|
+| 1 | The Tamper, not the Windlass, was the peak | `TAMPER.slamWindupBy` { easy 1.15, normal 1.15, hard 1.0 } s before `telegraphScale` (it was 1.0 on all three). The chest vent's window is unchanged (the last 0.6 s; Easy the last 1.0 s); the clip is played slower by the ratio. The Windlass was left alone | 0.5 s-reaction proxy: 2 deaths (slam 178 + charge 70) before, 0 deaths and 17 HP left after; 0.45 s: 34 HP left (22 before); default: 49 HP; careless: 34 HP. 28 to 32 s, 17 to 21 rounds, 4 to 5 + 5 to 9 rounds left, never dry |
+| 2 | A respawn into Windlass phase 2 killed a player who paused | A restore into `p1`, `p2` or `p3a` holds the first attack `BOSS.retryLead` 4.0 s (it was 1.5; adds wait with it), and on `player/respawned` she is given full health on Easy and Normal (`BOSS.retryFullHealth`; canteens through `PlayerApi.givePickup`, the way the world's phase floor is given). Hard: 4 s, no health | The standing proxy comes back on 100 (67 before) and is first hurt after 4 s; if it never moves at all it still dies, at 13 to 15.5 s (9.4 to 10.3 before). Moving proxy: phase 1 51 s, phase 2 62 s, 0 deaths |
+| 3 | HAULING. announced after the Windlass is dead | Phase 3b says its two `stn_boss_hauling` and `nar_hauling` only when the line box has stood free 0.5 s (`BOSS.dryLineQuiet`; the module hears `story/line` / `story/line_end`), so none is ever queued; the kill overtakes any not yet said | `a_climax.log`: dead 25.6 s, `stn_service` 25.6, `stn_thanks` 30.4, next line `nar_lift_up` 42.7 (before: HAULING 9.5 s after the death) |
+
+Scripted playthrough after these: 30 378 ticks, 8.2 min, 86 rounds, 36 freed, 0 deaths, hash `7b6c1fb9`, same on a second
+load; 17 of 17 restores (measured while other teams were still editing: the closer's number is the one to print).
+
+## 2. For the closer: numbers to mirror into the documents
+
+| Document | What |
+|---|---|
+| GDD 7.3 `slam` (state table and attack table), GDD 15 | slam telegraph 1.15 s on Normal, 1.38 s on Easy (1.15 x 1.2), 0.9 s on Hard (1.0 x 0.9, as before). Vent open for the last 0.6 s (Easy 1.0 s) |
+| GDD 8.3 (respawn in the Windlass) | a retry of phase 1, 2 or 3a: 4 s before the first attack; full health on Easy and Normal. "The fight resumes within 3 s" now means control, not the first attack |
+| GDD 8.2 phase 3b | the two HAULING lines and `nar_hauling` are said only into a free line box; a player who kills it within about 10 s of HEAD DRY hears none of them |
+| GDD 4.2 / 6.7 measured curve | Tamper 28 to 32 s, 56 to 83 damage to plain proxies, 0 deaths in four legs; Windlass P1 51 s, P2 62 s from a checkpoint start (4 s of it the lead-in) |
+
+## 3. Asked of others
+
+| # | Of | What |
+|---|---|---|
+| 1 | code-world (`src/world/director.ts`, next to the other `story.unless` rules) | Belt and braces, one line: `s.story.unless('stn_boss_hauling', () => bossDead)` and the same for `stn_boss_indexing`. Not needed for the case the critic saw (the enemies no longer queue the line), but a HAULING said in the last second of phase 3a's haul could in principle still wait behind the proof's lines |
+
+## 4. Known gaps
+
+- A player who stands still for the whole of phase 2's first pattern after a respawn still dies (13 s). Nothing short of
+  switching the pattern off saves her; one step in those 13 s does.
+- On Easy the slam's vent still opens for the last 1.0 s of a 1.38 s wind-up, not "the whole wind-up" the round-4 note
+  says (it was 1.0 of 1.2 before this round too).
+- No person has played the Tamper with the longer tell; four proxy legs, whose mistakes repeat.
+
+## Closer, polish round 5 (2026-10-06): decisions
+
+| Row | Decision |
+|---|---|
+| 2 (numbers to mirror) | **Mirrored**: GDD 7.3 `slam_windup` and section 15 (1.15 / 1.38 / 0.9 s), 8.3 (retry 4 s, full health on Easy and Normal), 8.2 phase 3b (HAULING only into a free line box), 23.10; LEVEL 12 |
+| 3.1 (moot rule for `stn_boss_hauling` / `stn_boss_indexing`) | **Not applied**: a guard for a case nobody has seen; the story queue is not touched unverified in the last hour. Listed as a known gap |
+| 4 (standing still in phase 2 after a respawn) | **Stands** as a known gap (INTEGRATION_REPORT J.6) |
+| the slower `slam_windup` clip as a picture | not judged by a look team; listed |

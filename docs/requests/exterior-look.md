@@ -40,3 +40,44 @@ takes the round and the game eases her view by itself, `vmrim.mjs`).
 | 3 | the gun in the blue hour | open for round 5 (gun look) |
 | 4 | a narrower panel at 4:3 | **Declined**: the fire is clear at 4:3; the cut row of houses is a framing cost of the panel |
 | 5 | the bot's last frame | the hero frame of the ending is taken with `scratch/r4-team-exterior-look/end.mjs` (the true eased view) |
+
+# Look team "exterior-look", polish round 5 (2026-10-06)
+
+One issue (visual critic, major): the rim "has a blank maroon box against the sky and a pitch-black lift cage with a
+notched opening". Evidence: `shots/r5-team-exterior-look/before/` and `after/` (the real game, 1280 x 720, Low and High;
+`scratch/r5-team-exterior-look/rimcap.mjs <set> <tier>` takes all 24 frames in one browser; `end.mjs` the arrival and
+the last image). Log: `scratch/r5-team-exterior-look/NOTES.md`.
+
+## 1. What changed (for the documents)
+
+| What | Before | After |
+|---|---|---|
+| The mesa east and west of the ledge (`env_backdrop_dusk.py`: `wing`, `under_ledge`) | five plain quads in two colours, 0.3 m from the ledge's ends: a maroon box in every view east or west | **wings of the rim's own cliff**: `env_far_rim.cliff_column` continued along the old wall's line (same noise: the beds, buttresses and broken skyline run on), 26 m west to the nose at (-24, 106.4) and 33 m east to the nose at (57, 102.4), painted light (unlit `m_flat`: a bed's face `#44232A`, a recess `#2A1820`, under a lip `#14121F`, the rim rock `#4C2C2E`), down to the scree; the rock under the ledge's two ends. The zone's chunk may not leave its box (x -2 .. 30), this card may |
+| The far country of the dusk backdrop | four rings and the hogbacks all the way round | every landform that stands wholly within **60 degrees of south** of the rim is not drawn (it stands behind the mesa from anywhere on the ledge: `tests/art_env_exterior/rim.test.mjs`, 43 200 rays, the southernmost open one 67 degrees from south). 1 965 of 2 000 triangles (was 1 987) |
+| The rock room round the proving lift (`env_far_rim.py` `build_frame`: Part `rim_room`) | `rock_dark` x 0.9, vertex-lit in a closed box: L* 7, ink. **The cage's panels are single-sided: from inside it she looks through them at this room** | the mesa's stone (`ROOM_DARK` 0.40), lit by the afterglow through the opening: three bake-only area lights (`fill_cage` in the face's plane looking in, `fill_cage_back` what the back wall gives back, `fill_brow` under the brow; `KS_RIM_CAGE`, 28 W). Walls L* 9 to 14 with their beds, the reveal L* 18 to 24, the brow's underside rock, not a band of ink |
+| The opening's top (`OPEN_TOP`, `brow_lip`) | a notch 0.56 m deep with one plumb side, cut 62 % back into the brow | a bite a hand deep with shoulders a pace long; the lintel only a little out of true |
+| `src/render/moods.ts` | | new sub-volume key **`L6c`** (`rimCage`): L6 in everything but the dynamic ambient, key, key direction and fill; `moodAt('far_rim', 'L6', y, z)` returns it beyond `RIM_CAGE_MIN_Z` 111.8 (only the cage stands there): the cage's posts, rail, floor and call station take an ember key from the north (2.4), a dusk-violet ambient (0.5) and fill (1.2). The frame, fog, sky and view-model rig are L6's |
+| The pylon stump on the ledge (`env_far_rim.py`) | pale enamel, L* 65: the lightest thing on the ledge | x 0.32 |
+| `env_far_rim` | 8 116 of 14 000 triangles | 8 316 (the room's walls are tessellated for vertex light); `lm_rim` re-baked |
+
+Measured in the real game on the rim (20 static views, 1280 x 720): Low 8 to 15 draw calls, 16.2k to 17.4k triangles,
+34.3 MiB; High 19 to 26, the same triangles, 48.7 MiB (before: Low 8 to 15, 16.1k to 17.2k, 34.3 MiB).
+
+## 2. Requests
+
+| # | To | What | Why |
+|---|---|---|---|
+| 1 | closer (docs) | Mirror section 1 into `docs/ART_BIBLE.md` (3.7 / the coda: the cage's room is lit rock, the frame's notch is a bite; the mesa's wings) and `docs/ARCHITECTURE.md` (the mood keys: `L6c` beside `L5a` / `L5c`; `moodAt` for `far_rim`) | documents |
+| 2 | render-tech (seen, edited by me, one token each) | `src/render/system.ts` `setMoodKey`: `&& key !== 'L6c'` beside the two bore sub-volumes (the type needs it); `tests/render/moods.spec.ts`: `'L6c'` in the key list, three lines that hold `moodAt('far_rim', ...)` and "L6c differs from L6 only in the dynamic light" | a new mood key |
+| 3 | gun look team (seen, not mine) | `tests/render/moods.spec.ts` "every mood carries a rig for the view-model" fails on the shared tree at the time of writing: L5a `vmK` 1.5 shows the key at 0.825, the test's cap is 0.7975 (`VM_KEY` x 1.45) | their in-progress number or their test |
+| 4 | underground look / art-props-mech | `ia_proving_lift_cage` (and `ia_lift_cage`) are drawn FrontSide and have no inner faces: from inside a cage she sees its posts, rail, floor and call station but looks straight through its wall and roof panels at whatever stands round it. On the rim that is now a lit rock room; in the bore and the lift hall it is the shaft | found while lighting the rim's cage |
+| 5 | closer (`design/assets.json` notes, optional) | `env_backdrop_dusk` now also carries the rim mesa's wings (its note says "mesa cards, pylon line") | a note |
+
+## Closer, polish round 5 (2026-10-06): decisions
+
+| Row | Decision |
+|---|---|
+| 2.1 | **Mirrored**: ART_BIBLE round-5 amendments ("The coda"), ARCHITECTURE 8.2 (3) (`L6c`, `moodAt`), LEVEL 12, GDD 23.10 |
+| 2.2 (one-token edits in `system.ts`, `moods.spec.ts`) | **Accepted** |
+| 2.4 (cages single-sided) | **Not changed**: a shared prop used in three zones, embedded in bakes; known gap |
+| 2.5 (`design/assets.json` note of `env_backdrop_dusk`) | **Not applied**: the design data is frozen and a change to it rebuilds all 102 assets for a note |

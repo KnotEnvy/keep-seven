@@ -213,7 +213,7 @@
     },
     "nar_street_after": {
       "speaker": "narrator",
-      "text": "Seven of them. She had started with six in the gun.",
+      "text": "Eight of them. She had started with six in the gun.",
       "seconds": 4.5
     },
     "nar_marks": {
@@ -396,15 +396,25 @@
       "text": "They sat down in order, like a thing being counted.",
       "seconds": 4.5
     },
+    "nar_file_behind": {
+      "speaker": "narrator",
+      "text": "Two more on the stair behind her. They had waited to be last.",
+      "seconds": 4.5
+    },
     "nar_file_more": {
       "speaker": "narrator",
-      "text": "Three more, from the far door. These had not queued.",
+      "text": "Four more, from the far door. These had not queued.",
       "seconds": 4.5
     },
     "nar_tamper_1": {
       "speaker": "narrator",
       "text": "The Tamper had a job once. It was still doing it.",
       "seconds": 4.5
+    },
+    "hint_tamper_vent": {
+      "speaker": "narrator",
+      "text": "Lead rang off its plate. The vents stood open only after the blow.",
+      "seconds": 5
     },
     "nar_tamper_dead": {
       "speaker": "narrator",
@@ -615,6 +625,11 @@
       "speaker": "narrator",
       "text": "There was one proving charge left in Plenty. She was carrying it.",
       "seconds": 5.5
+    },
+    "hint_kept_1": {
+      "speaker": "narrator",
+      "text": "Lead would not finish it. She had carried the other round eleven years.",
+      "seconds": 5
     },
     "hint_kept_2": {
       "speaker": "narrator",
@@ -970,7 +985,7 @@
     "ui_end_of": "of",
     "ui_end_knots": "Knots burst",
     "ui_end_lines": "Lines of three or more",
-    "ui_end_clean_six": "A clean six at the last",
+    "ui_end_clean_six": "Six dry mouths, one cylinder",
     "ui_end_secrets": "Things found",
     "ui_end_lamps": "Lamps lit in Plenty",
     "ui_end_carries": "The Reeve carries",

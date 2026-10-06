@@ -143,8 +143,10 @@ test('the ending waits for the narrator: a round taken at once still ends on the
     // what was waiting about the rim's scenery is dropped; the lamps (polish round 3: the end card counts them), the
     // stone, the branch, the fire and the last line follow in order
     // (polish round 4: of the stone's four only the first; the other three describe a round she has already pocketed)
-    assert.deepEqual(keys.slice(1), ['nar_lamps', 'nar_lamps_count', 'nar_stone_1', 'nar_take_1', 'nar_take_2', 'nar_fire', 'nar_last'], keys.join(' '));
-    assert.equal(keys[0], 'nar_rim_1', 'the line that was on screen is not cut');
+    // (polish round 5, R12: her own act is answered on its tick. The take's two lines come first, over the line that
+    // was on screen; none of the stone's lines is said about a round she has pocketed; the lamps follow, then the fire)
+    assert.deepEqual(keys, ['nar_rim_1', 'nar_take_1', 'nar_take_2', 'nar_lamps', 'nar_lamps_count', 'nar_fire', 'nar_last'], keys.join(' '));
+    assert.ok(lines.find((e) => e.payload.key === 'nar_take_1').tick - taken.tick <= 1, 'the take is answered on its tick');
     const fireLine = lines.find((e) => e.payload.key === 'nar_fire'), lastLine = lines.find((e) => e.payload.key === 'nar_last');
     assert.ok(fireLine.tick >= fire.tick && fireLine.tick - fire.tick <= 2 * 60, `the narrator names the fire within 2 s of it (${(fireLine.tick - fire.tick) / 60} s)`);
     const lastEnd = ends.find((e) => e.payload.key === 'nar_last');
@@ -205,8 +207,9 @@ test('nar_transit is said on the turn, next in line; a Transit shot dead inside 
     const game = await open(srv, { checkpoint: 'cp_street_clear' });
     try {
       await game.dbg('god', true);
-      await game.run([{ steps: 600 }]);
+      // (polish round 5: the latch knot's line is said as she first looks at it, here from the checkpoint itself)
       const seq = await mark(game);
+      await game.run([{ steps: 600 }]);
       // the knot on the yard door starts the fight: the bell vignette (4 s), then wave A
       const knot = marker('knot_yard_latch');
       let burst = false;

@@ -98,6 +98,17 @@ export class Boss {
   /** unscaled module time the hush's slow motion was last asked for */
   private hushSlowAt = -1e9;
   dryClock = 0;
+  /** `t` at which phase 3b last said one of its lines */
+  drySaidAt = 0;
+  /**
+   * Seconds the line box has stood free (polish round 5): 0 while a line is on screen (`story/line` to `story/line_end`,
+   * heard by index.ts), counted up by tick() after it. Very large where nothing shows lines (the sandboxes and tests).
+   */
+  lineQuiet = 1e9;
+  lineOn = false;
+  private lineHeld = 0;
+  /** a restore put the fight back in a fighting phase: `player/respawned` fills her health once (BOSS.retryFullHealth) */
+  retryHeal = false;
   drySaid = 0;
   shots3b = 0;
   reload3b = false;
@@ -789,6 +800,7 @@ export class Boss {
   /** Everything of a fight forgotten, the head at rest on the door index. No events. */
   reset(): void {
     this.phase = 'idle'; this.sub = 'rest'; this.t = 0; this.pt = 0; this.ut = 0;
+    this.lineOn = false; this.lineQuiet = 1e9; this.lineHeld = 0; this.drySaidAt = 0;
     this.S.hush = false;
     this.hits = 0; this.guard = 'parked'; this.fresh = true;
     this.parleyStage = 0; this.refused = false;
@@ -875,6 +887,10 @@ export class Boss {
     const phase = data.bossPhase;
     if (phase === 'p1' || phase === 'p2' || phase === 'p3a' || phase === 'p3b') this.startPhase(phase);
     else if (phase === 'proven') this.startPhase('p3b');
+    // polish round 5: a retry of a fighting phase. The head holds its first attack `retryLead` seconds (startPhase
+    // gives 1.5: she was hit again before she had found the room), and she is given her health back (onRespawned).
+    this.retryHeal = false;
+    if (phase === 'p1' || phase === 'p2' || phase === 'p3a') { this.lead = BOSS.retryLead; this.retryHeal = true; }
     else if (phase === 'dead') this.restDead();
   }
 
@@ -891,6 +907,21 @@ export class Boss {
     for (let i = 0; i < 6; i++) { this.lamp[i] = 0; this.dark[i] = 1; }
     this.ensureBody();
     if (this.inst) { this.playBody('sag_death'); if (this.anim) { this.anim.advance(BOSS.sag + 1); this.anim.apply(); } this.pose(); this.updateVolumes(); this.syncLamps(); }
+  }
+
+  /** A line came on screen or left it (index.ts). */
+  onLine(on: boolean): void { this.lineOn = on; this.lineQuiet = 0; this.lineHeld = 0; }
+
+  /**
+   * `player/respawned`: core has applied the three saves. After a restore into a fighting phase she has full health on
+   * Easy and Normal (BOSS.retryFullHealth): a canteen's worth at a time, the way the world's floor is given.
+   */
+  onRespawned(): void {
+    if (!this.retryHeal) return;
+    this.retryHeal = false;
+    if (!BOSS.retryFullHealth[this.S.difficultyId]) return;
+    const pl = this.S.ctx.player;
+    for (let i = 0; i < 3 && pl.alive && pl.health < pl.maxHealth; i++) if (!pl.givePickup('pk_canteen')) break;
   }
 
   onDied(): void { if (FIGHT[this.phase] === true || this.phase === 'p3b' || this.phase === 'proven') this.deaths++; }
@@ -912,6 +943,8 @@ export class Boss {
     if (!inst) return;
     if (this.phase !== 'idle' && this.phase !== 'dead' && S.ai) {
       this.t += dt; this.pt += dt; this.ut += FIXED_DT;
+      if (!this.lineOn) { if (this.lineQuiet < 1e8) this.lineQuiet += FIXED_DT; }
+      else if ((this.lineHeld += FIXED_DT) > 12) this.lineOn = false;   // (no line holds this long: one was cut without its end)
       if (this.phase === 'parley') tickParley(this);
       else tickFight(this, dt);
     } else if (this.phase === 'dead' || this.phase === 'idle') S.tokens.limit = 0;

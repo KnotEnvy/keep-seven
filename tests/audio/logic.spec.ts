@@ -11,6 +11,7 @@ import { blipHz, wordLength, wordLengths } from '../../src/audio/station.ts';
 import { FLAT, centsOff, degree } from '../../src/audio/tuning.ts';
 import { ROOT, nodeFs } from './nodeApi.ts';
 import { POS, cue, fired, hit, rig } from './rig.ts';
+import { makeParams } from '../../src/audio/sound.ts';
 
 const SURFACES: SurfaceType[] = ['sand', 'wood', 'adobe', 'metal', 'ceramic', 'stone', 'cloth', 'none'];
 const OUTCOMES: HitOutcome[] = ['impact', 'hit', 'weak', 'kill', 'freed', 'deflected', 'broke', 'parried', 'passed'];
@@ -603,6 +604,35 @@ describe('fix round 3', () => {
       expect(gains['tamper_clank']).toBeCloseTo(3 * lift, 5);
       expect(gains['hit_kill']).toBe(1);
       expect(gains['hit_freed']).toBe(1);
+    }
+  });
+
+  // polish round 5 (critic "combat"): the four confirms that peak at the limiter hold their level in the hall (12 ms) and
+  // the bore (20 ms): the only way they gain level over the room's tail. Set from the zone, with or without a context.
+  it('hit, weak, parry and kill are held in the hall and the bore and nowhere else; the deflects and the freed bell are not', () => {
+    for (const [zone, hold] of [['the_lip', 0], ['plenty_street', 0], ['tally_house', 0], ['the_gallery', 0], ['lift_hall', 0.012], ['the_bore', 0.02], ['far_rim', 0]] as const) {
+      const r = rig(1, zone);
+      r.step(2);
+      const a: Record<string, number> = {};
+      const play = r.engine.play.bind(r.engine);
+      r.engine.play = (name, p) => { a[name] = p.a; return play(name, p); };
+      for (const [outcome, kind] of [['hit', 'bider'], ['weak', 'transit'], ['parried', 'windlass'], ['deflected', 'windlass'], ['deflected', 'tamper'], ['kill', 'bider'], ['freed', 'bider']] as const) {
+        r.emit('combat/hit', hit(outcome, 'none', kind));
+        r.step(6);
+      }
+      expect(a['hit_tick']).toBe(hold);
+      expect(a['hit_weak']).toBe(hold);
+      expect(a['hit_parry']).toBe(hold);
+      expect(a['hit_kill']).toBe(hold);
+      expect(a['hit_deflect']).toBe(0);
+      expect(a['tamper_clank']).toBe(0);
+      expect(a['hit_freed']).toBe(0);
+      // every hold a room asks for has a pre-rendered take (a value outside the table would be built live, 6 nodes a start)
+      for (const n of ['hit_tick', 'hit_weak', 'hit_parry', 'hit_kill']) {
+        const bk = r.engine.sounds[n]!.bake!;
+        expect(bk.a).toContain(hold);
+        expect(bk.pick({ ...makeParams(), a: hold })).toBe(bk.a.indexOf(hold));
+      }
     }
   });
 });

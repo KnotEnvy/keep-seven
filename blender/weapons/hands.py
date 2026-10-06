@@ -27,7 +27,11 @@ FINGERS = ("index", "middle", "ring", "pinky")
 GLOVE = {"glove": ("tin", "#5A5048"), "glove_worn": ("tin", "#6E6459"), "cuff": ("tin", "#35313C")}
 KNUCKLE = {"index": (-27.0, 90.0, -2.0), "middle": (-8.0, 95.0, 0.0), "ring": (11.0, 91.0, -2.0), "pinky": (27.0, 82.0, -6.0)}
 LENGTH = {"index": (43.0, 26.0, 23.0), "middle": (47.0, 29.0, 24.0), "ring": (43.0, 27.0, 23.0), "pinky": (34.0, 21.0, 20.0)}
-RADIUS = {"index": (11.2, 10.2, 9.3, 7.7), "middle": (11.4, 10.4, 9.5, 7.9), "ring": (11.0, 10.0, 9.1, 7.6), "pinky": (9.9, 8.9, 8.1, 6.9)}     # gloved: a millimetre of leather all round
+# Polish round 5 (both critics: "a fingerless mitten", "two brown lumps", "both gloves large and mitten-like"): the fingers
+# were 22 mm thick and lay against each other as one mass. They are a tenth slimmer (so a gap shows between two of them),
+# each joint carries a crease in COLOR_0 and the sides of a finger are darker than its back (SIDE_SHADE, CREASE).
+RADIUS = {"index": (10.1, 9.2, 8.4, 7.0), "middle": (10.3, 9.4, 8.6, 7.1), "ring": (9.9, 9.0, 8.2, 6.9), "pinky": (8.9, 8.0, 7.3, 6.2)}     # gloved: a millimetre of leather all round (round 5: x 0.9)
+SIDE_SHADE, CREASE = 0.36, 0.66
 
 
 def _ring(bm, c, t, up, ru, rs, n, seam=0.0, phase=0.0):
@@ -153,7 +157,7 @@ def round_corners(pts, frac=0.24):
 class Hand:
     """side: 'r' | 'l'. curls: {finger: (spread deg, mcp, pip, dip flex deg)}. thumb: four hand-space points
     (cmc, mcp, ip, tip) for a RIGHT hand layout (mirrored for the left)."""
-    def __init__(self, side, curls, thumb, thumb_r=(12.6, 10.8, 9.6, 7.6), forearm=(0.0, -1.0, 0.0), forearm_up=(0.0, 0.0, 1.0), loop=False):
+    def __init__(self, side, curls, thumb, thumb_r=(11.3, 9.8, 8.8, 7.0), forearm=(0.0, -1.0, 0.0), forearm_up=(0.0, 0.0, 1.0), loop=False):
         self.side = side; self.s = "_" + side
         self.curls = curls; self.thumb = [Vector(p) for p in thumb]; self.thumb_r = thumb_r
         self.forearm = Vector(forearm).normalized(); self.forearm_up = Vector(forearm_up)
@@ -296,9 +300,11 @@ class Hand:
             nf = 6 if name == "pinky" else 8                                # the little finger is the least seen: it pays for the knuckle rings (arms <= 2 800 tris)
             rr = F.tube(pts, ups, radii, nf, weights, cols, seam=0.9, end="round", phase=0.0, start_cap="glove")
             for a, b in zip(rr[0], rr[1]): F.ao_from[a] = b
-            for ring in rr:                                                 # the gaps between the fingers: the sides darker than the back
+            for i, ring in enumerate(rr):                                   # the gaps between the fingers: the sides darker than the back
+                # round 5: and a crease across each joint (the ring just before a corner), as on the thumb
+                crease = CREASE if (1 < i < len(rr) - 1 and seg[i] != seg[i + 1]) else 1.0
                 for k, v in enumerate(ring):
-                    F.shade[v] = 1.0 - 0.26 * math.sin(2 * math.pi * k / nf) ** 2
+                    F.shade[v] = crease * (1.0 - SIDE_SHADE * math.sin(2 * math.pi * k / nf) ** 2)
             parts.append(F.finish(M))
         # ---------------- thumb
         T = Part("h_thumb" + s)
@@ -333,8 +339,8 @@ class Hand:
         for a, b in zip(rr[0], rr[1]): T.ao_from[a] = b
         for i, ring in enumerate(rr):
             # polish round 4: a crease across each joint (the ring just before a corner), so the thumb breaks into phalanges
-            crease = 0.74 if (0 < i < len(rr) - 1 and seg[i] != seg[i + 1]) else 1.0
-            for k, v in enumerate(ring): T.shade[v] = crease * (1.0 - 0.18 * math.sin(2 * math.pi * k / 8) ** 2)
+            crease = CREASE if (0 < i < len(rr) - 1 and seg[i] != seg[i + 1]) else 1.0
+            for k, v in enumerate(ring): T.shade[v] = crease * (1.0 - 0.30 * math.sin(2 * math.pi * k / 8) ** 2)
         parts.append(T.finish(M))
         # ---------------- gauntlet, cord, wrist, cuff, sleeve (along the forearm)
         fa = self.v(self.forearm); fu = self.v(self.forearm_up); fu = (fu - fa * fu.dot(fa)).normalized()

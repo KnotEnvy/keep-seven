@@ -191,6 +191,8 @@ test('every sandbox state: no red anywhere, and every word on screen is story.js
     const explained = (t) => {
       const flat = t.replace(/\s+/g, ' ').trim();
       if (corpus.has(flat) || keyNames.test(flat) || numeric.test(flat) || sizes.test(flat) || counted.test(flat)) return true;
+      // polish round 5: the title's question is story.json's own "Begin" with a question mark (no new string could be added)
+      if (flat === STORY.ui.ui_menu_play + '?') return true;
       // a wrapped subtitle, or a card of a readable, is a line of story.json with its line breaks moved
       for (const c of corpus) if (c.replace(/\s+/g, ' ') === flat) return true;
       return false;
@@ -253,13 +255,13 @@ test('layouts hold at 1280 x 720, 1920 x 1080, 4:3 and 21:9: nothing leaves the 
         const mark = r('.hud .mark'), health = r('.health'), boss = r('.boss-name'), sub = r('.sub'), cp = r('.cp'), prompt = r('.prompt:not(.hint)'), hint = r('.prompt.hint'), talk = r('.capt');
         const overlap = (a, b) => !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
         return {
-          mark: mark.right > innerWidth * 0.9 && mark.bottom > innerHeight * 0.85, health: health.left < innerWidth * 0.1 && health.bottom > innerHeight * 0.9, boss: Math.abs(boss.left + boss.width / 2 - innerWidth / 2) < 2 && boss.top < innerHeight * 0.1,
+          mark: mark.left >= 0 && mark.right < innerWidth * 0.2 && mark.bottom > innerHeight * 0.85, health: health.left < innerWidth * 0.1 && health.bottom > innerHeight * 0.9, boss: Math.abs(boss.left + boss.width / 2 - innerWidth / 2) < 2 && boss.top < innerHeight * 0.1,
           sub: Math.abs(sub.left + sub.width / 2 - innerWidth / 2) < 2 && sub.bottom > innerHeight * 0.8, cp: cp.left < innerWidth * 0.1 && cp.top < innerHeight * 0.1,
-          clear: [['sub/mark', sub, mark], ['sub/health', sub, health], ['prompt/sub', prompt, sub], ['hint/sub', hint, sub], ['prompt/hint', prompt, hint], ['caption/hint', talk, hint], ['boss/checkpoint', boss, cp], ['prompt/crosshair', prompt, r('.xh .mk')]].filter(([, a, b]) => overlap(a, b)).map(([n]) => n).join(' '),
+          clear: [['sub/mark', sub, mark], ['mark/health', mark, health], ['mark/checkpoint', mark, cp], ['sub/health', sub, health], ['prompt/sub', prompt, sub], ['hint/sub', hint, sub], ['prompt/hint', prompt, hint], ['caption/hint', talk, hint], ['boss/checkpoint', boss, cp], ['prompt/crosshair', prompt, r('.xh .mk')]].filter(([, a, b]) => overlap(a, b)).map(([n]) => n).join(' '),
         };
       });
       assert.deepEqual(corners, { mark: true, health: true, boss: true, sub: true, cp: true, clear: '' }, `${viewport.width}x${viewport.height}`);
-      for (const name of ['screen/pause', 'screen/options (pause)', 'readable/ledger', 'readable/plate_proving', 'screen/end (48 lamps, his)', 'screen/title (save)', 'screen/options (title)', 'screen/story']) {
+      for (const name of ['screen/pause', 'screen/options (pause)', 'readable/ledger', 'readable/plate_proving', 'screen/end (48 lamps, his)', 'screen/title (save)', 'screen/title (Begin over a save)', 'screen/options (title)', 'screen/story']) {
         await press(game, name);
         await frame(game, 0);
         bad.push(...await inside(name));

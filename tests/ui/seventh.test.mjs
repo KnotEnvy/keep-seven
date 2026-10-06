@@ -31,7 +31,7 @@ test('the seventh is on the first frame of the HUD, sealed, and the title screen
       const sv = document.querySelector(sel), r = sv.getBoundingClientRect();
       const cs = getComputedStyle(sv), hud = getComputedStyle(document.querySelector('.k7 .hud'));
       const band = getComputedStyle(sv.querySelector('.sb'));
-      return { tick: window.__dbg.state().tick, cls: sv.getAttribute('class'), w: r.width, h: r.height, visibility: cs.visibility, display: cs.display, opacity: cs.opacity, hud: hud.visibility + ' ' + hud.opacity, band: band.display + ' ' + band.fill, inView: r.right <= innerWidth && r.bottom <= innerHeight && r.left > innerWidth / 2 && r.top > innerHeight / 2 };
+      return { tick: window.__dbg.state().tick, cls: sv.getAttribute('class'), w: r.width, h: r.height, visibility: cs.visibility, display: cs.display, opacity: cs.opacity, hud: hud.visibility + ' ' + hud.opacity, band: band.display + ' ' + band.fill, inView: r.left >= 0 && r.bottom <= innerHeight && r.right < innerWidth / 4 && r.top > innerHeight / 2 };
     }, HUD_SEVENTH);
     assert.equal(first.cls, 'sv sealed');
     assert.ok(first.w > 4 && first.h > 10, `it has a size (${first.w} x ${first.h})`);
@@ -40,7 +40,8 @@ test('the seventh is on the first frame of the HUD, sealed, and the title screen
     assert.equal(first.opacity, '1');
     assert.equal(first.hud, 'visible 1');
     assert.equal(first.band, 'inline rgb(233, 226, 208)', 'the band is whole and bone');
-    assert.ok(first.inView, 'bottom right, inside the frame');
+    // polish round 5: the mark stands lower LEFT, clear of the revolver and its hands
+    assert.ok(first.inView, 'bottom left, inside the frame');
   } finally { await game.close(); }
 });
 
@@ -71,8 +72,8 @@ test('the seventh is apart from the ring: the boxes do not meet, and the hairlin
       const u = Math.max(Math.min(viewport.height / 1080, viewport.width / 1440), MARK_MIN_SCALE);
       const nearest = Math.hypot(seventh.l - g.cx, seventh.t - g.cy) - 32 * u;
       assert.ok(Math.abs(nearest - 20 * u) < 2.5 * u, `gap ${(nearest / u).toFixed(1)} px at 1080p (20)`);
-      // polish round 2: the cartridge is drawn at 1.5 times the art bible's 9 x 22 (13.5 x 33 at 1080p, plus its strokes)
-      assert.ok(Math.abs(seventh.w - 13.5 * u) < 3.5 * u && Math.abs(seventh.h - 33 * u) < 3.5 * u, `13.5 x 33 at 1080p: ${(seventh.w / u).toFixed(1)} x ${(seventh.h / u).toFixed(1)}`);
+      // polish round 5: the cartridge is drawn at twice the art bible's 9 x 22 (18 x 44 at 1080p, plus its strokes; it was 1.5 times)
+      assert.ok(Math.abs(seventh.w - 18 * u) < 3.5 * u && Math.abs(seventh.h - 44 * u) < 3.5 * u, `18 x 44 at 1080p: ${(seventh.w / u).toFixed(1)} x ${(seventh.h / u).toFixed(1)}`);
       // the hairline starts at the ring's centre and ends on the cartridge
       assert.equal(g.hairShown, 'rgb(233, 226, 208)');
       assert.ok(Math.abs(hair.l - g.cx) < 1.5 && Math.abs(hair.t - g.cy) < 1.5, 'the hairline starts at the centre of the ring');
@@ -186,7 +187,7 @@ const sbSeventh = async (game, s) => {
   await freeze(game, 1000);
 };
 
-test('at 1280 x 720 the mark holds its floor: 95 x 138 px, 10 px chamber dots, a 14 x 35 px seventh, a 12 px numeral, no stroke under a device pixel; enlarged on the pause screen', async () => {
+test('at 1280 x 720 the mark holds its floor: 95 x 150 px, 10 px chamber dots, a 19 x 47 px seventh, a 16 px numeral, no stroke under a device pixel; enlarged on the pause screen', async () => {
   for (const viewport of [{ width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 1920, height: 1080 }, { width: 3840, height: 2160 }]) {
     const game = await openSandbox(server, { viewport });
     try {
@@ -201,17 +202,18 @@ test('at 1280 x 720 the mark holds its floor: 95 x 138 px, 10 px chamber dots, a
           w: r.width, h: r.height, dot: dot.width, svW: sv.width, svH: sv.height, scale, numeral: parseFloat(getComputedStyle(rs).fontSize) * scale, numeralBox: rs.getBoundingClientRect().height,
           strokes: { outline: px('.sv .so:not(.ink)'), rim: px('.sv .sr'), hairline: px('.hair:not(.ink)'), notch: px('.notch:not(.ink)') },
           under: { outline: px('.sv .ink.so')[0], hairline: px('.ink.hair')[0], notch: px('.ink.notch')[0] },
-          mki: parseFloat(getComputedStyle(mark).getPropertyValue('--mki')), inFrame: r.right <= innerWidth && r.bottom <= innerHeight,
+          mki: parseFloat(getComputedStyle(mark).getPropertyValue('--mki')), inFrame: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
         };
       }, [SB_MARK, SB_SEVENTH]);
       const u = Math.min(viewport.height / 1080, viewport.width / 1440), k = Math.max(u, MARK_MIN_SCALE), at = `${viewport.width}x${viewport.height}`;
-      assert.ok(Math.abs(m.w - 88 * k) < 0.5 && Math.abs(m.h - 128 * k) < 0.5, `${at}: the mark is ${m.w} x ${m.h} (${88 * k} x ${128 * k})`);
+      assert.ok(Math.abs(m.w - 88 * k) < 0.5 && Math.abs(m.h - 139 * k) < 0.5, `${at}: the mark is ${m.w} x ${m.h} (${88 * k} x ${139 * k})`);
       // polish round 3 (story-ux): 76 x 111 px with 8.6 px dots at 720p was easy to lose; 1.25 times that is the floor now
-      assert.ok(m.w >= 94.9 && m.h >= 138, `${at}: never under 95 x 138 px (${m.w} x ${m.h})`);
+      assert.ok(m.w >= 94.9 && m.h >= 150, `${at}: never under 95 x 150 px (${m.w} x ${m.h})`);
       assert.ok(m.dot >= 10.5, `${at}: a chamber dot is ${m.dot.toFixed(1)} px (at least 10.5)`);
       // polish round 2 (story-ux): the load-bearing glyph was 8 x 19 px at 720p; it is 12 x 28 and more at every size
-      assert.ok(m.svW >= 14 && m.svH >= 35, `${at}: the seventh is ${m.svW.toFixed(1)} x ${m.svH.toFixed(1)} px (at least 14 x 35)`);
-      assert.ok(m.numeral >= 12.9, `${at}: the reserve numeral is ${m.numeral.toFixed(1)} px (at least 12.9)`);
+      // polish round 5 (story-ux): 15 x 36 px and a 13 px numeral at 720p were the smallest things on screen
+      assert.ok(m.svW >= 19 && m.svH >= 47, `${at}: the seventh is ${m.svW.toFixed(1)} x ${m.svH.toFixed(1)} px (at least 19 x 47)`);
+      assert.ok(m.numeral >= 16, `${at}: the reserve numeral is ${m.numeral.toFixed(1)} px (at least 16)`);
       for (const [name, [width, effect]] of Object.entries(m.strokes)) {
         assert.equal(effect, 'non-scaling-stroke', `${at}: ${name}`);
         assert.ok(width >= 1, `${at}: the ${name} stroke is ${width} px on screen (at least 1)`);

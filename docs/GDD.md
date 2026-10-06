@@ -1,7 +1,8 @@
 # KEEP SEVEN — Game Design Document
 
-Stage one: **First Tally: Plenty**. One continuous stage, about 21 minutes for a median
-first-time player.
+Stage one: **First Tally: Plenty**. One continuous stage: about ten minutes for a player who knows it (measured:
+the plain-skill proxy 9.5 to 10 minutes, the scripted bot 8.0), an estimated 12 to 16 minutes for a first-time
+player who reads the notes and solves the puzzles unaided (section 4.2; polish round 5: it said "about 21").
 
 Status: **binding**. Builders implement what this document says. Where it gives a number,
 that number is the starting value to build; tuning happens in polish rounds and is recorded
@@ -141,61 +142,70 @@ at the cradle and sees the second half from the rim.
 | VI | `card_vi` The Asking | `the_bore` |
 | VII | `card_vii` Seven | `far_rim` |
 
-### 4.2 Beat sheet (median first-time player; skilled 15 min; slow with hints and deaths 25 min)
+### 4.2 Beat sheet (measured, polish round 5)
 
-| Time | Zone | Beat | Int. | New thing | Lines |
+The times are **measured on the game as built**: the critics' plain-skill proxy on Normal (0.4 to 0.45 s to react,
+an aim error, body shots, back-pedalling inside 6 m; it knows every solution and reads nothing), whole runs from the
+title, `scratch/r5-playthrough/plainFull2.json` and `plainFull3.json`, with the fights re-measured after the round's
+tuning (`scratch/r5-fixer/proxy/`, `docs/INTEGRATION_REPORT.md` Part I). That run is **9.5 to 10 minutes**; the
+scripted bot's is 8.0. **A first-time person** stops at three notes and a ledger, looks at the vistas, works the four
+puzzles out and dies now and then: **an estimated 12 to 16 minutes, 20 with every hint tier and several deaths**. No
+person has played this tree; the estimate is the proxy's run plus the reading and the puzzles. Earlier revisions of this
+sheet planned 21 minutes with fights of 55 to 110 s: the fights as built are 21 to 37 s for the proxy (the yard about
+60 s in a whole run), the Windlass's phases 27 to 44 s and 57 to 73 s. Lead ruling R1: the document follows the game.
+
+| Proxy time | Zone | Beat | Int. | New thing | Lines |
 |---|---|---|---|---|---|
-| 0:00–1:00 | the_lip | Black overhang. Stop one (his coffee pot, two days cold; a note under a spent case). Step into glare; the valley, the pylon line, the Rule leaning. Title. | 1 | move, look; the sealed seventh on the HUD | `nar_open_1` `nar_open_2` `rd_note_lip` `nar_seven` `nar_rule` `card_title` `card_i` |
-| 1:00–2:10 | | The gully. **Seven Jugs** gate. First shots, first forced reload. | 2 | fire, reload, "one more than she carries" | `nar_jugs_sand` `nar_jugs_open` |
-| 2:10–2:40 | plenty_street | Through the gate. At 43 m a hooded figure kneels at a dry trough, scooping sand. It sets the cup on the rim, then comes. | 2 | first Bider, on show 3 s | `card_ii` `nar_plenty` `nar_kneeler` |
-| 2:40–4:20 | | **Fight 1, The Street.** Seven Biders: 1, 2, 3, and one more. | 4 | kill, and free (crown knot) | `nar_first_fell` or `nar_first_seat` (once each) `nar_street_after` |
-| 4:20–5:00 | | The struck-through door marks. Cache. The yard door: one knot on its latch. | 2 | knots are for shooting | `nar_marks` `nar_first_knot` |
-| 5:00–6:50 | | **Fight 2, The Yard.** A Transit steps out, stakes the yard bell, then turns (`nar_transit` on the turn). Duel; then two Transits and four Biders. | 6 | break an aim; lens kill | `stn_yard_wake` `nar_transit` |
-| 6:50–7:10 | | On the far rim, 250 m off, clear of the sun: a man with a forked rod, dark against the sky. Then not. | 1 | the pursued, seen | `nar_dowser_seen` `nar_dowser_shot` `nar_dowser_gone` |
-| 7:10–9:10 | tally_house | Dark hall. Eleven hooded, seated, hands flat. **Daylight** puzzle: each shot throws a blade of sun on a piece of the story. Ledger. Stop two (his chair, his cup, one day). | 2 | open; the found account | `card_iii` `nar_tally_1..3` `nar_tally_wall` `nar_tally_chair` `nar_tally_chair_2` `nar_tally_hearth` `rd_note_hearth` `nar_ask` `rd_ledger` `stn_tally_wake_1..2` |
-| 9:10–9:40 | | The hatch knot. The hatch starts ajar; aqua comes up through the floor. Two of the seated stand. **Fight 3**, lit by the gun. The hatch opens on the second. | 5 | muzzle flash as the light | `nar_two_rise` `nar_nine` |
-| 9:40–10:20 | the_gallery | The stair of pegs. Coats, hats, boots; the low pegs bare. One Bider in a niche, apart from the rest, turns its hood to watch. It does nothing else. | 3 | the solitary scare | `card_iv` `nar_pegs_1..2` `nar_watcher_1..2` |
-| 10:20–11:45 | | Proving bay. The plate of the banded charge. Line locker, three-plate range. **Proving Line** puzzle. | 2 | line round; make a line | `nar_plate_1..3` `nar_line_first` |
-| 11:45–12:40 | | **Fight 4, The File.** Six Biders in a queue at the far door. They turn. Four seconds after the last of them is down the far door slides open on three more, who do not queue. | 6 | the line as mercy, then lead in a corridor with no cover | `nar_file` `nar_file_lined` `nar_file_more` |
-| 12:40–13:10 | lift_hall | Gantry. A Tamper has been pounding a sealed bulkhead for days. | 3 | Brute, shown on something else | `card_v` `nar_tamper_1` |
-| 13:10–15:00 | | **Fight 5, The Matador.** Tamper alone among the ribs, then with Biders. A line round is half the job, not the whole of it. | 7 | plate, vents, the charge into a rib; the line opens both vents | `nar_tamper_dead` |
-| 15:00–15:50 | | Cache. The wall diagram: six in a ring, one apart. The lift, 25 quiet seconds, the station reading its inventory. | 2 | the mark is a diagram | `nar_mark_1..3` `stn_lift_1..3` |
-| 15:50–16:30 | the_bore | A grilled catwalk past the Windlass, hanging over the violet bore. Stair down. Stop three: embers, still orange. The empty cradle. His note. | 3 | the arena before it is one | `card_vi` `nar_windlass_seen` `nar_embers_1..2` `nar_cradle` `nar_cradle_2` `rd_note_cradle` |
-| 16:30–17:40 | | **The Asking** puzzle: three questions; the third is answered by holding fire while the listening ring counts. | 2 | answer; hold fire | `stn_ask_*` |
-| 17:40–18:10 | | Parley. Listen, or shoot. | 3 | courtesy as a mechanic | `stn_parley_*` `nar_parley` `rv_ask` |
-| 18:10–20:40 | | **Boss: the Windlass**, phases 1 to 3a. | 9, 9, 10 | the cylinder made visible; lead failing | `stn_boss_*` `nar_one_left` |
-| 20:40–21:10 | | The seventh. The head swings clear. One shot down the bore. Four seconds of true silence. Six lead rounds into a machine that is still hauling on an empty rope. | 10 then 2 | the kept round | `nar_seal` `nar_office` `nar_kept` `stn_proven` `stn_dry` `nar_hauling` `stn_service` |
-| 21:10–22:30 | far_rim | The proving lift. Blue hour. A plumb thread of light over Plenty; the Rule leaning further. Lamps in the town, counted. A flat stone, glinting, off to the left of the view: six spent cases and one unfired round with a violet band. A fire on the plain, the second fire of the stage. | 1 | the ending and the hook | `card_vii` `nar_lift_up` `nar_rim_1..4` `nar_lamps` `nar_lamps_count` `nar_stone_1..4` `rd_note_stone` `nar_take_1`, then `nar_take_2` (taken) or `nar_leave` (left), `nar_fire` `nar_last` `card_end` |
+| 0:00–0:36 | the_lip | Black overhang. Stop one (his coffee pot, two days cold; a note under a spent case). Step into glare; the valley, the pylon line, the Rule leaning. Title. The gully. **Seven Jugs** gate: first shots, first forced reload. (A person: 1.5 to 2.5 min with the note.) | 1 to 2 | move, look; the sealed seventh on the HUD; fire, reload, "one more than she carries" | `nar_open_1` `nar_open_2` `rd_note_lip` `nar_seven` `nar_rule` `card_title` `card_i` `nar_jugs_sand` `nar_jugs_open` |
+| 0:36–0:39 | plenty_street | Through the gate. At 43 m a hooded figure kneels at a dry trough, scooping sand. It sets the cup on the rim, then comes (3 s on show). | 2 | first Bider | `card_ii` `nar_kneeler` `nar_plenty` (the kneeler line first since polish round 5) |
+| 0:39–1:03 | | **Fight 1, The Street** (21 to 27 s). **Eight** Biders: the kneeler; four out of the two alley mouths nearest the gate, beside and behind her; a file of two from the saddlery two seconds later; and one more through the yard gate. Plain proxy 0 to 18 HP, careless 18 to 88. | 4 | kill, and free (crown knot) | `nar_first_fell` or `nar_first_seat` (once each) `nar_street_after` ("Eight of them.") |
+| 1:03–1:18 | | The struck-through door marks. Cache. The yard door: one knot on its latch. | 2 | knots are for shooting | `nar_marks` `nar_first_knot` |
+| 1:18–2:19 | | **Fight 2, The Yard** (57 to 75 s in a whole run; 27 to 38 s from its checkpoint at full health). A Transit steps out, stakes the yard bell, then turns (`nar_transit` on the turn). Duel; then two Transits and four Biders. The hardest fight before the Tamper for a player who arrives hurt. | 6 | break an aim; lens kill | `stn_yard_wake` `nar_transit` |
+| 2:19–2:45 | | On the far rim, 250 m off, clear of the sun: a man with a forked rod, dark against the sky. Then not. | 1 | the pursued, seen | `nar_dowser_seen` `nar_dowser_shot` `nar_dowser_gone` |
+| 2:45–3:07 | tally_house | Dark hall. Eleven hooded, seated, hands flat. **Daylight** puzzle: each shot throws a blade of sun on a piece of the story. Ledger. Stop two (his chair, his cup, one day). (A person: 2 to 3 min.) | 2 | open; the found account | `card_iii` `nar_tally_1..3` `nar_tally_wall` `nar_tally_chair` `nar_tally_chair_2` `nar_tally_hearth` `rd_note_hearth` `nar_ask` `rd_ledger` `stn_tally_wake_1..2` |
+| 3:07–3:13 | | The hatch knot. The hatch starts ajar; aqua comes up through the floor. Two of the seated stand. **Fight 3**, lit by the gun (6 s). The hatch opens on the second. | 5 | muzzle flash as the light | `nar_two_rise` `nar_nine` |
+| 3:13–3:25 | the_gallery | The stair of pegs. Coats, hats, boots; the low pegs bare. One Bider in a niche, apart from the rest, turns its hood to watch. It does nothing else. | 3 | the solitary scare | `card_iv` `nar_pegs_1..2` `nar_watcher_1..2` |
+| 3:25–3:33 | | Proving bay. The plate of the banded charge. Line locker, three-plate range. **Proving Line** puzzle. (A person: 1 to 2 min.) | 2 | line round; make a line | `nar_plate_1..3` `nar_line_first` |
+| 3:33–4:07 | | **Fight 4, The File** (28 to 37 s). Six Biders in a queue at the far door. They turn; one line round sits them down in order. Then the answer (polish round 5): as she nears the far door, two who did not queue come down the peg stair **behind** her and run the length of the gallery; four seconds later a bang on the far door, and a second after that it bursts on four more. Both ends of a 3 m walkway with no cover reach her within about two seconds. Plain proxy 0 HP, careless 0 to 72. | 6 | the line as mercy, then lead with something at her back | `nar_file` `nar_file_lined` `nar_file_behind` `nar_file_more` |
+| 4:07–4:21 | lift_hall | Gantry. A Tamper has been pounding a sealed bulkhead for days. | 3 | Brute, shown on something else | `card_v` `nar_tamper_1` |
+| 4:21–4:50 | | **Fight 5, The Matador** (25 to 31 s from trigger to death). Tamper alone among the ribs, then with Biders. A line round is a third of the job. Plain proxy 38 to 56 HP, careless 0 to 91; the hardest single enemy of the stage (section 6.7). | 7 | plate, vents, the charge into a rib; the line opens both vents | `hint_tamper_vent` (after four rounds off the plate) `nar_tamper_dead` |
+| 4:50–5:35 | | Cache. The wall diagram: six in a ring, one apart. The lift, 25 quiet seconds, the station reading its inventory. | 2 | the mark is a diagram | `nar_mark_1..3` `stn_lift_1..3` |
+| 5:35–6:07 | the_bore | A grilled catwalk past the Windlass, hanging over the violet bore. Stair down. Stop three: embers, still orange. The empty cradle. His note. **The Asking** puzzle: three questions; the third is answered by holding fire while the listening ring counts. (A person: 2 to 3 min.) | 2 to 3 | the arena before it is one; answer; hold fire | `card_vi` `nar_windlass_seen` `nar_embers_1..2` `nar_cradle` `nar_cradle_2` `rd_note_cradle` `stn_ask_*` |
+| 6:07–6:35 | | Parley (28 s). Listen, or shoot. | 3 | courtesy as a mechanic | `stn_parley_*` `nar_parley` `rv_ask` |
+| 6:35–8:11 | | **Boss: the Windlass.** Phase 1: 27 to 44 s. Phase 2: 57 to 73 s. Phase 3a lasts as long as she takes to find a mark (4 s for the proxy). | 9, 9, 10 | the cylinder made visible; lead failing | `stn_boss_*` `nar_one_left` |
+| 8:11–8:40 | | The seventh. The head swings clear. One shot down the bore. Four seconds of true silence. Six lead rounds into a machine that is still hauling on an empty rope (17 to 45 s). | 10 then 2 | the kept round | `nar_seal` `nar_office` `nar_kept` `stn_proven` `stn_dry` `nar_hauling` `stn_service` |
+| 8:40–9:45 | far_rim | The proving lift. Blue hour. A plumb thread of light over Plenty; the Rule leaning further. Lamps in the town, counted. A flat stone, glinting, off to the left of the view: six spent cases and one unfired round with a violet band. A fire on the plain, the second fire of the stage. | 1 | the ending and the hook | `card_vii` `nar_lift_up` `nar_rim_1..4` `nar_lamps` `nar_lamps_count` `nar_stone_1..4` `rd_note_stone` `nar_take_1`, then `nar_take_2` (taken) or `nar_leave` (left), `nar_fire` `nar_last` `card_end` |
 
 ```
- 10 |                                         ###
-  9 |                                    ########
-  8 |                                    ########
-  7 |                          ####      ########
-  6 |          ####         ###  ####      ########
-  5 |          ####    #    ###  ####      ########
-  4 |     ###  ####    #    ###  ####      ########
-  3 |     ###  ####    ##   ### #####  #   ########
-  2 |  ##########################################  #
-  1 |##############################################
-    +----------------------------------------------
-     0   2   4   6   8   10  12  14  16  18  20  22
-     Lip Street Yard Tally  File Matador Ask Windlass Rim
+ 10 |                                #
+  9 |                          #######
+  8 |                          #######
+  7 |                 ##       #######
+  6 |     ####     ## ##       #######
+  5 |     ####   # ## ##       #######
+  4 |   # ####   # ## ##       #######
+  3 |   # ####   #######   ###########
+  2 |#########  ########################
+  1 |#######################################
+    +----------------------------------------
+     0:00    2:00    4:00    6:00    8:00    9:45
+     Lip St Yard  Tally File Mat  Lift Ask Windlass  Rim
 ```
 
-One column is 30 s. What the curve must guarantee for a player who has learned the line
-round (the intended lesson): between the yard and the boss there are still three real
-fights. The Tally rise is two Biders in the dark (5). The File is one line round **and then
-three Biders with lead in a corridor with no cover** (6, about 55 s). The Matador cannot be
-ended by one trigger pull: a line round through the chest is half the Tamper's health and a
-three-second opening, and the Bider waves run on a clock, so the fight lasts at least as
-long as it takes to land the second half (7, 60 to 110 s). Section 6.7 and section 10 carry
-the numbers.
+One column is 15 s of the proxy's run. What the curve guarantees for a player who has learned the line round (the
+intended lesson): between the yard and the boss there are still three real fights. The Tally rise is two Biders in the
+dark (5). The File is one line round **and then six more from both ends of a corridor with no cover** (6, about 30 s).
+The Matador cannot be ended by one trigger pull: a line round through the chest is a third of the Tamper's health and
+a 1.8 s opening, and the Bider waves run on a clock (7, 25 to 31 s for the proxy, up to a minute for a player who
+mostly hits plate). Section 6.7 and section 10 carry the numbers. **The measured curve peaks twice**: the Tamper is
+the hardest thing before the boss (a 0.5 s-reaction proxy died twice to it in the round-5 critique), and the Windlass
+that follows is fair rather than cruel (0 deaths in the round's thirteen plain and careless-but-moving legs, seven of the critic's and six after the
+tuning; 25 to 123 HP lost over phases 1 and 2). That is the shipped curve.
 
-Hard budget: no quiet stretch over 3.5 minutes; no fight over 2 minutes except boss phases
-(each under 75 s); first shot by 1:20; first kill by 3:00; a slow player with every hint
-tier firing still finishes inside 25 minutes (section 13 fail-safes guarantee the bound).
-The beat timer is measured with the deterministic step hook (section 21).
+Hard budget: no quiet stretch over 3.5 minutes; no fight over 2 minutes; boss phases about 90 s at most (lead ruling
+R2; measured 27 to 77 s); first shot by 1:20; first kill by 3:00; a slow player with every hint tier firing still
+finishes inside 25 minutes (section 13 fail-safes guarantee the bound). The beat timer is measured with the
+deterministic step hook (section 21).
 
 ### 4.3 Emotional arc
 
@@ -384,13 +394,14 @@ line charge and the proving charge are different stock, and the station says so.
      for the whole of phase 3a**, including a first-ever press: the game never tells the
      player their correct idea is wrong.
    - After the kept round is spent, `F` does nothing but the shiver.
-3. `F` on a proving mark in phase 3a (on the press `nar_seal` goes on screen at once, over whatever line is there; `nar_office` follows `nar_kept` after the proof): clip `load_kept` (1.8 s): she breaks the band with
+3. `F` on a proving mark in phase 3a (on the press `nar_seal` goes on screen at once, over whatever line is there; `nar_office` is said only after the proof, behind `stn_proven`, `nar_kept` and `stn_dry`: polish round 5): clip `load_kept` (1.8 s): she breaks the band with
    her thumb and seats it. The HUD seventh empties; the chamber under the hammer shows a
    white dot with an aqua ring. The crosshair becomes the plumb glyph (a dot under a short
    vertical stroke). Narration on the **first** successful press only, in this order, queued
    one after the other and never cut by the shot: `nar_seal` (starts with the clip; it
-   describes what her thumb is doing), then `nar_office` if hint T1 has not already played
-   it. Both are once-only. `nar_kept` queues behind them after the shot.
+   describes what her thumb is doing), and nothing else before the shot (polish round 5: hint T1 is `hint_kept_1`, and `nar_office` is kept for
+   after the proof). On the shot's tick `stn_proven` is on screen over whatever is there, `nar_kept` is the next line
+   (about 3.3 s after the shot), then `stn_dry` and `nar_office`.
 4. While it is chambered, the trigger falls only if the aim ray enters the **bore target
    volume**: a vertical cylinder of radius 3.0 m on the bore axis, from kerb-top height
    (floor + 1.2 m) down to 6 m below the floor. **The kerb and the Windlass are ignored by
@@ -433,7 +444,7 @@ line charge and the proving charge are different stock, and the station says so.
 | t (ms) | Event |
 |---|---|
 | 0 | Click. Same tick: ray resolved, round removed, flash on, report scheduled, kicks start, marker, impact, target reaction |
-| 0–50 | Muzzle flash sprite (one of 4 rotations, 33–50 ms), asked for 1.6 x farther from the eye than the muzzle on the eye-to-muzzle line (`FLASH_PUSH`: the same place on screen, 0.625 the size; its white core under 1.2 % of a 720p frame). Muzzle light pulse in the world shader: radius 7 m, 70 ms, flame colour, shaded by N.L per pixel (floor 0.12), paler toward its centre, and what it adds to any surface is held under 0.6 of display white whatever the mood's exposure (polish round 4) |
+| 0–50 | Muzzle flash sprite (one of 4 rotations, 33–50 ms), asked for 1.6 x farther from the eye than the muzzle on the eye-to-muzzle line (`FLASH_PUSH`: the same place on screen, 0.625 the size; its white core under 1.2 % of a 720p frame). Polish round 5: render places the sprite each drawn frame on the line from the eye through the view-model's `muzzle` node as drawn, at the distance asked for, so the flash rides the kick (sprite to drawn muzzle under 1 px at 960 x 540); the powder smoke and the tracer begin where the muzzle of the shot's tick is seen through the world camera (the view-model pass has its own 40 degree projection), so on the first drawn frame they start a little under the risen barrel. Muzzle light pulse in the world shader: radius 7 m, 70 ms, flame colour, shaded by N.L per pixel (floor 0.12), paler toward its centre, and what it adds to any surface is held under 0.6 of display white whatever the mood's exposure (polish round 4) |
 | 55 | Camera kick peak |
 | 0–70 | Target-local pose freeze: 50 ms on a hit, 70 ms on a kill or a freeing. Never a global freeze |
 | 120–300 | Hammer cock and cylinder turn: animation, two mechanical clicks, the HUD ring turns one notch |
@@ -452,7 +463,7 @@ Feedback list:
   the last enemy of an encounter and at boss phase breaks (look stays real-time).
 - **Audio.** Six-layer report (section 17); last two rounds of a cylinder have brighter
   mechanics and a drier tail; dry click; seat-clicks; hit confirm tick; weak-point *tink*;
-  kill thud; deflect clank and bell; music and ambience duck 5 dB for 200 ms per shot. Under a short confirm (tick, tink, parry, deflect) the dry gun bus steps back 5 dB for 120 ms and the room's answer 5 dB for 120 ms (8 dB for 160 ms in the lift hall, 10 dB for 200 ms in the bore); those four confirms are +2.5 dB in the lift hall and +3.5 dB in the bore; the tick's 1.9 kHz knock rings 130 ms; the dry click peaks at about -8 dB (polish round 4).
+  kill thud; deflect clank and bell; music and ambience duck 5 dB for 200 ms per shot. Under a short confirm (tick, tink, parry, deflect) the dry gun bus steps back 5 dB for 120 ms and the room's answer 5 dB for 120 ms (8 dB for 160 ms in the lift hall, 10 dB for 200 ms in the bore); those four confirms are +2.5 dB in the lift hall and +3.5 dB in the bore; the tick's 1.9 kHz knock rings 130 ms; the dry click peaks at about -8 dB (polish round 4). Polish round 5: the tick, the tink, the parry and the kill hold their level 12 ms (lift hall) / 20 ms (the bore) before decaying (`IR_CONFIRM_HOLD`; they already peak at the limiter, so a lift bought nothing), and the kill's thud steps the report's tail back in those two rooms as the short confirms do (in the open a kill moves nothing): in the bore hit / weak / kill / parry measure +5.9 / +4.1 / +6.5 / +4.1 dB over the bed (they were +0.6 to +1.0).
 - **Haptic substitutes.** Rotational camera trauma; viewmodel kick; FOV punch; HUD cylinder
   ring kick (the ring jumps 2 px and settles); the per-zone echo answering the shot.
 
@@ -623,7 +634,7 @@ State machine:
 |---|---|---|
 | `vignette` | dormant clip `pound_bulkhead`: pounds the sealed bulkhead, chest vent open on each wind-up, facing away from the gantry. It ignores the player. **Plate hits clank and do no damage** (no chipping it down from the gantry). A lead round into the open chest vent, or any line round, does its normal damage **and starts `enc_matador` at once** exactly as if `trg_enc_matador` had been entered (doors lock, the wave clock starts, it turns). Otherwise it leaves this state only on `trg_enc_matador` | until triggered |
 | `advance` | walks toward the player | 2.5 m/s |
-| `slam_windup` | arm up, a rising hiss; the **chest vent opens for the last 0.6 s of the wind-up** (`TAMPER.slamVentLateBy`, polish round 3; it was the whole 1.0 s, and on Easy it still is, polish round 4); a hot-orange ring with eight tick marks (shape) is painted on the floor, radius 3.5 m. Starts inside 4.5 m. Needs the heavy token | 1.0 s |
+| `slam_windup` | arm up, a rising hiss; the **chest vent opens for the last 0.6 s of the wind-up** (`TAMPER.slamVentLateBy`, polish round 3; it was the whole 1.0 s, and on Easy it still is, polish round 4); a hot-orange ring with eight tick marks (shape) is painted on the floor, radius 3.5 m. Starts inside 4.5 m. Needs the heavy token | **1.15 s on Normal, 1.38 s on Easy, 0.9 s on Hard** (`TAMPER.slamWindupBy` 1.15 / 1.15 / 1.0 x the difficulty's telegraph scale, polish round 5: it was 1.0 x the scale; the vent's window is unchanged, the last 0.6 s, on Easy the last 1.0 s; the clip is played slower by the ratio) |
 | `slam` | 38 damage within 3.5 m of the impact point (line of sight required: ribs block) | 0.3 s |
 | `slam_recover` | chest vent stays open the first 0.5 s | 1.5 s |
 | `charge_windup` | head down, foot scraping sparks, a falling pneumatic howl (`cap_tamper_howl`). Starts at 8–20 m with a clear lane. The direction is fixed at the end of the wind-up | 0.8 s |
@@ -646,7 +657,7 @@ charge was more than 6 s ago, else advance.
 - **Audio.** A two-beat stamp, the hiss, the howl, plate clank with a skipping bell, the
   slam as a sub thump with debris.
 
-Clips (`enemy_tamper`): `idle` (loop, 2.4), `walk` (loop, 1.2), `slam_windup` (1.0),
+Clips (`enemy_tamper`): `idle` (loop, 2.4), `walk` (loop, 1.2), `slam_windup` (1.0; played at 1 / 1.15 speed on Normal and Easy before the telegraph scale),
 `slam` (0.3), `slam_recover` (1.5), `charge_windup` (0.8), `charge` (loop, 0.5),
 `charge_stun` (2.0), `stagger` (1.5), `flinch_plate` (0.2), `die` (2.2),
 `pound_bulkhead` (loop, 2.6; vignette).
@@ -805,9 +816,9 @@ Phase 2 ends at 10 hits: the guard shatters, `stn_boss_p2_break`.
 - Lead down the bore: flat ring, `stn_bore_lead`. Line round down the bore:
   `stn_bore_line_short`.
 - **Hints (phase 3a only; fast ladder, counted from `stn_boss_charge_required`):**
-  T1 15 s `nar_office` (the thesis line; a player who presses `F` on a mark before T1
-  hears it then instead, queued behind `nar_seal`: section 6.6 rule 3, so nobody finishes
-  the stage without it); T2 30 s `hint_kept_2`; T3 45 s an outline pulse on the nearest
+  T1 15 s **`hint_kept_1`** (polish round 5; it was `nar_office`, the thesis line, which is now said only after the
+  proof, so nobody finishes the stage without it and no slow player spends it early; T2 replaces a T1 line still on
+  screen, and after a second death in the phase a cut T1 line is not said again in front of T2); T2 30 s `hint_kept_2`; T3 45 s an outline pulse on the nearest
   mark, `ui_prompt_kept` shown persistently, adds stop; T4 75 s the fan's damage drops to 9
   per stake and the haul lengthens to 6 s. (`nar_one_left`, formerly the T2 hint
   `hint_kept_1`, now plays for everyone with `stn_boss_charge_required`.)
@@ -842,7 +853,10 @@ Phase 2 ends at 10 hits: the guard shatters, `stn_boss_p2_break`.
 
 - `stn_dry`. The drum turns at 15°/s. It goes on working: every 1.1 s the top mouth irises
   open with **a dry click and no glow** (the player's own dry-fire sound, enormous). Then
-  `stn_boss_hauling`, twice, 4 s apart; `nar_hauling` after the second.
+  `stn_boss_hauling`, twice, 4 s apart; `nar_hauling` after the second. Polish round 5: each of the three is said
+  only into a line box that has stood free 0.5 s (`BOSS.dryLineQuiet`), so none is ever queued: a player who kills
+  it within about 10 s of HEAD DRY hears none of them, and none can be announced after it is dead. "HEAD DRY." itself
+  is on screen about 4.5 s after the phase begins, behind `nar_kept`.
 - All six mouths are open and cannot relight. Each takes one lead round. The six hits
   sound the first six degrees of the scale, ascending.
 - No time limit. If the six are done in one cylinder with no miss: stat `clean_six`.
@@ -863,7 +877,10 @@ Phase 2 ends at 10 hits: the guard shatters, `stn_boss_p2_break`.
   at the first haul of every try (8.1).
 - Phase 2's pawls, once burst, **stay burst for the phase** (`BOSS.pawlsReset` false, polish
   round 3): the guard drops by itself at every later haul.
-- Retry starts at the phase, within 3 s, parley skipped.
+- Retry starts at the phase, control within 3 s, parley skipped. Polish round 5: on a retry of phase 1, 2 or 3a the
+  first attack (and the adds' clock) is held **4 s** (`BOSS.retryLead`; it was 1.5), and on Easy and Normal she comes
+  back on **full health** (`BOSS.retryFullHealth`; Hard keeps the respawn floor of 60). A player who never moves at all
+  after a respawn into phase 2 still dies, at 13 to 15.5 s.
 - Pools and caps: stakes in flight 8; stuck stakes 18 (shared, instanced); canister rings
   2; lance quad 1; violet threads 6. Additive overdraw in the chamber is bounded at one
   screen on Low.
@@ -1145,9 +1162,11 @@ section was rewritten to them in revision 2 (request 1, section 23).
   `nar_lamps` and `nar_lamps_count` are fired from the north-west part of the ledge so the
   town view and the stone share a frame.
 - **End trigger.** The ending is armed **only by the stone**: on taking the round, or once
-  she has been **25 s away from the stone (more than 4 m) after `nar_stone_4` has been
-  heard**; coming back starts the 25 s again (lead ruling R5; it was 25 s from entering
-  `trg_stone`). The note is read before the round can be taken: the first `E` at the stone
+  she has been **40 quiet seconds away from the stone (more than 4 m) after its last line**; the clock stands still
+  while any line is on screen and coming back starts it again (lead ruling R5, polish round 5: `ending.ts`
+  `LEAVE_MIN` 40 is the floor over the marker's `endAfterSeconds` 25, which the frozen layout still quotes). On the
+  take, `nar_take_1` is on screen on the take's tick over whatever is there, `nar_take_2` follows, none of the stone's
+  four lines is said after it, and the lamps' two lines, if unsaid, follow with her view eased up to the plain and the town. The note is read before the round can be taken: the first `E` at the stone
   opens `rd_note_stone`, the second takes the round. The fire kindles **in her view** (the
   view is eased to it over 1.5 s, standing 0.15 of the angle off the fire toward the town so the lit windows are in frame and the fire is clear of the end card's panel; with reduce-motion it
   waits up to 20 s for her to look) and the wind and the end card come only after it has
@@ -1212,7 +1231,7 @@ encounter open. A dormant member that is damaged before the trigger starts the e
 
 | Id | Trigger | Composition | Spawn pattern | Arena notes | Intended tactic |
 |---|---|---|---|---|---|
-| `enc_file` | `proving_line` solved | 9 `bider`; max alive 6 | **A:** the baffle grinds open over 3 s on six Biders standing in a queue 40 m away at the far door, facing away (`queue_stand`); `turn_about` 1.5 s; they run in file, 1.6 m apart. **B** (polish round 4: an ambush; once the file is down to one, when she comes within 12 m of `door_gallery_far`, or 25 s after the file was down to one; with the file standing no wave B comes): a bang on the far door, `nar_file_more`, and 2 s later `door_gallery_far` bursts open on 3 more gathered abreast behind it, 6 to 8 m in front of her. **They do not file:** lane-following is off for this wave; they hold three lateral offsets across the walkway (−1.0, 0, +1.0 m) and are staggered 1.2 m in depth (polish round 4; at 2.5 m they arrived one at a time), so no straight line from the walkway takes more than two. The door stays open; the encounter is clear when all nine are down | a 3 m walkway, 40 m, no cover; the line locker chimes 5 m behind the player with one round when the puzzle is solved | A: one line round, six sit down in order (or six lead rounds, leader first). B: three calm lead rounds at 35, 25 and 15 m with nowhere to hide, or back-pedal and reload; the line shot is the payoff, B is the fight |
+| `enc_file` | `proving_line` solved | 12 `bider` (6 + 2 + 4); max alive 6 | **A:** the baffle grinds open over 3 s on six Biders standing in a queue 40 m away at the far door, facing away (`queue_stand`); `turn_about` 1.5 s; they run in file, 1.6 m apart. **R, the rear pair** (polish round 5, lead rulings R3 and R10: three rounds of numbers had left the file costing nothing): once the file is down to one, when she comes within 16 m of `door_gallery_far` (or 25 s after the file was down to one; with the file standing nobody comes), two Biders start down flight 3 of the peg stair, out of sight behind the bay wall 60 m behind her, and run through the bay and down the gallery after her; `nar_file_behind` names them on that tick. **B, the door** (an ambush since polish round 4; four and on the rear pair's clock since round 5): 4 s after the rear pair start, a bang on the far door and `nar_file_more`, and 1 s later (it was 2) `door_gallery_far` bursts open on 4 gathered behind it (the fourth comes through as soon as the stage's cap of six alive allows: the dormant Tamper counts). **They do not file:** lane-following is off for both waves; the door's four hold lateral offsets across the walkway (−1.0, 0, +1.0, −0.4 m) and are staggered 1.2 m in depth, so no straight line from the walkway takes more than two. The rear pair are about 20 m behind her when the door's four are 8 m in front. The door stays open; the encounter is clear when all twelve are down | a 3 m walkway, 40 m, no cover; the line locker chimes 5 m behind the player with one round when the puzzle is solved | A: one line round, six sit down in order (or six lead rounds, leader first). Then six more on six chambers from two sides: shoot the door's four as they come through, turn for the two behind, or back off down the walkway and take the rear pair first. The line shot is the payoff; what answers it is the fight. Measured (Normal): the plain proxy loses nothing, the careless one 0 to 72 HP; 28 to 37 s |
 
 ### `lift_hall`
 
@@ -1276,8 +1295,8 @@ plus 20 puzzle shots. The lamp count (`9 + freed`) is clamped at 48 as before.
 | Element | Position | Spec |
 |---|---|---|
 | Crosshair | centre | a dot and four ticks with a dark outline; size, colour and outline configurable. Becomes the plumb glyph while the kept round is chambered |
-| **Cylinder ring** | bottom right | six brass dots in a ring 64 px across at 1080p that turns one notch (60°) per shot over 0.18 s, so the count is read by shape. A chambered line round is an aqua dot. Empty chambers are dark rings. Reserve count as a small numeral beneath (`ui_hud_reserve`) |
-| **The seventh** | beside the ring, 20 px apart, lower right of it, joined to the ring's centre by a hairline stroke (the six-and-one mark) | a cartridge drawn sealed with a band. Never fills, never empties, cannot be selected, until phase 3a. States (six; the contract's `SeventhState`): `sealed`, `pulse` (phase 3a), `chambered` (the kept round is under the hammer: the slot is drawn empty, section 6.6 rule 3, and the round is the white dot with an aqua ring in the cylinder ring), `band_broken` (returned to the slot by `unload_kept`, 6.6 rule 5), `spent` (an empty outline for the rest of the game), `violet` (after taking the stone's round). **Load-bearing: no UI pass may remove, hide or restyle it into the ring.** |
+| **Cylinder ring** | **bottom left, over the health bars** (polish round 5: it stood bottom right, printed across the gun hand; at 1280 x 720 the mark's box is x 14 to 109, y 526 to 676 and nothing of the gauges is in the lower right) | six brass dots in a ring 64 px across at 1080p that turns one notch (60°) per shot over 0.18 s, so the count is read by shape. A chambered line round is an aqua dot. Empty chambers are dark rings. Reserve count as a numeral beneath (`ui_hud_reserve`; 15 mark units, 16 px at 720p) |
+| **The seventh** | beside the ring, 20 px apart, lower right of it, joined to the ring's centre by a hairline stroke (the six-and-one mark); drawn at **2 x** the chamber glyph (`SEVENTH_SCALE` 2: 19 x 48 px at 720p; it was 1.5 x, the smallest thing on screen) | a cartridge drawn sealed with a band. Never fills, never empties, cannot be selected, until phase 3a. States (six; the contract's `SeventhState`): `sealed`, `pulse` (phase 3a), `chambered` (the kept round is under the hammer: the slot is drawn empty, section 6.6 rule 3, and the round is the white dot with an aqua ring in the cylinder ring), `band_broken` (returned to the slot by `unload_kept`, 6.6 rule 5), `spent` (an empty outline for the rest of the game), `violet` (after taking the stone's round). **Load-bearing: no UI pass may remove, hide or restyle it into the ring.** |
 | Line rounds | under the ring | 0–2 aqua pips |
 | Health | bottom left | three segments; the regenerating segment shows a thin fill line |
 | Damage arc | around the crosshair | 0.6 s, directional, pale |
@@ -1287,7 +1306,7 @@ plus 20 puzzle shots. The lamp count (`9 + freed`) is clamped at 48 as before.
 | Captions | above subtitles, smaller, bracketed | key sounds (`cap_*`) when captions are on |
 | Prompt | lower centre | `ui_prompt_read`, `ui_prompt_take`, `ui_prompt_use`, `ui_prompt_kept` |
 | Checkpoint | top left, 2 s | `ui_checkpoint` with the movement numeral and a section number |
-| Title cards | centre | numeral and title, 3.5 s, no input lock |
+| Title cards | centre | numeral and title, 3.5 s, no input lock. Polish round 5: shown **once a run** (not again after a restore) and **gives way to a fight**: on an enemy's telegraph or attack, an encounter or wave starting, a boss phase, damage to her or her own shot a card that is up has 1.0 s on screen in all and fades in 0.3 s; one that arrives within 6 s after such an event is that brief from the start |
 
 No minimap, no objective marker, no compass. The current objective is on the pause screen
 only (`obj_*`). Each is set by exactly one event:
@@ -1316,7 +1335,9 @@ only (`obj_*`). Each is set by exactly one event:
 
 - **Title.** `ui_title`, `ui_subtitle`; `ui_menu_play`, `ui_menu_continue` (if a save
   exists), `ui_menu_story`, `ui_menu_options`, `ui_menu_credits`. Behind it: the overhang
-  doorway shot, live.
+  doorway shot, live. Polish round 5: with a stored save **Go on is the chosen item and names its count**
+  ("GO ON  VI · 2"), and Begin over a save asks first (a column "Begin?": Go on, Begin, Back; only that Begin
+  starts a new run; Escape and Back return). With no save Begin starts at once.
 - **Pause.** `ui_pause_resume`, `ui_pause_options`, `ui_pause_restart_cp`,
   `ui_pause_quit`; the current objective; the cylinder widget enlarged with the seventh
   labelled by state: `ui_seventh_sealed` (also for `pulse`), `ui_seventh_broken` (also for
@@ -1610,8 +1631,9 @@ anywhere in the game.
 | Normal | x1.0 | 2 | — | 25 % | 0.22 m | unchanged |
 | Hard | x1.4 | 3 | −10 % | 15 % | 0.20 m | unchanged |
 
-Three more rows by difficulty (polish round 4). The Tamper's chest vent opens for the whole
-1.0 s slam wind-up on Easy and for its last 0.6 s on Normal and Hard. A Transit rests 1.5 s
+Three more rows by difficulty (polish round 4). The Tamper's chest vent opens for the last
+1.0 s of the slam wind-up on Easy and for its last 0.6 s on Normal and Hard; the wind-up itself is 1.38 s on Easy,
+1.15 s on Normal and 0.9 s on Hard (polish round 5). A Transit rests 1.5 s
 between stakes on Easy and Normal and 1.2 s on Hard. On Hard the Windlass rests 0.4 s after
 each phase-1 notch (0.8 s otherwise) and its stakes fly at 23 m/s (20 otherwise): before,
 Hard played the boss at Normal's lengths with only more damage.
@@ -2115,3 +2137,63 @@ is about her own kept round and is true on both branches. The Tamper's charge wi
 is not skippable (core's `DEATH_TICKS`). **Open for round 5:** `BOSS.chargeRequiredAt` 12 -> about 2 s; the pocket
 between `lh_ramp_cabinet`, the ramp and the gantry plinth; `ia_lift_cage`'s lattice and floor; the "Windlass seen" beat
 fired while she faces the bay's corner; the HUD mark's backing over the gun hand.
+
+### 23.9 Polish round 5 record (cross-cutting fixer, 2026-10-06): the last round of changes
+
+Lead rulings R1 to R13 outrank the numbers above. Edited in place: the header, 4.2 (the whole beat sheet, now measured),
+10 `enc_file`. The rows below are the complete list of what this pass changed; measurements are in
+`docs/INTEGRATION_REPORT.md` Part I, the log in `scratch/r5-fixer/NOTES.md`.
+
+| Section | Was | Is now |
+|---|---|---|
+| 4.2 beat sheet | planned times: 21 minutes, fights of 55 to 110 s | measured times: 9.5 to 10 minutes for the plain proxy, 12 to 16 estimated for a first-time person; fights 21 to 37 s (the yard about 60 s in a whole run), boss phases 27 to 44 s and 57 to 73 s |
+| 4.2, 10 `enc_street` text | `nar_street_after` "Seven of them." after eight Biders; `nar_plenty` before `nar_kneeler` | "Eight of them. She had started with six in the gun."; the kneeler line first (behind `nar_plenty` it was said after the kneeler was down). Wave A stays at 3 s: a 6 s trial took the cost out of the fight |
+| 10 `enc_file` | 9 Biders: the queue of six, then three through the far door 2 s after a bang | 12: the queue of six; **two down the peg stair behind her** when she nears the far door (`sp_file_10`, `sp_file_11`, wave R, `nar_file_behind`); 4 s later the bang and 1 s after it **four** through the far door (`sp_file_12` added; `nar_file_more` says "Four more") |
+| 6.5, 7.3 the Tamper | no line about the vents | `hint_tamper_vent` ("Lead rang off its plate. The vents stood open only after the blow.") after the fourth round in a row that the plate turns, once an attempt, on Easy and Normal, with hints on |
+| 6.5, 8.2 the Windlass | a tin of twelve at her feet as phase 2 begins when she holds under twelve in reserve | the same again at the break into phase 3 (several runs reached it with an empty reserve) |
+| 13 `kept` hint tier 1 | `nar_office` (the pay-off line of the seventh shot, spent early on a slow player) | the data for its own line exists: `hint_kept_1` ("Lead would not finish it. She had carried the other round eleven years."), named `hint1` in the bore's `lines`; **wiring it is the world's** (`src/world/kept.ts`, tier 1) |
+| 18 saves | a save with a malformed `world` or `enemies` part threw inside `applySave` and was dropped with a console error and a stack | refused when read (`src/core/save.ts`): never offered as "Go on"; a save that still cannot be applied is dropped with a one-line warning |
+
+**Not changed, and why.** The Tamper's slam wind-up (1.0 s) and the respawn into Windlass phase 2: the enemies
+team's, listed for it. `BOSS.chargeRequiredAt` stays 12 s (no round-5 critic raised it; it also sets phase 3a's adds
+clock). The Tally House's nine keep their seats: the rear pair of the file are not counted among them.
+
+### 23.10 Polish round 5 record (closer, 2026-10-06): the game as handed to the player
+
+Lead rulings R1 to R13 outrank the numbers above. Where a section quotes a number that moved it was edited in place
+(6.6 rule 3, 6.8, 7.3 `slam_windup`, 8.2 hints and phase 3b, 8.3, 9.8, 12.2, 12.3, 15); the rows below are the complete
+list of what the round's code and look teams changed after 23.9, and where a section above still says otherwise,
+**this table holds**. Measurements are in `docs/INTEGRATION_REPORT.md` Part J; each team's own table is in
+`docs/requests/<team>.md`. `design/*.json` did not change after 23.9: where a layout note still quotes an old number
+(`trg_stone.endAfterSeconds` 25, `exit_rim.endsWhen`), the code's floor holds.
+
+| Section | Was | Built |
+|---|---|---|
+| 5, 6.9, ART_BIBLE 8.3 idle placement | `VIEW_PLACE` (0.004, 0.013, 0.023; -7, 8.5, -14) | (0, 0.025, 0.026; pitch -7, yaw 7.5, roll -13): the view-model stands 3.5 % of the frame height higher; the thumb, the forefinger and the walnut grip are in the frame. At 720p gun + hands 11.6 to 12.2 % of the frame, the muzzle 98 px right of and 47 px below the crosshair (108 px, 15 % of the frame height, away). `VIEW_PLACE_HANDLING` y -0.04 -> -0.07: the reload, line-round and kept-round clips are drawn about 9 % of the frame height lower (12.8 to 13.4 % of the frame, the crosshair clear) |
+| 6.6, 8.2 the seventh (steps 5, 6) | `stn_proven` on the shot; at phase 3b `stn_dry`, `nar_kept`, `nar_office`; "four seconds of true silence" | on the shot's tick "BORE PROVEN." over whatever is there; **`nar_kept` next, about 3.3 s after the shot** (inside the four seconds: the sound is still silent, the narrator's text is not); then `stn_dry`, then `nar_office` (about 11 s after the shot) |
+| 6.8 flash | the sprite 1.6 x out on the eye-to-muzzle line of the shot's tick: on the frames after it stood below-left of the lifted barrel | placed each drawn frame on the drawn `muzzle` node's line: it rides the kick. Smoke and tracer still begin at the shot tick's muzzle |
+| 6.8, 17 confirms | +2.5 / +3.5 dB lift in the hall / the bore (bought nothing: all four are at the limiter) | tick, tink, parry and kill hold 12 ms (hall) / 20 ms (bore) before decaying; the kill's thud steps the tail back in those rooms |
+| 7.3 `slam_windup`, 15 | 1.0 s x the telegraph scale | 1.15 s Normal, 1.38 s Easy, 0.9 s Hard; vent window unchanged |
+| 8.2 hints | T1 `nar_office` | T1 `hint_kept_1`; `nar_office` only after the proof |
+| 8.2 phase 3b | the HAULING lines queued (one was announced 9.5 s after the Windlass was dead) | said only into a free line box; never after the death |
+| 8.3 retry | first attack 1.5 s after the restore, health 60 | 4 s; full health on Easy and Normal |
+| 9.2 / 9.3 the yard latch | `nar_first_knot` on the burst (3 s after it in play) | **said when she first looks at the latch knot** (within 26 m and 14 degrees, no fight live; `interact.ts` `KNOT_SEEN`); if she shot first it must start within 1.5 s of the burst or is dropped (`KNOT_LINE_LATE`) |
+| 9.3, 9.6 quiet-after-a-fight lines (`trg_marks`, `trg_hall_diagram`) | queued whatever followed | dropped if another fight is live when their turn comes (a brisk player who shoots the latch within about 3 s of seeing it does not hear `nar_marks`) |
+| 9.5 the watcher | both `nar_watcher_*` said wherever she had got to | next in line at the vignette; `nar_watcher_1` dropped once she is 10 m from the niche, `nar_watcher_2` once she is 13 m on or if the first was never shown (`VIGNETTE_NEAR`, `VIGNETTE_GONE`) |
+| 9.8 leaving the stone | 25 s more than 4 m away after `nar_stone_4` | 40 quiet seconds (the clock stands while a line is on screen). No warning line exists |
+| 9.8 the take | `nar_take_1` queued behind the stone's lines (19 s after the take on a quick take) | on the take's tick; no stone line after a take; the lamps' lines follow with the view eased to the town; the fire after them (take 3.5 s, fire 20.8 s, card 34.8 s on a brisk take) |
+| 9.8 the rim, look | the mesa east and west a plain maroon box; the cage's rock room ink (L* 7); a 0.56 m notch in the brow; a pale pylon stump | wings of the rim's own cliff 26 m west and 33 m east (unlit cards in the backdrop); the room lit rock (walls L* 9 to 14, reveal 18 to 24) with the new sub-mood `L6c` on the cage's own parts; the notch a bite a hand deep; the stump x 0.32 |
+| 9.6 the lift hall ring | level 1.5, white reveal | `RING_T` 1.0, panel joints round the ring, stained reveal |
+| 12.2 HUD mark | lower right, on the gun hand; the seventh 1.5 x; reserve numeral 12 units | **lower left over the health bars**; the seventh 2 x (19 x 48 px at 720p); numeral 15 units. Under the pause the HUD's own mark is not drawn; under a full page no gauge is drawn |
+| 12.2 movement cards | 3.5 s every time | once a run; cut to 1.0 s + 0.3 s fade by a fight |
+| 12.3 title | Begin always chosen; one press over a save wiped the run | with a save **Go on is the chosen item and names its count**; Begin over a save asks first ("Begin?": Go on, Begin, Back); only that Begin starts a new run |
+| 12.2 end card | — | under 900 px wide the ledger labels do not wrap; no checkpoint numeral behind the card |
+| 19 / 21 render, High | emissives x 2 everywhere; no sheen; one bloom table; contact shade 16 taps; sun shadow square 36 m | a dense lamp set (the Windlass's gauge) held at 1.08 x the bloom threshold; a **High-only sheen** on lightmapped station faces (L3, L4, L5, L5p 2.2; L5c 1.2); bloom by mood L4 0.68, L5 0.80 / 0.45 / 0.9, L5p 0.75 / 0.45 / 1.0, L5c 0.48 / 0.45 / 1.0, L5a 0.75 / 0.40 / 0.9; the strongest contact-shade tap dropped and the shade eased in a lamp's pool; the sun shadow square 52 m |
+
+**Rulings at the close.** The belt-and-braces moot rule for `stn_boss_hauling` / `stn_boss_indexing` once the
+Windlass is dead was **not added** (the enemies no longer queue the line; an unverifiable edit to the story queue in
+the last hour is the greater risk). The gun's level in the Tally House (L* 34.5 over a room of 23) stays: the test's
+floor of 0.85 of the rig is not moved. The gun team's change to `tests/render/polish3.test.mjs` (the view-model
+hidden while two beams are measured) and render-tech's to `tests/player/flash.test.mjs` ("at the muzzle as drawn")
+are accepted: neither relaxes a bound. `BOSS.chargeRequiredAt` stays 12 s. The pocket beside `lh_ramp_cabinet` and
+`ia_lift_cage`'s single-sided panels are not changed and are listed as known gaps.
