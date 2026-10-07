@@ -1,0 +1,54 @@
+# Checks every push to main; publishes the game to GitHub Pages when a version tag
+# (v*) is pushed or when the workflow is run by hand from the Actions tab.
+#
+# One-time setup in the repository: Settings -> Pages -> Source: "GitHub Actions".
+name: Build and publish
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run validate
+      - run: npm run test:unit
+      # The built assets in public/assets are committed, so no Blender is needed here.
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    # Publishing is deliberate: a version tag or a manual run, never an ordinary push.
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v6
+      - id: deployment
+        uses: actions/deploy-pages@v5
