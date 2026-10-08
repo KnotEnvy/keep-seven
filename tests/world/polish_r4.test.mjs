@@ -70,9 +70,10 @@ test('phase 3a: the station asks for the charge within 2 s of the phase; the pre
     assert.ok(ask.tick - begun <= 2 * 60, `within 2 s of the phase (${((ask.tick - begun) / 60).toFixed(2)} s; it was 12 s)`);
     // (a warp to this checkpoint counts nar_one_left as told: the narrator's line that follows the ask is stood in for)
     // a narrator line (5.5 s) is on screen; she presses F
-    await say(game, 'nar_rim_3');
+    // (pass i3: `nar_rim_3` waits for a look at the Rule now; any other narrator line stands in)
+    await say(game, 'nar_rim_1');
     await game.run([{ steps: 30 }]);
-    assert.equal((await game.state()).systems.world.story.current, 'nar_rim_3');
+    assert.equal((await game.state()).systems.world.story.current, 'nar_rim_1');
     await game.run([kept('loading'), { steps: 2 }]);
     const press = (await game.events(seq, 'weapon/kept')).find((e) => e.payload.stage === 'loading').tick;
     ev = await lineEvents(game, seq);

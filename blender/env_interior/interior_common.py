@@ -775,3 +775,103 @@ def chunk_tris(merged):
         c = name.split("__")[0]
         out[c] = out.get(c, 0) + sum(len(p.vertices) - 2 for p in o.data.polygons)
     return out
+
+
+# ------------------------------------------------------------------ look pass i2: oriented faces, the wall diagram's dress
+def oriented(name, items, mat="m_pellam", tint="enamel", region=None, lm=False, smooth=35, tess=None, mpr=None, along='auto'):
+    """A mesh from [(GAME polygon, GAME normal), ...]: every face is turned to look along its own normal (from_faces
+    can only turn a whole mesh toward or away from one point: a ring with a bore, a groove or a chamfer has faces that
+    look both ways)."""
+    ob = from_faces(name, [p for p, _ in items], mat, tint, region, bevel=0.0, lm=lm, smooth=smooth, mpr=mpr, along=along)
+    cen = [(sum((B(q) for q in p), Vector()) / len(p), Bd(n)) for p, n in items]
+    me = ob.data; bm = bmesh.new(); bm.from_mesh(me); mw = ob.matrix_world
+    for f in bm.faces:
+        c = mw @ f.calc_center_median()
+        want = min(cen, key=lambda cn: (cn[0] - c).length_squared)[1]
+        if f.normal.dot(want) < 0: f.normal_flip()
+    bm.to_mesh(me); bm.free(); me.update()
+    if tess: mesh.tessellate_max_edge(ob, tess)
+    return ob
+
+
+def diagram_dress(prefix, O, right, out, U, n_lamp=12):
+    """Look pass i2 (visual reviewer: "a plain black low-poly disc hanging from a black bar ... reads as an unfinished
+    placeholder shape"). The lift-head diagram's seventh, "hung apart" and dark by the story, was a flat 16-sided black
+    disc on a flat black stroke: walked up to, a primitive. It is a dead signal lamp now: a steel bezel with a bolt
+    circle standing proud of the panel, a pale reflector with eight spokes behind a dark lens, hung on a conduit that
+    two saddle clamps and a shackle hold to the panel. The six lit lamps are round (they were squares behind round
+    rings) and each ring carries a thin steel bezel.
+    O = GAME point of the ring's centre ON THE MARK'S FACE, right = GAME unit vector of the mark's +u as read from the
+    front, out = GAME unit vector toward the reader. Returns (objects, lamp polygons in Blender space: six + the seventh)."""
+    from lib import brand
+    Ov, R, N, UP = Vector(O), Vector(right), Vector(out), Vector((0.0, 1.0, 0.0))
+    def Q(u, v, d): return tuple(Ov + R * u + UP * v + N * d)
+    def circ(cu, cv, r, d, n, a0=0.0): return [Q(cu + r * math.sin(a0 + 2 * math.pi * i / n), cv + r * math.cos(a0 + 2 * math.pi * i / n), d) for i in range(n)]
+    def rad(cu, cv, i, n, a0=0.0):
+        a = a0 + 2 * math.pi * (i + 0.5) / n; return tuple(R * math.sin(a) + UP * math.cos(a))
+    objs, lamps = [], []
+    cs = brand.mark_disc_centres(U)
+    nrm = tuple(N)
+    # the six: a thin bezel round each ring (a lit lamp sits in a housing), and a round lens
+    bez = []
+    for (cu, cv) in cs[:6]:
+        ro, ri, d = (brand.DISC_R + 0.035) * U, (brand.DISC_R - 0.01) * U, 0.016 * U + 0.004
+        a, b = circ(cu, cv, ro, d, 16), circ(cu, cv, ri, d, 16); c = circ(cu, cv, ro, -0.019, 16)
+        for i in range(16):
+            j = (i + 1) % 16
+            bez.append(([a[i], a[j], b[j], b[i]], nrm))
+            bez.append(([c[i], c[j], a[j], a[i]], rad(cu, cv, i, 16)))
+        lamps.append([B(p) for p in circ(cu, cv, (brand.DISC_R - brand.DISC_WALL) * U * 0.98, 0.003, n_lamp)][::-1])      # counter-clockwise seen from the front
+    objs.append(oriented(prefix + "_bezels", bez, "m_pellam", "steel", None, smooth=40))
+    # the seventh: bezel, bolt circle, reflector, spokes, lens ring; the lamp itself is the dark lens in the middle
+    cu, cv = cs[6]; r7 = brand.SEVENTH_R * U
+    n = 24; d0 = 0.045 * U
+    a, b, c, e = circ(cu, cv, r7 + 0.06 * U, d0, n), circ(cu, cv, r7 - 0.035 * U, d0, n), circ(cu, cv, r7 + 0.075 * U, -0.019, n), circ(cu, cv, r7 - 0.035 * U, 0.008, n)
+    hous = []
+    for i in range(n):
+        j = (i + 1) % n; ro = rad(cu, cv, i, n)
+        hous.append(([a[i], a[j], b[j], b[i]], nrm))
+        hous.append(([c[i], c[j], a[j], a[i]], tuple(Vector(ro) * 0.9 + N * 0.44)))
+        hous.append(([b[i], b[j], e[j], e[i]], tuple(-Vector(ro))))
+    objs.append(oriented(prefix + "_seventh_bezel", hous, "m_pellam", "steel", None, smooth=40))
+    refl = []
+    ra, rb_ = circ(cu, cv, r7 - 0.035 * U, 0.008, n), circ(cu, cv, 0.125 * U, 0.014, n)
+    for i in range(n):
+        j = (i + 1) % n
+        refl.append(([ra[i], ra[j], rb_[j], rb_[i]], nrm))
+    objs.append(oriented(prefix + "_seventh_reflector", refl, "m_pellam", "enamel", None, smooth=40))
+    dark = []
+    la, lb = circ(cu, cv, 0.14 * U, 0.02, 16), circ(cu, cv, 0.108 * U, 0.02, 16)
+    for i in range(16):
+        j = (i + 1) % 16
+        dark.append(([la[i], la[j], lb[j], lb[i]], nrm))
+    for k in range(8):                                                  # spokes of the reflector
+        a_ = 2 * math.pi * (k + 0.5) / 8; w = 0.009 * U
+        t = (math.cos(a_), -math.sin(a_))
+        p = lambda r_, s_: Q(cu + r_ * math.sin(a_) + s_ * t[0], cv + r_ * math.cos(a_) + s_ * t[1], 0.0165)
+        dark.append(([p(0.14 * U, -w), p(0.14 * U, w), p(r7 - 0.04 * U, w), p(r7 - 0.04 * U, -w)], nrm))
+    objs.append(oriented(prefix + "_seventh_dark", dark, "m_pellam", "steel_dark", None))
+    for k in range(6):                                                  # the bolt circle
+        a_ = 2 * math.pi * (k + 0.5) / 6; rb2 = r7 + 0.0125 * U; s = 0.016 * U
+        bu, bv = cu + rb2 * math.sin(a_), cv + rb2 * math.cos(a_)
+        lo, hi = Q(bu - s, bv - s, d0), Q(bu + s, bv + s, d0 + 0.012)
+        f = [([Q(bu - s, bv - s, d0 + 0.012), Q(bu + s, bv - s, d0 + 0.012), Q(bu + s, bv + s, d0 + 0.012), Q(bu - s, bv + s, d0 + 0.012)], nrm)]
+        for (u0, v0, u1, v1, nn) in ((-s, -s, s, -s, -UP), (s, -s, s, s, R), (s, s, -s, s, UP), (-s, s, -s, -s, -R)):
+            f.append(([Q(bu + u0, bv + v0, d0), Q(bu + u1, bv + v1, d0), Q(bu + u1, bv + v1, d0 + 0.012), Q(bu + u0, bv + v0, d0 + 0.012)], tuple(nn)))
+        objs.append(oriented(f"{prefix}_seventh_bolt{k}", f, "m_pellam", "steel_dark", None))
+    lamps.append([B(p) for p in circ(cu, cv, 0.108 * U, 0.021, n_lamp)][::-1])
+    # the hanger: a conduit down the stroke, two saddle clamps, a shackle on the seventh's crown
+    def block(name, u0, u1, v0, v1, d1, tint):
+        f = [([Q(u0, v0, d1), Q(u1, v0, d1), Q(u1, v1, d1), Q(u0, v1, d1)], nrm)]
+        for (ua, va, ub, vb, nn) in ((u0, v0, u1, v0, -UP), (u1, v0, u1, v1, R), (u1, v1, u0, v1, UP), (u0, v1, u0, v0, -R)):
+            f.append(([Q(ua, va, -0.019), Q(ub, vb, -0.019), Q(ub, vb, d1), Q(ua, va, d1)], tuple(nn)))
+        objs.append(oriented(name, f, "m_pellam", tint, None))
+    v_top, v_bot = -1.22 * U, cv + r7 + 0.06 * U
+    objs.append(cyl(prefix + "_conduit", Q(0, v_top, 0.012), Q(0, v_bot, 0.012), 0.03 * U, 8, "m_pellam", "steel", None, cap=False))
+    for k, v in enumerate((-1.36 * U, -1.86 * U)):
+        block(f"{prefix}_clamp{k}", -0.11 * U, 0.11 * U, v - 0.035 * U, v + 0.035 * U, 0.05 * U, "steel")
+        for s_ in (-1, 1):
+            block(f"{prefix}_clamp{k}_bolt{s_}", s_ * 0.08 * U - 0.014 * U, s_ * 0.08 * U + 0.014 * U, v - 0.014 * U, v + 0.014 * U, 0.05 * U + 0.01, "steel_dark")
+    block(prefix + "_shackle", -0.075 * U, 0.075 * U, v_bot - 0.03 * U, v_bot + 0.1 * U, 0.06 * U, "steel")
+    for o in objs: o["lm"] = False
+    return objs, lamps

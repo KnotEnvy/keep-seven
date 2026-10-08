@@ -89,9 +89,9 @@ def build(card):
     dark = hexlin("#2B1A20"); dark2 = hexlin("#3A2228"); scree_c = hexlin("#6A4244"); foot_c = mix(hexlin("#6A4244"), fog_at(math.pi * 1.5), 0.3)
     E = lambda x, y, z: (x, y, z)
     # (offset along the rim from his feet, the top of the mesa above his feet): a caprock that sags, one notch, and the
-    # knob he stands on; never above 0
+    # knob he stands on; never above 0 (pass i3: the knob is 8.4 m wide, it was 3: the figure is drawn 9 m wide and both boots stand on rock)
     prof = [(-108.0, None), (-60.0, -30.0), (-55.0, -7.5), (-47.0, -5.6), (-41.0, -3.4), (-33.5, -2.7), (-30.0, -5.2), (-26.5, -2.3), (-17.0, -1.7),
-            (-9.5, -1.3), (-5.0, -0.25), (-1.5, 0.0), (1.5, 0.0), (4.5, -0.3), (9.0, -1.2), (15.0, -1.9), (23.0, -2.5), (30.0, -2.1), (38.5, -3.6),
+            (-10.5, -1.3), (-7.0, -0.3), (-4.2, 0.0), (4.2, 0.0), (6.8, -0.35), (10.0, -1.2), (15.0, -1.9), (23.0, -2.5), (30.0, -2.1), (38.5, -3.6),
             (45.0, -6.0), (49.5, -30.0), (102.0, None)]
     scree_top = rim_y - 24.0
     for k in range(len(prof) - 1):
@@ -133,7 +133,9 @@ def build(card):
         a = math.radians(az)
         cx = CENTRE[0] + math.sin(a) * dist_c; cz = CENTRE[2] - math.cos(a) * dist_c; cy = math.tan(math.radians(el)) * dist_c
         facing = (-math.sin(a), math.cos(a))
-        cards.cloud(card, (cx, cy, cz), w, w * 0.22, facing, lit, body, 40 + k)
+        # pass i2 (the visual reviewer: "flat orange polygons with hard straight edges that read as placeholders"): not drawn.
+        # The sky draws soft clouds of its own now (src/render/sky.ts); cards.cloud stays for a script that wants one.
+        if os.environ.get("KS_EXT_CARD_CLOUDS"): cards.cloud(card, (cx, cy, cz), w, w * 0.22, facing, lit, body, 40 + k)
     return tgt
 
 

@@ -393,7 +393,21 @@ def build_gantry(rng):
           ([(xd, FL + 0.55, cz - 0.2), (xd, FL + 0.55, cz - 0.42), (xd, FL + 0.77, cz - 0.42), (xd, FL + 0.77, cz - 0.2)], "picto_misc", 2, "steel_dark")]
     dec.append(ic.decals("cabinet_decals", dd))
     pl, pd = ic.maker_plate("4-140", (xd, FL + 1.75, cz + 0.32), -90.0, name="cabinet_plate"); add(pl); dec.append(pd) if pd else None
-    add(ic.band("cabinet_band", [(xf, cz + 0.6), (xf, cz - 0.6)], FL + 1.2))
+    # release pass p0 (closer; named by the visual reviewer as "an orange box"): everything above was on the east face,
+    # and from the ramp and the gantry she sees the other three, bare. The band runs round all four sides; each of the
+    # three other faces gets a door seam, two louvre blocks and a kick strip
+    add(ic.band("cabinet_band", [(xf, cz + 0.6), (xf, cz - 0.6), (cx - 0.6, cz - 0.6), (cx - 0.6, cz + 0.6), (xf, cz + 0.6)], FL + 1.2))
+    more = []
+    for tag, (nx, nz) in (("w", (-1.0, 0.0)), ("n", (0.0, -1.0)), ("s", (0.0, 1.0))):
+        rx_, rz_ = nz, -nx                                                # the viewer's right as she faces the panel
+        def P(u, y, out=0.003, nx=nx, nz=nz, rx_=rx_, rz_=rz_): return (cx + nx * (0.6 + out) + rx_ * u, y, cz + nz * (0.6 + out) + rz_ * u)
+        add(ic.from_faces(f"cabinet_seam_{tag}", [[P(-0.016, FL + 0.25), P(0.016, FL + 0.25), P(0.016, FL + ch - 0.1), P(-0.016, FL + ch - 0.1)]],
+                          "m_pellam", "steel_dark", None, away_from=(cx, FL + 1.2, cz)))
+        add(ic.from_faces(f"cabinet_kick_{tag}", [[P(-0.58, FL + 0.14), P(0.58, FL + 0.14), P(0.58, FL + 0.3), P(-0.58, FL + 0.3)]],
+                          "m_pellam", "steel_dark", None, away_from=(cx, FL + 0.2, cz)))
+        for u0, u1 in ((-0.5, -0.15), (0.15, 0.5)):
+            more.append(([P(u0, FL + ch - 0.6), P(u1, FL + ch - 0.6), P(u1, FL + ch - 0.25), P(u0, FL + ch - 0.25)], "louvre", None, "steel_dark"))
+    dec.append(ic.decals("cabinet_decals_more", more))
 
 
 # ====================================================================================================== bulkhead, ring, diagram, bays
@@ -511,17 +525,15 @@ def build_diagram():
     add(ic.box("diagram_panel", (x, y0 - 0.3, z - 1.75), (XE, y0 + H + 0.3, z + 1.75), "m_pellam", ENAMEL, "panel", bevel=0.02, drop="x+", lm=True, mpr=3.6, fit='metric'))
     add(ic.box("diagram_frame_t", (x - 0.04, y0 + H + 0.2, z - 1.8), (XE, y0 + H + 0.36, z + 1.8), "m_pellam", "steel", "steel", bevel=0.02, drop="x+", mpr=3.6))
     add(ic.box("diagram_frame_b", (x - 0.04, y0 - 0.36, z - 1.8), (XE, y0 - 0.2, z + 1.8), "m_pellam", "steel", "steel", bevel=0.02, drop="x+", mpr=3.6))
-    mk = brand.pellam_mark(U, relief=0.02, segments=16, name="diagram_mark", colour="steel_dark", mat="m_prop")
+    mk = brand.pellam_mark(U, relief=0.02, segments=24, name="diagram_mark", colour="steel_dark", mat="m_prop")
     mk.matrix_world = Matrix.Translation(B((x, ring_y, z))) @ Matrix.Rotation(-math.pi / 2, 4, 'Z')       # its front (-Y) turned to face -x (west)
     mesh.apply_transform(mk); zone.fold_flat(mk, "m_pellam"); vcol.tint(mk, "steel_dark"); mk["lm"] = False
     mesh.tessellate_max_edge(mk, 0.6)
     add(mk)
-    lamps = []
-    for k, (u, v) in enumerate(brand.mark_disc_centres(U)):
-        s = 0.12 if k < 6 else 0.17
-        xl = x - 0.021 - 0.002
-        zc = z + u; yc = ring_y + v                                     # the panel faces west: the mark's right (+u) is toward +z
-        lamps.append([B((xl, yc - s, zc - s)), B((xl, yc - s, zc + s)), B((xl, yc + s, zc + s)), B((xl, yc + s, zc - s))])
+    # look pass i2: the seventh is a dead signal lamp on a hanger, the six are round lenses in bezels (ic.diagram_dress);
+    # the panel faces west: the mark's right (+u) is toward +z
+    objs, lamps = ic.diagram_dress("diagram", (x - 0.02, ring_y, z), (0, 0, 1), (-1, 0, 0), U)
+    for o in objs: mesh.tessellate_max_edge(o, 0.6); add(o)
     return lamps, (x, ring_y, z, U)
 
 
@@ -746,7 +758,7 @@ def main():
     merged = zone.merge_chunks(ASSET)
     print("CHUNKS " + ", ".join(f"{k} {v}" for k, v in sorted(ic.chunk_tris(merged).items())))
     dg = zone.lamp_set("diagram_lamps", [[q] for q in diag_lamps], colour=["aqua"] * 6 + ["aqua_core"], intensity=1.0)
-    vc_ = vcol.get_colors(dg, "Color"); vc_[:24, 0] = 0.55; vcol.set_colors(dg, vc_, "Color")      # the six discs dim, the seventh full
+    vc_ = vcol.get_colors(dg, "Color"); vc_[:72, 0] = 0.55; vcol.set_colors(dg, vc_, "Color")      # the six discs dim, the seventh full (look pass i2: twelve-sided lenses, 6 x 12 corners)
     dg["emit_strength"] = 0.0
     ic.snap_positions(list(merged.values()) + [dg])
     ic.vertex_report(list(merged.values()))

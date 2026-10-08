@@ -17,8 +17,9 @@ PIECES = {"env_exterior": "art-env-exterior", "env_interior": "art-env-interior"
           "props_dress": "art-props", "weapons": "art-weapons", "enemies": "art-enemies", "boss": "art-boss",
           "render": "code-render", "fixtures": "foundation-pipeline"}
 SHEET_OF = {"m_frontier": "tx_frontier_trim", "m_pellam": "tx_pellam_trim", "m_sand": "tx_sand", "m_mask": "tx_mask",
-            "m_flat": "tx_palette", "m_prop": "tx_palette", "m_emis": "tx_palette_emis", "m_gun": "tx_gun"}
-MATERIALS = ("m_frontier", "m_pellam", "m_sand", "m_flat", "m_mask", "m_emis", "m_prop", "m_gun")
+            "m_flat": "tx_palette", "m_prop": "tx_palette", "m_emis": "tx_palette_emis", "m_gun": "tx_gun",
+            "m_hands": "tx_hands"}
+MATERIALS = ("m_frontier", "m_pellam", "m_sand", "m_flat", "m_mask", "m_emis", "m_prop", "m_gun", "m_hands")
 
 
 def _json(path):

@@ -136,7 +136,8 @@ def adobe(w, h, seed, flat_local):
     arcs2 = np.sin((X / w * 2 * math.pi * 13.0) - Y / h * 5.0 + sweep * 6.0) * 0.5
     speck = td.value_noise(w, h, 256, 40, seed + 1) - 0.5
     broad = td.fbm(w, h, 3, 1, octaves=2, seed=seed + 40) - 0.5
-    a = 0.5 + sweep * 0.16 + broad * 0.10 + arcs * 0.035 + arcs2 * 0.02 + speck * 0.035
+    # pass i2 ("single flat-coloured planes several metres across"): the broad tone and the trowel's sweep half as strong again
+    a = 0.5 + sweep * 0.22 + broad * 0.16 + arcs * 0.05 + arcs2 * 0.028 + speck * 0.04
     # three hairline cracks: wandering, mostly vertical, one branching toward the brick
     rng = np.random.default_rng(seed + 3)
     for i, (cx, y0, y1, lean) in enumerate(((150.0, 4.0, 86.0, 0.25), (470.0, 30.0, 104.0, -0.4), (905.0, 0.0, 70.0, 0.15))):
@@ -213,7 +214,10 @@ def strata(w, h, seed):
     X, Y = td.grid(w, h)
     seam = np.zeros((h, w), dtype=np.float32)
     cuts = np.array([0.0, 0.16, 0.37, 0.52, 0.80, 1.0], dtype=np.float32) * h      # uneven thicknesses
-    tones = np.array([0.05, -0.06, 0.02, -0.045, 0.06], dtype=np.float32)
+    # pass i2 (both visual reviewers: "big single-colour rock slabs with faint vertical streaks"): the beds' tones were
+    # +-0.05 of the sheet (one in ten of the albedo, gone in the gully's shade); now a bed is plainly darker or lighter
+    # than its neighbour, desert varnish hangs in streaks under every bedding plane, and two thin pale seams run through
+    tones = np.array([0.10, -0.13, 0.04, -0.09, 0.13], dtype=np.float32)
     a = np.full((h, w), 0.5, dtype=np.float32)
     und = [(td.fbm(w, h, 3 + i, 1, octaves=3, seed=seed + 10 * i)[0:1, :] - 0.5) * (9.0 + 3.0 * (i % 2)) for i in range(6)]
     band = np.zeros((h, w), dtype=np.int64)
@@ -223,12 +227,24 @@ def strata(w, h, seed):
     lam = td.fbm(w, h, 4, 30, octaves=3, seed=seed + 2) - 0.5                      # fine lamination inside a band
     blocky = td.fbm(w, h, 14, 5, octaves=3, seed=seed + 3) - 0.5                   # fracture blocks
     grit = td.value_noise(w, h, 300, 60, seed + 4) - 0.5
-    a += lam * 0.12 + blocky * 0.10 + grit * 0.03
+    a += lam * 0.16 + blocky * 0.15 + grit * 0.035
+    streak = td.fbm(w, h, 46, 2, octaves=3, seed=seed + 7) - 0.5                   # narrow in U, long in V: what the rain left
+    broad_s = td.fbm(w, h, 5, 1, octaves=2, seed=seed + 8)
+    hang = np.zeros((h, w), dtype=np.float32)
+    for i in range(0, 5):                                                          # each streak starts under a plane and fades down its bed
+        y_top = cuts[i] + (und[i] if i > 0 else 0.0); span = float(cuts[i + 1] - cuts[i])
+        t = np.clip((Y - y_top) / max(span, 1.0), 0, 1) * (Y >= y_top) * (Y < cuts[i + 1] + und[min(i + 1, 5)])
+        hang = np.maximum(hang, (1.0 - t) ** 1.4 * (t > 0))
+    a -= 0.16 * np.clip(streak * 3.0 + 0.25, 0, 1) * hang * np.clip(broad_s * 2.4 - 0.55, 0, 1)
+    for (yy, amp, sd) in ((0.27, 0.085, 61), (0.66, 0.07, 62)):                   # pale seams: a hand thick, wandering, broken
+        wob = (td.fbm(w, h, 3, 1, octaves=3, seed=seed + sd)[0:1, :] - 0.5) * 7.0
+        on = np.clip(td.value_noise(w, h, 5, 1, seed + sd + 3)[0:1, :] * 2.6 - 0.6, 0, 1)
+        a += amp * np.exp(-((Y - yy * h - wob) / 1.6) ** 2) * on
     for i in range(1, 5):                                                          # bedding planes
         strong = td.value_noise(w, h, 7, 1, seed + 30 + i)[0:1, :]
         c = td.cover(np.abs(Y - cuts[i] - und[i]) - (0.3 + 1.1 * strong), 1.4) * np.clip(strong * 2.2 - 0.25, 0, 1)
-        td.over(a, c, 0.25); np.maximum(seam, c, out=seam)
-        a -= 0.045 * np.clip(1.0 - (Y - cuts[i] - und[i]) / 5.0, 0, 1) * (Y > cuts[i] + und[i])   # undercut shadow
+        td.over(a, c, 0.20); np.maximum(seam, c, out=seam)
+        a -= 0.085 * np.clip(1.0 - (Y - cuts[i] - und[i]) / 6.0, 0, 1) * (Y > cuts[i] + und[i])   # undercut shadow
     rng = np.random.default_rng(seed + 5)
     for j in range(7):                                                             # joints: short cracks across one or two bands
         x = rng.uniform(0, w); b0 = int(rng.integers(0, 4)); b1 = min(5, b0 + int(rng.integers(1, 3)))

@@ -206,20 +206,128 @@ def build_pylon(S):
     return [p]
 
 
+BLANKET = dict(L=1.5, W=0.92)
+
+
+def blanket_frame(c, rot_deg):
+    r = math.radians(rot_deg); cr, sr = math.cos(r), math.sin(r)
+    return lambda u, w: (c[0] + u * cr + w * sr, c[1] - u * sr + w * cr)
+
+
+def build_blanket(S, c, rot_deg):
+    """A wool blanket folded once (pass i3): L x W on the sand, about 5 cm thick. One lightmapped chart, planar from above
+    (the pot's long shadow and the notch's sun lie across it); the stripes are per-face colours on grid lines that follow
+    them; the fold is the long south side (a round), the three open sides show two layers with a dark line between."""
+    L, W = BLANKET["L"], BLANKET["W"]
+    S.extra["lip"]["blanket"] = dict(c=c, rot=rot_deg, L=L, W=W)
+    at = blanket_frame(c, rot_deg)
+    p = Part("lip_blanket", Z, chunk="chunk_lip_upper", smooth=50)
+    ch = kit.chart("lip_blanket", 2.5)
+    body = lin("#39414f"); body2 = lin("#2f3644"); pale = mul(lin("linen"), 0.74); rust = mul(lin("rust"), 0.62)
+    US = [0.0, 0.11, 0.19, 0.23, 0.27, 0.5, 0.75, 1.0, 1.23, 1.27, 1.31, 1.39, 1.5]
+    WS = [0.0, 0.1, 0.3, 0.5, 0.7, 0.92]
+
+    def stripe(u):
+        e = min(u, L - u)
+        if 0.11 <= e < 0.19: return pale
+        if 0.23 <= e < 0.27: return rust
+        return None
+
+    def top_h(u, w):
+        # the crease of the fold along the south side, a ridge where the upper layer rucked, a low swell, the weave's unevenness
+        e = min(u, L - u, w, W - w)
+        h = 0.046 + 0.012 * fbm(u / 0.35, w / 0.35, 61, 2)
+        h += 0.022 * math.exp(-(((u - 0.52) - 0.55 * (w - 0.4)) / 0.06) ** 2) * smooth(clamp(w / 0.3))
+        h += 0.016 * math.exp(-(((u - 1.05) + 0.3 * (w - 0.5)) / 0.09) ** 2)
+        h -= 0.010 * math.exp(-((w - 0.10) / 0.05) ** 2)                       # the fold's crease
+        return h - 0.012 * (1.0 - smooth(clamp(e / 0.08)))                    # the edges lie down
+
+    def skew(u, w):                                                          # the upper layer lies a finger askew
+        return u + 0.018 * (w / W - 0.5) + 0.012 * (vnoise(w * 5.0, 1.3, 62) - 0.5), w
+
+    def P(u, w, h):
+        x, z = at(u - L / 2, w - W / 2)
+        return (x, lf.ground(x, z) + h, z)
+
+    def quad(q, col):
+        n = kit.vcross(kit.vsub(q[1], q[0]), kit.vsub(q[2], q[0]))
+        cols = col if isinstance(col, list) else [col] * 4
+        if n[1] < 0: q = q[::-1]; cols = cols[::-1]
+        p.poly(q, "m_frontier", flat_uv("m_frontier"), cols, ch, [(v[0], v[2]) for v in q], final=True, weld=True)
+
+    for i in range(len(US) - 1):
+        for j in range(len(WS) - 1):
+            u0, u1, w0, w1 = US[i], US[i + 1], WS[j], WS[j + 1]
+            sc = stripe(0.5 * (u0 + u1))
+            tone = 0.9 + 0.2 * vnoise(i * 0.9 + 0.3, j * 1.1, 63)
+            col = mul(sc if sc else mix(body2, body, vnoise(i * 0.61, j * 0.83, 64)), tone)
+            q = []
+            for (u, w) in ((u0, w0), (u1, w0), (u1, w1), (u0, w1)):
+                su, sw = skew(u, w)
+                q.append(P(su, sw, top_h(u, w)))
+            quad(q, col)
+    # the sides: the upper layer's edge, a dark line where the layers part, the lower layer standing a finger proud, the sand
+    edge = [(u, 0.0) for u in US] + [(L, w) for w in WS[1:]] + [(u, W) for u in reversed(US[:-1])] + [(0.0, w) for w in reversed(WS[1:-1])]
+    n = len(edge)
+    def out(u, w, d):
+        ox = -1.0 if u <= 0.0 else (1.0 if u >= L else 0.0); ow = -1.0 if w <= 0.0 else (1.0 if w >= W else 0.0)
+        l = math.hypot(ox, ow) or 1.0
+        return u + ox / l * d, w + ow / l * d
+    for k in range(n):
+        (ua, wa), (ub, wb) = edge[k], edge[(k + 1) % n]
+        fold = wa <= 0.0 and wb <= 0.0                                        # the folded side is one round, not two layers
+        sc = stripe(0.5 * (ua + ub)) if (wa == wb) else None
+        base = sc if sc else body2
+        rings = []
+        for (u, w) in ((ua, wa), (ub, wb)):
+            su, sw = skew(u, w); t = top_h(u, w)
+            if fold: prof = [(su, sw, t), out(su, sw, 0.03) + (-0.004,)]
+            else: prof = [(su, sw, t), out(su, sw, 0.008) + (t * 0.5,), out(u, w, 0.045) + (-0.004,)]
+            rings.append([P(a, b, h) for (a, b, h) in prof])
+        cs = [mul(base, 0.8), [mul(base, 0.3), mul(base, 0.3), mul(base, 0.66), mul(base, 0.66)]] if not fold else [mul(base, 0.75)]
+        for r in range(len(rings[0]) - 1):
+            quad([rings[0][r], rings[1][r], rings[1][r + 1], rings[0][r + 1]], cs[r])
+    # its east end is still rolled, as he carried it: three turns of the same wool, the pale end stripe showing on the roll
+    roll = Part("lip_bedroll", Z, chunk="chunk_lip_upper", smooth=50)
+    rr = 0.088; nseg = 8
+    ends = []
+    for w in (-0.02, W + 0.03):
+        ring = []
+        for k in range(nseg):
+            an = 2 * math.pi * k / nseg
+            x, z = at(L / 2 + 0.035 + math.cos(an) * rr * (1.0 + 0.06 * math.sin(3 * an + w)), w - W / 2)
+            ring.append((x, lf.ground(x, z) + rr * 0.92 + math.sin(an) * rr * 0.95, z))
+        ends.append(ring)
+    for k in range(nseg):
+        j = (k + 1) % nseg
+        q = [ends[0][k], ends[1][k], ends[1][j], ends[0][j]]
+        n_ = kit.vcross(kit.vsub(q[1], q[0]), kit.vsub(q[2], q[0]))
+        mid_ = kit.vscale(kit.vadd(kit.vadd(q[0], q[1]), kit.vadd(q[2], q[3])), 0.25)
+        cx_, cz_ = at(L / 2 + 0.035, 0.0)
+        if kit.vdot(n_, kit.vsub(mid_, (cx_, lf.ground(cx_, cz_) + rr * 0.92, cz_))) < 0: q = q[::-1]
+        roll.poly(q, "m_frontier", flat_uv("m_frontier"), mul(pale if k in (1, 2) else (rust if k == 3 else mix(body2, body, 0.5 + 0.5 * math.sin(k * 2.1))), 0.95), final=True)
+    for e_, ring in enumerate(ends):
+        roll.poly(ring if e_ else ring[::-1], "m_frontier", flat_uv("m_frontier"), mul(body2, 0.6), final=True)
+    S.extra["lip"]["bedroll"] = roll
+    print(f"CAMP blanket: {p.tris()} + {roll.tris()} triangles at {c}")
+    return p
+
+
 # ====================================================================== stop one
 def build_camp(S):
     m = layout.marker("prop_camp_one")
-    p = Part("lip_shelf", Z, smooth=28)
-    # one flat swept rock shelf (no hearth, no ash): the stone, the pot and the note sit on it
-    rock.rock_box(p, (m["pos"][0] + 0.25, m["pos"][1] - 0.2, m["pos"][2] + 0.15), (2.3, 0.41, 1.5), rot=-14.0, seed=91, n=3, bulge=0.012, chamfer=0.1,
-                  chart="lip_shelf", dark=0.35)
+    # pass i3 (fixer's ruling, GDD 23.16 / ART_BIBLE "Amendments, pass i3"; both visual reviewers: "a hard-edged flat orange
+    # disc in the centre of the first image"): the swept rock shelf is gone. Stop one is his blanket, folded once and left
+    # on the sand beside the stone the pot stands on: two layers of dark wool with pale end stripes, creased where it was
+    # folded, its upper layer lying a little askew on the lower. No fire, no ash, no ring of stones.
+    p = build_blanket(S, (m["pos"][0] + 1.02, m["pos"][2] + 0.42), -17.0)
     # a rag caught under a stone by the mouth: the only cloth here (the m_mask of this chunk)
     rag = Part("lip_rag", Z)
     F = fr.Frame((20.55, 14.0, 102.4), (0.25, -1.0))
     fr.decal(rag, F, 0.0, 0.42, 0.02, 0.5, 0.62, "card_edges", 0, mul(lin("workcloth"), 1.1))
     st = Part("lip_ragstone", Z)
     rock.rock_chunk(st, (20.62, 14.72, 102.38), 0.2, seed=5, dark=0.4)
-    return [p, rag, st]
+    return [p, S.extra["lip"]["bedroll"], rag, st]
 
 
 def build_salvage(S):

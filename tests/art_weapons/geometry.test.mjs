@@ -45,8 +45,8 @@ test('arms_mesh faces out: in every bone group more triangles look away from the
   console.log('arms_mesh, triangles facing out / in per bone: ' + rows.join('; '));
 });
 
-test('triangle split: gun_mesh <= 3200, arms_mesh <= 2800', () => {
+test('triangle split (ruling R14: 18 000 in all): gun_mesh <= 10 000, arms_mesh <= 8 000', () => {
   const g = groups('gun_mesh').tris, a = groups('arms_mesh').tris;
   console.log(`gun_mesh ${g} triangles, arms_mesh ${a} triangles`);
-  assert.ok(g <= 3200, `gun_mesh ${g}`); assert.ok(a <= 2800, `arms_mesh ${a}`);
+  assert.ok(g <= 10000, `gun_mesh ${g}`); assert.ok(a <= 8000, `arms_mesh ${a}`); assert.ok(g + a <= 18000);
 });

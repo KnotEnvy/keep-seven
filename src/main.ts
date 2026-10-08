@@ -56,4 +56,6 @@ async function main(): Promise<void> {
   installDebugHook(ctx, systems);                            // flags.test || flags.dev
 }
 
-main().catch(reportBootFailure);
+// index.html's #preload (the name, the mark and the line) takes itself away when the game puts anything into #ui;
+// a boot that fails before that must not leave it over the failure notice (closer, pass i1)
+main().catch((err: unknown) => { document.getElementById('preload')?.remove(); reportBootFailure(err); });

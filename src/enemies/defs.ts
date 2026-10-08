@@ -142,6 +142,19 @@ export const BIDER = {
   lostSightAfter: 1.0,            // GDD 7.1: last known position after 1 s without sight
   /** polish round 4: straight at her only within this much height of her; beyond it the nav graph (ramps, stairs) */
   directLevel: 1.2,
+  /**
+   * Release pass p0 (the combat critic: "the file is still free for a player who shoots straight"). Two causes, both
+   * measured in the critic's own leg (scratch/p0-team-enemies/base_fileP_1.log):
+   * (1) the rear pair, 57 m of stair and gallery behind her, reached her 1.9 s after the door's four, so the two ends
+   * were shot in turn and nothing ever came from outside her view. A Bider of a wave named in `hurryWaves` (or whose
+   * spawn marker says `hurry: true`) runs `hurrySpeed` times as fast while it is more than `hurryBeyond` metres from
+   * her AND outside her view cone: watched, or near, it runs at GDD 7.1's 5.8 m/s. The pair now arrive with the door.
+   * (2) `circle` never left the ring for a player who walked on: its radial term followed her at her own speed, 4.5 m
+   * off, outside the 3.8 m it attacks from, for as long as she kept walking (3.4 s through a whole reload). With a
+   * melee token free and her beyond the ring's reach it runs at her again (`approach`).
+   */
+  hurryWaves: { 'enc_file/R': true } as Readonly<Record<string, boolean>>,
+  hurrySpeed: 1.3, hurryBeyond: 18,
   cupDetachAt: 0.4,               // work order 4.6: frame 12 of kneel_to_stand
   hoodScale: 0.05,                // ART_BIBLE 7: +-5 % hood scale
   /** four workcloth tints (ART_BIBLE 7: variation without new meshes), multipliers on the authored colour */
@@ -201,6 +214,12 @@ export const TAMPER = {
    * it still opens `slamVentLateBy` before the arm comes down. The clip (authored for `slamWindup`) is played slower.
    */
   slamWindupBy: { easy: 1.15, normal: 1.15, hard: 1.0 } as Readonly<Record<Difficulty, number>>,
+  /**
+   * Release pass p0 (the combat critic: "Hard plays almost like Normal"): how long it stands over a slam before it
+   * walks again, by difficulty. Hard: 15 % shorter (1.275 s), so a veteran has less room to empty the cylinder into the
+   * chest vent's 0.5 s (`slamVentOpen`, unchanged) and to walk out. Normal and Easy keep GDD 7.3's 1.5.
+   */
+  slamRecoverBy: { easy: 1.5, normal: 1.5, hard: 1.275 } as Readonly<Record<Difficulty, number>>,
   /** polish round 3 (R3): the chest vent opens this long before the arm comes down, not for the whole wind-up (GDD 7.3 follows) */
   slamVentLate: 0.6,
   /**
@@ -215,6 +234,24 @@ export const TAMPER = {
   grazeDepth: 0.25,
   /** polish round 4: after a slam that hit her, no new attack starts until this long after its recover (seconds) */
   slamAfterHit: 1.5,
+  /**
+   * Release pass p0 (both the combat and the playthrough critic: "swings between harmless and nearly lethal"). The pause
+   * above was set where the `slam` state ended, and a round into the open chest vent during those 0.3 s (the right
+   * answer) ended the state early: the stagger's 1.5 s then replaced a 3.0 s pause, and the next ring was on the floor
+   * 1.8 s after the one that hit (three slams 3 s apart in the critic's run, 108 of 100). It is now a time on the body
+   * (`Actor.quietUntil`), set on the tick the slam hurts her, and neither a stagger nor a flinch shortens it.
+   * `hintAfterSlams`: the slam that makes this many in one fight says `hintKey` once (she is being hit by a thing she
+   * has not read; before, the only teaching was dying). The same line is said on the respawn after a death to a slam.
+   */
+  hintAfterSlams: 2, hintKey: 'hint_tamper_ring', hintAfterRespawn: 1.0,
+  /**
+   * The pause after the second and every later slam in a row that hurt her (a slam that misses ends the row), by
+   * difficulty: "cap consecutive slams" (the playthrough critic). On Normal and Easy it is as long as the hint the
+   * second slam says takes to read (6 s from the hit with the recover), so the next ring is laid on the floor as the
+   * line that names it ends; before, the third ring was down 3.5 s into that line and a player still reading was dead
+   * 10 s after the first hit. Hard keeps `slamAfterHit`.
+   */
+  slamAfterRun: { easy: 4.5, normal: 4.5, hard: 1.5 } as Readonly<Record<Difficulty, number>>,
   /** polish round 4: walking into something for 0.5 s without getting on, it walks the graph for this long instead of straight at her */
   unwedge: 3.0,
   /** polish round 4: it walks straight at her only within this much height of her; off her level it walks the graph (the gantry ramp) */
@@ -244,7 +281,35 @@ export const BOSS = {
   transition: 3.0,               // GDD 8.2: phase transitions 3 s, invulnerable
   breakScale: 0.3, breakSeconds: 0.3,
   // parley (GDD 8.1), seconds from the door sealing
-  parley: { line1: 0, narrator: 5.5, ask: 10, line2: 14.5, line3: 19, line4: 23, windowEnd: 27, phase1: 28 },
+  // (pass i2, story reviewer b: 37 s of listening before the first phase. The two roll-call lines hold 3.5 s each,
+  // src/world/director.ts PARLEY_ROLL_HOLD, so the inspection opens 21.5 s after the seal: it was 23)
+  // (pass i3: the clock that RUNS is read from the story data, boss/parley.ts `parleyPlan`: a stage lasts as long as
+  // its line is held. This table is today's text written out, the times of a key whose `seconds` the data lacks, and
+  // the two numbers that are the machine's own: the six stand open `windowEnd - line4` = 4 s, phase 1 begins
+  // `phase1 - windowEnd` = 1 s after they shut)
+  // (closing of pass i3: the roll-call is ONE line, `stn_parley_2` 4.5 s; `stn_parley_3` is gone; the first line 3.5 s,
+  // the narrator's and the Reeve's 4 s each. The six open 16.0 s after the first line where nothing shows lines, 17.0 s
+  // with the line box's four breaths; phase 1 five seconds after that)
+  parley: { line1: 0, narrator: 3.5, ask: 7.5, line2: 11.5, line4: 16, windowEnd: 20, phase1: 21 },
+  /**
+   * Release pass p0 (the story critic: "the parley text runs about 9 s behind the boss"). The asking is paced by its
+   * lines as they are SHOWN (`story/line`), not by the clock alone: a line still waiting behind the narrator when the
+   * door seals holds the stages behind it, the six mouths open on the tick `stn_parley_4` comes on screen, and phase 1
+   * begins `phase1 - line4` after that. A line that has not been shown `parleyLineWait` seconds after it was said (it
+   * was dropped, or nothing shows lines: the sandboxes) no longer holds anything, so the asking never hangs.
+   */
+  parleyLineWait: 14,
+  /**
+   * Pass i3: the roll-call is shown. Each chamber's lamp comes on as it is named (boss/parley.ts `rollLamps`) with a
+   * small tick from the head: `listen_tick` at this gain and pitch.
+   */
+  rollTickGain: 0.7, rollTickPitch: 0.75,
+  /**
+   * Phase 1's lead-in after an asking that was kept, where lines are shown: `nar_parley_kept` (4.5 s) comes on screen
+   * behind the 5 s of `stn_parley_4`, a quarter second into phase 1, and the first chamber used to glow under it.
+   * The first tell now waits until the line has been read. (After a refusal: 0.5 s, as before.)
+   */
+  parleyKeptLead: 4.5,
   /**
    * Polish round 3 (R2): the inspection gives at most this many of phase 1's ten hits (it was all six a quick hand could
    * land: phase 1 was then over in 21 s on a first try, before its pattern had been seen once). On the last one the lids shut.
@@ -294,6 +359,18 @@ export const BOSS = {
    * running), and on the difficulties named she comes back with full health (the checkpoint gave 67).
    */
   retryLead: 4.0,
+  /**
+   * Release pass p0 (the playthrough critic: a player who stands and shoots in phase 2 dies every 10 to 11 s, respawn
+   * after respawn, under a hint that never says to move). From the `moveDeaths`-th death in one phase the retry holds
+   * its first attack `retryLeadLate` seconds, `moveKey` is said `moveHintAt` seconds after she has control (once more
+   * at `moveHintAgain` if the line box did not take it), and that try's haul does not repeat `teachKey`.
+   */
+  moveDeaths: 2, retryLeadLate: 6.5, moveKey: 'hint_boss_move', moveHintAt: 0.5, moveHintAgain: 3.0,
+  /**
+   * Where lines are shown, the first attack of such a retry also waits until `moveKey` has been on screen `moveRead`
+   * seconds (the line box may still be replaying a hint the death cut off), `retryLeadMax` seconds at most.
+   */
+  moveRead: 4.0, retryLeadMax: 11,
   retryFullHealth: { easy: true, normal: true, hard: false } as Readonly<Record<Difficulty, boolean>>,
   /**
    * Polish round 5 (the story critic): phase 3b's two HAULINGs and the narrator's line are said only when the line box
@@ -301,7 +378,7 @@ export const BOSS = {
    * shown 9.5 s after the Windlass had died, after THANK YOU FOR YOUR PATIENCE.
    */
   dryLineQuiet: 0.5,
-  /** polish round 3 (R2): the teaching line is said at the first haul of a try from this many deaths on: 0 = every try, the first included */
+  /** polish round 3 (R2): the teaching line is said at the first haul of a try from this many deaths on: 0 = the first try included. Release pass p0: once per phase of a run, not on every try (boss/attacks.ts beginHaul) */
   teachDeaths: 0,
   /** polish round 3 (R2): false = a burst pawl stays burst for the rest of phase 2 (it was reset at the end of every haul: 110 to 290 s phases) */
   pawlsReset: false as boolean,
@@ -321,10 +398,12 @@ export const BOSS = {
  * Polish round 4 (the combat critic): Hard played the Windlass at Normal's lengths with only more damage. On Hard the
  * rest after each phase-1 notch is shorter and its stakes fly faster (GDD 15). Normal and Easy are 1 and 1.
  */
-export const BOSS_BY: Readonly<Record<Difficulty, { p1RestScale: number; stakeSpeedScale: number }>> = {
-  easy: { p1RestScale: 1, stakeSpeedScale: 1 },
-  normal: { p1RestScale: 1, stakeSpeedScale: 1 },
-  hard: { p1RestScale: 0.5, stakeSpeedScale: 1.15 },
+export const BOSS_BY: Readonly<Record<Difficulty, { p1RestScale: number; stakeSpeedScale: number; glowScale: number }>> = {
+  easy: { p1RestScale: 1, stakeSpeedScale: 1, glowScale: 1 },
+  normal: { p1RestScale: 1, stakeSpeedScale: 1, glowScale: 1 },
+  // release pass p0: `glowScale` is the lead from a mouth opening (its glow) to its discharge in phases 1 and 2:
+  // 15 % shorter on Hard (0.9 -> 0.765 s, 0.8 -> 0.68 s); the slot is shorter by the same amount. The lance is unchanged.
+  hard: { p1RestScale: 0.5, stakeSpeedScale: 1.15, glowScale: 0.85 },
 };
 
 /** GDD 8.3: no hit over 38. */

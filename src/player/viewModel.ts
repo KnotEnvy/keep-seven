@@ -7,7 +7,7 @@ import type { AssetInstance, ChamberState, GameContext, Vec3 } from '../core/con
 import type { CameraRig } from './camera.ts';
 import {
   CLIP_FADE, CYLINDER_BONE_STEP, KEPT_LOOP_HIDE_AT, KEPT_LOOP_SHOW_AT_TAKE, SWAY_MAX_DEG, SWAY_RATE, VIEW_BOB_SCALE,
-  VIEW_DIP_SCALE, VIEW_KICK_IN_FINAL_CLIPS, VIEW_PLACE, VIEW_PLACE_BLEND, VIEW_PLACE_HANDLING, WEAPON,
+  VIEW_DIP_SCALE, VIEW_KICK_IN_FINAL_CLIPS, VIEW_PLACE, VIEW_PLACE_BLEND, VIEW_PLACE_HANDLING, VIEW_PLACE_TUCK, WEAPON,
 } from './defs.ts';
 import type { ClipName, Weapon } from './weapon.ts';
 
@@ -67,6 +67,20 @@ export class ViewModel {
   /** how much of the rest placement is applied, 0 (a handling clip: VIEW_PLACE_HANDLING) to 1 (at rest), this tick and the one before */
   private placeW = 1;
   private placeWPrev = 1;
+  /**
+   * Release pass p0 (lead rulings R5 / R7; edited by the UI team, the player team not being active): while the end card
+   * is up the gun is let down out of the frame, so the last image is the fire and the lamps and the ledger does not
+   * stand on a ghost of the revolver. `lowerW` 0 (held) .. 1 (down) is counted on the fixed tick like the
+   * placement weight (the ending runs the simulation) and blended per drawn frame; nothing else reads it.
+   */
+  private lowered = false;
+  private lowerW = 0;
+  /** pass i1: 0 (held as placed) .. 1 (tucked under the asking dial, defs.ts VIEW_PLACE_TUCK); a frame-side ease, never read by the sim */
+  private tuckW = 0;
+  private tuckWPrev = 0;
+  private tuckOn = false;
+  private tuckBox: readonly [number, number, number, number, number, number] | null | undefined = undefined;
+  private lowerWPrev = 0;
   private readonly qPlace = new THREE.Quaternion();
   /** last scales written, for the debug snapshot */
   readonly shown: number[] = [1, 1, 1, 1, 1, 1];
@@ -253,6 +267,18 @@ export class ViewModel {
     const ph = weapon.phase;
     const away = isHandling(this.currentName) && ph !== 'ready' && (ph === 'reload_open' || ph === 'reload_round' || weapon.remaining > VIEW_PLACE_BLEND);
     this.placeWPrev = this.placeW;
+    this.lowerWPrev = this.lowerW;
+    if (dt > 0 && this.lowerW !== (this.lowered ? 1 : 0)) this.lowerW = this.lowered ? Math.min(1, this.lowerW + dt / LOWER_SECONDS) : Math.max(0, this.lowerW - dt / LOWER_SECONDS);
+    // pass i1: tucked while she reads the asking dial (inside the volume, the gun at rest); a shot or a reload brings it straight back
+    if (this.tuckBox === undefined) {
+      const m = this.ctx.data.layout.markers.find((k) => k.id === VIEW_PLACE_TUCK.volume);
+      const sz = m?.size;
+      this.tuckBox = m && sz ? [m.pos[0] - sz[0] / 2, m.pos[1] - 0.5, m.pos[2] - sz[2] / 2, m.pos[0] + sz[0] / 2, m.pos[1] + sz[1], m.pos[2] + sz[2] / 2] : null;
+    }
+    const tb = this.tuckBox, cp = this.ctx.scene.camera.position;
+    this.tuckOn = tb !== null && want === 'idle' && !this.lowered && -(this.ctx.scene.camera.matrixWorld.elements[10] as number) >= VIEW_PLACE_TUCK.facingZ && cp.x >= tb[0] && cp.y >= tb[1] && cp.z >= tb[2] && cp.x <= tb[3] && cp.y <= tb[4] && cp.z <= tb[5];
+    this.tuckWPrev = this.tuckW;
+    if (dt > 0) this.tuckW = this.tuckOn ? Math.min(1, this.tuckW + dt / VIEW_PLACE_TUCK.seconds) : Math.max(0, this.tuckW - dt / (want === 'idle' ? VIEW_PLACE_TUCK.seconds : 0.08));
     if (dt > 0) this.placeW = away ? Math.max(0, this.placeW - dt / VIEW_PLACE_BLEND) : Math.min(1, this.placeW + dt / VIEW_PLACE_BLEND);
     this.syncBones(weapon);
   }
@@ -306,7 +332,21 @@ export class ViewModel {
   }
 
   /** A restore: the bones are in step with a full cylinder again. */
-  resetRing(weapon: Weapon): void { this.placeW = 1; this.placeWPrev = 1; this.offset = 0; this.ringTurns = weapon.ringTurns; this.turned = false; this.turnedIn = ''; }
+  resetRing(weapon: Weapon): void { this.placeW = 1; this.placeWPrev = 1; this.lowerW = this.lowered ? 1 : 0; this.lowerWPrev = this.lowerW; this.offset = 0; this.ringTurns = weapon.ringTurns; this.turned = false; this.turnedIn = ''; }
+
+  /** The end card is up (true) or gone (false): the gun goes down out of the frame, or comes back. */
+  /**
+   * Pass i1 (UI team; the player team was not active): the card closes onto the title or a new run, and neither runs
+   * the simulation before its first picture, so the way back up was never counted: the title after an ending had no
+   * revolver in it. Coming back is a cut (it happens behind the loading screen); going down is still counted in ticks.
+   */
+  setLowered(on: boolean): void {
+    this.lowered = on;
+    if (!on) { this.lowerW = 0; this.lowerWPrev = 0; }
+  }
+  /** pass i3: let down for the last image (not the end card) and she uses the gun after all: it comes back up, counted in ticks */
+  raise(): void { this.lowered = false; }
+  get isLowered(): boolean { return this.lowered; }
 
   /** Per frame, after the camera is final: kick (if the clips have none), bob, sway lag and the landing dip on the instance root. */
   late(frameDt: number, alpha: number, rig: CameraRig, lookYawDeg: number, lookPitchDeg: number, reduceMotion: boolean): void {
@@ -320,11 +360,19 @@ export class ViewModel {
     const h = this.handOffset;
     const qp = this.qPlace.copy(this.handQuat).slerp(this.placeQuat, w);
     const ox = h.x + (o.x - h.x) * w, oy = h.y + (o.y - h.y) * w, oz = h.z + (o.z - h.z) * w;
+    // pass i1: tucked while she reads the asking dial (counted on the fixed tick, as the let-down is)
+    let tuck = reduceMotion ? (this.tuckOn ? 1 : 0) : this.tuckWPrev + (this.tuckW - this.tuckWPrev) * alpha;
+    tuck = tuck * tuck * (3 - 2 * tuck);
+    // let down while the end card is up (LOWER_SECONDS down, the same back; a cut under reduce motion)
+    let lower = reduceMotion ? (this.lowered ? 1 : 0) : this.lowerWPrev + (this.lowerW - this.lowerWPrev) * alpha;
+    lower = lower * lower * (3 - 2 * lower);
     if (reduceMotion) {
       this.swayYaw = 0; this.swayPitch = 0;
-      v.copy(p).applyQuaternion(qp);
-      root.quaternion.copy(qp);
-      root.position.set(p.x - v.x + ox, p.y - v.y + oy, p.z - v.z + oz);
+      e.set(tuck * VIEW_PLACE_TUCK.pitchDeg * DEG, 0, 0, 'YXZ');
+      q.setFromEuler(e).multiply(qp);
+      v.copy(p).applyQuaternion(q);
+      root.quaternion.copy(q);
+      root.position.set(p.x - v.x + ox + tuck * VIEW_PLACE_TUCK.right, p.y - v.y + oy - lower * LOWER_DROP - tuck * VIEW_PLACE_TUCK.drop, p.z - v.z + oz);
       return;
     }
     // sway: the gun lags the view by up to SWAY_MAX_DEG and catches up
@@ -332,15 +380,15 @@ export class ViewModel {
     this.swayYaw = clampDeg((this.swayYaw - lookYawDeg * 0.6) * decay);
     this.swayPitch = clampDeg((this.swayPitch - lookPitchDeg * 0.6) * decay);
     const kick = this.proceduralKick ? rig.viewKick.get(alpha) : 0;
-    const rise = kick * rig.viewRiseDeg * DEG + this.swayPitch * DEG;
+    const rise = kick * rig.viewRiseDeg * DEG + this.swayPitch * DEG + tuck * VIEW_PLACE_TUCK.pitchDeg * DEG;
     const yaw = this.swayYaw * DEG;
     e.set(rise, yaw, 0, 'YXZ');
     q.setFromEuler(e).multiply(qp);
     v.copy(p).applyQuaternion(q);
     root.quaternion.copy(q);
     root.position.set(
-      p.x - v.x + ox + rig.offsetSide.get(alpha) * (VIEW_BOB_SCALE - 1),
-      p.y - v.y + oy + rig.bobY.get(alpha) * (VIEW_BOB_SCALE - 1) + rig.dip.get(alpha) * (VIEW_DIP_SCALE - 1),
+      p.x - v.x + ox + rig.offsetSide.get(alpha) * (VIEW_BOB_SCALE - 1) + tuck * VIEW_PLACE_TUCK.right,
+      p.y - v.y + oy + rig.bobY.get(alpha) * (VIEW_BOB_SCALE - 1) + rig.dip.get(alpha) * (VIEW_DIP_SCALE - 1) - lower * LOWER_DROP - tuck * VIEW_PLACE_TUCK.drop,
       p.z - v.z + oz + kick * rig.viewBack,
     );
   }
@@ -360,5 +408,9 @@ export class ViewModel {
     return true;
   }
 }
+
+/** the end card's let-down: metres straight down in view space (clear of the frame at every field of view), and its seconds */
+const LOWER_DROP = 0.75;
+const LOWER_SECONDS = 0.9;
 
 function clampDeg(v: number): number { return v > SWAY_MAX_DEG ? SWAY_MAX_DEG : v < -SWAY_MAX_DEG ? -SWAY_MAX_DEG : v; }

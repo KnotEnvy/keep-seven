@@ -13,6 +13,9 @@ const WATCHER_CLAMP = 60 * DEG2RAD;
 const WATCHER_TURN = 2.0;         // rad/s
 const GLINT_EVERY = 1.5, GLINT_ON = 0.2;
 
+/** the watcher's zone light, turned to its niche's pilot lamp (multiplies the gallery's teal ambient and aqua key) */
+const WATCHER_LAMP: readonly number[] = [5.5, 0.85, 0.45];
+
 export class Vignettes {
   private readonly started: VignetteId[] = [];
   // vig_tamper
@@ -276,6 +279,10 @@ export class Vignettes {
     const c = this.watcherAnim.set ? this.watcherAnim.set.clips.get(clip) : undefined;
     if (c) this.watcherAnim.play(c, 0, 1);
     S.ctx.render.setEmissive(inst.root, 0);                 // it is one of the freed: no pulse
+    // look team creatures-props, pass i2 (the reviewer: "a dark faceted blob"): it sits in a niche under its own pilot
+    // lamp, and the gallery's teal station light drew it as a cut-out in front of its lit wall. The renderer's tint hook
+    // (pool.ts, the Biders' cloth tints) turns its zone light to the lamp's: no light is added, nothing else changes.
+    inst.root.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.userData.tint = WATCHER_LAMP; });
     this.watcher = inst;
     this.watcherHead = inst.node('head');
     const rest = findNamed(S.ctx.assets.get('enemy_bider').scene, 'head');

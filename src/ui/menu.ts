@@ -1,10 +1,10 @@
 // src/ui/menu: the two reusable screen parts: a column (or row) of capitals with one selected item, and the readable
 // viewer's sheet. Neither knows the game: the system hands them callbacks.
 import type { StoryReadable } from '../core/contracts.ts';
-import { el, flag, pointerMoved, setText } from './dom.ts';
-import { splitCards } from './text.ts';
+import { el, flag, paragraphs, pointerMoved, setText } from './dom.ts';
+import { packCards, splitCards } from './text.ts';
 
-export interface MenuItem { node: HTMLDivElement; run: () => void; shown: boolean; id: string }
+export interface MenuItem { node: HTMLDivElement; run: () => void; shown: boolean; id: string; label: HTMLSpanElement; cap: HTMLSpanElement | null }
 
 /** A left-aligned list of capitals; the selected item is brass with a hairline before it. Keyboard and mouse. */
 export class MenuList {
@@ -20,13 +20,26 @@ export class MenuList {
     const node = el('div', 'mi', this.node);
     node.setAttribute('role', 'button');
     node.setAttribute('data-item', id);
-    setText(node, label);
-    const item: MenuItem = { node, run, shown: true, id };
+    const text = el('span', 'mi-label', node);
+    setText(text, label);
+    const item: MenuItem = { node, run, shown: true, id, label: text, cap: null };
     const index = this.items.length;
     this.items.push(item);
     node.addEventListener('mousemove', (e) => { if (pointerMoved(e) && !this.locked && item.shown && (this.selected !== index || !node.classList.contains('sel'))) { this.select(index); this.onMove(); } });
     node.addEventListener('click', (e) => { e.stopPropagation(); if (!item.shown || this.locked) return; this.select(index); this.onSelect(); item.run(); });
     return item;
+  }
+  /** The key that does what the item does, in a key cap before its words (the readable sheet: pass i1). '' takes it away. */
+  setCap(id: string, key: string): void {
+    const item = this.items.find((i) => i.id === id);
+    if (!item) return;
+    if (key === '') { if (item.cap) { item.cap.remove(); item.cap = null; } return; }
+    if (!item.cap) { item.cap = el('span', 'key', null); item.node.insertBefore(item.cap, item.label); }
+    setText(item.cap, key);
+  }
+  setLabel(id: string, label: string): void {
+    const item = this.items.find((i) => i.id === id);
+    if (item) setText(item.label, label);
   }
   show(id: string, shown: boolean): void {
     const item = this.items.find((i) => i.id === id);
@@ -79,15 +92,19 @@ export class Reader {
   private readonly title: HTMLDivElement;
   private readonly body: HTMLDivElement;
   private readonly dots: HTMLElement[] = [];
+  private readonly extra: HTMLDivElement;
   private cards: string[] = [''];
+  private keys: { next: string; close: string } = { next: '', close: '' };
   index = 0;
   key = '';
 
-  constructor(parent: Element, labels: { next: string; close: string }, onMove: () => void, onSelect: () => void, private readonly onClose: () => void) {
+  constructor(parent: Element, private readonly labels: { next: string; close: string }, onMove: () => void, onSelect: () => void, private readonly onClose: () => void) {
     this.node = el('div', 'scr reader', parent);
     this.sheet = el('div', 'sheet', this.node);
     this.title = el('div', 'sheet-title', this.sheet);
     this.body = el('div', 'sheet-body', this.sheet);
+    // lines of the sheet's own under the body (the credits: the version, where the source is); empty for a note
+    this.extra = el('div', 'sheet-extra', this.sheet);
     const foot = el('div', 'sheet-foot', this.sheet);
     const dots = el('div', 'dots', foot);
     for (let i = 0; i < MAX_DOTS; i++) this.dots.push(el('i', '', dots));
@@ -98,16 +115,27 @@ export class Reader {
   get count(): number { return this.cards.length; }
   get text(): string { return this.cards[this.index] ?? ''; }
 
-  open(key: string, readable: Readonly<StoryReadable>, plate: boolean): void {
+  /**
+   * `keys`: the names of the keys that turn a card and that close the sheet, drawn in key caps beside Next and Close
+   * (pass i1: a note opens with the pointer locked and nothing said which key turns it). `closeLabel` renames Close
+   * (the story cards before a first run: their second item begins the run). `pack`: a note found in the world is laid
+   * out by what the sheet holds (text.ts packCards); the story so far and the credits keep their authored cards.
+   */
+  open(key: string, readable: Readonly<StoryReadable>, plate: boolean, keys: { next: string; close: string }, closeLabel = '', pack = false): void {
     this.key = key;
-    this.cards = splitCards(readable.body);
+    this.keys = keys;
+    this.extra.textContent = '';
+    flag(this.extra, 'on', false);
+    this.menu.setCap('next', keys.next);
+    this.menu.setLabel('close', closeLabel !== '' ? closeLabel : this.labels.close);
+    this.cards = pack ? packCards(readable.body) : splitCards(readable.body);
     flag(this.sheet, 'plate', plate);
     setText(this.title, readable.title);
     this.show(0);
   }
   private show(index: number): void {
     this.index = index;
-    setText(this.body, this.cards[index] ?? '');
+    paragraphs(this.body, this.cards[index] ?? '');
     const n = this.cards.length;
     for (let i = 0; i < MAX_DOTS; i++) {
       const dot = this.dots[i] as HTMLElement;
@@ -117,6 +145,15 @@ export class Reader {
     const more = index < n - 1;
     this.menu.show('next', more);
     this.menu.selectId(more ? 'next' : 'close');
+    // pass i3 (story reviewer b): on the last card, or the only one, the key that turned the cards closes the sheet, so
+    // that is the key Close names ("E  Close"; it said "Right click  Close" under a note E had opened and E would
+    // close). While there are cards to turn Close names the key that closes at once (Esc, or the right button in play).
+    this.menu.setCap('close', more || this.keys.next === '' ? this.keys.close : this.keys.next);
+  }
+  /** The sheet's own lines under the body (after open(): each open clears them). Returns the box to fill. */
+  extraBox(): HTMLDivElement {
+    flag(this.extra, 'on', true);
+    return this.extra;
   }
   /** E, Enter, Space: the next card, or close on the last. */
   advance(): void {

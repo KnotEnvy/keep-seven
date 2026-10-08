@@ -6,8 +6,9 @@
 // CLOCK, so drawing the same tick twice gives the same picture; render() only draws.
 import * as THREE from 'three';
 import { FIXED_DT } from '../core/contracts.ts';
+import { featuresOf } from '../core/quality.ts';
 import type {
-  AssetDef, DebugSnapshot, GameContext, GameEvents, InstanceApi, LampApi, LayoutMarker, MoodId, PerfStats, RenderSystem, RenderTier, TextureId, VfxApi, ZoneId,
+  AssetDef, DebugSnapshot, FxHandle, GameContext, GameEvents, InstanceApi, LampApi, LayoutMarker, MoodId, PerfStats, RenderSystem, RenderTier, TextureId, VfxApi, ZoneId,
 } from '../core/contracts.ts';
 import { Feedback } from './feedback.ts';
 import { Instances } from './instances.ts';
@@ -15,30 +16,90 @@ import { HaloSpec, MaterialFactory, writeHalo } from './materials.ts';
 import {
   BORE_KERB_TOP_Y, MOODS, MOOD_SIZE, M_AMBIENT, M_CLOUD, M_CONTRAST, M_DENSITY, M_EXPOSURE, M_FOG_A, M_FOG_B, M_FOG_MIX_DIST, M_FOG_MIX_SUN, M_GLOW,
   M_HEIGHT_EXTRA, M_HEIGHT_FALLOFF, M_KEY, M_KEY_DIR, M_LIFT, M_MID, M_MID_SIN, M_PLACE, M_PULSE, M_RULE, M_SATURATION, M_SKY, M_SUN_COL, M_SUN_DIR, M_SUN_DISC,
-  M_TINT, M_VIGNETTE, M_ZENITH, M_BLOOM_T, M_BLOOM_K, M_BLOOM_S, BLOOM_T_DEFAULT, BLOOM_K_DEFAULT, SHEEN, cellHeightExtra, isMoodKey, lerpMood, moodAt, smoothstep01,
+  M_TINT, M_VIGNETTE, M_ZENITH, M_BLOOM_T, M_BLOOM_K, M_BLOOM_S, BLOOM_T_DEFAULT, BLOOM_K_DEFAULT, SHEEN, AIR, AIR_CONE, AIR_DUST, AIR_GLOW, GLANCE, RELIEF, RELIEF_SKY, SHAFT_DUSK, SHAFT_DUSK_VEIL, SHADOWS, SHADOW_RECEIVERS, SHADOW_CASTERS, SHADOW_EDGE, SHADOW_STATIC_ZONES, cellHeightExtra, isMoodKey, lerpMood, moodAt, smoothstep01,
 } from './moods.ts';
-import type { MoodKey } from './moods.ts';
-import { AO_INTENSITY, AO_SKY, EMISSIVE_HDR, PostChain, VM_DEPTH_RANGE } from './post.ts';
+import type { MoodKey, ShadowSpec } from './moods.ts';
+import { AIR_K, AO_INTENSITY, AO_SKY, EMISSIVE_HDR, PostChain, SHAFT_K, VEIL_GULLY, VEIL_K, VM_DEPTH_RANGE } from './post.ts';
 import { HUE, SharedUniforms } from './shared.ts';
 import { Sky } from './sky.ts';
 import { Vfx, VFX_IDS } from './vfx/vfx.ts';
 import { PREWARM } from './prewarm.ts';
+import { quietFrustum } from './quiet.ts';
+import { benchmarkVerdict } from './benchmark.ts';
 
 const VIEWMODEL_FOV = 40;
 const VIEWMODEL_NEAR = 0.02;
 const DEFAULT_MOOD_FADE = 1.5;
 /** trauma decays 1.8 per second; the shake is rotational: at most 1.2 degrees of pitch and yaw, 1.5 of roll */
 const TRAUMA_DECAY = 1.8;
+/** underground look, pass i3: the knock the camera takes at the seventh (one of the kept round's own weight again; gone in a third of a second; none under Reduce Motion) */
+const PROVEN_TRAUMA = 0.55;
 const SHAKE_PITCH = 1.2 * Math.PI / 180, SHAKE_YAW = 1.2 * Math.PI / 180, SHAKE_ROLL = 1.5 * Math.PI / 180;
 const SHADOW_MAP_BYTES = 8 * 1024 * 1024;
-/** half the side of the sun shadow map's square (High). Polish round 5: 18 -> 26 m, so a Bider coming up the street or across the yard carries its shadow from the first sight of it, not from 18 m (5 cm a texel under PCF; the map and its cost are the same) */
-const SHADOW_HALF = 26;
+/**
+ * The overhang's sun shaft (look team exterior, release pass p0; lead rulings R7 and R9: the first image). The bake puts a
+ * patch of the low sun on the sand under the roof (blender/env_exterior/surface_common.py: two spots through the notch
+ * at the mouth's upper left), and nothing in the air said where it came from. While she stands under the roof the two
+ * shafts are drawn in the dusty air from the notch to the two lobes of the patch, as sun blades of the effects pool
+ * (the Tally House's kind; its motes ride in them: 120 on Low, 600 and a third card on High). They fade out over the
+ * mouth (LIP_BEAM_Z) and the slots go back to the pool: the Tally House's own blades are 190 m and a set away.
+ */
+// each shaft runs on past both ends of the bake's spot (5 m out through the notch, 1.2 m into the sand), so the rock and
+// the floor cut it: a card's soft ends hung in the air short of both
+const LIP_BEAM_FROM: readonly (readonly [number, number, number])[] = [[7.09, 18.10, 92.08], [6.72, 17.83, 92.26]];
+const LIP_BEAM_TO: readonly (readonly [number, number, number])[] = [[15.15, 13.64, 103.74], [17.04, 13.70, 104.80]];
+const LIP_BEAM_LEVEL: readonly number[] = [1, 0.6];
+const LIP_BEAM_Z: readonly [number, number] = [95.0, 98.0];
+/**
+ * The gully's sun shafts (exterior look, pass i3; R9: between the gully's walls High drew Low's frame but for a veil).
+ * The bake lays three patches of the low sun across the gully's floor (blender/env_exterior/lip_dress.py SHAFTS, the
+ * spots of surface_common.add_fills). On High each is also a shaft in the dusty air, from 13.5 m up its own line down
+ * into the sand (vfx.ts gullyShafts): seen from GULLY_SHAFT_SEE metres, gone while she stands in it (GULLY_SHAFT_NEAR:
+ * an additive card through the eye is a flash). [x, floor y, z] where it lands, [x, z] where the bake's spot stands.
+ */
+const GULLY_SHAFT_TO: readonly (readonly [number, number, number])[] = [[15.7, 13.1, 87.3], [16.4, 9.3, 64.4], [12.7, 4.55, 38.2]];
+const GULLY_SHAFT_FROM: readonly (readonly [number, number])[] = [[11.1, 78.6], [12.3, 55.9], [8.4, 29.3]];
+const GULLY_SHAFT_RISE = 3.7, GULLY_SHAFT_LEN = 13.5, GULLY_SHAFT_IN = 1.0;
+const GULLY_SHAFT_SEE: readonly [number, number] = [62, 44], GULLY_SHAFT_NEAR: readonly [number, number] = [2.2, 6.5];
+// The shadow map's square is the mood's (moods.ts SHADOWS; pass i1). Outdoors: polish round 5 took its half side from 18
+// to 26 m, so a Bider coming up the street or across the yard carries its shadow from the first sight of it, not from
+// 18 m (5 cm a texel under PCF; the map and its cost are the same).
+/** how fast the shadow map's direction and darkness follow the mood (seconds), and the cosines of the angle to the light between which a face takes the shadow */
+const SHADOW_EASE = 0.6, SHADOW_FACE_FROM = 0.02, SHADOW_FACE_TO = 0.22;
+/** High: how bright a flashing grain of sunlit sand is against the light baked onto it (shared.ts uSparkle; the look teams' number) */
+const SPARKLE_K = 3.0;
+/** seconds over which a zone's lamps come into and leave the air light when she crosses into another zone */
+const AIR_ZONE_EASE = 1.0;
+/** drawn frames between two looks at which dynamic things cast into a room's map (setCasters) */
+const CAST_EVERY = 20;
+/**
+ * The air light's lamps that are not emissive meshes (pass i1): the layout's fires and glows. Level and reach by kind;
+ * the bore's glow stands at the pit's mouth and is the light of the chamber.
+ */
+// underground look, pass i1: practical 0.7 / 2.5 -> 1.2 / 3.5 (the lantern on the long table and the Dowser's embers: a dome of lit air a player sees from the door)
+const AIR_LAYOUT: Readonly<Record<string, readonly [number, number]>> = { practical: [1.2, 3.5], bore_glow: [1.6, 7], hatch_glow: [0.6, 2.5] };
 /**
  * High: a dense lamp set (materials.ts LampInfo.dense, the Windlass's gauge) is drawn DENSE_OVER of the mood's bloom
  * threshold and never under DENSE_MIN of display white; DENSE_LUMA is the luminance of its aqua-white lamp value.
  */
 const DENSE_OVER = 1.08, DENSE_MIN = 0.92, DENSE_LUMA = 0.95;
 const MAX_OUTLINE_MESHES = 12;
+/**
+ * Pass i2 (the visual reviewer: "crossing the Tally House door shows the room through a flat brown haze for about 0.4 s,
+ * then it pops clear"). A mood cross-fade blended EVERYTHING over the second the world asks for at a doorway: for that
+ * second the hall was drawn through the street's pale fog, at a density on its way to the room's (three times the
+ * street's) and under an exposure on its way to x5. The AIR of a place is not a thing that adapts: a walked doorway
+ * between a place under a sky and a place under a roof (a fade of at most DOOR_FADE seconds between two moods whose
+ * M_SKY differ) now puts the new place's fog, sky bands, height term and lean in place at once, held at the DISPLAY level
+ * they have when the fade is over (their stored colours are divided by the mood's exposure, which is still on its way),
+ * and only the eye adapts: exposure, grade, vignette, the dynamic light and the view-model's rig ease as before. A ride's
+ * long fade and a fade between two rooms blend as they did.
+ */
+const DOOR_FADE = 2.5;
+/** the fields of a mood that are the air and the sky of the place (snapped at a doorway): [from, to) pairs */
+// (... and the grade's lift, the colour of the frame's darks: a room entered under the street's exposure is all darks, and
+// under the Long Light's blue lift they drew navy for the first half second)
+const AIR_FIELDS: readonly (readonly [number, number])[] = [[M_FOG_A, M_SUN_DISC], [M_LIFT, M_SATURATION], [M_SUN_DIR, M_PLACE]];
 /** share of a lit particle's light that is neutral (and how bright that neutral part is against the mood's brightest channel) */
 const LIT_NEUTRAL = 0.3, LIT_NEUTRAL_GAIN = 1.5;
 
@@ -122,6 +183,9 @@ export class RenderSystemImpl implements RenderSystem {
   private readonly moodCur = new Float32Array(MOOD_SIZE);
   private moodT = 1;
   private moodSeconds = DEFAULT_MOOD_FADE;
+  /** pass i2: a doorway's fade is running with the new place's air already in place (DOOR_FADE); the gain that holds that air at its display level */
+  private airSnapped = false;
+  private airGain = 1;
   private expFrom = 1; private expTo = 1; private expT = 1; private expSeconds = 0; private expMul = 1;
   private heightExtra = 0;
   private fogBase = 0;
@@ -133,6 +197,8 @@ export class RenderSystemImpl implements RenderSystem {
   private exposure = 1;
   private lastClock = -1;
   // ---- overrides for tests (ext.render.override)
+  /** 0 under the overhang (L0), 1 under the Long Light (L1): how much of High's sun veil and dust in the light is drawn */
+  private openAir = 0;
   private overFog = -1; private overExposure = -1; private overGrain = -1; private overIdentity = false; private overVignette = -1; private overHeight = -1;
   /** the layout zone the player stands in right now (null in a sandbox room) */
   private zoneNow: ZoneId | null = null;
@@ -148,10 +214,67 @@ export class RenderSystemImpl implements RenderSystem {
   private shaking = false;
   // ---- sky
   private threadVisible = false;
+  // ---- the overhang's sun shafts (LIP_BEAM_*)
+  private readonly lipBeams: (FxHandle | null)[] = [null, null];
   // ---- shadow (High)
   private sun: THREE.DirectionalLight | null = null;
   private shadowMaterial: THREE.ShadowMaterial | null = null;
   private shadowOn = false;
+  /** pass i1: the shadow pass runs this frame (the mood names a shadow, she stands in a zone); where its map looks, how dark it is */
+  private shadowLive = false;
+  private shadowSpec: ShadowSpec | null = null;
+  private readonly shadowDir = new THREE.Vector3(0, 1, 0);
+  private readonly shadowLight = { value: new THREE.Vector3(0, 1, 0) };
+  /** pass i2: where the map looks (xyz) and 1 / its half side; the baked light between which a receiver is in the bake's shade or sun, and the share of the shadow the shade takes */
+  private readonly shadowAt = { value: new THREE.Vector4(0, 0, 0, 1 / 26) };
+  private readonly shadowGate = { value: new THREE.Vector4(-1, 0, 0, 1) };
+  /** pass i2: the receivers' materials: the plain one (a chunk without a lightmap) and one per lightmap (the same program: they differ in one texture) */
+  private readonly shadowMats: THREE.ShadowMaterial[] = [];
+  private readonly shadowByLm = new Map<object, THREE.ShadowMaterial>();
+  private shadowWhite: THREE.DataTexture | null = null;
+  /** pass i2: the fixed world of the exterior zones casts into the map (ShadowSpec.statics) */
+  private staticsCast = false;
+  /**
+   * The depth material of the fixed casters. Left to three, a caster whose material has a `map` (the detail texture)
+   * is drawn into the shadow map with a depth program of its own kind (USE_MAP: three keeps the map for alpha-tested
+   * casters), one more program per shape of chunk, linked the first time a town chunk came inside the map
+   * (tests/render/prewarm.test.mjs: tick 135). This one has no map: the casters share the plain depth program
+   * of the moving casters, which the warm-up's caster probes compile.
+   */
+  private staticDepth: THREE.MeshDepthMaterial | null = null;
+  /** a test's or a look team's switch: true / false force the fixed casters on or off, null leaves them to the spec */
+  private staticsOver: boolean | null = null;
+  private shadowK = 0;
+  private shadowTest = true;
+  private castMode = 0;
+  private shadowFrom = 0;
+  private castCountdown = 0;
+  private readonly shadowCovers: (x: number, y: number, z: number) => boolean;
+  /** pass i1: the air light's level (the mood's, eased), and a test's switch */
+  private airLevel = 0;
+  private airTest = true;
+  /** pass i3: the cone under a lamp that looks down and the far lamps' glow (moods.ts AIR_CONE, AIR_GLOW), eased; a test's switches */
+  private airCone = 0;
+  private airGlow = 0;
+  private coneTest = true;
+  private glowTest = true;
+  /** pass i3: the glance (moods.ts GLANCE): its strength, eased, the lobe's exponent, a test's switch */
+  private glance = 0;
+  private glanceExp = 3;
+  private glanceTest = true;
+  /** pass i3: true for the one frame after a warp (a checkpoint, a ride's teleport, a restore): the High tier's eased terms stand at their mood's value at once */
+  private snapHigh = false;
+  /** ... and for the next drawn frame after a test's switch of one of them (the debug hook's airShapes, glance) */
+  private snapOnce = false;
+  /** the air light's weight of each layout zone (materials.zoneIds' order), and the zone of the last gathering (null: none yet, the weights snap) */
+  private readonly airZone = new Float32Array(16);
+  private airZoneOf: ZoneId | null = null;
+  private sparkleTest = true;
+  private reliefTest = true;
+  private shimmerTest = true;
+  /** pass i2: the afterglow's shafts (moods.ts SHAFT_DUSK), eased; a test's switch */
+  private dusk = 0;
+  private duskTest = true;
   // ---- outline
   private outlineTarget: THREE.Object3D | null = null;
   private outlineMaterial: THREE.ShaderMaterial | null = null;
@@ -172,13 +295,22 @@ export class RenderSystemImpl implements RenderSystem {
   private readonly clearColor = new THREE.Color();
   private coverageTarget: THREE.WebGLRenderTarget | null = null;
   private warmUps = 0;
+  /**
+   * Release pass p0: which tiers have every program of the ACTIVE SET compiled. `warmGen` moves when the set changes (or
+   * the context comes back); a tier whose mark equals it is entered without compiling anything.
+   */
+  private warmGen = 0;
+  private readonly warmedAt: Record<RenderTier, number> = { min: -1, low: -1, high: -1 };
+  /** the tiers the quality manager can step to by itself are compiled ahead; owed when a warm-up fell in play */
+  private neighboursOwed = false;
+  private neighbourWarms = 0;
   private configured = false;
   private warming = false;
   private framesDrawn = 0;
-  private readonly exteriorAt: (x: number, y: number, z: number) => boolean;
 
   constructor(private readonly ctx: GameContext, private readonly canvas: HTMLCanvasElement) {
     const manifest = ctx.data.manifest, layout = ctx.data.layout;
+    quietFrustum();
     for (const p of manifest.visibility.plugs) this.plugNodes.add(p.node);
     for (const [id, unit] of Object.entries(manifest.visibility.units)) if (manifest.assets[unit.asset]?.chunks) this.chunkIds.add(id);
     for (const def of Object.values(manifest.assets)) for (const n of def.drawnNodes ?? []) this.drawnNodes.add(n);
@@ -187,7 +319,7 @@ export class RenderSystemImpl implements RenderSystem {
     this.materials = new MaterialFactory(ctx, this.shared);
     this.fx = new Vfx(ctx, this.shared, {
       pulseScale: () => this.moodCur[M_PULSE] as number,
-      proven: (seconds) => { this.setMood('L5p', seconds); },
+      proven: (seconds) => { this.setMood('L5p', seconds); this.addTrauma(PROVEN_TRAUMA); },
       high: () => this.ctx.quality.features.particleScale >= 1,
       additiveCap: () => this.ctx.quality.features.additiveOverdrawCap,
       bladeCards: () => this.ctx.quality.features.bladeCards,
@@ -198,9 +330,21 @@ export class RenderSystemImpl implements RenderSystem {
     this.instances = this.inst;
     this.lamps = this.materials.lamps;
     this.feedback = new Feedback(ctx, this.fx, () => this.ctx.clock.simTime, (e, out) => this.muzzleSeen(e, out));
-    this.exteriorAt = (x, y, z) => {
-      const zone = this.ctx.data.zoneAt(x, y, z, this.ctx.world.residentSet);
-      return zone !== null && this.exteriorZones.has(zone);
+    // a blob shadow is not drawn where the shadow map draws the thing's own shadow: inside the map's square and depth
+    this.shadowCovers = (x, y, z) => {
+      const spec = this.shadowSpec, sun = this.sun;
+      if (!this.shadowLive || !spec || !sun) return false;
+      // pass i2: while the fixed world casts, a creature in a building's shade has no shadow of its own in the map: the blob is what it stands on
+      if (this.staticsCast) return false;
+      const t = sun.target.position, d = this.shadowDir;
+      const dx = x - t.x, dy = y - t.y, dz = z - t.z;
+      // along the light (toward it is positive) and across it
+      const along = dx * d.x + dy * d.y + dz * d.z;
+      if (along > spec.dist - 2.5 || along < spec.dist - spec.far + 0.5) return false;
+      const ax = dx - d.x * along, ay = dy - d.y * along, az = dz - d.z * along;
+      // (pass i2: the map's shadow fades between SHADOW_EDGE of the half side; the blob takes over half-way through the fade)
+      const edge = spec.half * 0.5 * (SHADOW_EDGE[0] + SHADOW_EDGE[1]);
+      return ax * ax + ay * ay + az * az < edge * edge;
     };
     this.moodCur.set(MOODS.L1); this.moodFrom.set(MOODS.L1); this.moodTo.set(MOODS.L1);
     // the open air's fog is the Long Light's: constants, written once
@@ -258,13 +402,18 @@ export class RenderSystemImpl implements RenderSystem {
     sun.name = 'keep_sun';
     sun.castShadow = false;
     sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.camera.left = -SHADOW_HALF; sun.shadow.camera.right = SHADOW_HALF; sun.shadow.camera.top = SHADOW_HALF; sun.shadow.camera.bottom = -SHADOW_HALF;
+    sun.shadow.camera.left = -26; sun.shadow.camera.right = 26; sun.shadow.camera.top = 26; sun.shadow.camera.bottom = -26;
     sun.shadow.camera.near = 1; sun.shadow.camera.far = 160;
     sun.shadow.bias = -0.0015; sun.shadow.normalBias = 0.03;
     ctx.scene.scene.add(sun, sun.target);
     this.sun = sun;
-    this.shadowMaterial = new THREE.ShadowMaterial({ opacity: 0.55, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, fog: false });
-    this.shadowMaterial.name = 'keep_shadow';
+    // (pass i2: ONE program for every receiver. A chunk without a lightmap reads a white texel, the bake's "sun everywhere",
+    // and is gated as it was before this pass)
+    const white = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+    white.name = 'keep_shadow_white';
+    white.needsUpdate = true;
+    this.shadowWhite = white;
+    this.shadowMaterial = this.makeShadowMaterial({ value: white }, 1);
     this.outlineMaterial = new THREE.ShaderMaterial({
       name: 'keep_outline', uniforms: { uOutline: { value: this.outlineColor }, uViewport: { value: this.outlineViewport } },
       vertexShader: OUTLINE_VERT, fragmentShader: OUTLINE_FRAG, side: THREE.BackSide, transparent: true, depthWrite: false, depthTest: true, fog: false, toneMapped: false,
@@ -275,11 +424,17 @@ export class RenderSystemImpl implements RenderSystem {
     ctx.assets.setMaterialResolver((name, mesh, def) => this.material(name, mesh, def));
     const on = ctx.events;
     this.unsubscribe.push(on.on('quality/changed', () => { this.applyTier(); }));
-    this.unsubscribe.push(on.on('world/built', () => { this.applyVisibility(); }));
+    this.unsubscribe.push(on.on('world/built', () => { this.applyVisibility(); this.materials.registerEmitters(this.ctx.scene.world); }));
     this.unsubscribe.push(on.on('options/changed', () => { this.readOptions(); }));
-    this.unsubscribe.push(on.on('load/set', (e) => { if (e.stage === 'activated') this.syncTextures(); }));
+    this.unsubscribe.push(on.on('load/set', (e) => { if (e.stage === 'activated') { this.warmGen++; this.syncTextures(); } }));
+    // a restored context has no program at all: every tier's mark is stale, and the tiers compiled ahead are owed again
+    const restored = (): void => { this.warmGen++; this.neighboursOwed = true; };
+    this.canvas.addEventListener('webglcontextrestored', restored);
+    this.unsubscribe.push(() => { this.canvas.removeEventListener('webglcontextrestored', restored); });
     this.unsubscribe.push(on.on('game/state', (e) => {
       if (e.to === 'loading') this.fx.clearTransient(); else if (e.to === 'paused') this.fx.paused();
+      // behind the pause menu or the death fade: the place for what the boot or a warm-up in play left owing
+      if ((e.to === 'paused' || e.to === 'dead') && this.neighboursOwed) this.warmNeighbours(false);
       // another place behind the loading screen or the title: nothing keeps the light of where it was
       if (e.to === 'loading' || e.to === 'title' || e.from === 'loading') this.materials.snapLights();
     }));
@@ -291,6 +446,81 @@ export class RenderSystemImpl implements RenderSystem {
     this.registerDebug();
   }
   start(): void { this.syncTextures(); }
+
+  /**
+   * A receiver's material (High). Pass i1: walls take the shadow too, and a twin has no normal: a face turned from the
+   * light (the far side of a building, a ceiling, a wall's back) takes none; the face's own normal from the world
+   * position's screen derivatives. Pass i2: the shadow fades toward the map's edge (SHADOW_EDGE) instead of ending on the
+   * side of a square that moves with her, and on a lightmapped chunk it reads the BAKED light under it (`lm`, the chunk's
+   * own lightmap uniform): where the bake already has shade the map adds `shade` of itself (ShadowSpec.lit / shade).
+   */
+  private makeShadowMaterial(lm: { value: THREE.Texture | null }, scale: number): THREE.ShadowMaterial {
+    const m = new THREE.ShadowMaterial({ opacity: 0.55, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, fog: false });
+    m.name = 'keep_shadow';
+    m.defines = { KEEP_LM: '', USE_UV1: '' };
+    const light = this.shadowLight, at = this.shadowAt, gate = this.shadowGate, lmScale = { value: scale };
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.uKeepLight = light; shader.uniforms.uKeepAt = at; shader.uniforms.uKeepGate = gate;
+      shader.uniforms.uKeepLm = lm; shader.uniforms.uKeepLmScale = lmScale;
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vKeepW;\n#ifdef KEEP_LM\nvarying vec2 vKeepLm;\n#endif')
+        .replace('#include <shadowmap_vertex>', '#include <shadowmap_vertex>\n\tvKeepW = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;\n#ifdef KEEP_LM\n\tvKeepLm = uv1;\n#endif');
+      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>
+varying vec3 vKeepW;
+uniform vec3 uKeepLight;
+uniform vec4 uKeepAt;
+uniform vec4 uKeepGate;
+#ifdef KEEP_LM
+varying vec2 vKeepLm;
+uniform sampler2D uKeepLm;
+uniform float uKeepLmScale;
+#endif
+float keepShadowGate( float shadow ) {
+	// a face turned from the light takes no shadow from the map: g is the share of the map's shadow this pixel shows
+	float face = smoothstep( ${SHADOW_FACE_FROM.toFixed(2)}, ${SHADOW_FACE_TO.toFixed(2)}, dot( normalize( cross( dFdx( vKeepW ), dFdy( vKeepW ) ) ), uKeepLight ) );
+	float g = face * shadow;
+	#ifdef KEEP_LM
+	// (pass i2) the BAKE says where the fixed world's shade is: there the map's shadow shows at a share of itself
+	// (uKeepGate.w: a creature in a building's shade stands on a faint shadow, not on a second sun's), and the shade
+	// itself is deepened by uKeepGate.z of the shadow's darkness whatever the map holds (a wall's own shade and the
+	// shade cast on the sand beside it are one shade: no edge where the map ends or a caster is not drawn)
+	float lit = smoothstep( uKeepGate.x, uKeepGate.y, dot( texture2D( uKeepLm, vKeepLm ).rgb, vec3( 0.2126, 0.7152, 0.0722 ) ) * uKeepLmScale );
+	g *= mix( uKeepGate.w, 1.0, lit );
+	#endif
+	// toward the map's edge (across the light) the shadow fades out
+	vec3 d = vKeepW - uKeepAt.xyz;
+	d -= uKeepLight * dot( d, uKeepLight );
+	g *= 1.0 - smoothstep( ${SHADOW_EDGE[0].toFixed(2)}, ${SHADOW_EDGE[1].toFixed(2)}, length( d ) * uKeepAt.w );
+	#ifdef KEEP_LM
+	g += ( 1.0 - lit ) * uKeepGate.z;
+	#endif
+	return g;
+}`)
+        .replace('opacity * ( 1.0 - getShadowMask() )', 'opacity * keepShadowGate( 1.0 - getShadowMask() )');
+      if (!shader.fragmentShader.includes('keepShadowGate( 1.0') || !shader.vertexShader.includes('vKeepW = ( modelMatrix')) throw new Error('render: three\'s shadow material no longer has the lines the receiver gate replaces');
+    };
+    m.customProgramCacheKey = () => 'keep_shadow_gate';
+    m.visible = this.shadowOn;
+    this.shadowMats.push(m);
+    return m;
+  }
+  /** the receiver's material of a chunk mesh: by its lightmap (the uniform object the world material itself reads, so a set that comes back is followed) */
+  private shadowMaterialOf(mesh: THREE.Mesh): THREE.ShadowMaterial | null {
+    const base = this.shadowMaterial;
+    if (!base) return null;
+    const wm = mesh.material as THREE.Material & { defines?: Record<string, string>; userData: { lm?: { value: THREE.Texture | null } } };
+    const lm = wm.userData.lm, scale = wm.defines && wm.defines.LM !== undefined ? Number(wm.defines.LM_SCALE) : NaN;
+    if (!lm || !(scale > 0) || mesh.geometry.getAttribute('uv1') === undefined) return base;
+    let m = this.shadowByLm.get(lm);
+    if (!m) { m = this.makeShadowMaterial(lm, scale); m.opacity = base.opacity; m.color.copy(base.color); m.visible = base.visible; this.shadowByLm.set(lm, m); }
+    return m;
+  }
+  private showShadows(on: boolean): void { const ms = this.shadowMats; for (let i = 0; i < ms.length; i++) (ms[i] as THREE.ShadowMaterial).visible = on; }
+  /** pass i2: the fixed world of the exterior zones casts into the map, or stops (a room's map hangs under its ceiling) */
+  private setStatics(on: boolean): void {
+    if (this.staticsCast === on) return;
+    this.staticsCast = on;
+    this.ctx.scene.world.traverse((o) => { if (o.userData.keepStatic === 1) o.castShadow = on; });
+  }
 
   private newRun(): void {
     this.fx.clearTransient();
@@ -330,9 +560,15 @@ export class RenderSystemImpl implements RenderSystem {
     const shadow = f.sunShadowMap;
     if (shadow !== this.shadowOn) {
       this.shadowOn = shadow;
+      // three keys a shadow caster's depth program by the light counts of the LAST main draw: the first frame after the
+      // sun starts casting would link every caster's depth program once more for 'no shadow light' (pass i1: 2 links on
+      // every return to High, now that the pass runs indoors too). The pass waits one drawn frame.
+      this.shadowFrom = this.framesDrawn + 1;
       r.shadowMap.enabled = shadow;
       r.shadowMap.autoUpdate = shadow;
-      if (this.shadowMaterial) this.shadowMaterial.visible = shadow;
+      this.showShadows(shadow);
+      // the white texel of the receivers without a lightmap goes with the shadow map (three uploads it again when it is next drawn with)
+      if (!shadow && this.shadowWhite) this.shadowWhite.dispose();
       if (this.sun) { this.sun.castShadow = shadow; if (!shadow && this.sun.shadow.map) { this.sun.shadow.map.dispose(); (this.sun.shadow as unknown as { map: THREE.WebGLRenderTarget | null }).map = null; } }
       // the skinned caster probe of the warm-up carries a bone texture: it goes with the shadow map
       if (!shadow && this.casterProbes) this.casterProbes.traverse((o) => { const sk = (o as THREE.SkinnedMesh).skeleton; if (sk && sk.boneTexture) { sk.boneTexture.dispose(); sk.boneTexture = null; } });
@@ -340,34 +576,12 @@ export class RenderSystemImpl implements RenderSystem {
     }
     this.appliedRatio = -1;
     this.applySize();
-    // another tier compiles other programs (tone map inline or not, the shadow pass): all of them now, in one hitch
-    if (changed && this.framesDrawn > 0) { this.releasePrograms(); void this.warmUp(); }
-  }
-
-  /**
-   * A tier switch at run time: every program of the tier that was left is let go (three keeps a material's programs of
-   * every tone-mapping and shadow configuration it has ever been drawn with until the material is disposed), so toggling
-   * the quality option does not pile them up. Textures and geometries are not touched; warmUp compiles the new tier's.
-   */
-  private releasePrograms(): void {
-    const seen = new Set<THREE.Material>();
-    const take = (o: THREE.Object3D): void => {
-      const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
-      if (!m) return;
-      if (Array.isArray(m)) for (const x of m) seen.add(x); else seen.add(m);
-    };
-    const roots = this.ctx.scene;
-    roots.scene.traverse(take);
-    roots.viewModel.traverse(take);
-    take(this.fx.flashMesh);
-    const assets = this.ctx.assets, defs = this.ctx.data.manifest.assets;
-    for (const id of Object.keys(defs)) if (assets.isActive(id)) assets.get(id).scene.traverse(take);
-    for (const m of this.materials.allMaterials()) seen.add(m);
-    if (this.outlineMaterial) seen.add(this.outlineMaterial);
-    if (this.outlineSkinned) seen.add(this.outlineSkinned);
-    if (this.shadowMaterial) seen.add(this.shadowMaterial);
-    if (this.post) seen.add(this.post.vignetteMaterial);
-    for (const m of seen) m.dispose();
+    // Release pass p0. Another tier draws with other programs (tone map inline or not, the shadow pass). They used to be
+    // thrown away on every switch and compiled again (38 to 46 links each time, in play when the quality manager stepped
+    // down by itself). Nothing is released now: three keeps a material's program of every configuration it was drawn with
+    // (at most one per tone-map kind and shadow switch: bounded by the tiers), the post chains keep theirs (post.ts), and
+    // a tier is compiled ONCE per active set: by a warm-up here the first time, or ahead of time by warmNeighbours.
+    if (changed && this.framesDrawn > 0 && this.warmedAt[q.tier] !== this.warmGen) void this.warmUp();
   }
 
   dispose(): void {
@@ -378,7 +592,9 @@ export class RenderSystemImpl implements RenderSystem {
     if (this.sky) { this.sky.mesh.removeFromParent(); this.sky.dispose(); }
     if (this.post) this.post.dispose();
     if (this.coverageTarget) this.coverageTarget.dispose();
-    if (this.shadowMaterial) this.shadowMaterial.dispose();
+    for (const m of this.shadowMats) m.dispose();
+    if (this.shadowWhite) this.shadowWhite.dispose();
+    if (this.staticDepth) this.staticDepth.dispose();
     if (this.outlineMaterial) this.outlineMaterial.dispose();
     if (this.outlineSkinned) this.outlineSkinned.dispose();
     if (this.gl) this.gl.dispose();
@@ -427,12 +643,21 @@ export class RenderSystemImpl implements RenderSystem {
   }
   private retarget(key: MoodKey, seconds: number): void {
     if (key === this.moodKey && this.moodT >= 1) return;
+    // a walked doorway between the open air and a room (DOOR_FADE): the air of the new place at once
+    const door = seconds > 0 && seconds <= DOOR_FADE && ((MOODS[this.moodKey][M_SKY] as number) > 0.5) !== ((MOODS[key][M_SKY] as number) > 0.5);
     this.moodKey = key;
     this.moodFrom.set(this.moodCur);
     this.moodTo.set(MOODS[key]);
     this.moodSeconds = seconds;
     this.moodT = seconds > 0 ? 0 : 1;
     if (seconds <= 0) this.moodCur.set(this.moodTo);
+    this.airSnapped = door;
+    if (door) {
+      const to = this.moodTo, from = this.moodFrom, cur = this.moodCur;
+      for (const [a, b] of AIR_FIELDS) for (let i = a; i < b; i++) { from[i] = to[i] as number; cur[i] = to[i] as number; }
+      // the dust of the cell she left does not follow her through the door
+      this.heightExtra = to[M_HEIGHT_EXTRA] as number;
+    }
     this.materials.fallbackMood = key;
   }
   setExposure(multiplier: number, seconds: number): void {
@@ -487,9 +712,18 @@ export class RenderSystemImpl implements RenderSystem {
       this.expT = this.expSeconds > 0 ? Math.min(1, this.expT + dt / this.expSeconds) : 1;
       this.expMul = this.expFrom + (this.expTo - this.expFrom) * smoothstep01(this.expT);
     }
+    // pass i2 (DOOR_FADE): while a doorway's fade runs, the new place's air is held at the display level it has when the
+    // eye has adapted (the exposure the mood and the world's ramp are on their way to, over the one they are at)
+    let gain = 1;
+    if (this.airSnapped) {
+      if (this.moodT >= 1 && this.expT >= 1) this.airSnapped = false;
+      else if (this.overExposure < 0) gain = ((this.moodTo[M_EXPOSURE] as number) * this.expTo) / Math.max((cur[M_EXPOSURE] as number) * this.expMul, 1e-3);
+    }
+    this.airGain = gain;
     // fog
     rgbOf(s.uFogColA.value, cur, M_FOG_A);
     rgbOf(s.uFogColB.value, cur, M_FOG_B);
+    if (gain !== 1) { s.uFogColA.value.multiplyScalar(gain); s.uFogColB.value.multiplyScalar(gain); }
     s.uFogMix.value.x = cur[M_FOG_MIX_SUN] as number; s.uFogMix.value.y = cur[M_FOG_MIX_DIST] as number;
     s.uFogDensity.value = this.overFog >= 0 ? this.overFog : (cur[M_DENSITY] as number);
     xyzOf(s.uSunDir.value, cur, M_SUN_DIR);
@@ -542,15 +776,64 @@ export class RenderSystemImpl implements RenderSystem {
       post.bloomKnee = this.overIdentity ? 0 : (cur[M_BLOOM_S] as number);
       // the contact shade is a thing of rooms: under a sky it is held to AO_SKY of itself (on sunlit rock its stipple showed)
       post.aoK.value.y = AO_INTENSITY * (1 - (1 - AO_SKY) * (cur[M_SKY] as number));
+      // High, outdoors by day: the sun shafts (post.ts SunShaftEffect) in the mood's sun colour; none without a sun disc
+      // pass i2: ... and in the blue hour toward the afterglow, in the glow band's colour (moods.ts SHAFT_DUSK), eased with the mood
+      const duskTo = this.duskTest && post.keepsDepth ? SHAFT_DUSK[this.moodKey] ?? 0 : 0;
+      this.dusk += (duskTo - this.dusk) * (this.duskTest && !this.snapHigh ? Math.min(1, dt / 0.8) : 1);
+      if (this.dusk < 1e-3 && duskTo === 0) this.dusk = 0;
+      const disc = cur[M_SUN_DISC] as number, dk = this.dusk * (1 - disc);
+      post.shaftK = this.overIdentity ? 0 : SHAFT_K * (disc + dk) * (cur[M_SKY] as number);
+      // (the glow band is a display colour, stored over the mood's exposure: the shafts' colour is scene light, as the sun's is)
+      post.shaftCol.value.set(
+        (cur[M_SUN_COL] as number) * disc + (cur[M_GLOW] as number) * dk, (cur[M_SUN_COL + 1] as number) * disc + (cur[M_GLOW + 1] as number) * dk, (cur[M_SUN_COL + 2] as number) * disc + (cur[M_GLOW + 2] as number) * dk);
+      if (disc + dk > 1e-4) post.shaftCol.value.multiplyScalar(1 / (disc + dk));
+      // the sun's veil and the dust in the light are the Long Light's (L1), not the overhang's (L0): of the two moods' numbers
+      // only the saturation tells them apart (0.9 under the roof, 1 outside), and it blends over the 20 s ramp as they should
+      this.openAir = Math.min(1, Math.max(0, ((cur[M_SATURATION] as number) - 0.9) * 10));
+      {
+        // between the gully's walls (the first zone, south of the forecourt: z over 12, whole by z 34) the veil is VEIL_GULLY of itself
+        const pz = ctx.player.eye.z, gt = this.zoneNow === 'the_lip' ? Math.min(1, Math.max(0, (pz - 12) / 22)) : 0;
+        const day = VEIL_K * this.openAir * (1 - (1 - VEIL_GULLY) * gt * gt * (3 - 2 * gt));
+        // (pass i2: the afterglow's shafts carry a veil of their own)
+        post.shaftVeil.value = disc + dk > 1e-4 ? (day * disc + SHAFT_DUSK_VEIL * dk) / (disc + dk) : day;
+      }
+      // High, outdoors by day (pass i1): the heat shimmer on the horizon band; still with Reduce Motion
+      post.shimmer = ctx.quality.features.heatShimmer && !this.overIdentity && !this.reduceMotion && this.shimmerTest ? (cur[M_SUN_DISC] as number) * (cur[M_SKY] as number) : 0;
+      post.shimmerTime = s.uTime.value;
       post.applyGrain();
     }
+    // High, under a sun (pass i1): the relief of the detail textures (moods.ts RELIEF), eased with the mood
+    {
+      const relief = ctx.quality.features.sandSparkle && !this.overIdentity && this.reliefTest ? RELIEF[this.moodKey] ?? 0 : 0;
+      s.uRelief.value += (relief - s.uRelief.value) * (this.reliefTest && !this.snapHigh ? Math.min(1, dt / 0.6) : 1);
+      if (s.uRelief.value < 1e-3 && relief === 0) s.uRelief.value = 0;
+      // pass i2: ... and under the light that is not a sun (moods.ts RELIEF_SKY)
+      const sky = ctx.quality.features.sandSparkle && !this.overIdentity && this.reliefTest ? RELIEF_SKY[this.moodKey] ?? 0 : 0;
+      s.uReliefSky.value += (sky - s.uReliefSky.value) * (this.reliefTest && !this.snapHigh ? Math.min(1, dt / 0.6) : 1);
+      if (s.uReliefSky.value < 1e-3 && sky === 0) s.uReliefSky.value = 0;
+    }
+    // High (pass i3): the glance of a low light off the ground (moods.ts GLANCE), in the glow band's colour, eased with the mood
+    {
+      const spec = ctx.quality.features.sandSparkle && !this.overIdentity && this.glanceTest ? GLANCE[this.moodKey] : undefined;
+      const to = spec ? spec[0] : 0;
+      this.glance += (to - this.glance) * (this.glanceTest && !this.snapHigh ? Math.min(1, dt / 0.8) : 1);
+      if (this.glance < 1e-3 && to === 0) this.glance = 0;
+      const g = s.uGlance.value;
+      if (this.glance > 0) {
+        // (the glow band is a display colour stored over the mood's exposure: scene light, as the shafts' colour is)
+        if (spec) this.glanceExp = spec[1];
+        g.set((cur[M_GLOW] as number) * this.glance, (cur[M_GLOW + 1] as number) * this.glance, (cur[M_GLOW + 2] as number) * this.glance, this.glanceExp);
+      } else g.set(0, 0, 0, 0);
+    }
+    // High, outdoors by day (pass i1): the sand's sparkle, by the mood's sun (materials.ts WORLD_LIGHT, the SAND block)
+    s.uSparkle.value = ctx.quality.features.sandSparkle && !this.overIdentity && this.sparkleTest ? SPARKLE_K * (cur[M_SUN_DISC] as number) * (cur[M_SKY] as number) : 0;
     // High (underground look, polish round 5): the sheen of the station's glaze eases to the mood's (moods.ts SHEEN), and a
     // dense lamp set (the Windlass's gauge) is held just over the mood's bloom threshold instead of EMISSIVE_HDR over
     // white: x (1 + (hdr - 1) x) of its lamp value is DENSE_OVER of the threshold on display (materials.ts EMIS_FRAG)
     {
       const bloom = ctx.quality.features.bloom && post !== null && !this.overIdentity;
       const sheen = bloom ? SHEEN[this.moodKey] ?? 0 : 0;
-      s.uSheen.value += (sheen - s.uSheen.value) * Math.min(1, dt / 0.6);
+      s.uSheen.value += (sheen - s.uSheen.value) * (this.snapHigh ? 1 : Math.min(1, dt / 0.6));
       if (s.uSheen.value < 1e-3 && sheen === 0) s.uSheen.value = 0;
       let hold = 1;
       if (bloom && post) {
@@ -566,7 +849,9 @@ export class RenderSystemImpl implements RenderSystem {
       rgbOf(sky.mid, cur, M_MID);
       rgbOf(sky.glow, cur, M_GLOW);
       rgbOf(sky.sunCol, cur, M_SUN_COL);
+      if (gain !== 1) { sky.zenith.multiplyScalar(gain); sky.mid.multiplyScalar(gain); sky.glow.multiplyScalar(gain); }
       sky.shape.x = cur[M_MID_SIN] as number; sky.shape.y = cur[M_SKY] as number; sky.shape.z = (cur[M_SUN_DISC] as number) * (cur[M_SKY] as number); sky.shape.w = 1;
+      sky.stars = ctx.quality.features.sandSparkle ? 1 : 0.45;      // exterior look, pass i3: the blue hour's stars (sky.ts): all of them on High, the brighter half on Low
       const w = this.outside;
       if (w > 0) {
         // the sky through a doorway: the Long Light's, not the room's fog colour
@@ -605,11 +890,20 @@ export class RenderSystemImpl implements RenderSystem {
     this.lastClock = now;
     const sim = clock.simTime - (1 - alpha) * FIXED_DT * clock.timeScale;
     this.shared.uTime.value = sim;
+    // pass i3: after a warp (a checkpoint, a restore, a ride's teleport: the camera is more than 8 m from where it was) the
+    // High tier's eased terms (the air light and its shapes, the afterglow's shafts, the reliefs, the sheen) stand at their
+    // mood's value on the first frame: a restored checkpoint drew Low's air for most of a second (the reviewer's frames, 43
+    // ticks in, held 59 % of the air light)
+    {
+      const c0 = ctx.scene.camera.position, l0 = this.lastCam;
+      this.snapHigh = this.snapOnce || (c0.x - l0.x) * (c0.x - l0.x) + (c0.y - l0.y) * (c0.y - l0.y) + (c0.z - l0.z) * (c0.z - l0.z) > 64;
+      this.snapOnce = false;
+    }
     this.updateAtmosphere(dt);
     this.materials.beginFrame(dt);
     // a warp (a debug jump, a ride's teleport, a restore): the camera is somewhere else, and so is every light
     const cp = ctx.scene.camera.position, lc = this.lastCam;
-    if ((cp.x - lc.x) * (cp.x - lc.x) + (cp.y - lc.y) * (cp.y - lc.y) + (cp.z - lc.z) * (cp.z - lc.z) > 64) this.materials.snapLights();
+    if ((cp.x - lc.x) * (cp.x - lc.x) + (cp.y - lc.y) * (cp.y - lc.y) + (cp.z - lc.z) * (cp.z - lc.z) > 64) { this.materials.snapLights(); this.airZoneOf = null; }
     lc.copy(cp);
     if (this.trauma > 0) this.trauma = Math.max(0, this.trauma - TRAUMA_DECAY * dt);
     const cam = ctx.scene.camera;
@@ -620,19 +914,72 @@ export class RenderSystemImpl implements RenderSystem {
     if (blades > 0) this.fx.ambient.set('motes', high ? 600 : 120);
     else if ((this.moodKey === 'L1' || this.moodKey === 'L0') && this.zoneNow !== null && this.exteriorZones.has(this.zoneNow)) {
       const gv = this.fx.ambient.ground.value;
-      gv.x = ctx.player.eye.y - 1.65; gv.y = this.reduceMotion ? 0.5 : 1;
+      gv.x = ctx.player.eye.y - 1.65; gv.y = this.reduceMotion ? 0.5 : 1; gv.z = high ? this.openAir : 0;      // High: half of its 400 are dust in the light (ambient.ts), outside the overhang
       this.fx.ambient.set('sand', high ? 400 : 200);
+    } else if (high && (AIR_DUST[this.moodKey] ?? 0) > 0) {
+      // High (underground look, pass i3): the station's air carries motes (moods.ts AIR_DUST; ambient.ts 'air')
+      this.fx.ambient.ground.value.y = (AIR_DUST[this.moodKey] ?? 0) * (this.reduceMotion ? 0.5 : 1);
+      this.fx.ambient.set('air', 400);
     } else this.fx.ambient.set('off', 0);
     // the quad batch: blobs, rings, cards, lines, then the halos of whatever emissive was drawn last frame
     const q = this.fx.quads;
+    this.updateLipBeams();
+    this.updateGullyShafts(high);
+    this.updateSun(dt);
     q.begin();
-    this.fx.fillQuads(this.shadowOn, this.exteriorAt);
+    this.fx.fillQuads(this.shadowLive, this.shadowCovers);
     this.haloCount = this.materials.emitHalos(q, this.shared.uWrong.value.x) + this.layoutHalos(sim) + this.inst.emitGlow(q);
     q.end();
     this.inst.update();
     this.feedback.update(this.visibleZones.has('the_bore'));
     this.updateOutline(sim);
-    if (this.shadowOn) this.updateSun();
+    this.gatherAir(dt);
+  }
+
+  /**
+   * High (pass i1): the lamps of the air light for this frame (post.ts AirLightEffect): the lit emissive lamps of what is
+   * in the scene, and the layout's fires and glows of the drawn zones. The level is the mood's (moods.ts AIR), eased.
+   */
+  private gatherAir(dt: number): void {
+    const post = this.post;
+    if (!post) return;
+    const on = post.keepsDepth && !this.overIdentity && this.airTest;
+    const target = on ? AIR[this.moodKey] ?? 0 : 0;
+    this.airLevel = on ? this.airLevel + (target - this.airLevel) * (this.snapHigh ? 1 : Math.min(1, dt / 0.8)) : 0;
+    if (this.airLevel < 1e-3 && target === 0) this.airLevel = 0;
+    post.airK = this.airLevel * AIR_K;
+    // pass i3: the cone under a lamp that looks down and the far lamps' glow, the mood's (moods.ts AIR_CONE, AIR_GLOW), eased with it
+    const coneTo = on && this.coneTest ? AIR_CONE[this.moodKey] ?? 0 : 0, glowTo = on && this.glowTest ? AIR_GLOW[this.moodKey] ?? 0 : 0;
+    const ek = on && !this.snapHigh ? Math.min(1, dt / 0.8) : 1;
+    this.airCone += (coneTo - this.airCone) * ek; if (this.airCone < 1e-3 && coneTo === 0) this.airCone = 0;
+    this.airGlow += (glowTo - this.airGlow) * ek; if (this.airGlow < 1e-3 && glowTo === 0) this.airGlow = 0;
+    post.airCone = this.airCone;
+    const air = post.air;
+    if (this.airLevel <= 0) { air.count = 0; air.offered = 0; air.far = 0; air.cones = 0; this.airZoneOf = null; return; }
+    air.farK = this.airGlow; air.coneOn = this.airCone > 0;
+    air.begin(this.ctx.scene.camera);
+    const wrong = this.shared.uWrong.value.x;
+    // a zone's lamps light the air of the zone she stands in: its weight eases to 1, every other zone's to 0 (no test
+    // says whether a lamp's light reaches the air it is added to; a warp snaps)
+    const zw = this.airZone, ids = this.materials.zoneIds, zk = this.airZoneOf === null ? 1 : Math.min(1, dt / AIR_ZONE_EASE);
+    // (a place between two zone volumes, a catwalk over a room, is in the zone the world says she is in)
+    const here = this.zoneNow ?? this.ctx.world.zone;
+    for (let i = 0; i < ids.length; i++) zw[i] = (zw[i] as number) + ((ids[i] === here ? 1 : 0) - (zw[i] as number)) * zk;
+    this.airZoneOf = here;
+    this.materials.emitAir(air, wrong, zw);
+    const lights = this.lights, world = this.ctx.world;
+    for (let i = 0; i < lights.length; i++) {
+      const l = lights[i] as LayoutLight, spec = AIR_LAYOUT[l.kind];
+      if (!spec || !this.visibleZones.has(l.zone)) continue;
+      if (l.flag !== '' && !world.flag(l.flag)) continue;
+      const hue = l.kind === 'practical' ? HUE.flame : l.kind === 'bore_glow' && wrong <= 0.5 ? HUE.violet : HUE.aqua;
+      air.x = l.x; air.y = l.y + (l.kind === 'bore_glow' ? 0.6 : 0.15); air.z = l.z;
+      air.level = spec[0] * (zw[ids.indexOf(l.zone)] ?? 1); air.reach = spec[1];
+      air.r = hue.r; air.g = hue.g; air.b = hue.b;
+      air.cone = 0;   // a fire and a glow shine all round
+      air.offer();
+    }
+    air.tally();
   }
 
   /**
@@ -705,23 +1052,102 @@ export class RenderSystemImpl implements RenderSystem {
     for (let i = 0; i < kids.length; i++) this.collectOutline(kids[i] as THREE.Object3D);
   }
 
-  /** the shadow camera follows the player, snapped to its own texels so the shadow does not crawl */
-  private updateSun(): void {
+  /** the gully's sun shafts (GULLY_SHAFT_*): High, by day, in the Lip, each by her distance from where it lands */
+  private updateGullyShafts(high: boolean): void {
+    const g = this.fx.gullyShafts;
+    const on = high && this.zoneNow === 'the_lip' && (this.moodKey === 'L0' || this.moodKey === 'L1') && !this.overIdentity ? this.openAir : 0;
+    const e = this.ctx.player.eye;
+    for (let i = 0; i < GULLY_SHAFT_TO.length; i++) {
+      const to = GULLY_SHAFT_TO[i] as readonly [number, number, number], from = GULLY_SHAFT_FROM[i] as readonly [number, number];
+      const o = i * 7;
+      if (on <= 0) { g[o + 6] = 0; continue; }
+      const hx = to[0] - from[0], hz = to[2] - from[1], hl = Math.hypot(hx, hz) || 1;
+      const len = Math.hypot(hl, GULLY_SHAFT_RISE);
+      const dx = hx / len, dy = -GULLY_SHAFT_RISE / len, dz = hz / len;
+      g[o] = to[0] - dx * GULLY_SHAFT_LEN; g[o + 1] = to[1] - dy * GULLY_SHAFT_LEN; g[o + 2] = to[2] - dz * GULLY_SHAFT_LEN;
+      g[o + 3] = to[0] + dx * GULLY_SHAFT_IN; g[o + 4] = to[1] + dy * GULLY_SHAFT_IN; g[o + 5] = to[2] + dz * GULLY_SHAFT_IN;
+      // her distance from the shaft's own line (not from its foot: she may walk under its head)
+      const px = e.x - to[0], py = e.y - to[1], pz = e.z - to[2];
+      const t = Math.max(-GULLY_SHAFT_LEN, Math.min(GULLY_SHAFT_IN, px * dx + py * dy + pz * dz));
+      const off = Math.hypot(px - dx * t, py - dy * t, pz - dz * t);
+      const far = Math.hypot(px, pz);
+      g[o + 6] = on * smoothstep01((GULLY_SHAFT_SEE[0] - far) / (GULLY_SHAFT_SEE[0] - GULLY_SHAFT_SEE[1])) * smoothstep01((off - GULLY_SHAFT_NEAR[0]) / (GULLY_SHAFT_NEAR[1] - GULLY_SHAFT_NEAR[0]));
+    }
+  }
+
+  /** the overhang's sun shafts: held while she is under the roof by day, faded over the mouth, released outside */
+  private updateLipBeams(): void {
+    const day = this.zoneNow === 'the_lip' && (this.moodKey === 'L0' || this.moodKey === 'L1');
+    const level = day ? smoothstep01((this.ctx.player.eye.z - LIP_BEAM_Z[0]) / (LIP_BEAM_Z[1] - LIP_BEAM_Z[0])) : 0;
+    for (let i = 0; i < this.lipBeams.length; i++) {
+      let h = this.lipBeams[i] as FxHandle | null;
+      if (level <= 0) { if (h) { h.release(); this.lipBeams[i] = null; } continue; }
+      if (!h) {
+        h = this.fx.acquireCard('sun_blade');
+        this.lipBeams[i] = h;
+        if (!h) continue;
+        const to = LIP_BEAM_TO[i] as readonly [number, number, number];
+        const from = LIP_BEAM_FROM[i] as readonly [number, number, number];
+        h.setPosition(from[0], from[1], from[2]); h.setEnd(to[0], to[1], to[2]); h.setVisible(true);
+      }
+      h.setLevel(level * (LIP_BEAM_LEVEL[i] as number));
+    }
+  }
+
+  /**
+   * The shadow camera follows the player, snapped to its own texels so the shadow does not crawl. Pass i1: the map is
+   * the mood's (moods.ts SHADOWS): the sun's outdoors by day, a light overhead in a room; its direction and darkness ease
+   * from one to the other at a doorway, and snap on a warp.
+   */
+  private updateSun(dt: number): void {
     const sun = this.sun;
-    if (!sun) return;
-    const outside = this.zoneNow !== null && this.exteriorZones.has(this.zoneNow) && (this.moodKey === 'L1' || this.moodKey === 'L0');
+    if (!sun || !this.shadowOn) { this.shadowLive = false; return; }
+    const spec = this.zoneNow !== null && this.shadowTest && this.framesDrawn >= this.shadowFrom ? SHADOWS[this.moodKey] ?? null : null;
     // The sun casts for as long as the tier has the shadow map: three compiles every program by the number of shadow
     // casting lights, and switching `castShadow` at a doorway linked every material's program again in the middle of
-    // play (polish round 3, performance: 4 links on entering the Tally House, 8 at the stair). Indoors and in the blue
-    // hour the shadow PASS stops instead, and the overlay that shows its map is not drawn.
-    this.renderer.shadowMap.autoUpdate = outside;
-    if (this.shadowMaterial) this.shadowMaterial.visible = outside;
-    if (!outside) return;
-    const p = this.ctx.player.eye, s = this.shared.uSunDir.value;
-    const texel = (SHADOW_HALF * 2) / 1024;
+    // play (polish round 3, performance: 4 links on entering the Tally House, 8 at the stair). Where the mood names no
+    // shadow the shadow PASS stops instead, and the overlay that shows its map is not drawn.
+    const live = spec !== null;
+    this.renderer.shadowMap.autoUpdate = live;
+    this.showShadows(live);
+    if (!spec) { this.shadowLive = false; this.shadowSpec = null; return; }
+    const d = this.shadowDir, s = this.shared.uSunDir.value;
+    let tx = s.x, ty = s.y, tz = s.z;
+    if (spec.dir) { const l = Math.hypot(spec.dir[0], spec.dir[1], spec.dir[2]) || 1; tx = spec.dir[0] / l; ty = spec.dir[1] / l; tz = spec.dir[2] / l; }
+    const p = this.ctx.player.eye, was = sun.target.position;
+    const jumped = !this.shadowLive || (p.x - was.x) * (p.x - was.x) + (p.z - was.z) * (p.z - was.z) > 64;
+    const k = jumped ? 1 : Math.min(1, dt / SHADOW_EASE);
+    d.x += (tx - d.x) * k; d.y += (ty - d.y) * k; d.z += (tz - d.z) * k;
+    d.normalize();
+    this.shadowK += (spec.k - this.shadowK) * k;
+    // the colour a shadow is drawn toward: a display level, so over the exposure
+    const tint = spec.tint, te = 1 / Math.max(this.exposure, 1e-3), mats = this.shadowMats;
+    const tr = tint ? tint[0] * te : 0, tg = tint ? tint[1] * te : 0, tb = tint ? tint[2] * te : 0;
+    for (let i = 0; i < mats.length; i++) {
+      const m = mats[i] as THREE.ShadowMaterial, c = m.color;
+      if (m.opacity !== this.shadowK) m.opacity = this.shadowK;
+      c.r += (tr - c.r) * k; c.g += (tg - c.g) * k; c.b += (tb - c.b) * k;
+    }
+    const gate = this.shadowGate.value;
+    gate.x = spec.lit ? spec.lit[0] : -1; gate.y = spec.lit ? spec.lit[1] : 0; gate.z = spec.lit ? spec.shade ?? 0 : 0; gate.w = spec.lit ? spec.inShade ?? 1 : 1;
+    this.shadowLight.value.copy(d);
+    const cam = sun.shadow.camera;
+    if (cam.right !== spec.half || cam.far !== spec.far) {
+      cam.left = -spec.half; cam.right = spec.half; cam.top = spec.half; cam.bottom = -spec.half;
+      cam.near = spec.dir === null ? 1 : 0.2; cam.far = spec.far;
+      cam.updateProjectionMatrix();
+    }
+    this.shadowLive = true; this.shadowSpec = spec;
+    // which dynamic things cast into this map: all of them into the sun's, creatures and loose things into a room's
+    // (materials.ts keepCast). Set when the kind of map changes, and again now and then for what was spawned since.
+    const castMode = spec.dir === null ? 1 : 2;
+    if (castMode !== this.castMode || --this.castCountdown <= 0) { this.castMode = castMode; this.castCountdown = CAST_EVERY; setCasters(this.ctx.scene.dynamic, castMode === 1); }
+    this.setStatics(this.staticsOver ?? spec.statics === true);
+    const texel = (spec.half * 2) / 1024;
     const x = Math.round(p.x / texel) * texel, y = Math.round((p.y - 1.65) / texel) * texel, z = Math.round(p.z / texel) * texel;
     sun.target.position.set(x, y, z);
-    sun.position.set(x + s.x * 70, y + s.y * 70, z + s.z * 70);
+    this.shadowAt.value.set(x, y, z, 1 / spec.half);
+    sun.position.set(x + d.x * spec.dist, y + d.y * spec.dist, z + d.z * spec.dist);
     sun.target.updateMatrixWorld();
   }
 
@@ -812,6 +1238,12 @@ export class RenderSystemImpl implements RenderSystem {
     r.clear(true, true, false);
     const hasViewModel = roots.viewModel.children.length > 0;
     roots.viewModel.visible = false;
+    // a tracer leaves the muzzle as THIS frame draws it (the kick and the shake included): its start in the quad batch
+    // is moved before the batch is uploaded by the scene's draw
+    if (hasViewModel && this.fx.activeLines('tracer') > 0) {
+      this.poseViewModel();
+      this.fx.rideLines(this.muzzleNode(), this.viewCamera.matrixWorld, this.viewCamera.projectionMatrix, cam.projectionMatrix);
+    }
     quietSort(r, roots.scene);
     r.render(roots.scene, cam);
     if (this.outlineTarget) this.drawOutline();
@@ -869,12 +1301,15 @@ export class RenderSystemImpl implements RenderSystem {
     }
     out.textureBytes = bytes + out.enemiesAlive * 16384;
     const tier = this.ctx.data.manifest.tiers[this.ctx.quality.tier];
-    out.renderTargetBytes = this.post ? this.post.renderTargetBytes(tier, this.contextMsaa, this.shadowOn ? SHADOW_MAP_BYTES : 0) : 0;
+    out.renderTargetBytes = this.post ? this.post.renderTargetBytes(tier, this.contextMsaa, this.shadowMapBytes(), this.shadowOn ? SHADOW_MAP_BYTES : 0) : 0;
     out.visibleZones = this.visibleZoneCount;
     out.instances = this.inst.count;
     out.particles = this.fx.particles.alive();
     out.decals = this.fx.decals.alive;
   }
+
+  /** the sun shadow map's bytes while three holds one (High, once the sun has cast) */
+  private shadowMapBytes(): number { return this.shadowOn && this.sun !== null && this.sun.shadow.map !== null ? SHADOW_MAP_BYTES : 0; }
 
   // ---- warm-up, benchmark ---------------------------------------------------------------------------------------------
   /**
@@ -893,47 +1328,7 @@ export class RenderSystemImpl implements RenderSystem {
     r.setRenderTarget(post.sceneTarget);
     let pending: Promise<unknown> | null = null;
     try {
-      const assets = this.ctx.assets, defs = this.ctx.data.manifest.assets;
-      const twins: THREE.InstancedMesh[] = [];
-      const white = new THREE.Color(1, 1, 1);
-      for (const id of Object.keys(defs)) {
-        if (!assets.isActive(id)) continue;
-        const loaded = assets.get(id);
-        r.compile(loaded.scene, roots.camera, roots.scene);
-        if (!(defs[id] as AssetDef).instanced) continue;
-        loaded.scene.traverse((o) => {
-          const mesh = o as THREE.Mesh;
-          if (!mesh.isMesh || (mesh as unknown as THREE.SkinnedMesh).isSkinnedMesh) return;
-          const twin = new THREE.InstancedMesh(mesh.geometry, Array.isArray(mesh.material) ? mesh.material.map((x) => this.materials.instancedTwin(x, mesh.geometry)) : this.materials.instancedTwin(mesh.material, mesh.geometry), 1);
-          twin.setColorAt(0, white);
-          twins.push(twin);
-        });
-      }
-      const group = new THREE.Group();
-      for (const t of twins) group.add(t);
-      if (twins.length) r.compile(group, roots.camera, roots.scene);
-      for (const t of twins) t.dispose();
-      // drawn on their own (not inside the scene): compiled the same way, so their programs match
-      if (this.outlineMaterial) {
-        const probe = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), this.outlineMaterial);
-        r.compile(probe, roots.camera);
-        probe.geometry.dispose();
-        // and on a skinned mesh of the active set, if there is one
-        if (this.outlineSkinned) {
-          let skinnedMesh: THREE.SkinnedMesh | null = null;
-          roots.dynamic.traverse((o) => { if (!skinnedMesh && (o as THREE.SkinnedMesh).isSkinnedMesh) skinnedMesh = o as THREE.SkinnedMesh; });
-          const sm = skinnedMesh as THREE.SkinnedMesh | null;
-          if (sm) { const keep = sm.material; sm.material = this.outlineSkinned; r.compile(sm, roots.camera); sm.material = keep; }
-        }
-      }
-      // every program of the whole stage, from the recipes of a playthrough (prewarm.ts): the sets that are not here yet
-      const probes = new THREE.Group();
-      for (const p of this.materials.prewarm(PREWARM)) probes.add(p);
-      if (probes.children.length) r.compile(probes, roots.camera, roots.scene);
-      probes.clear();
-      r.compile(this.fx.flashMesh, this.viewCamera);
-      roots.viewModel.visible = true;
-      r.compile(roots.viewModel, this.viewCamera);
+      this.compilePrograms();
       pending = r.compileAsync(roots.scene, roots.camera);
       // the hidden frame: buffers upload, the post chain compiles
       this.lateUpdate(0, 1);
@@ -942,13 +1337,19 @@ export class RenderSystemImpl implements RenderSystem {
       // High: the shadow pass runs in this frame whatever the place, over a plain, a skinned and an instanced caster, so
       // its three depth programs exist before the first enemy walks into the sun (they linked at ticks 691 and 1011)
       const casters = this.shadowOn ? this.shadowCasters() : null;
+      const statics = this.staticsCast;
       if (casters) {
+        // (pass i2: with the fixed casters of the town, whatever the mood of the place the warm-up falls in; a chunk that
+        // is outside the map's square is culled from the pass, so a three-vertex probe of each shape of caster stands in)
+        this.setStatics(true);
+        this.addStaticProbes(casters);
         r.shadowMap.autoUpdate = true;
-        if (this.shadowMaterial) this.shadowMaterial.visible = true;
+        this.showShadows(true);
         if (this.sun) { casters.position.copy(this.sun.target.position); casters.updateMatrixWorld(true); }
+        // (every receiver's twin is shown in this frame with everything else that was hidden: their buffers and the one program)
         roots.scene.add(casters);
       }
-      try { this.render(0, 1); } finally { if (casters) roots.scene.remove(casters); }
+      try { this.render(0, 1); } finally { if (casters) { roots.scene.remove(casters); this.setStatics(statics); this.dropStaticProbes(casters); } }
     } finally {
       this.warming = false;
       r.setScissorTest(false);
@@ -957,7 +1358,142 @@ export class RenderSystemImpl implements RenderSystem {
       // the effect batches go back to what their pools say
       this.lateUpdate(0, 1);
     }
+    this.warmedAt[this.ctx.quality.tier] = this.warmGen;
+    // the tiers the quality manager may step to by itself: compiled now when nobody is playing (the boot, the title, a
+    // pause), else owed until the next pause or death. Without KHR_parallel_shader_compile the driver
+    // compiles in the way of the frames that follow, so the boot does not take it on: the first pause does.
+    if (this.ctx.state.current !== 'playing' && (this.framesDrawn > 1 || r.extensions.has('KHR_parallel_shader_compile'))) this.warmNeighbours(false);
+    else this.neighboursOwed = true;
     return pending ? pending.then(() => undefined, () => undefined) : Promise.resolve();
+  }
+
+  /**
+   * Hands every program the active set can need to the compiler, for the tone map, the target and the shadow switch the
+   * renderer has NOW (nothing is drawn): the scene's own are left to the caller (compile or compileAsync of the scene).
+   */
+  private compilePrograms(): void {
+    const r = this.renderer, roots = this.ctx.scene;
+    const assets = this.ctx.assets, defs = this.ctx.data.manifest.assets;
+    const twins: THREE.InstancedMesh[] = [];
+    const white = new THREE.Color(1, 1, 1);
+    for (const id of Object.keys(defs)) {
+      if (!assets.isActive(id)) continue;
+      const loaded = assets.get(id);
+      r.compile(loaded.scene, roots.camera, roots.scene);
+      if (!(defs[id] as AssetDef).instanced) continue;
+      loaded.scene.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh || (mesh as unknown as THREE.SkinnedMesh).isSkinnedMesh) return;
+        const twin = new THREE.InstancedMesh(mesh.geometry, Array.isArray(mesh.material) ? mesh.material.map((x) => this.materials.instancedTwin(x, mesh.geometry)) : this.materials.instancedTwin(mesh.material, mesh.geometry), 1);
+        twin.setColorAt(0, white);
+        twins.push(twin);
+      });
+    }
+    const group = new THREE.Group();
+    for (const t of twins) group.add(t);
+    if (twins.length) r.compile(group, roots.camera, roots.scene);
+    for (const t of twins) t.dispose();
+    // drawn on their own (not inside the scene): compiled the same way, so their programs match
+    if (this.outlineMaterial) {
+      const probe = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), this.outlineMaterial);
+      r.compile(probe, roots.camera);
+      probe.geometry.dispose();
+      // and on a skinned mesh of the active set, if there is one
+      if (this.outlineSkinned) {
+        let skinnedMesh: THREE.SkinnedMesh | null = null;
+        roots.dynamic.traverse((o) => { if (!skinnedMesh && (o as THREE.SkinnedMesh).isSkinnedMesh) skinnedMesh = o as THREE.SkinnedMesh; });
+        const sm = skinnedMesh as THREE.SkinnedMesh | null;
+        if (sm) { const keep = sm.material; sm.material = this.outlineSkinned; r.compile(sm, roots.camera); sm.material = keep; }
+      }
+    }
+    // every program of the whole stage, from the recipes of a playthrough (prewarm.ts): the sets that are not here yet
+    const probes = new THREE.Group();
+    for (const p of this.materials.prewarm(PREWARM)) probes.add(p);
+    if (probes.children.length) r.compile(probes, roots.camera, roots.scene);
+    probes.clear();
+    r.compile(this.fx.flashMesh, this.viewCamera);
+    const shown = roots.viewModel.visible;
+    roots.viewModel.visible = true;
+    r.compile(roots.viewModel, this.viewCamera);
+    roots.viewModel.visible = shown;
+  }
+
+  /** true when the tier is the quality manager's to change by itself (core/quality.ts `auto`) */
+  private autoTier(): boolean {
+    const f = this.ctx.flags;
+    return !f.tierOverride && !f.test && this.ctx.options.value.graphics === 'auto';
+  }
+
+  /**
+   * Release pass p0: the tiers the quality manager can reach from this one BY ITSELF are compiled ahead, so that a step
+   * down in the middle of a fight (or its 90-frame look at the slower tier and back) links nothing: the tier below, and
+   * Low from `min` (the way back up after a demotion). Only what differs is compiled: the tone map is inline on `min`
+   * and a pass on Low and High, so min <-> Low is the whole set once more; High -> Low shares every material's program
+   * (three does not re-key a material without lights for the shadow switch) and adds Low's own post pass.
+   * Nothing is drawn and no target is allocated. Returns the tiers compiled.
+   */
+  private warmNeighbours(force: boolean): RenderTier[] {
+    const done: RenderTier[] = [];
+    this.neighboursOwed = false;
+    if (!force && !this.autoTier()) return done;
+    const q = this.ctx.quality, r = this.renderer, roots = this.ctx.scene, post = this.post;
+    if (!post) return done;
+    const list: readonly RenderTier[] = q.tier === 'high' ? ['low'] : q.tier === 'low' ? ['min'] : ['low'];
+    for (const tier of list) {
+      if (this.warmedAt[tier] === this.warmGen) continue;
+      const f = featuresOf(tier, this.ctx.data.manifest.tiers[tier]);
+      post.prepare(f);
+      if (f.composer !== q.features.composer) {
+        const prevTarget = r.getRenderTarget(), tone = r.toneMapping;
+        // the two things three keys a program by that differ: the tone map, and canvas (sRGB out) or float target (linear)
+        const scratch = f.composer ? new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false }) : null;
+        try {
+          r.toneMapping = f.composer ? THREE.NoToneMapping : THREE.CustomToneMapping;
+          r.setRenderTarget(scratch);
+          this.compilePrograms();
+          r.compile(roots.scene, roots.camera);
+          if (!f.composer) r.compile(post.vignetteMesh, post.quadCamera);
+        } finally {
+          r.toneMapping = tone;
+          r.setRenderTarget(prevTarget);
+          if (scratch) scratch.dispose();
+        }
+      }
+      this.warmedAt[tier] = this.warmGen;
+      done.push(tier);
+    }
+    if (done.length) this.neighbourWarms++;
+    return done;
+  }
+
+  /** warm-up: one probe per shape of fixed caster (its attributes' names), with the caster's own material and the shared depth material */
+  private addStaticProbes(group: THREE.Group): void {
+    const seen = new Set<string>();
+    this.ctx.scene.world.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (o.userData.keepStatic !== 1 || !mesh.isMesh || !this.staticDepth) return;
+      const names = Object.keys(mesh.geometry.attributes).sort(), key = names.join(',') + '|' + (mesh.material as THREE.Material).uuid;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const g = new THREE.BufferGeometry();
+      for (const n of names) {
+        const a = mesh.geometry.getAttribute(n) as THREE.BufferAttribute;
+        const Ctor = a.array.constructor as new (n: number) => THREE.TypedArray;
+        g.setAttribute(n, new THREE.BufferAttribute(new Ctor(3 * a.itemSize), a.itemSize, a.normalized));
+      }
+      const probe = new THREE.Mesh(g, mesh.material);
+      probe.name = 'keep_static_probe';
+      probe.castShadow = true; probe.frustumCulled = false; probe.customDepthMaterial = this.staticDepth;
+      group.add(probe);
+    });
+  }
+  private dropStaticProbes(group: THREE.Group): void {
+    for (let i = group.children.length - 1; i >= 0; i--) {
+      const c = group.children[i] as THREE.Mesh;
+      if (c.name !== 'keep_static_probe') continue;
+      group.remove(c);
+      c.geometry.dispose();
+    }
   }
 
   private casterProbes: THREE.Group | null = null;
@@ -1002,8 +1538,12 @@ export class RenderSystemImpl implements RenderSystem {
     r.setRenderTarget(prev);
     rt.dispose(); mat.dispose(); geo.dispose();
     samples.sort((a, b) => a - b);
-    return Promise.resolve(samples[samples.length >> 1] ?? 0);
+    // the median as measured is kept for the overlay's reader and the tests; the manager gets the verdict (benchmark.ts)
+    this.benchmarkMs = samples[samples.length >> 1] ?? 0;
+    return Promise.resolve(benchmarkVerdict(this.benchmarkMs));
   }
+  /** the fill-rate benchmark's median as measured (ms per full-screen pass at 1280 x 720); -1 before it ran */
+  private benchmarkMs = -1;
 
   // ---- visibility ---------------------------------------------------------------------------------------------------
   setVisible(units: readonly string[]): void {
@@ -1024,7 +1564,7 @@ export class RenderSystemImpl implements RenderSystem {
       const isZone = this.ctx.data.manifest.zones[top.name as ZoneId] !== undefined;
       if (!isZone) { top.visible = units.has(top.name); continue; }
       top.visible = true;
-      const any = this.showChunks(top, this.exteriorZones.has(top.name));
+      const any = this.showChunks(top, SHADOW_STATIC_ZONES.includes(top.name as ZoneId));
       this.showNodes(top, any);
       if (any) this.visibleZones.add(top.name);
     }
@@ -1039,7 +1579,7 @@ export class RenderSystemImpl implements RenderSystem {
     const id = o.name.slice(0, cut);
     return this.chunkIds.has(id) ? id : '';
   }
-  private showChunks(parent: THREE.Object3D, exterior: boolean): boolean {
+  private showChunks(parent: THREE.Object3D, casts: boolean): boolean {
     let any = false;
     for (let i = 0; i < parent.children.length; i++) {
       const o = parent.children[i] as THREE.Object3D;
@@ -1047,20 +1587,36 @@ export class RenderSystemImpl implements RenderSystem {
       if (chunk !== '') {
         o.visible = this.visibleUnits.has(chunk);
         if (o.visible) any = true;
-        if (exterior) this.shadowOverlay(o);
-      } else if (o.name !== 'keep_shadow' && this.showChunks(o, exterior)) any = true;
+        this.shadowOverlay(o, casts);
+      } else if (o.name !== 'keep_shadow' && this.showChunks(o, casts)) any = true;
     }
     return any;
   }
-  /** High: the ground chunks of exterior zones get a ShadowMaterial twin (the baked world itself receives nothing) */
-  private shadowOverlay(chunk: THREE.Object3D): void {
+  /**
+   * High: the chunks of every zone get a ShadowMaterial twin (the baked world itself receives nothing). Pass i1: the
+   * ground AND the walls, indoors and out (moods.ts SHADOW_RECEIVERS; it was the sand of the exterior zones only).
+   */
+  private shadowOverlay(chunk: THREE.Object3D, casts: boolean): void {
     const mesh = chunk as THREE.Mesh;
-    if (!mesh.isMesh || (mesh.material as THREE.Material).name !== 'm_sand') return;
+    if (!mesh.isMesh) return;
+    // pass i2: a fixed caster of the sun's map (it casts while a spec with `statics` is live: setStatics)
+    if (casts && mesh.userData.keepStatic !== 1 && SHADOW_CASTERS.includes((mesh.material as THREE.Material).name)) {
+      if (!this.staticDepth) {
+        this.staticDepth = new THREE.MeshDepthMaterial();   // three r186 draws its own casters with the default packing too
+        this.staticDepth.name = 'keep_static_depth';
+        // three's shadow pass copies the caster's `map` onto whatever depth material it draws it with, a custom one too:
+        // this one refuses it, and so keys to the plain depth program the moving casters already have (no program of its own)
+        Object.defineProperty(this.staticDepth, 'map', { get: () => null, set: () => { /* refused */ }, configurable: true });
+      }
+      mesh.userData.keepStatic = 1; mesh.castShadow = this.staticsCast; mesh.customDepthMaterial = this.staticDepth;
+    }
+    if (!SHADOW_RECEIVERS.includes((mesh.material as THREE.Material).name)) return;
     let overlay: THREE.Object3D | undefined;
     for (let i = 0; i < mesh.children.length; i++) if ((mesh.children[i] as THREE.Object3D).name === 'keep_shadow') overlay = mesh.children[i];
     if (!this.shadowOn) { if (overlay) overlay.visible = false; return; }
-    if (!overlay && this.shadowMaterial) {
-      const twin = new THREE.Mesh(mesh.geometry, this.shadowMaterial);
+    const material = overlay ? null : this.shadowMaterialOf(mesh);
+    if (!overlay && material) {
+      const twin = new THREE.Mesh(mesh.geometry, material);
       twin.name = 'keep_shadow';
       twin.receiveShadow = true;
       twin.matrixAutoUpdate = false;
@@ -1097,7 +1653,7 @@ export class RenderSystemImpl implements RenderSystem {
       quiet: c.quiet, capped: c.capped, additiveLoad: Math.round(this.fx.additiveLoad * 1e4) / 1e4, smokeLoad: Math.round(this.fx.smokeLoad * 1e4) / 1e4,
       trauma: Math.round(this.trauma * 1e4) / 1e4, fullScreenDraws: this.post ? this.post.fullScreenDraws : 0,
       pickups: this.feedback.livePickups, outline: this.outlineTarget ? this.outlineTarget.name : '',
-      ruleLeanDeg: this.sky ? this.sky.leanDeg : 0, thread: this.threadVisible, warmUps: this.warmUps,
+      ruleLeanDeg: this.sky ? this.sky.leanDeg : 0, thread: this.threadVisible, warmUps: this.warmUps, benchmarkMs: Math.round(this.benchmarkMs * 1e3) / 1e3,
     };
   }
 
@@ -1126,9 +1682,20 @@ export class RenderSystemImpl implements RenderSystem {
         if (o.identity !== undefined) this.overIdentity = o.identity;
       }),
       /** the mood's numbers as they are now: fog colours, density, exposure, grade (linear) */
-      mood: fn(() => ({ id: this.mood, key: this.moodKey, t: this.moodT, values: Array.from(this.moodCur), exposure: this.exposure, heightExtra: this.heightExtra, fogBase: this.fogBase })),
+      mood: fn(() => ({ id: this.mood, key: this.moodKey, t: this.moodT, values: Array.from(this.moodCur), exposure: this.exposure, heightExtra: this.heightExtra, fogBase: this.fogBase, airSnapped: this.airSnapped, airGain: this.airGain })),
       setMoodKey: fn((key: string, seconds: number) => { if (isMoodKey(key)) { if (key !== 'L5a' && key !== 'L5c' && key !== 'L6c') this.mood = key; this.retarget(key, seconds); } }),
       programs: fn(() => (this.renderer.info.programs ? this.renderer.info.programs.length : 0)),
+      /** release pass p0: compiles the tiers the quality manager can step to by itself (as it does outside test mode); the tiers compiled */
+      warmNeighbours: fn(() => this.warmNeighbours(true)),
+      /** release pass p0: render-target bytes really allocated now, beside what the perf counter reports (never under it, never under the manifest's ledger) */
+      targets: fn(() => {
+        const tier = this.ctx.data.manifest.tiers[this.ctx.quality.tier], post = this.post;
+        if (!post) return { allocated: 0, reported: 0 };
+        return { allocated: post.allocatedBytes(tier, this.contextMsaa, this.shadowMapBytes()), reported: post.renderTargetBytes(tier, this.contextMsaa, this.shadowMapBytes(), this.shadowOn ? SHADOW_MAP_BYTES : 0) };
+      }),
+      /** runs the fill-rate benchmark: { measured, verdict } in ms per pass (the manager is given the verdict) */
+      benchmark: fn(async () => { const verdict = await this.benchmark(); return { measured: this.benchmarkMs, verdict }; }),
+      warmState: fn(() => ({ gen: this.warmGen, at: { ...this.warmedAt }, owed: this.neighboursOwed, warmUps: this.warmUps, neighbourWarms: this.neighbourWarms })),
       /** every material x mesh-shape pair handed out since boot (the generator of prewarm.ts) */
       recipes: fn(() => this.materials.recipeList()),
       programNames: fn(() => (this.renderer.info.programs ?? []).map((p) => (p as unknown as { name: string }).name)),
@@ -1144,6 +1711,52 @@ export class RenderSystemImpl implements RenderSystem {
       lightOf: fn((object: THREE.Object3D) => this.materials.lightOf(object)),
       layerWeight: fn((id: string) => this.materials.layerWeight(id)),
       trauma: fn(() => this.trauma),
+      /** pass i1: the air light's lamps of the last frame; `on` (optional) switches the term for a test */
+      air: fn((on?: boolean) => {
+        if (on !== undefined) this.airTest = on;
+        const a = this.post ? this.post.air : null;
+        return { on: this.airTest, level: Math.round(this.airLevel * 1e4) / 1e4, count: a ? a.count : 0, offered: a ? a.offered : 0, lamps: a ? Array.from(a.world.subarray(0, a.count * 4)).map((v) => Math.round(v * 100) / 100) : [], emitters: this.materials.emitterCount };
+      }),
+      /** pass i3: the glance as it is now (strength, the block's vec4); `on` (optional) switches it for a test */
+      glance: fn((on?: boolean) => { if (on !== undefined) { this.glanceTest = on; this.snapOnce = true; } return { on: this.glanceTest, k: Math.round(this.glance * 1e3) / 1e3, u: this.shared.uGlance.value.toArray().map((v) => Math.round(v * 1e4) / 1e4) }; }),
+      /** pass i3: the cones and the far glow of the air light as they are now; `cone` / `glow` (optional) switch each for a test */
+      airShapes: fn((cone?: boolean, glow?: boolean) => {
+        if (cone !== undefined) { this.coneTest = cone; this.snapOnce = true; }
+        if (glow !== undefined) { this.glowTest = glow; this.snapOnce = true; }
+        const a = this.post ? this.post.air : null;
+        return {
+          cone: Math.round(this.airCone * 1e3) / 1e3, glow: Math.round(this.airGlow * 1e3) / 1e3, cones: a ? a.cones : 0, far: a ? a.far : 0, count: a ? a.count : 0,
+          shares: a ? Array.from(a.col.subarray(0, a.count * 4)).filter((_, i) => i % 4 === 3).map((v) => Math.round(v * 100) / 100) : [],
+        };
+      }),
+      /** pass i1: the sand's sparkle and the heat shimmer as they are now; `on` (optional) switches each for a test */
+      sparkle: fn((on?: boolean) => { if (on !== undefined) this.sparkleTest = on; return { on: this.sparkleTest, k: this.shared.uSparkle.value }; }),
+      relief: fn((on?: boolean) => {
+        if (on !== undefined) {
+          this.reliefTest = on;
+          const high = this.ctx.quality.features.sandSparkle;
+          this.shared.uRelief.value = on && high ? RELIEF[this.moodKey] ?? 0 : 0;
+          this.shared.uReliefSky.value = on && high ? RELIEF_SKY[this.moodKey] ?? 0 : 0;
+        }
+        return { on: this.reliefTest, k: this.shared.uRelief.value, sky: this.shared.uReliefSky.value };
+      }),
+      /** pass i2: the afterglow's shafts as they are now; `on` (optional) switches them for a test */
+      dusk: fn((on?: boolean) => { if (on !== undefined) this.duskTest = on; return { on: this.duskTest, level: Math.round(this.dusk * 1e3) / 1e3, shaftK: this.post && this.post.keepsDepth ? this.post.shaftK : 0 }; }),
+      shimmer: fn((on?: boolean) => { if (on !== undefined) this.shimmerTest = on; return { on: this.shimmerTest, level: this.post ? this.post.shimmer : 0 }; }),
+      /** pass i1: the shadow pass of this frame; `on` (optional) switches it for a test (the blobs come back) */
+      /** pass i2: the fixed casters of the sun's map (ShadowSpec.statics); `on` true / false forces them, null gives the spec's back */
+      statics: fn((on?: boolean | null) => { if (on !== undefined) this.staticsOver = on; return { over: this.staticsOver, casting: this.staticsCast }; }),
+      /** pass i2: the receivers' gate as it is now: [lit from, lit to, shade, inShade]; `set` (optional) overrides the four until the next frame's update */
+      shadowGate: fn(() => this.shadowGate.value.toArray()),
+      shadow: fn((on?: boolean) => {
+        if (on !== undefined) this.shadowTest = on;
+        let twins = 0, shown = 0;
+        this.ctx.scene.world.traverse((o) => { if (o.name === 'keep_shadow') { twins++; let v = true; for (let p: THREE.Object3D | null = o; p; p = p.parent) if (!p.visible) { v = false; break; } if (v) shown++; } });
+        const d = this.shadowDir, sp = this.shadowSpec;
+        let statics = 0;
+        this.ctx.scene.world.traverse((o) => { if (o.userData.keepStatic === 1 && o.castShadow) statics++; });
+        return { tier: this.shadowOn, live: this.shadowLive, k: Math.round(this.shadowK * 1e3) / 1e3, dir: [d.x, d.y, d.z].map((v) => Math.round(v * 1e3) / 1e3), half: sp ? sp.half : 0, twins, shown, blobs: this.fx.activeBlobs(), statics, materials: this.shadowMats.length };
+      }),
       /** share of the frame's pixels within Delta E 25 of the violet `#B24BFF` (ART_BIBLE 2.4: under 2 % until the bore) */
       violetShare: fn(() => this.violetShare()),
       viewModelCoverage: fn(() => this.viewModelCoverage()),
@@ -1162,6 +1775,8 @@ export class RenderSystemImpl implements RenderSystem {
           muzzle: node ? at(new THREE.Vector3().setFromMatrixPosition(node.matrixWorld), this.viewCamera) : null,
           flash: at(f.position.clone(), this.viewCamera), flashVisible: f.visible, rides: this.fx.counts.flashRides,
           smoke: at(new THREE.Vector3(m.x, m.y, m.z), cam), smokeWorld: [m.x, m.y, m.z],
+          /** release pass p0: where the riding tracer was last anchored (through the world camera), and how often */
+          tracer: at(this.fx.lineStart.clone(), cam), lineRides: this.fx.counts.lineRides, tracers: this.fx.activeLines('tracer'),
         };
       }),
       viewModelProject: fn((x: number, y: number, z: number) => {
@@ -1225,6 +1840,13 @@ export class RenderSystemImpl implements RenderSystem {
     if (n > 0) { out.coverage = n / (w * h); out.minX = x0 / w; out.maxX = (x1 + 1) / w; out.minY = y0 / h; out.maxY = (y1 + 1) / h; }
     return out;
   }
+}
+
+/** Pass i1: fixed machinery (materials.ts keepCast 1) casts into the sun's shadow map only; everything else is left as it is. */
+function setCasters(o: THREE.Object3D, sun: boolean): void {
+  if (o.userData.keepCast === 1 && o.castShadow !== sun) o.castShadow = sun;
+  const kids = o.children;
+  for (let i = 0; i < kids.length; i++) setCasters(kids[i] as THREE.Object3D, sun);
 }
 
 /** the tiers a page can be asked for (sandbox buttons) */

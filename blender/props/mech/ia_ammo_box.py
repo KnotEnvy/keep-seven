@@ -78,6 +78,7 @@ def build(args):
     vcol.streak_under(box, [(-0.27, -0.25, 0.90), (0.27, -0.25, 0.90), (-0.144, -0.254, 0.51), (0.144, -0.254, 0.51)], width=0.06, length=0.28)
     mc.lift(box, lambda p, n: (p[:, 1] < -0.226) & (p[:, 1] > -0.236) & (np.abs(p[:, 0]) < 0.175) & (p[:, 2] > 0.09) & (p[:, 2] < 0.26), 0.78)   # the flap: baked against the mouth
     mc.grime_below(box, 0.04, 0.34, 0.86)                                         # kicked and handled low down
+    mc.relight(box, 0.35)                                                         # release pass p0: upright faces take a third of a top key (it stood navy-black in the proving bay)
     # ---- lamp set and decals
     zone.lamp_set("lamp", [mc.lamp_rect((0, -0.2625, 0.855), 0.40, 0.034)], colour="aqua")
     d = mc.Decals()

@@ -32,11 +32,24 @@ export class Bot {
   eval(fn, arg) { return this.page.evaluate(`(${fn.toString()})(window.__bot, window.__dbg, ${JSON.stringify(arg ?? null)})`); }
   /** call a method of window.__bot by name */
   call(name, ...args) { return this.page.evaluate(([n, a]) => window.__bot[n](...a), [name, args]); }
-  /** The title menu's "play" item, clicked in the DOM as a player clicks it; resolves when she has control. */
+  /**
+   * The title menu's "play" item, clicked in the DOM as a player clicks it; resolves when she has control. Over a stored
+   * save the title asks first ("Begin?"): the confirmation's own "play" item (`ask_play`) is then clicked too, so a
+   * script that begins a second run in one page (after "Quit to title", or with a save in storage) does not stop there.
+   * -> { asked }: whether the confirmation was shown.
+   */
   async startFromTitle() {
     const state = await this.page.evaluate(() => window.__dbg.state().game);
     if (state !== 'title') throw new Error(`startFromTitle: the game is in '${state}', not on the title`);
     await this.page.click('[data-item="play"]');
+    const ask = this.page.locator('[data-item="ask_play"]');
+    let asked = false;
+    // the confirmation is drawn by the click's own handler: one look now, one after a moment
+    for (let i = 0; i < 2 && !asked; i++) {
+      if (await ask.isVisible().catch(() => false)) { asked = true; await ask.click(); }
+      else if (await this.page.evaluate(() => window.__dbg.state().game !== 'title')) break;
+      else await this.page.waitForTimeout(60);
+    }
     await this.page.evaluate(async () => {
       const core = window.__dbg.ext.core;
       for (let i = 0; i < 400 && window.__dbg.state().game !== 'playing'; i++) { await core.idle(); await new Promise((r) => setTimeout(r, 10)); }
@@ -44,6 +57,7 @@ export class Bot {
     });
     const after = await this.page.evaluate(() => window.__dbg.state().game);
     if (after !== 'playing') throw new Error(`startFromTitle: after the click the game is in '${after}'`);
+    return { asked };
   }
   /** A debug jump to a checkpoint (a critic's shortcut; the playthrough test never uses it). */
   async jump(checkpoint) { await this.game.dbg('checkpoint', checkpoint); await this.game.step(2); }

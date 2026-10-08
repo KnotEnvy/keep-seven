@@ -289,7 +289,7 @@ test('view-model: a camera-space gun added to scene.viewModel is drawn by the se
       return { before: { calls: before.drawCalls, tris: before.triangles }, meshes, here, there };
     });
     assert.equal(out.here.calls, out.before.calls + out.meshes, `the gun's ${out.meshes} meshes are drawn (${out.before.calls} -> ${out.here.calls} calls)`);
-    assert.equal(out.meshes, 2);
+    assert.equal(out.meshes, 3);   // release pass p0 (R14): the gun, the hands' skin and gloves, the hands' steel
     assert.ok(out.here.tris > out.before.tris);
     for (const s of [out.here, out.there]) {
       assert.ok(s.muzzle.inFront && s.muzzle.x > 0.5 && s.muzzle.x < 1 && s.muzzle.y > 0 && s.muzzle.y < 0.5, `the muzzle is on screen, right of centre and below it (${JSON.stringify(s.muzzle)})`);

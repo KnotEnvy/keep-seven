@@ -1294,6 +1294,11 @@ export interface WorldApi {
   readonly stats: Readonly<RunStats>;
   /** 9 + freed, clamped to 48 */
   readonly lamps: number;
+  /**
+   * The windows that could have been lit by now: 9 + every Bider she has met, freed or not, clamped to 48 (never under
+   * `lamps`). The end card draws "lit of this many" (pass i1); nothing shows or says the difference as a count.
+   */
+  readonly lampsOf: number;
   puzzle(id: PuzzleId): Readonly<PuzzleView>;
   encounter(id: EncounterId): Readonly<EncounterView>;
   doorState(id: MarkerId): DoorState;

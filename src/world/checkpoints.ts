@@ -3,7 +3,7 @@
 // events (a puzzle solved, an encounter cleared, a boss phase) and are reached by the file that owns the event.
 // beginRun / restoreCheckpoint never wait on the simulation: with every set decoded they finish synchronously.
 import type {
-  CheckpointId, DoorState, EncounterId, EnemiesSave, GameEvents, LayoutMarker, MarkerId, PlayerSave, PuzzleId, PuzzleSave, SaveData,
+  BossPhase, CheckpointId, DoorState, EncounterId, EnemiesSave, GameEvents, LayoutMarker, MarkerId, PlayerSave, PuzzleId, PuzzleSave, SaveData,
   StoryKey, VignetteId, WorldSave,
 } from '../core/contracts.ts';
 import { ENCOUNTERS, PUZZLES, emptyStats, inVolume, paramString } from './internals.ts';
@@ -90,6 +90,21 @@ class Checkpoints implements CheckpointsApi {
     s.story.setObjective(paramString(m, 'objective'));
     this.reachedPayload.id = id;
     s.ctx.events.emit('checkpoint/reached', this.reachedPayload);
+  }
+
+  /**
+   * Release pass p0 (robustness: a reload or "Back to the last count" in the proving lift gave the Windlass back alive
+   * in its dry phase, and the last six rounds had to be fired again). The save she holds is written again with the
+   * world as it stands now (the Windlass dead, the lift gate open, the tallies) and the boss phase given: the same
+   * checkpoint, the same mark, and the player's part as it was saved (what she carried at the proof). Written straight
+   * to the store, not through `checkpoint/reached`: every checkpoint is announced once (the HUD's mark, the note, the
+   * playthrough test's journal), and the kill is no moment for a second one. Only in play and alive.
+   */
+  again(bossPhase: BossPhase): void {
+    const { s } = this;
+    const held = s.ctx.save.current;
+    if (!s.running || !held || held.checkpoint !== s.checkpoint || s.ctx.state.current !== 'playing' || !s.ctx.player.alive) return;
+    s.ctx.save.commit({ ...held, world: this.captureSave(), enemies: { ...held.enemies, bossPhase } });
   }
 
   tick(): void {
@@ -213,6 +228,9 @@ class Checkpoints implements CheckpointsApi {
     for (const f of data.onceFlags) s.flags.add(f);
     // vignettes never replay in a run: what she has seen stays seen through a death (a debug warp starts over)
     if (this.warping) { s.vignettesSeen.clear(); s.story.forget(); }
+    // pass i1: "Go on" from the rim after the end card is the rim told again (the other ending): what the finished
+    // telling said there is not "heard", or the stone, the lamps, the fire and the last line would all be silent
+    else if (s.ending.ended) s.story.forget();
     for (const v of data.vignettesSeen) s.vignettesSeen.add(v);
     const deaths = s.stats.deaths;
     s.stats = { ...data.stats, secrets: data.stats.secrets.slice(), deaths: Math.max(deaths, data.stats.deaths) };

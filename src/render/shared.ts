@@ -8,11 +8,13 @@ const u = <T>(value: T): Uniform<T> => ({ value });
 
 export const PULSE_SLOTS = 2;
 /** vec4 slots of the shared block (see `SharedUniforms.uK`), and where the pulse and the grade sit in it */
-export const K_SLOTS = 20;
+export const K_SLOTS = 21;
 const K_PULSE_POS = 5, K_PULSE_COL = 7;
 export const K_GRADE_A = 16, K_GRADE_B = 17;
 /** the fog of the open air, for exterior things seen from inside a building (see `uExtFogA`) */
 const K_EXT_A = 18, K_EXT_B = 19;
+/** pass i3: the glance (see `uGlance`) */
+const K_GLANCE = 20;
 
 /** One instance per render system (a page has one). */
 export class SharedUniforms {
@@ -70,6 +72,32 @@ export class SharedUniforms {
    * Low and min and under every mood that has none (moods.ts SHEEN): the term is then skipped.
    */
   readonly uSheen = u(0);
+  /**
+   * High tier only (render-tech, pass i1; ART_BIBLE 3.2: "sand sparkle on sun-facing sand (thresholded, High only)"): how
+   * bright a grain of sunlit sand flashes, against the light baked onto it (materials.ts WORLD_LIGHT, the SAND block). 0 on
+   * Low and min, indoors and in the blue hour: the term is then skipped.
+   */
+  readonly uSparkle = u(0);
+  /**
+   * High tier only (render-tech, pass i1; the visual reviewer: "a High-only detail-normal on sand and concrete"): how much
+   * the relief of a surface's own detail texture (read as a height) turns its baked sunlight toward and away from the
+   * sun (materials.ts WORLD_LIGHT, the relief block). 0 on Low and min and under every mood without a sun: skipped.
+   */
+  readonly uRelief = u(0);
+  /**
+   * High tier only (render-tech, pass i2; R9: in the shaded street, the yard, the hall and on the rim High drew Low's
+   * frame): the same relief under the light that is NOT a sun: the sky over a shaded wall, the lamps over a room's
+   * plate (materials.ts, the relief block; moods.ts RELIEF_SKY). 0 on Low and min: the term is then skipped.
+   */
+  readonly uReliefSky = u(0);
+  /**
+   * High tier only (render-tech, pass i3; R9: on the rim High drew Low's frame, 3.3 of 255 apart; the reviewer: "a lit
+   * edge on the foreground dune"): the glance of a light that stands LOW in the sky (the blue hour's afterglow) off ground
+   * that is seen at a grazing angle: rgb the light (scene light), w the lobe's exponent (materials.ts WORLD_LIGHT, in the
+   * relief block: the ripples of the sand carry it; moods.ts GLANCE). w = 0 on Low and min and under every mood without
+   * one: the term is then skipped.
+   */
+  readonly uGlance = u(new THREE.Vector4(0, 0, 0, 0));
   // ---- the grade (the `min` tier compiles it into every material; Low and High run it in the merged pass)
   /** rgb: tint, w: saturation */
   readonly uGradeA = u(new THREE.Vector4(1, 1, 1, 1));
@@ -107,13 +135,13 @@ export class SharedUniforms {
       k[o] = c.x; k[o + 1] = c.y; k[o + 2] = c.z; k[o + 3] = c.w;
     }
     const w = this.uWrong.value, wc = this.uWrongCentre.value, cl = this.uCloud.value;
-    k[36] = w.x; k[37] = w.y; k[38] = w.z; k[39] = w.w;
-    k[40] = wc.x; k[41] = wc.y; k[42] = wc.z; k[43] = 0;
+    k[36] = w.x; k[37] = w.y; k[38] = w.z; k[39] = this.uReliefSky.value;
+    k[40] = wc.x; k[41] = wc.y; k[42] = wc.z; k[43] = this.uRelief.value;
     k[44] = cl.x; k[45] = cl.y; k[46] = cl.z; k[47] = cl.w;
     const dyn = this.uDynFlat.value, pl = this.uPlaceLight.value, kd = this.uKeyDir.value, sky = this.uSkyCol.value;
     k[48] = dyn.r; k[49] = dyn.g; k[50] = dyn.b; k[51] = this.uHdr.value;
     k[52] = pl.r; k[53] = pl.g; k[54] = pl.b; k[55] = this.uPulseCap.value;
-    k[56] = kd.x; k[57] = kd.y; k[58] = kd.z; k[59] = 0;
+    k[56] = kd.x; k[57] = kd.y; k[58] = kd.z; k[59] = this.uSparkle.value;
     k[60] = sky.r; k[61] = sky.g; k[62] = sky.b; k[63] = this.uSheen.value;
     const ga = this.uGradeA.value, gb = this.uGradeB.value;
     k[64] = ga.x; k[65] = ga.y; k[66] = ga.z; k[67] = ga.w;
@@ -123,6 +151,9 @@ export class SharedUniforms {
     k[o] = ea.r; k[o + 1] = ea.g; k[o + 2] = ea.b; k[o + 3] = ef.x;
     o = K_EXT_B * 4;
     k[o] = eb.r; k[o + 1] = eb.g; k[o + 2] = eb.b; k[o + 3] = ef.y;
+    const gl = this.uGlance.value;
+    o = K_GLANCE * 4;
+    k[o] = gl.x; k[o + 1] = gl.y; k[o + 2] = gl.z; k[o + 3] = gl.w;
   }
 
   /** The uniforms every lit or fogged material needs, by reference: the block, the noise texture, the grade switch. */
@@ -156,15 +187,19 @@ ${K_DECL_GLSL}
 #define uSunDir uK[ 4 ].xyz
 #define uViewportH uK[ 4 ].w
 #define uWrong uK[ 9 ]
+#define uReliefSky uK[ 9 ].w
 #define uWrongCentre uK[ 10 ].xyz
+#define uRelief uK[ 10 ].w
 #define uCloud uK[ 11 ]
 #define uDynFlat uK[ 12 ].xyz
 #define uHdr uK[ 12 ].w
 #define uPlaceLight uK[ 13 ].xyz
 #define uPulseCap uK[ 13 ].w
 #define uKeyDir uK[ 14 ].xyz
+#define uSparkle uK[ 14 ].w
 #define uSkyCol uK[ 15 ].xyz
 #define uSheen uK[ 15 ].w
+#define uGlance uK[ ${K_GLANCE} ]
 #endif
 `;
 

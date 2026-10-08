@@ -1,7 +1,7 @@
 // The story sequencer's pure parts (code-world 4.8): once-only narrator lines, one line at a time, at most four waiting,
 // hints dropped when busy, narrator lines never lost (the backlog), captions 2 s / 4 s.
 import { describe, expect, it } from 'vitest';
-import { CAPTION_HOLD, CAPTION_REPEAT, CaptionGuard, MAX_WAITING, STALE_SECONDS, STALE_SECONDS_LEFT, StoryQueue, countWord, lateOk, lineClass, neverStale } from '../../src/world/story.ts';
+import { CAPTION_HOLD, CAPTION_REPEAT, CaptionGuard, MAX_WAITING, PAIR_KEEP, STALE_SECONDS, STALE_SECONDS_LEFT, StoryQueue, URGENT_READ, countWord, lateOk, lineClass, neverStale, stemOf } from '../../src/world/story.ts';
 
 function queue(seconds = 1): { q: StoryQueue; started: string[]; ended: string[]; played: Set<string> } {
   const started: string[] = [], ended: string[] = [], played = new Set<string>();
@@ -125,24 +125,24 @@ describe('StoryQueue: stale lines', () => {
   it('a load-bearing line is never dropped; front puts a line next, and what it delays may go stale', () => {
     const { q, started, dropped } = stale(6, (k) => k === 'nar_seven');
     q.scope = 'lip';
-    for (const k of ['nar_1', 'nar_2', 'nar_3', 'nar_4', 'nar_5']) q.say(k);
+    for (const k of ['nar_a', 'nar_b', 'nar_c', 'nar_d', 'nar_e']) q.say(k);
     run(q, 2);
     q.say('nar_seven'); q.say('nar_other');
     q.front('nar_event');
     run(q, 60 * 90);
-    expect(started.slice(0, 2)).toEqual(['nar_1', 'nar_event']);
+    expect(started.slice(0, 2)).toEqual(['nar_a', 'nar_event']);
     expect(started).toContain('nar_seven');
     expect(dropped).toEqual(['nar_other']);
   });
   it('lines put in front on two moments are told in the order of the moments', () => {
     const { q, started } = stale(1);
-    q.say('nar_room_1'); q.say('nar_room_2');
+    q.say('nar_room'); q.say('nar_wall');
     run(q, 1);
     q.front('nar_two_rise');                                // the knot is shot
     run(q, 5);
     q.front('nar_nine');                                    // the fight it started is over, a moment later
     run(q, 600);
-    expect(started).toEqual(['nar_room_1', 'nar_two_rise', 'nar_nine', 'nar_room_2']);
+    expect(started).toEqual(['nar_room', 'nar_two_rise', 'nar_nine', 'nar_wall']);
     // and after they have gone, front is the head again
     q.say('nar_x'); q.say('nar_y'); run(q, 1); q.front('nar_z'); run(q, 300);
     expect(started.slice(4)).toEqual(['nar_x', 'nar_z', 'nar_y']);
@@ -209,5 +209,292 @@ describe('polish round 3: a line whose subject is over when its turn comes is no
     q.say('nar_a'); q.say('nar_two_rise');
     for (let i = 0; i < 600; i++) q.tick();
     expect(started).toEqual(['nar_a', 'nar_two_rise']);
+  });
+});
+
+describe('release pass p0: urgent lines, and station lines the story stands on', () => {
+  const make = (keep: (k: string) => boolean = () => false): { q: StoryQueue; started: string[]; ended: string[] } => {
+    const started: string[] = [], ended: string[] = [], played = new Set<string>();
+    const q = new StoryQueue(() => 4, (k) => played.has(k), (k) => { started.push(k); if (k.startsWith('nar_')) played.add(k); }, (k) => ended.push(k), { keep });
+    return { q, started, ended };
+  };
+  it('an urgent line cuts a room description on screen and stands ahead of everything waiting', () => {
+    const { q, started, ended } = make();
+    q.say('nar_room'); run(q, 1); q.say('nar_wall'); q.front('nar_knot');
+    run(q, 30);
+    expect(q.current).toBe('nar_room');
+    expect(q.urgent('nar_file_behind')).toBe('queued');
+    expect(q.current).toBe('nar_file_behind');                 // on the tick it is asked for
+    expect(ended).toEqual(['nar_room']);                       // the line cut counts as said
+    run(q, 4 * 60 + 20);
+    expect(started).toEqual(['nar_room', 'nar_file_behind', 'nar_knot']);
+  });
+  it('it never cuts a line the story stands on, another urgent line, or a line in its last second: then it is the very next', () => {
+    const kept = make((k) => k === 'nar_plate_2');
+    kept.q.say('nar_plate_2'); run(kept.q, 1); kept.q.front('nar_knot'); kept.q.say('nar_room');
+    run(kept.q, 30);
+    kept.q.urgent('nar_file');
+    expect(kept.q.current).toBe('nar_plate_2');
+    expect(kept.q.keyAt(0)).toBe('nar_file');                  // ahead of the line front() put there
+    run(kept.q, 4 * 60);
+    expect(kept.started).toEqual(['nar_plate_2', 'nar_file']);
+    // two waves four seconds apart: the second line waits for the first, in order, ahead of the rest
+    const two = make();
+    two.q.say('nar_room'); run(two.q, 10);
+    two.q.urgent('nar_file_behind'); two.q.front('nar_knot'); run(two.q, 60);
+    two.q.urgent('nar_file_more'); two.q.urgent('nar_third');
+    expect(two.q.current).toBe('nar_file_behind');
+    expect([two.q.keyAt(0), two.q.keyAt(1), two.q.keyAt(2)]).toEqual(['nar_file_more', 'nar_third', 'nar_knot']);
+    run(two.q, 1000);
+    expect(two.started).toEqual(['nar_room', 'nar_file_behind', 'nar_file_more', 'nar_third', 'nar_knot']);
+    // the last second of a line is left to it
+    const late = make();
+    late.q.say('nar_room'); run(late.q, 4 * 60 - 40);
+    late.q.urgent('nar_file');
+    expect(late.q.current).toBe('nar_room');
+    run(late.q, 60);
+    expect(late.q.current).toBe('nar_file');
+  });
+  it('an urgent narrator line is still said once only, and clear() forgets the urgent lines waiting', () => {
+    const { q, started } = make((k) => k === 'nar_kept');
+    q.urgent('nar_file'); run(q, 300);
+    expect(q.urgent('nar_file')).toBe('dropped');
+    q.say('nar_kept'); run(q, 5); q.urgent('nar_a'); q.clear();
+    q.say('nar_b'); q.front('nar_c'); run(q, 20);
+    expect(started).toEqual(['nar_file', 'nar_kept', 'nar_c']);
+  });
+  it('a station line the story stands on waits in the backlog when four are waiting; any other is dropped', () => {
+    const { q, started } = make((k) => k === 'stn_tally_wake_2');
+    q.say('nar_0'); run(q, 1);
+    for (let i = 1; i <= 4; i++) q.say('nar_' + i);
+    expect(q.say('stn_tally_wake_1')).toBe('dropped');
+    expect(q.say('stn_tally_wake_2')).toBe('backlog');
+    run(q, 6 * 4 * 60 + 200);
+    expect(started.at(-1)).toBe('stn_tally_wake_2');
+  });
+});
+
+describe('release pass p0: two urgent lines four seconds apart', () => {
+  it('the second cuts the first once it has had three seconds (not a line the story stands on), so a wave is named within a second of it', () => {
+    const started: [string, number][] = []; let t = 0;
+    const q = new StoryQueue(() => 4.5, () => false, (k) => started.push([k, t]), () => {}, { keep: (k) => k === 'nar_plate_3' });
+    const go = (n: number): void => { for (let i = 0; i < n; i++) { t++; q.tick(); } };
+    q.say('nar_plate_3'); go(1);                              // lore the story stands on: on screen for 4.5 s
+    go(150); q.urgent('nar_file_behind');                     // the rear pair: waits for the lore to end (2 s more)
+    go(240); q.urgent('nar_file_more');                       // the door, 4 s after the pair: "behind" has been up about 1.8 s
+    go(600);
+    const at = Object.fromEntries(started);
+    expect(started.map((s) => s[0])).toEqual(['nar_plate_3', 'nar_file_behind', 'nar_file_more']);
+    expect((at.nar_file_behind as number) - 151).toBeLessThanOrEqual(4.5 * 60 - 150 + 16);
+    // "behind" started about 2.3 s after its wave; "more" starts when "behind" has had 3 s: 1.3 s after its own wave, not 2.8
+    expect(Math.abs((at.nar_file_more as number) - (at.nar_file_behind as number) - 3 * 60)).toBeLessThanOrEqual(1);
+    expect((at.nar_file_more as number) - 391).toBeLessThanOrEqual(90);
+  });
+});
+
+describe('pass i1: an urgent line that lets the line on screen be read first (URGENT_READ)', () => {
+  const make = (keep: (k: string) => boolean = () => false): { q: StoryQueue; started: [string, number][]; ended: string[]; t: () => number; go: (n: number) => void } => {
+    const started: [string, number][] = [], ended: string[] = [], played = new Set<string>();
+    let now = 0;
+    const q = new StoryQueue(() => 5, (k) => played.has(k), (k) => { started.push([k, now]); if (k.startsWith('nar_')) played.add(k); }, (k) => ended.push(k), { keep });
+    return { q, started, ended, t: () => now, go: (n) => { for (let i = 0; i < n; i++) { now++; q.tick(); } } };
+  };
+  it('nothing on screen: at once', () => {
+    const { q } = make();
+    q.urgent('stn_wake', '', URGENT_READ);
+    expect(q.current).toBe('stn_wake');
+  });
+  it('pass i2: a NARRATOR line on screen is never taken down by it: it is the very next line, and the line behind it follows', () => {
+    const { q, started, ended, go } = make();
+    q.say('nar_room'); go(60);
+    expect(q.current).toBe('nar_room');
+    q.urgent('stn_wake', '', URGENT_READ); q.front('stn_wake_2');
+    go(Math.round(URGENT_READ * 5 * 60));                         // past two thirds of the five-second line (pass i1 cut it here)
+    expect(q.current).toBe('nar_room');
+    go(5 * 60 - 60 - Math.round(URGENT_READ * 5 * 60) + 17);      // the line's end and the breath after it
+    expect(q.current).toBe('stn_wake');
+    expect(ended).toEqual(['nar_room']);
+    const at = (started.find((s) => s[0] === 'stn_wake') as [string, number])[1];
+    expect(at).toBeGreaterThanOrEqual(5 * 60);                    // the room line had all of its five seconds
+    go(5 * 60 + 20);
+    expect(q.current).toBe('stn_wake_2');
+  });
+  it('a STATION line up for one second: it waits until that line has had two thirds of its time, then cuts it', () => {
+    const { q, started, ended, go } = make();
+    q.say('stn_ask'); go(60);
+    q.urgent('nar_knot', '', URGENT_READ);
+    expect(q.current).toBe('stn_ask');                           // not cut unread
+    const READ = Math.round(URGENT_READ * 5 * 60);
+    go(READ - 60 - 2);
+    expect(q.current).toBe('stn_ask');
+    go(4);
+    expect(q.current).toBe('nar_knot');                          // at 3.25 s, not at five and a quarter
+    expect(ended).toEqual(['stn_ask']);
+    const at = (started.find((s) => s[0] === 'nar_knot') as [string, number])[1];
+    expect(at).toBeGreaterThanOrEqual(READ);
+    expect(at).toBeLessThanOrEqual(READ + 2);
+  });
+  it('a station line already up two thirds of its time is cut on the tick; a line the story stands on never is', () => {
+    const a = make();
+    a.q.say('stn_ask'); a.go(200);
+    a.q.urgent('stn_wake', '', URGENT_READ);
+    expect(a.q.current).toBe('stn_wake');
+    const b = make((k) => k === 'nar_kept');
+    b.q.say('nar_kept'); b.go(200);
+    b.q.urgent('stn_wake', '', URGENT_READ);
+    b.go(60);
+    expect(b.q.current).toBe('nar_kept');
+    b.go(60);
+    expect(b.q.current).toBe('stn_wake');                        // the very next
+    expect(b.started.map((s) => s[0])).toEqual(['nar_kept', 'stn_wake']);
+  });
+});
+
+describe('pass i2: a line and its continuation are not parted (PAIR_KEEP)', () => {
+  const make = (seconds = 5): { q: StoryQueue; started: string[]; go: (n: number) => void } => {
+    const started: string[] = [], played = new Set<string>();
+    const q = new StoryQueue(() => seconds, (k) => played.has(k), (k) => { started.push(k); if (k.startsWith('nar_')) played.add(k); }, () => {});
+    return { q, started, go: (n) => { for (let i = 0; i < n; i++) q.tick(); } };
+  };
+  it('the stem of a key is the key without its number', () => {
+    expect(stemOf('nar_pegs_1')).toBe('nar_pegs');
+    expect(stemOf('nar_pegs_2')).toBe('nar_pegs');
+    expect(stemOf('nar_tally_chair')).toBe('nar_tally_chair');
+    expect(stemOf('nar_tally_chair_2')).toBe('nar_tally_chair');
+    expect(stemOf('nar_cradle_2')).toBe(stemOf('nar_cradle'));
+    expect(stemOf('nar_tally_wall')).not.toBe(stemOf('nar_tally_1'));
+    expect(stemOf('nar_lamps_count')).not.toBe(stemOf('nar_lamps'));
+    expect(PAIR_KEEP).toBe(1);
+  });
+  it('the Tally House at five seconds a shutter: the station wakes under the chair line and waits for both chair lines', () => {
+    const { q, started, go } = make();
+    q.say('nar_tally_chair'); q.say('nar_tally_chair_2'); q.say('nar_tally_cloth');
+    go(60);
+    q.urgent('stn_tally_wake_1', '', URGENT_READ); q.front('stn_tally_wake_2');
+    go(60 * 40);
+    expect(started).toEqual(['nar_tally_chair', 'nar_tally_chair_2', 'stn_tally_wake_1', 'stn_tally_wake_2', 'nar_tally_cloth']);
+  });
+  it('the peg stair: the watcher is looked at under "Coats on pegs": its two lines follow the peg pair, ahead of the third line', () => {
+    const { q, started, go } = make();
+    q.say('nar_pegs_1'); q.say('nar_pegs_2'); q.say('nar_ask');
+    go(120);
+    q.urgent('nar_watcher_1', '', URGENT_READ); q.front('nar_watcher_2');
+    go(60 * 40);
+    expect(started).toEqual(['nar_pegs_1', 'nar_pegs_2', 'nar_watcher_1', 'nar_watcher_2', 'nar_ask']);
+  });
+  it('the cradle: a station line said "now" under its first line goes behind its second, and in the breath between them too', () => {
+    const a = make();
+    a.q.front('nar_cradle'); a.q.front('nar_cradle_2');
+    a.go(30);
+    a.q.now('stn_ask_done');
+    a.go(60 * 20);
+    expect(a.started).toEqual(['nar_cradle', 'nar_cradle_2', 'stn_ask_done']);
+    const b = make();
+    b.q.front('nar_cradle'); b.q.front('nar_cradle_2');
+    b.go(5 * 60 + 3);                                            // the first line is over: the breath before the second
+    expect(b.q.current).toBe('');
+    expect(b.q.pairWaiting).toBe(true);
+    b.q.now('stn_ask_1'); b.q.urgent('nar_knot', '', URGENT_READ);
+    b.go(60 * 20);
+    expect(b.started).toEqual(['nar_cradle', 'nar_cradle_2', 'nar_knot', 'stn_ask_1']);
+  });
+  it('only the next continuation is held to its line: of three, the third may be parted', () => {
+    const { q, started, go } = make();
+    q.say('nar_tally_1'); q.say('nar_tally_2'); q.say('nar_tally_3');
+    go(30);
+    q.front('nar_first_seat');
+    go(60 * 30);
+    expect(started).toEqual(['nar_tally_1', 'nar_tally_2', 'nar_first_seat', 'nar_tally_3']);
+  });
+  it('a line about this second (plain urgent) still comes at once, and the pair goes on behind it', () => {
+    const { q, started, go } = make();
+    q.say('nar_pegs_1'); q.say('nar_pegs_2'); go(60);
+    q.urgent('nar_file_more');
+    expect(q.current).toBe('nar_file_more');
+    go(60 * 12);
+    expect(started).toEqual(['nar_pegs_1', 'nar_file_more', 'nar_pegs_2']);
+  });
+  it('a pair that has not started stays whole behind what is put in front of it', () => {
+    const { q, started, go } = make();
+    q.say('nar_room'); go(10);
+    q.say('nar_tally_chair'); q.say('nar_tally_chair_2');
+    q.urgent('stn_tally_wake_1', '', URGENT_READ); q.front('stn_tally_wake_2');
+    go(60 * 30);
+    expect(started).toEqual(['nar_room', 'stn_tally_wake_1', 'stn_tally_wake_2', 'nar_tally_chair', 'nar_tally_chair_2']);
+  });
+});
+
+describe('pass i1: a line about two places (a trigger on the seam between two sets)', () => {
+  it('is not stale four seconds after she has walked from the one into the other', () => {
+    const started: string[] = [], dropped: string[] = [];
+    const q = new StoryQueue(() => 5, () => false, (k) => started.push(k), () => {}, { onDrop: (k) => dropped.push(k) });
+    q.scope = 'tally_house';
+    q.say('nar_long'); q.tick();
+    q.say('nar_room', 'tally_house'); q.tick();
+    q.say('nar_pegs', 'tally_house', 'the_gallery');
+    for (let i = 0; i < 20; i++) q.tick();
+    q.scope = 'the_gallery';                                     // she is down the hatch
+    for (let i = 0; i < 12 * 60; i++) q.tick();
+    expect(started).toEqual(['nar_long', 'nar_pegs']);
+    expect(dropped).toEqual(['nar_room']);                       // the room's own line is behind her
+  });
+});
+
+describe('pass i3: PRESENT lines (about what she is looking at this second)', () => {
+  const make = (opts: { moot?: (k: string) => boolean; stale?: number } = {}): { q: StoryQueue; started: string[]; dropped: string[]; go: (n: number) => void } => {
+    const started: string[] = [], dropped: string[] = [], played = new Set<string>();
+    const q = new StoryQueue(() => 5, (k) => played.has(k), (k) => { started.push(k); if (k.startsWith('nar_')) played.add(k); }, () => {}, { onDrop: (k) => dropped.push(k), moot: opts.moot, staleSeconds: opts.stale });
+    return { q, started, dropped, go: (n) => { for (let i = 0; i < n; i++) q.tick(); } };
+  };
+  it('is the very next line: ahead of the continuation of the line on screen, and of everything that waits', () => {
+    const { q, started, go } = make();
+    q.say('nar_pegs_1'); q.say('nar_pegs_2'); q.say('nar_ask'); go(60);
+    q.present('nar_watcher_1'); q.present('nar_watcher_2');
+    expect(q.current).toBe('nar_pegs_1');                          // a narrator's line is never taken down for it
+    go(60 * 30);
+    expect(started).toEqual(['nar_pegs_1', 'nar_watcher_1', 'nar_watcher_2', 'nar_pegs_2', 'nar_ask']);
+  });
+  it('with part = false it stands behind ONE continuation (PAIR_KEEP), not behind every line of the same stem', () => {
+    const { q, started, go } = make();
+    q.say('nar_tally_1'); q.say('nar_tally_2'); q.say('nar_tally_3'); go(60);
+    q.present('nar_tally_cloth', '', false);
+    go(60 * 30);
+    expect(PAIR_KEEP).toBe(1);
+    expect(started).toEqual(['nar_tally_1', 'nar_tally_2', 'nar_tally_cloth', 'nar_tally_3']);
+  });
+  it('takes a station line or a hint that has been read off the screen; with nothing on screen it starts at once', () => {
+    const a = make();
+    a.q.say('stn_ask_1'); a.go(60 * 5 * URGENT_READ + 2);
+    a.q.present('nar_embers_1');
+    expect(a.q.current).toBe('nar_embers_1');
+    const b = make();
+    b.q.say('stn_ask_1'); b.go(30);
+    b.q.present('nar_embers_1');
+    expect(b.q.current).toBe('stn_ask_1');                         // not read yet: next
+    b.go(60 * 5);
+    expect(b.q.current).toBe('nar_embers_1');
+    const c = make();
+    c.q.present('nar_windlass_seen');
+    expect(c.q.current).toBe('nar_windlass_seen');
+  });
+  it('is dropped unheard when its subject is behind her by its turn, and does not make stale what it stood in front of', () => {
+    let gone = false;
+    const { q, started, dropped, go } = make({ moot: (k) => k === 'nar_tally_cloth' && gone, stale: 12 });
+    q.say('nar_a'); go(1); q.say('nar_wall'); go(60);
+    q.present('nar_tally_cloth'); q.present('nar_kneeler');
+    gone = true;                                                   // the cord is shot under nar_a
+    go(60 * 30);
+    expect(dropped).toEqual(['nar_tally_cloth']);
+    // nar_wall waited 5 s behind nar_a and 5.25 behind the present line: inside its 12 s only because that time is allowed for
+    expect(started).toEqual(['nar_a', 'nar_kneeler', 'nar_wall']);
+  });
+  it('an urgent line (a wave, this second) still stands ahead of it', () => {
+    const { q, started, go } = make();
+    q.say('nar_seal'); go(10);                                     // (kept: not cut) -> both wait
+    const keep = new StoryQueue(() => 5, () => false, (k) => started.push('k:' + k), () => {}, { keep: (k) => k === 'nar_seal' });
+    keep.say('nar_seal'); keep.tick();
+    keep.urgent('nar_file_more'); keep.present('nar_watcher_1');
+    for (let i = 0; i < 60 * 12; i++) keep.tick();
+    expect(started.filter((k) => k.startsWith('k:'))).toEqual(['k:nar_seal', 'k:nar_file_more', 'k:nar_watcher_1']);
   });
 });

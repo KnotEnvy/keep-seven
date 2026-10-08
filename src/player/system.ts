@@ -102,6 +102,8 @@ export class PlayerSystemImpl implements PlayerSystem, WeaponHost, HealthHost {
   get health(): number { return this.life.hp; }
 
   // ---- lifecycle -----------------------------------------------------------------------------------
+  /** pass i3: the gun was let down by the last fire (not yet by the end card) */
+  private loweredForFire = false;
   init(): void {
     const { ctx } = this;
     this.off.push(ctx.events.on('game/state', (e) => {
@@ -112,6 +114,17 @@ export class PlayerSystemImpl implements PlayerSystem, WeaponHost, HealthHost {
       }
     }));
     this.off.push(ctx.events.on('boss/charge_required', () => this.gun.chargeRequired()));
+    // release pass p0 (UI team): the end card lets the gun down out of the last image, and gives it back when it closes
+    this.off.push(ctx.events.on('ui/screen', (e) => { if (e.screen === 'end') this.hands.setLowered(e.open); }));
+    // pass i3 (world team; the player team was not active. Story reviewer a: from "Out on the flat, one small fire" to
+    // the card the bright muzzle sat 60 px from the small fire at the same height): the gun goes down as the last fire
+    // catches (the world's `ending/fire`), and stays down under the card; it is given back with any new placement
+    this.off.push(ctx.events.on('ending/fire', () => { this.hands.setLowered(true); this.loweredForFire = true; }));
+    // (she still has the gun until the wind: a shot or a reload after the fire has caught brings it back up)
+    this.off.push(ctx.events.on('weapon/fired', () => { if (this.loweredForFire) { this.loweredForFire = false; this.hands.raise(); } }));
+    this.off.push(ctx.events.on('weapon/reload', (e) => { if (this.loweredForFire && e.stage === 'open') { this.loweredForFire = false; this.hands.raise(); } }));
+    this.off.push(ctx.events.on('ui/screen', (e) => { if (e.screen === 'end') this.loweredForFire = false; }));
+    this.off.push(ctx.events.on('game/state', (e) => { if (e.to === 'loading' || e.to === 'title') this.hands.setLowered(false); }));
     this.off.push(ctx.events.on('options/changed', (e) => { if (e.key === 'sprintMode') this.sprintToggle = false; }));
     ctx.debug.register('player', {
       /** degrees of bloom the next shot would have (0 at the normal cadence) */
@@ -128,6 +141,8 @@ export class PlayerSystemImpl implements PlayerSystem, WeaponHost, HealthHost {
       /** the last muzzle flash: where it was asked for, the true muzzle, and the eye of that shot (world) */
       flash: (() => ({ x: this.flashAt.x, y: this.flashAt.y, z: this.flashAt.z, muzzle: [this.muzzle.x, this.muzzle.y, this.muzzle.z], eye: [this.origin.x, this.origin.y, this.origin.z], push: FLASH_PUSH })) as (...args: never[]) => unknown,
       kick: (() => ({ pitchDeg: round4(this.rig.kickPitchDegNow), yawDeg: round4(this.rig.kickYawDegNow), fovDeg: round4(this.rig.fov.v), offsetY: round4(this.rig.offsetY.v), rollDeg: round4(this.rig.roll.v * RAD2DEG) })) as (...args: never[]) => unknown,
+      /** pass i3: the gun is let down out of the frame (the last fire, the end card) */
+      lowered: (() => this.hands.isLowered) as (...args: never[]) => unknown,
       /** play a view-model clip by name without touching the weapon's state (the sandbox's clip buttons) */
       playClip: ((name: ClipName) => { this.gun.clip = name; this.gun.clipSerial++; }) as (...args: never[]) => unknown,
       /** false: something else (an orbit camera) owns the world camera */

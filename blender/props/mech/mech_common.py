@@ -416,6 +416,31 @@ def overlay_join(ob, overlays, gradient=(1.0, 1.0)):
     return out
 
 
+def relight(ob, lean=0.55, up_fn=None):
+    """Lean the shading normals of upright faces up by atan(lean); corners where up_fn(pos (n, 3), normal (n, 3)) is
+    true point (almost) straight up. Call it LAST, on the joined mesh: geometry is untouched.
+
+    Release pass p0. A dynamic prop is lit by its room's mood: a small ambient and a key that, in the Pellam rooms
+    (moods.ts L3, L4, L5), comes straight down. An upright enamel face took the ambient alone, and a white cabinet stood
+    as a navy-black box against lit enamel walls (shots/p0-team-creatures-props/before/locker_front_low.png,
+    ammo_bay_front_low.png). Leaning, an upright face takes a share of the key, as the walls beside it do from their
+    strips. Under the low sun of the surface the lean changes little (the sun's height is 0.24)."""
+    me = ob.data
+    n = len(me.loops)
+    nrm = np.empty(n * 3, dtype=np.float32); me.corner_normals.foreach_get("vector", nrm); nrm = nrm.reshape(-1, 3)
+    vi = np.empty(n, dtype=np.int32); me.loops.foreach_get("vertex_index", vi)
+    co = np.empty(len(me.vertices) * 3, dtype=np.float32); me.vertices.foreach_get("co", co); co = co.reshape(-1, 3)[vi]
+    out = nrm.copy()
+    out[np.abs(nrm[:, 2]) < 0.75, 2] += lean
+    if up_fn is not None:
+        m = np.asarray(up_fn(co, nrm), dtype=bool) & (nrm[:, 2] > -0.5)
+        out[m] = nrm[m] * 0.25 + np.array([[0.0, 0.0, 1.0]], np.float32)
+    out /= np.maximum(np.linalg.norm(out, axis=1, keepdims=True), 1e-6)
+    me.normals_split_custom_set([tuple(v) for v in out.tolist()])
+    me.update()
+    return ob
+
+
 def lift(ob, mask_fn, minimum=0.7):
     """Raise COLOR_0 to at least `minimum` where mask_fn(pos, normal) is true: the back of a door that was baked shut
     against its cabinet is seen once it opens, and must not be AO-black."""

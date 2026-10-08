@@ -26,7 +26,7 @@ describe('GameData: lookups', () => {
     expect(data.layout.markers.length).toBe(268);   // polish round 5: + sp_file_10, sp_file_11 (the rear pair), sp_file_12 (round 4: + ia_ammo_box_yard)
     expect(data.layout.nav.nodes.length).toBe(472);
     expect(Object.keys(data.manifest.assets)).toHaveLength(84);
-    expect(Object.keys(data.manifest.textures)).toHaveLength(18);
+    expect(Object.keys(data.manifest.textures)).toHaveLength(21);
     expect(data.manifest.visibility.cells).toHaveLength(12);
     expect(data.marker('cp_rim')?.zone).toBe('far_rim');
     expect(data.markersOfType('checkpoint')).toHaveLength(17);

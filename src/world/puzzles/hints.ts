@@ -25,10 +25,13 @@ export class HintClock {
   /** the highest tier reached since the last reset (0 = none); T4 stays reached through a reset (the puzzle stays relaxed) */
   tier: 0 | HintTier = 0;
   relaxed = false;
-  /** `fixed` = thresholds that do not follow the option (the kept ladder) */
-  constructor(private readonly fixed: readonly number[] | null = null) {}
+  /**
+   * `fixed` = thresholds that do not follow the option (the kept ladder). `normal` / `fast`: a puzzle's own ladder in
+   * place of the shared one (pass i2: the asking)
+   */
+  constructor(private readonly fixed: readonly number[] | null = null, private readonly normal: readonly number[] = HINT_NORMAL, private readonly fast: readonly number[] = HINT_FAST) {}
 
-  thresholds(mode: HintMode): readonly number[] { return this.fixed ?? (mode === 'fast' ? HINT_FAST : HINT_NORMAL); }
+  thresholds(mode: HintMode): readonly number[] { return this.fixed ?? (mode === 'fast' ? this.fast : this.normal); }
 
   /**
    * Advance by dt seconds while `counting`. Returns the tier that was reached on this call (0 = none). With hints
@@ -62,7 +65,7 @@ export class HintClock {
 /** The view, the volume, `puzzle/entered` and the hint clock of one puzzle. */
 export class PuzzleCore {
   readonly view: PuzzleView;
-  readonly clock = new HintClock();
+  readonly clock: HintClock;
   /** the trigger marker with `params.puzzle` = this puzzle and `role: 'volume'` */
   readonly volume: LayoutMarker | undefined;
   inside = false;
@@ -79,7 +82,8 @@ export class PuzzleCore {
   private readonly solvedPayload: GameEvents['puzzle/solved'];
   private readonly wrongPayload: GameEvents['puzzle/wrong'];
 
-  constructor(readonly s: State, readonly id: PuzzleId, of: number) {
+  constructor(readonly s: State, readonly id: PuzzleId, of: number, ladder?: { normal: readonly number[]; fast: readonly number[] }) {
+    this.clock = ladder ? new HintClock(null, ladder.normal, ladder.fast) : new HintClock();
     this.view = { id, solved: false, step: 0, of, hintTier: 0, secondsIdle: 0, data: {} };
     this.volume = s.ctx.data.markersOfType('trigger').find((m) => m.params.puzzle === id && m.params.role === 'volume');
     this.enteredFlag = 'entered:' + id;

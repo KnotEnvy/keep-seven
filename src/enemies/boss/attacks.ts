@@ -62,7 +62,7 @@ function beginSlot(B: Boss): void {
 function fireSlot(B: Boss): void {
   const S = B.S;
   const phase = B.phase === 'p2' ? 'p2' : 'p1';
-  const glow = phase === 'p1' ? BOSS.p1Glow : BOSS.p2Glow;
+  const glow = (phase === 'p1' ? BOSS.p1Glow : BOSS.p2Glow) * BOSS_BY[S.difficultyId].glowScale;
   B.slotFired = true;
   if (B.dischargeKind === 'stake') {
     if (!B.parried) {
@@ -96,8 +96,13 @@ function beginHaul(B: Boss): void {
   B.arm.spinTo_(0, 0.4);
   for (let i = 0; i < 6; i++) B.setMouth(i, true, true);
   B.S.say('stn_boss_hauling');
-  // polish round 3 (R2: the rule is taught before it is needed): at the first haul of every try, the first included
-  if (!B.taught && B.deaths >= BOSS.teachDeaths && B.S.ctx.data.story.lines[BOSS.teachKey] !== undefined) { B.taught = true; B.S.say(BOSS.teachKey); }
+  // polish round 3 (R2: the rule is taught before it is needed): at the first haul of a try, the first included.
+  // Release pass p0 (the playthrough critic: "the same hint line repeated after each death"): once per phase of a run,
+  // not once per try. The world's line box says a hint a death cut off again after the respawn by itself, so on the
+  // third try she had read it four times, and it held the box when the direct hint (`moveKey`) was owed.
+  if (!B.taught && B.deaths >= BOSS.teachDeaths && B.teachSaidIn !== B.phase && B.S.ctx.data.story.lines[BOSS.teachKey] !== undefined) {
+    B.taught = true; B.teachSaidIn = B.phase; B.S.say(BOSS.teachKey);
+  }
   B.haulEvent(true, B.haulSeconds);
   B.cue('haul_whine');
   if (p2) {
@@ -173,7 +178,9 @@ function tickCylinder(B: Boss): void {
     case 'pattern': {
       const order = patternOf(phase);
       const kind = order[B.step] as 'stake' | 'canister' | 'lance';
-      const glow = phase === 'p1' ? BOSS.p1Glow : BOSS.p2Glow;
+      // release pass p0: on Hard the glow before a discharge is 15 % shorter, and the slot with it (BOSS_BY.glowScale)
+      const glowFull = phase === 'p1' ? BOSS.p1Glow : BOSS.p2Glow;
+      const glow = glowFull * BOSS_BY[B.S.difficultyId].glowScale;
       B.slotT += B.S.dt;
       if (kind === 'lance') {
         const total = BOSS.lanceThread + BOSS.lanceSweep;
@@ -183,7 +190,7 @@ function tickCylinder(B: Boss): void {
         if (!B.slotFired && B.slotT >= glow - EPS) fireSlot(B);
         // (phase 1 rests a beat after each notch, lids shut: `p1Rest`)
         // (polish round 4: on Hard the phase-1 rest is shorter, BOSS_BY)
-        if (B.slotT < slotSeconds(phase, kind) - (phase === 'p1' ? BOSS.p1Rest * (1 - BOSS_BY[B.S.difficultyId].p1RestScale) : 0) - EPS) return;
+        if (B.slotT < slotSeconds(phase, kind) - (glowFull - glow) - (phase === 'p1' ? BOSS.p1Rest * (1 - BOSS_BY[B.S.difficultyId].p1RestScale) : 0) - EPS) return;
       }
       B.step++;
       if (B.step >= order.length) beginHaul(B); else beginSlot(B);

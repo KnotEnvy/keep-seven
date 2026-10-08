@@ -70,7 +70,48 @@
       },
       "courtesy_cap": "The call \"Water to you\" appears only in rd_note_lip and rd_note_stone. The reply \"And shade\" appears only in nar_last. Do not add uses. It is never shown as a stock greeting: not in UI, menus, loading text, store text or marketing.",
       "oath_cap": "The oath appears only in rv_ask.",
-      "never": "No line comments on, or counts, the felled. No line uses a name, term or phrase from the blocklist in docs/research/art-tone.md 1.5."
+      "never": "No line comments on, or counts, the felled. No line uses a name, term or phrase from the blocklist in docs/research/art-tone.md 1.5.",
+      "never_stale": [
+        "nar_seven",
+        "nar_not_for_firing",
+        "nar_first_fell",
+        "nar_first_seat",
+        "nar_ask",
+        "nar_plate_1",
+        "nar_plate_2",
+        "nar_plate_3",
+        "nar_cradle",
+        "nar_cradle_2",
+        "rv_ask",
+        "nar_office",
+        "nar_one_left",
+        "nar_down_the_bore",
+        "nar_seal",
+        "nar_kept",
+        "stn_proven",
+        "nar_lamps",
+        "nar_lamps_count",
+        "nar_lamps_hers",
+        "nar_mark_1",
+        "nar_mark_2",
+        "nar_mark_3",
+        "stn_lift_1",
+        "stn_lift_2",
+        "stn_lift_3",
+        "nar_stone_1",
+        "nar_stone_2",
+        "nar_stone_3",
+        "nar_stone_4",
+        "nar_take_1",
+        "nar_take_2",
+        "nar_leave",
+        "nar_fire",
+        "nar_last",
+        "stn_tally_wake_2",
+        "nar_line_first",
+        "nar_tally_cloth"
+      ],
+      "never_stale_note": "Release pass p0. Lines never dropped for being late. When this list is present src/world/story.ts uses it INSTEAD of its own NEVER_STALE patterns, so it repeats every key those patterns matched and adds stn_tally_wake_2 and nar_line_first. (nar_stone_wait is NOT in it: it is moot the moment she takes the round.) Pass i1 adds nar_lamps_hers (the line that ties the lamps to the ones she freed; said only when she freed somebody) and nar_mark_1 to 3 (the only place play says what the seventh round is: they follow her into the cage if she does not stop at the diagram) and stn_lift_1 to 3 (the station's inventory on the ride: asked for in the hall, they went stale four seconds after the ride carried her out of it whenever a line was still on screen). Pass i2 adds nar_tally_cloth (the table cloth's line: at a brisk pace it waited behind the chair's two lines and the station's wake and went stale)."
     },
     "load_bearing": [
       "hud_seventh",
@@ -416,6 +457,11 @@
       "text": "Lead rang off its plate. The vents stood open only after the blow.",
       "seconds": 5
     },
+    "hint_tamper_ring": {
+      "speaker": "narrator",
+      "text": "The ring on the floor was where the arm came down. She stepped out of it.",
+      "seconds": 6
+    },
     "nar_tamper_dead": {
       "speaker": "narrator",
       "text": "It stopped mid-stroke. It had never been anyone. That helped.",
@@ -521,30 +567,30 @@
       "text": "The ribs stopped what it threw. Lit meant open. All six opened to haul.",
       "seconds": 6
     },
+    "hint_boss_move": {
+      "speaker": "narrator",
+      "text": "Standing still was the one thing it could hit. The ribs were cover.",
+      "seconds": 5.5
+    },
     "stn_parley_1": {
       "speaker": "station",
       "text": "LIFT HEAD PRESENTING. SIX CHAMBERS. STATE BUSINESS AT THE BORE.",
-      "seconds": 5.5
+      "seconds": 3.5
     },
     "nar_parley": {
       "speaker": "narrator",
       "text": "A Reeve asks once before she draws. She asked.",
-      "seconds": 4.5
+      "seconds": 4
     },
     "rv_ask": {
       "speaker": "reeve",
       "text": "By the Rule and the round: will you stand down?",
-      "seconds": 4.5
+      "seconds": 4
     },
     "stn_parley_2": {
       "speaker": "station",
-      "text": "CHAMBER ONE: STAKE. TWO: STAKE. THREE: CANISTER.",
+      "text": "ONE, TWO: STAKE. THREE: CANISTER. FOUR, FIVE: STAKE. SIX: CANISTER.",
       "seconds": 4.5
-    },
-    "stn_parley_3": {
-      "speaker": "station",
-      "text": "FOUR: STAKE. FIVE: STAKE. SIX: CANISTER.",
-      "seconds": 4
     },
     "stn_parley_4": {
       "speaker": "station",
@@ -706,6 +752,16 @@
       "text": "{n}, by her count. Somebody had found the matches.",
       "seconds": 4.5
     },
+    "nar_lamps_hers": {
+      "speaker": "narrator",
+      "text": "Nine had kept their seats. The rest were hers.",
+      "seconds": 4.5
+    },
+    "nar_stone_short": {
+      "speaker": "narrator",
+      "text": "Six spent cases in a row, and a seventh, unfired. The band was the wrong colour.",
+      "seconds": 6.5
+    },
     "nar_stone_1": {
       "speaker": "narrator",
       "text": "Six spent cases on a flat stone, mouth up, in a row.",
@@ -725,6 +781,11 @@
       "speaker": "narrator",
       "text": "And a seventh, unfired. The band on it was the wrong colour.",
       "seconds": 5
+    },
+    "nar_stone_wait": {
+      "speaker": "narrator",
+      "text": "The round would keep on its stone. She would not pass this way again.",
+      "seconds": 5.5
     },
     "nar_take_1": {
       "speaker": "narrator",
@@ -865,6 +926,11 @@
       "speaker": "caption",
       "text": "[one wire note, come home]",
       "seconds": 2
+    },
+    "cap_loft_bell": {
+      "speaker": "caption",
+      "text": "[a small bell, once, in the wind]",
+      "seconds": 2
     }
   },
   "readables": {
@@ -886,7 +952,7 @@
     },
     "rd_note_hearth": {
       "title": "A note, on the hearthstone",
-      "body": "Reeve. One day, now.\n\nThey did not suffer long. I sat with them and counted, so that somebody had.\n\nYou will want to go down. Your kind always does. Mind what you carry.\n— D."
+      "body": "Reeve. One day, now.\n\nThey are not suffering now. I sat with them and counted, so that somebody had.\n\nYou will want to go down. Your kind always does. Mind what you carry.\n— D."
     },
     "rd_plate_line": {
       "title": "Cast plate: line charge",
@@ -914,7 +980,7 @@
     "obj_lip_gate": "The stock gate is weighted shut. Lighten it.",
     "obj_street": "Front Street, Plenty. Walk it west.",
     "obj_yard_door": "The pump yard door is knotted shut.",
-    "obj_yard": "Clear the yard.",
+    "obj_yard": "The yard is not empty.",
     "obj_tally": "The tally house. There is a way down, and no power to open it.",
     "obj_tally_hatch": "The hatch is lit. Its latch is knotted.",
     "obj_gallery": "The baffle door is held by three knots that mend each other.",
@@ -926,7 +992,8 @@
     "obj_boss_unproven": "Lead will not hold it. The bore wants proving.",
     "obj_boss_dry": "The head is dry. Break its six chambers.",
     "obj_proving_lift": "Take the proving lift up.",
-    "obj_rim": "Go on."
+    "obj_rim": "Go on.",
+    "obj_rim_choice": "The seventh on the stone is his. Take it, or go on without it."
   },
   "system": {
     "note": "Plain lines core shows by itself when the game cannot go on (src/core/debugHook.ts, src/core/flow.ts). Not part of the UI's screens.",
@@ -936,7 +1003,9 @@
     "no_webgl": "KEEP SEVEN cannot start: this browser or device does not provide WebGL 2.",
     "load_failed": "The way on would not load. Check the connection, then go on.",
     "waiting": "Waiting on the connection.",
-    "save_unreadable": "The last count could not be read. Begin again."
+    "save_unreadable": "The last count could not be read. Begin again.",
+    "page_description": "A weird-west gunslinger shooter that runs in the browser. One stage, one heavy six-shot revolver, and a seventh round that is not for firing.",
+    "page_image_alt": "The title screen of KEEP SEVEN: a revolver held out under a red rock overhang, a shaft of evening sun on the sand."
   },
   "ui": {
     "ui_title": "KEEP SEVEN",
@@ -944,11 +1013,17 @@
     "ui_click_to_start": "Click to take up the gun",
     "ui_loading": "Loading",
     "ui_menu_play": "Begin",
+    "ui_ask_begin": "Begin again?",
+    "ui_ask_begin_note": "The count kept so far will be lost.",
     "ui_menu_continue": "Go on",
     "ui_menu_story": "The story so far",
     "ui_menu_options": "Options",
     "ui_menu_credits": "Credits",
     "ui_credits_body": "An original work. Every model, rig and scene authored in Blender. All sound synthesised as you play.",
+    "ui_credits_made": "Made with three.js and Blender.",
+    "ui_credits_version": "Version",
+    "ui_credits_source": "Source",
+    "ui_credits_report": "Report a problem",
     "ui_pause_title": "Paused",
     "ui_pause_resume": "Resume",
     "ui_pause_options": "Options",
@@ -985,15 +1060,18 @@
     "ui_end_of": "of",
     "ui_end_knots": "Knots burst",
     "ui_end_lines": "Lines of three or more",
-    "ui_end_clean_six": "Six dry mouths, one cylinder",
+    "ui_end_clean_six": "Six chambers, six shots",
     "ui_end_secrets": "Things found",
+    "ui_end_deaths": "Times she went down",
     "ui_end_lamps": "Lamps lit in Plenty",
+    "ui_end_lamps_kept": "Nine who kept their seats.",
+    "ui_end_lamps_freed": "Nine who kept their seats, and {n} she cut loose.",
     "ui_end_carries": "The Reeve carries",
     "ui_end_carries_six": "6",
     "ui_end_carries_his": "7, one of them his",
     "ui_end_yes": "Yes",
-    "ui_end_no": "No",
     "ui_end_again": "Walk it again",
+    "ui_end_rim": "The rim again",
     "ui_end_menu": "Title",
     "ui_opt_title": "Options",
     "ui_opt_tab_controls": "Controls",

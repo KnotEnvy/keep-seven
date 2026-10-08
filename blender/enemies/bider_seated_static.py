@@ -22,7 +22,8 @@ ASSET = "bider_seated_static"
 def main():
     args = scene.asset_args(os.path.basename(__file__))
     scene.reset_scene()
-    bider_build.build_static(ASSET, args, clip="sit_down", frame=-1, budget=500, emissive=False, breath=True)
+    bider_build.build_static(ASSET, args, clip="sit_down", frame=-1, budget=500, emissive=False, breath=True,
+                              opts={"hood": 1, "legs_least": True, "sash": False})   # pass i1: the triangles go to the hood (bider_build.build_hood_lo)
     export.export_asset(ASSET, args.out, blend=args.blend)
     if args.preview: export.preview(ASSET, args.out)
 

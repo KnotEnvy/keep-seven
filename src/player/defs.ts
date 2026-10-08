@@ -150,13 +150,20 @@ export const SWAY_RATE = 14;
 // Polish round 4 (look team gun): turned 3.5 degrees further and rolled 10 degrees the other way, 4 cm farther from the
 // eye: more of the left side (cylinder flutes, trigger guard) and less of the top strap and the back; the muzzle stands
 // about 100 px right and 70 px below the crosshair at 720p (it was 52 / 50), the rear and the gun hand are in frame.
-export const VIEW_PLACE = { x: 0, y: 0.025, z: 0.026, pitchDeg: -7, yawDeg: 7.5, rollDeg: -13 } as const;   // look team gun, polish round 5: raised 3.5 % of the frame height so the thumb, the gloved fingers and the walnut grip are in the frame (was 0.004, 0.013, 0.023, -7, 8.5, -14)
+export const VIEW_PLACE = { x: 0.006, y: 0.036, z: -0.030, pitchDeg: -11, yawDeg: 9.5, rollDeg: -13 } as const;   // look team gun, pass i3 (both visual reviewers: "the idle hand is a thumb, a knob and a stub"): with the hand re-seated on the grip (revolver_rig.py: the knuckles forward on the right panel, three fingers wrapped on to the left one) the view-model stands 3.4 cm farther, 6 mm higher and 1 cm to the right, so the thumb, the forefinger in the guard, the middle and the ring finger and the back of the thumb's root are IN the frame: a fist round a grip; at 720p the muzzle is 81 px right and 55 below the crosshair (97 px = 13.5 % of the height), the view-model 12.9 % of the frame. Was -0.004, 0.030, 0.004, -11, 9.5, -13 (pass i2) <- look team gun, pass i2 (the visual reviewer: "at idle the hand is still two fat digits"): 6 mm farther from the eye, 8 mm higher and the muzzle 3 degrees lower, so the hand that holds it is IN the frame (the thumb, the forefinger on the trigger, the middle finger and half the ring finger under the guard: the frame's edge cut it at the guard); at 720p the muzzle is 67 px right and 69 below the crosshair (96 px = 13.3 % of the height), the view-model 12.8 % of the frame, the gun no hand covers 6.5 %. Was -0.004, 0.022, 0.010, -8, 9.5, -13 (pass i1) <- look team gun, pass i1: turned 2 degrees further side-on (the cylinder's flutes, the barrel's profile and the cocked hammer are seen, less of the recoil shield's back), 1 cm farther; at 720p the muzzle is 70 px right and 60 px below the crosshair (92 px = 12.8 % of the height), the view-model 11.7 % of the frame, the gun no hand covers 7.0 %. Was -0.006, 0.024, 0, -8, 7.5, -13 (release pass p0) <- look team gun, release pass p0: 2.6 cm farther from the eye and 6 mm inboard, the muzzle a degree lower: the hammer spur clears the right edge, the thumb, its web, the forefinger and a third fingertip are in the frame (the hand was two lumps at the corner), and the muzzle stands 55 px under the eye line at 720p (it lay over the asking dial's numerals at 47). Was 0, 0.025, 0.026, -7, 7.5, -13 (round 5)
 /**
  * Where the whole view-model stands during a clip in which the hands work on the gun (reload, the line round, the kept
  * round): the clips are staged for the authored pose and a 52 degree view; in the 40 degree view-model pass they are
  * framed by this (same axes as VIEW_PLACE) so the gun sits whole in the right half and the gloves leave by the bottom edge.
  */
 export const VIEW_PLACE_HANDLING = { x: -0.02, y: -0.07, z: -0.03, pitchDeg: 0, yawDeg: 0, rollDeg: 0 } as const;
+/**
+ * Look team gun, pass i1 (both story reviewers: "at rest the barrel covers port 4 of the asking dial", the answer to the
+ * first question): while she stands inside this trigger volume with the gun at rest (the idle clip), the view-model is
+ * held this much lower (metres down in view space, degrees of muzzle-down pitch), eased over `seconds`. A shot, a reload
+ * or a sprint brings it straight back up; the aim, the muzzle socket and every clip are untouched.
+ */
+export const VIEW_PLACE_TUCK = { volume: 'trg_pz_asking', facingZ: 0.6, drop: 0.112, right: 0.040, pitchDeg: -8, seconds: 0.45 } as const;   // facingZ: only while the view's forward has this much +z (the door with the dial is the volume's +z wall)
 /** seconds over which the placement leaves for a clip in which the hands work on the gun, and returns (viewModel.ts isHandling) */
 export const VIEW_PLACE_BLEND = 0.15;
 export const VIEW_BOB_SCALE = 2.5;

@@ -56,12 +56,28 @@ def gdir(v):
 
 
 # ------------------------------------------------------------------ the right hand, wrapped round the grip
-RIGHT_CURLS = {"index": (-5.0, 30.0, 42.0, 58.0), "middle": (0.0, 42.0, 76.0, 56.0), "ring": (3.0, 44.0, 76.0, 56.0), "pinky": (8.0, 46.0, 74.0, 54.0)}
+# Pass i2 (both visual reviewers: "at idle the hand is still two fat digits", "the lower finger ends in a round blunt pad"):
+# measured in gun space, the forefinger went straight through the guard and stood 17 mm out of its left side (the blunt
+# pad), and the ends of the three gripping fingers lay INSIDE the left panel (their centres at x = -12.5, the wood's face
+# at -14.5), so only their domes showed. The hand now sits 6 mm further back on the grip and 12 mm higher (the middle finger's first joint
+# reaches the front strap, as it does on a single action's small grip), the forefinger bows out along the frame and lays
+# its pad on the trigger (the tip 3 mm proud of the guard), and the three fingers lie ON the left panel, their last joints
+# pointing back at the heel of the hand (scratch/i2-team-gun/solve.py searched the curls).
+RIGHT_CURLS = {"index": (-2.8, 21.0, 65.0, 58.0), "middle": (4.0, 67.4, 105.9, 31.8), "ring": (3.0, 54.3, 100.1, 40.7), "pinky": (8.0, 23.2, 80.6, 53.8)}
+# Pass i1 (both visual reviewers: "sausage fingers"): from knuckle to tip the thumb was 41 mm long and 20 thick (a stub:
+# a gloved thumb is about 58 by 19). Its two end joints are 28 and 25 mm now, and it lies along the frame's flank over the
+# top of the front strap.
 # Polish round 4 (both critics: "a tan tube", "a thumb stub"): the thumb lay straight along the frame. It now breaks at
 # its knuckle and its end joint wraps down round the top of the grip toward the trigger, as a held gun is held.
-RIGHT_THUMB_GUN = [(-6.0, -150.0, -38.0), (-17.5, -120.0, -26.0), (-21.5, -99.0, -30.0), (-18.5, -84.5, -44.0)]   # cmc, mcp, ip, tip (gun mm)
-RIGHT_MID_MCP_GUN = (27.0, -104.0, -62.0)          # where the middle finger's knuckle sits: half-way along the right panel
+# Pass i2: the thumb lay level along the top of the grip, a tube from the web to the guard. It now comes over the back
+# strap and DOWN across the left panel toward the middle finger (the lock of a one-handed hold): from behind it is the
+# upper edge of a closed fist. Was (-6, -150, -38), (-17.5, -120, -26), (-23.5, -92, -27.5), (-19.5, -70, -40).
+RIGHT_THUMB_GUN = [(-6.0, -148.0, -30.0), (-19.5, -121.0, -22.5), (-26.0, -95.0, -30.0), (-25.0, -74.5, -45.0)]   # cmc, mcp, ip, tip (gun mm)
+# (pass i2: was (27, -104, -62): the hand also sits 12 mm higher along the grip, its web under the hammer and the middle
+# finger close behind the guard, where a single action is held; the three fingers come into the idle frame)
+RIGHT_MID_MCP_GUN = (27.0, -90.4, -57.5)          # where the middle finger's knuckle sits: at the rear of the right panel
 RIGHT_PITCH, RIGHT_YAW = -24.0, 20.0
+RIGHT_WEB_GUN = (3.0, -118.0, -30.0)               # pass i3: the web of the hand passes behind the back strap here (gun mm)
 RIGHT_FOREARM_GUN = (0.10, -0.96, -0.26)           # wrist -> elbow, gun space
 
 
@@ -81,7 +97,7 @@ def right_hand():
     M = GUN_M @ Matrix.Scale(MM, 4) @ H                                           # hand mm -> rest m
     # the forearm lies behind the gun, a little right and down of the bore: the wrist is cocked as a pistol grip cocks it
     fa = (H.inverted().to_3x3() @ Vector(RIGHT_FOREARM_GUN)).normalized()
-    h = hands.Hand("r", RIGHT_CURLS, thumb, forearm=fa, forearm_up=(0, 0, 1))
+    h = hands.Hand("r", RIGHT_CURLS, thumb, thumb_r=(9.6, 8.6, 7.9, 6.7), forearm=fa, forearm_up=(0, 0, 1), web_through=tuple(Hi @ Vector(RIGHT_WEB_GUN)))      # pass i2: a tenth slimmer (it is the nearest thing to the eye: was 8.9, 8.0, 7.3, 6.2)
     return h, M
 
 
@@ -98,6 +114,7 @@ LEFT_BACK = Vector((0.72, 0.0, -0.62))         # palm up under the frame (polish
 ROUND_HEAD_H = Vector((18.0, 108.0, -71.5))         # the pinched round's case head in LEFT hand space (mm; x already mirrored)
 ROUND_AXIS_H = Vector((0.0, 0.21, -0.98)).normalized()   # along the two straight fingertips
 LOOP_ANGLE = 235.0                                  # round the cuff from its back toward the thumb side: the side the eye sees while she loads
+HAND_ROUND_K = 0.75                                 # pass i3: the girth of the rounds the hands hold (weapon_revolver.py)
 LOOP_D = 112.0                                      # the kept round's case head, mm up the forearm from the wrist; nose toward the hand
 
 
@@ -130,7 +147,7 @@ def round_frames():
     fa = (L.to_3x3() @ Vector((0, -1, 0))).normalized(); fu = back
     phi = math.radians(LOOP_ANGLE)
     u = Vector((math.sin(phi), 0.0, math.cos(phi)))                                   # hand space: from the back of the wrist toward the thumb side
-    r = 1.0 / math.sqrt((u.z / 34.0) ** 2 + (u.x / 42.0) ** 2) + 7.0
+    r = 1.0 / math.sqrt((u.z / 34.0) ** 2 + (u.x / 42.0) ** 2) + 1.0 + 6.0 * HAND_ROUND_K
     loop_head = L @ (Vector((0, -LOOP_D, 0)) + u * r)
     loop = frame_from(loop_head, -fa, (L.to_3x3() @ u).normalized())
     return {"pinch": pinch, "loop": loop}

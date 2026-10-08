@@ -167,6 +167,10 @@ void main() {
 		float ang = atan( p.y, p.x );
 		float tick = 1.0 - smoothstep( 0.035, 0.035 + edge * 0.5, abs( fract( ang * 1.2732395 + 0.5 ) - 0.5 ) * 0.7853982 * r );
 		tick *= smoothstep( 0.74 - edge, 0.74, r ) * ( 1.0 - smoothstep( 0.935, 0.935 + edge, r ) );
+		// underground look, pass i3: vD.x = 1 is a plain shock (the seventh's): no ticks, and a wake behind the crest
+		// that falls off inward over vD.y of the radius. Every other ring leaves vD at 0 and is drawn as before.
+		float wake = smoothstep( 0.935 - max( vD.y, 1e-3 ), 0.935, r ) * ( 1.0 - smoothstep( 0.935, 0.935 + edge, r ) );
+		tick = mix( tick, wake * wake * 0.45, vD.x );
 		float fill = ( 1.0 - smoothstep( vE.y * 0.935 - edge, vE.y * 0.935, r ) ) * 0.10;
 		float front = ( 1.0 - smoothstep( 0.0, 0.05, abs( r - vE.y * 0.935 ) ) ) * 0.4 * step( vE.y, 0.999 );
 		float a = clamp( line + tick + fill + front, 0.0, 1.0 );
@@ -218,12 +222,27 @@ void main() {
 		float a = ( 1.0 - smoothstep( 0.35, 1.0, v ) ) * smoothstep( 0.0, 0.05, vUv.x ) * ( 1.0 - smoothstep( 0.95, 1.0, vUv.x ) );
 		o = vec4( mix( vCol.rgb, vec3( 1.0 ), 1.0 - smoothstep( 0.1, 0.45, v ) ) * a, a ) * vCol.a;
 	} else {
-		// the last fire: a flame, white at the heart: wide at the foot, drawn to a tongue that leans and licks (uTime)
+		// the last fire (pass i1: it was one near-white capsule): three tongues that lick at their own rates and lean
+		// together, deep orange at their edges and tips, the flame's own orange in the body, and a pale yellow heart low
+		// in the middle tongue only; vE.y = how far it has caught (the side tongues come last)
 		float fy = p.y * 0.5 + 0.5;
-		float fx = p.x + 0.22 * fy * fy * sin( uTime * 9.0 + fy * 5.0 ) ;
-		float fw = mix( 0.85, 0.12, fy * fy );
-		float a = ( 1.0 - smoothstep( fw * 0.45, fw, abs( fx ) ) ) * smoothstep( -1.0, -0.75, p.y ) * ( 1.0 - smoothstep( 0.55, 1.0, p.y ) );
-		o = vec4( mix( vCol.rgb, vec3( 1.0, 0.92, 0.75 ), smoothstep( 0.5, 0.95, a ) ) * a, a ) * vCol.a;
+		float a = 0.0, heart = 0.0;
+		for ( int k = 0; k < 3; k ++ ) {
+			float fk = float( k );
+			float ph = fk * 2.1;
+			float off = ( fk - 1.0 ) * 0.34;
+			float hk = ( k == 1 ? 1.0 : ( k == 0 ? 0.62 : 0.74 ) ) * ( 0.86 + 0.14 * sin( uTime * ( 9.0 + 2.3 * fk ) + ph ) );
+			float yy = fy / hk;
+			float sway = ( 0.20 * yy * yy + 0.05 * yy ) * sin( uTime * ( 6.0 + 1.7 * fk ) + yy * ( 4.0 + fk ) + ph ) + 0.10 * yy * yy;
+			float x = p.x - off * ( 1.0 - 0.45 * yy ) - sway;
+			float w = mix( k == 1 ? 0.46 : 0.30, 0.02, pow( clamp( yy, 0.0, 1.0 ), 1.4 ) );
+			float ak = ( 1.0 - smoothstep( w * 0.30, w, abs( x ) ) ) * ( 1.0 - smoothstep( 0.72, 1.0, yy ) ) * smoothstep( 0.0, 0.07, fy );
+			a = max( a, ak );
+			if ( k == 1 ) heart = ( 1.0 - smoothstep( w * 0.12, w * 0.62, abs( x ) ) ) * ( 1.0 - smoothstep( 0.18, 0.62, yy ) ) * smoothstep( 0.0, 0.10, fy );
+		}
+		vec3 c = mix( vCol.rgb * vec3( 1.0, 0.50, 0.26 ), vCol.rgb, smoothstep( 0.25, 0.8, a ) * ( 1.0 - 0.55 * fy ) );
+		c = mix( c, vec3( 1.0, 0.86, 0.52 ), heart * 0.9 );
+		o = vec4( c * a, a ) * vCol.a;
 	}
 	o.rgb *= mix( 1.0, uInvExposure, add );
 	o.a *= 1.0 - add;

@@ -248,12 +248,13 @@ def build(card):
                 q = [(xa, -0.9, za), (xb, -0.9, zb), (xb, hb, zb), (xa, ha, za)]
                 foot = mix(top_c, PLAIN, 0.7)
                 if max(ha, hb) < 0.05: continue
-                facing_poly(card, q, [foot, foot, top_c, top_c], EYE)
+                crest = mix(top_c, ember_at(math.atan2(xa - CENTRE[0], -(za - CENTRE[2]))), 0.045)          # pass i1: the crest holds the afterglow (a lit line over each dark ridge)
+                facing_poly(card, q, [foot, foot, crest, crest], EYE)
                 # its back slope lying away on the plain, catching a little of the afterglow (seen from above)
                 bx, bz = -(zb - za), (xb - xa); l = math.hypot(bx, bz) or 1.0
                 if bx * (14.0 - xa) + bz * (104.0 - za) > 0: bx, bz = -bx, -bz
                 bx, bz = bx / l, bz / l
-                lit = mix(top_c, ember_at(math.atan2(xa - CENTRE[0], -(za - CENTRE[2]))), 0.10)
+                lit = mix(top_c, ember_at(math.atan2(xa - CENTRE[0], -(za - CENTRE[2]))), 0.30)
                 qb = [(xa, ha, za), (xb, hb, zb), (xb + bx * hb * 2.6, -0.5, zb + bz * hb * 2.6), (xa + bx * ha * 2.6, -0.5, za + bz * ha * 2.6)]
                 facing_poly(card, qb, [lit, lit, PLAIN, PLAIN], EYE)
     # (the town stands 117 to 142 m from the ledge: the line from an eye there to its foot is 8.5 m up at 68 m, 5 m at 90 m)
@@ -280,7 +281,7 @@ def build(card):
     # grid coloured per VERTEX from the slope of foot_h itself (shared corners share a colour: the form turns smoothly),
     # darker (the land under the ledge is the darkest thing in the last image), the fins catching a breath of the
     # afterglow on their north-west sides only, the gully's sand a dim thread that leads the eye north to the fire.
-    DK = hexlin("#07070F"); MD = hexlin("#1A1B30"); SANDC = hexlin("#2C2A44"); ROSE = hexlin("#6A4450")
+    DK = hexlin("#07070F"); MD = hexlin("#1A1B30"); SANDC = hexlin("#3B3558"); ROSE = hexlin("#A2605E")      # pass i1: ROSE was #6A4450 (the last image's lower half read as one dark slab again: the crests are rim-lit now)
 
     def foot_col(x, z):
         h, gk = foot_h(x, z)
@@ -295,9 +296,9 @@ def build(card):
         # A fin's north-west flank takes a dull rose, its lee side goes to the land's black: stripes of light and dark
         # running away from the ledge toward the town and the fire (it was 10 % of the glow squared: nothing).
         c = mix(c, DK, 0.6 * clamp(nx * 2.2))
-        c = mix(c, ROSE, 0.55 * clamp((glow - 0.14) / 0.42))
+        c = mix(c, ROSE, 0.72 * clamp((glow - 0.10) / 0.36) ** 1.3)
         c = mix(c, SANDC, 0.7 * gk * up)
-        c = mix(c, DK, 0.45 * smooth((z - 84.0) / 15.0))                                   # right under the ledge: the dark anchor
+        c = mix(c, DK, 0.30 * smooth((z - 86.0) / 13.0))                                   # right under the ledge: the dark anchor
         return mix(PLAIN, c, clamp((h + 0.6) / 1.2))                                       # the foot goes into the plain
     # (finer where the eye is: under the ledge and round the gully; the asset's budget is 2 000 triangles)
     gx = [-35.0, -23.0, -11.0] + [-5.0 + 4.0 * i for i in range(11)] + [43.0, 51.0, 63.0]

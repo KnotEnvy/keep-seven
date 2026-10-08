@@ -525,8 +525,11 @@ def b_ruin(S):
     zf = -ZF - 0.26
     # the front wall in two lengths either side of the door, each stepped down at its broken end; a window whose
     # lintel has gone is a gap with a sill
-    wa = (x0, zf); wb = (x0 + ud - 0.78, zf); wc = (x0 + ud + 0.78, zf); wd = (x1, zf)
-    La = ud - 0.78; Lb = W - ud - 0.78
+    # (pass i2, the visual reviewer: "a light-leaking gap between a wall and the door post beside it": the walls stopped
+    # 0.78 m from the door's middle and the frame's posts, which lean, end at 0.74: the walls now run into the posts)
+    GAPW = 0.66
+    wa = (x0, zf); wb = (x0 + ud - GAPW, zf); wc = (x0 + ud + GAPW, zf); wd = (x1, zf)
+    La = ud - GAPW; Lb = W - ud - GAPW
     fr.stepped_wall((lm, vl), wa, wb, [(0.0, 0.55, 2.95), (0.55, 1.3, 2.55), (1.3, 2.3, 1.55), (2.3, 3.5, 1.05), (3.5, 4.1, 1.9), (4.1, 5.3, 2.7), (5.3, La, 2.95)], 0.5, "st_ruin_fa", seed=741, density=1.0, batter=0.02)
     fr.stepped_wall((lm, vl), wc, wd, [(0.0, 1.0, 2.95), (1.0, 1.5, 2.45), (1.5, 2.7, 1.0), (2.7, 3.3, 2.5), (3.3, 4.5, 2.8), (4.5, 5.2, 1.85), (5.2, Lb, 1.25)], 0.5, "st_ruin_fb", seed=743, density=1.0, batter=0.02)
     # the door in its frame: two posts, a lintel, the leaf shut and marked

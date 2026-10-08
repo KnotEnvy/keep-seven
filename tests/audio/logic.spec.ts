@@ -41,7 +41,7 @@ describe('captions', () => {
     const fs = await nodeFs();
     const story = JSON.parse(fs.readFileSync(ROOT + '/design/story.json', 'utf8')) as { lines: Record<string, unknown> };
     const keys = Object.keys(story.lines).filter((k) => k.startsWith('cap_')).sort();
-    expect(keys).toHaveLength(23);
+    expect(keys).toHaveLength(24);                             // (release pass p0: + cap_loft_bell, which the world raises)
     expect(CAPTION_KEYS.slice().sort()).toEqual(keys);
   });
   it('each key is raised by its event, on the tick its sound starts, and never without it', () => {
@@ -82,7 +82,7 @@ describe('captions', () => {
     expectCap('cap_locker_chime', () => r.emit('audio/cue', cue('locker_chime')));
     expectCap('cap_fire_kindles', () => r.emit('ending/fire', POS));
     expectCap('cap_wire_resolves', () => r.emit('audio/cue', cue('wire_resolve')));
-    expect(new Set(r.says.map((s) => s.key)).size).toBe(23);
+    expect(new Set(r.says.map((s) => s.key)).size).toBe(23);    // (every key but cap_loft_bell: src/audio/captions.ts)
     // nothing but captions is ever said by audio, and every one of them had a sound started on its tick
     for (const s of r.says) expect(s.key.startsWith('cap_')).toBe(true);
   });

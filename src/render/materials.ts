@@ -12,9 +12,10 @@ import * as THREE from 'three';
 import type { AssetDef, GameContext, LampApi, MoodId, ResidentSet, TextureId, ZoneId } from '../core/contracts.ts';
 import { FOG_GLSL, HUE, K_GLSL, PULSE_GLSL, VLS, WRONG_GLSL } from './shared.ts';
 import type { SharedUniforms, Uniform } from './shared.ts';
-import { BORE_KERB_TOP_Y, MOODS, M_AMBIENT, M_KEY, M_KEY_DIR, M_RIM, M_SKY, M_VM_AMB, M_VM_KEY, M_VM_RIM, moodAt } from './moods.ts';
+import { BORE_KERB_TOP_Y, MOODS, M_AMBIENT, M_EXPOSURE, M_KEY, M_KEY_DIR, M_RIM, M_SKY, M_VM_AMB, M_VM_KEY, M_VM_RIM, moodAt } from './moods.ts';
 import type { MoodKey } from './moods.ts';
 import { FLAG_ADD, FLAG_GLOW } from './vfx/quads.ts';
+import type { AirLights } from './post.ts';
 
 const DETAIL: Readonly<Record<string, TextureId>> = { m_frontier: 'tx_frontier_trim', m_pellam: 'tx_pellam_trim', m_sand: 'tx_sand' };
 const SETS: readonly ResidentSet[] = ['surface', 'underground', 'coda'];
@@ -23,6 +24,22 @@ const ZONE_EVERY = 12;
 /** seconds of the cross-fade of a dynamic object's zone light */
 const ZONE_FADE = 0.3;
 const MAX_EMITTERS = 256;
+/**
+ * High tier, the sand's sparkle (WORLD_LIGHT, the SAND block; the strength is system.ts SPARKLE_K by the mood's sun):
+ * the lattice's cell, how far it is drawn, the share of the cells that flash at any one time, how many times more of
+ * them flash in the sun's glitter path, and the baked light (luminance, scene light) between which sand counts as sunlit.
+ */
+/** High tier, the relief of the detail texture (WORLD_LIGHT): how steep its height is read, and the least and the most the sunlight of a pixel is scaled */
+export const RELIEF_DEPTH = 6, RELIEF_MIN = 0.6, RELIEF_MAX = 1.5;
+/** pass i2: where the light that is not a sun comes from for the relief (the open sky over a shaded street, the lamps of a room): overhead, leaning */
+export const RELIEF_SKY_DIR: readonly [number, number, number] = [0.37, 0.89, 0.27];
+export const SPARK_GRAIN = 0.02, SPARK_FAR = 16, SPARK_SHARE = 0.006, SPARK_PATH = 5, SPARK_LIT_FROM = 0.40, SPARK_LIT_TO = 0.62;
+/** the air light (post.ts): the size of a whole lamp, and the reach of a lamp's light in the air by its size (metres) */
+export const AIR_SIZE = 0.30, AIR_REACH_MIN = 1.5, AIR_REACH_MAX = 3.5;
+/** pass i3: how far down a lamp's face must look (LampInfo.face, 1 = straight down) before it throws a cone, and where the cone is whole */
+export const AIR_CONE_FACE_FROM = 0.35, AIR_CONE_FACE_TO = 0.75;
+/** pass i3, the glance (WORLD_LIGHT): how far up a face must look (its normal's y) before it takes any, and all of it */
+export const GLANCE_UP_FROM = 0.35, GLANCE_UP_TO = 0.80;
 /** a lamp set of more lamps than this on one mesh is a dense one (MaterialFactory.denseHold) */
 export const DENSE_LAMPS = 8;
 const MAX_ISLANDS = 48;
@@ -65,9 +82,25 @@ uniform vec4 uObj[ ${OBJ_SLOTS} ];
 // the left of every barrel and flute), the rim a narrow lobe on what faces straight up (top strap, hammer, the cylinder's crown).
 const VM_KEY_DIR = new THREE.Vector3(-0.62, 0.70, 0.35).normalize(), VM_RIM_DIR = new THREE.Vector3(0.22, 0.93, -0.30).normalize();
 /** dark steel shows by what it reflects: the gun's diffuse term is lifted by this, its hands take this share of the rig */
-const GUN_GAIN = 1.0, VM_HANDS = 0.88;   // look team gun, round 5: the hands' share of the rig 0.75 -> 0.88 (the gloves sat at L* 22 indoors, 'two brown lumps'; the cuff is in the frame now and was the view-model's only black)
+const GUN_GAIN = 1.0, VM_HANDS = 0.96, VM_STAIR_Y = 0.55;   // VM_STAIR_Y (pass i3): the view-model's height (metres, world) under which it stands on the gallery stair, not in the Tally House (the eye is 1.65 over the hall's floor at y = 0)   // look team gun, round 5: the hands' share of the rig 0.75 -> 0.88 (the gloves sat at L* 22 indoors, 'two brown lumps'; the cuff is in the frame now and was the view-model's only black)
 /** look team gun, round 5: the studio the blued steel mirrors (the GUN branch of DYN_FRAG): the horizon's tilt and height, the floor's two ambient terms and its key term, the sky's base, the horizon band */
-const GUN_HZ_X = 0.20, GUN_HZ_0 = 0.12, GUN_FLOOR_A = 0.16, GUN_FLOOR_A2 = 0.18, GUN_FLOOR_K = 0.022, GUN_SKY_A = 0.16, GUN_BAND_K = 1.30, GUN_TOE = 0.25, GUN_RIM = 0.70;
+/** release pass p0 (ruling R14, look team gun): metres of relief of a full step of the height maps (tx_gun_detail, tx_hands_detail), and how much a hollow darkens what it holds */
+const GUN_BUMP = 0.0016, GUN_CAVITY = 0.9, HANDS_BUMP = 0.0032, HANDS_CAVITY = 1.1;
+const GUN_HZ_X = 0.20, GUN_HZ_0 = 0.12, GUN_TOE = 0.24, GUN_RIM = 0.70, GUN_TOE_STEEL = 0.225, GUN_TOE_KNEE = 2.5, HANDS_TOE = 0.85;   // pass i3: the STEEL's floor is 0.225 of its cooled ambient (0.24 of the room's until now: the body sits under the room); the GLOVES' floor is 0.85 of GUN_TOE (it was half): with the hand seated on the grip its creases, the hollow of the fist and the cuff were what fell under L* 12 (4.1 % of the view-model in the chamber), not the steel
+/** look team gun, pass i1: the studio's ground (the key's hue, the ambient's), its sky, its band; how much blued and bare steel mirror; the albedo at which a texel counts as bare steel; the blue's tint of what it mirrors */
+const GUN_GND_K = 0.045, GUN_GND_A = 0.10, GUN_SKY_A = 0.11, GUN_SKY_H = 0.50, GUN_BAND_K = 4.00, GUN_BAND_FALL = 19.0, GUN_REFL = 0.80, GUN_REFL_BARE = 3.0, GUN_BARE_0 = 0.060, GUN_BARE_1 = 0.170, GUN_TINT = 0.60;
+/** look team gun, pass i2: how much of the blue's tint the KEY's reflections take (the fill's take GUN_TINT); the baked occlusion (COLOR_0) under which a texel mirrors only GUN_OCC_FLOOR of the room, and over which all of it */
+const GUN_TINT_KEY = 0.20, GUN_OCC_0 = 0.42, GUN_OCC_1 = 0.74, GUN_OCC_FLOOR = 0.12;
+/**
+ * look team gun, pass i3 (both visual reviewers: "five different guns rather than one blued revolver taking five lights":
+ * tan in the Tally House, bleached at the plate door, copper on the stair, pale silver at dusk; "a white-hot highlight
+ * on the muzzle crown in every mood"). The STEEL's body (what it mirrors of the room's fill, its toe, the broad matcap
+ * and the lit floor) takes only GUN_AMB_SAT / GUN_KEY_SAT of the room's hue and is cooled by GUN_STEEL: one blue-black
+ * gun in every room. The room's colour stays whole in the thin terms: the horizon band, the hot spot, the rim. Wood and
+ * brass (a texel whose blue is under its red) keep the room's light. And everything the steel adds by mirroring is
+ * held under GUN_CAP of the view-model key's luminance by a soft shoulder (it can reach twice that, never white).
+ */
+const GUN_AMB_SAT = 0.10, GUN_KEY_SAT = 0.25, GUN_STEEL: readonly [number, number, number] = [0.72, 0.92, 1.24], GUN_CAP = 0.70;
 
 const WORLD_VERT_PARS = /* glsl */`
 #ifdef FARCARD
@@ -196,6 +229,80 @@ const WORLD_LIGHT = /* glsl */`
 		outgoingLight += keepLight * mix( diffuseColor.rgb, vec3( dot( diffuseColor.rgb, vec3( 0.3333 ) ) ), 0.5 ) * ( uSheen * keepSf * keepSw * keepSh * ( 0.15 + 0.85 * min( keepSl, 1.6 ) ) );
 	}
 	#endif
+	#if defined( LM ) && defined( DETAIL ) && defined( USE_MAP )
+	if ( uRelief > 0.0 || uReliefSky > 0.0 || uGlance.w > 0.0 ) {
+		// High tier, render-tech pass i1 (R9; the visual reviewer: "a High-only detail-normal on sand and concrete"). The
+		// detail texture is a drawing of the surface's relief (ripples, plank gaps, plaster) and the bake's sun is flat
+		// across it. Read as a height (two more taps, one pixel along each screen axis: three's own bump method), it tilts
+		// the face's normal, and the baked SUNLIGHT follows the tilt: a ripple's sunward side lifts, its lee side falls. Only
+		// where the bake put sun (the sparkle's own test); in shade there is no direction to follow. One uniform, no texture
+		// and no program of its own: 0 on Low and min, where the branch is skipped.
+		float keepRl = smoothstep( ${SPARK_LIT_FROM.toFixed(2)}, ${SPARK_LIT_TO.toFixed(2)}, dot( keepLight, vec3( 0.2126, 0.7152, 0.0722 ) ) );
+		vec3 keepRx = dFdx( vWPos ), keepRy = dFdy( vWPos );
+		vec3 keepRn = cross( keepRx, keepRy );
+		float keepRnl = length( keepRn ), keepRxl = length( keepRx ), keepRyl = length( keepRy );
+		// pass i2: ... and where the bake put no sun (a shaded wall, the sand in a building's shade, a room's plate
+		// under its lamps) the relief follows the light that is there, the sky's or the lamps', from overhead
+		// (uReliefSky; RELIEF_SKY_DIR). Under a mood with a sun the two share a surface by its baked light.
+		float keepRk = uReliefSky * ( uRelief > 0.0 ? 1.0 - keepRl : 1.0 );
+		keepRl *= uRelief;
+		if ( keepRl + keepRk + uGlance.w > 0.0 && keepRnl > 1e-12 && keepRxl > 1e-9 && keepRyl > 1e-9 ) {
+			keepRn /= keepRnl; keepRx /= keepRxl; keepRy /= keepRyl;
+			float keepRh = texture2D( map, vMapUv ).r;
+			vec2 keepRd = vec2( texture2D( map, vMapUv + dFdx( vMapUv ) ).r, texture2D( map, vMapUv + dFdy( vMapUv ) ).r ) - keepRh;
+			vec3 keepR1 = cross( keepRy, keepRn ), keepR2 = cross( keepRn, keepRx );
+			float keepRdet = dot( keepRx, keepR1 );
+			vec3 keepRt = normalize( abs( keepRdet ) * keepRn - sign( keepRdet ) * ( keepRd.x * keepR1 + keepRd.y * keepR2 ) * ${RELIEF_DEPTH.toFixed(1)} );
+			const vec3 keepRs = vec3( ${RELIEF_SKY_DIR[0].toFixed(3)}, ${RELIEF_SKY_DIR[1].toFixed(3)}, ${RELIEF_SKY_DIR[2].toFixed(3)} );
+			outgoingLight *= clamp( 1.0 + ( dot( keepRt, uSunDir ) - dot( keepRn, uSunDir ) ) * keepRl + ( dot( keepRt, keepRs ) - dot( keepRn, keepRs ) ) * keepRk, ${RELIEF_MIN.toFixed(2)}, ${RELIEF_MAX.toFixed(2)} );
+			if ( uGlance.w > 0.0 ) {
+				// pass i3 (R9, the rim): a light low in the sky glances off ground seen at a grazing angle, toward the eye that
+				// faces it: the mirror direction of the eye about the relief's own normal against the light's (the mood's lean,
+				// uSunDir), a wide lobe, on faces that look up, more the flatter they are seen. The ripples' far sides carry it.
+				// Unshadowed and added before the fog. One vec4 of the block: w = 0 on Low and min, where this is skipped.
+				vec3 keepGv = cameraPosition - vWPos;
+				keepGv /= max( length( keepGv ), 1e-4 );
+				float keepGf = 1.0 - clamp( dot( keepGv, keepRn ), 0.0, 1.0 );
+				float keepGl = max( dot( reflect( - keepGv, keepRt ), uSunDir ), 0.0 );
+				outgoingLight += diffuseColor.rgb * uGlance.rgb * ( pow( keepGl, uGlance.w ) * keepGf * keepGf * smoothstep( ${GLANCE_UP_FROM.toFixed(2)}, ${GLANCE_UP_TO.toFixed(2)}, keepRn.y ) );
+			}
+		}
+	}
+	#endif
+	#if defined( LM ) && defined( SAND )
+	if ( uSparkle > 0.0 ) {
+		// High tier, render-tech pass i1 (ART_BIBLE 3.2: "sand sparkle on sun-facing sand (thresholded, High only)"; R9:
+		// outdoors by day High drew Low's frame). Sand is quartz: each grain is a facet, and a facet that mirrors the low sun
+		// into the eye flashes. A world-space lattice of SPARK_GRAIN metres; a cell flashes while the eye stands in its own
+		// narrow slot (so the field twinkles as she walks and is still when she is), more often toward the sun's mirror
+		// direction (the glitter path), only where the bake put sun on the sand, on ground that faces up, out to SPARK_FAR
+		// metres (beyond it a grain is under a pixel). One uniform, no texture: 0 on Low and min, where the branch is skipped.
+		vec3 keepPv = cameraPosition - vWPos;
+		float keepPd = length( keepPv );
+		float keepPf = 1.0 - smoothstep( ${(SPARK_FAR * 0.5).toFixed(1)}, ${SPARK_FAR.toFixed(1)}, keepPd );
+		float keepPl = smoothstep( ${SPARK_LIT_FROM.toFixed(2)}, ${SPARK_LIT_TO.toFixed(2)}, dot( keepLight, vec3( 0.2126, 0.7152, 0.0722 ) ) );
+		// exterior look, pass i3 (the visual reviewer: "cold white-blue specks scatter across shadowed warm sand left of the
+		// sun shaft ... in the title frame"): the luminance test let the overhang's fill and the penumbra of the patch
+		// through, and a grain flashed in the shade's own blue. Sun on sand is WARM (the key's red over the sky's blue): a
+		// grain flashes only where the baked light is, and in a warm white, not in the baked light's hue
+		keepPl *= smoothstep( -0.42, -0.24, ( keepLight.r - keepLight.b ) / max( keepLight.r + keepLight.b, 1e-3 ) );
+		if ( keepPf * keepPl > 0.0 ) {
+			keepPv /= max( keepPd, 1e-4 );
+			vec3 keepPn = cross( dFdx( vWPos ), dFdy( vWPos ) );
+			keepPn /= max( length( keepPn ), 1e-12 );
+			vec2 keepPc = floor( vWPos.xz * ${(1 / SPARK_GRAIN).toFixed(2)} );
+			vec3 keepPh = fract( vec3( keepPc.xyx ) * vec3( 0.1031, 0.1030, 0.0973 ) );
+			keepPh += dot( keepPh, keepPh.yzx + 33.33 );
+			vec2 keepPr = fract( ( keepPh.xx + keepPh.yz ) * keepPh.zy );
+			// the slot: the eye's direction slides every cell's phase; SPARK_SHARE of the cells are in theirs at any time
+			float keepPs = fract( keepPr.x + dot( keepPv, vec3( 23.0, 7.0, 19.0 ) ) );
+			float keepPg = max( dot( reflect( - uSunDir, keepPn ), keepPv ), 0.0 );
+			float keepPshare = ${SPARK_SHARE.toFixed(4)} * ( 1.0 + ${SPARK_PATH.toFixed(1)} * keepPg * keepPg * keepPg * keepPg );
+			float keepPon = step( 1.0 - keepPshare, keepPs ) * smoothstep( 0.5, 0.8, keepPn.y );
+			outgoingLight += dot( keepLight, vec3( 0.2126, 0.7152, 0.0722 ) ) * vec3( 1.10, 0.98, 0.78 ) * ( uSparkle * keepPon * keepPf * keepPl * ( 0.5 + keepPr.y ) );
+		}
+	}
+	#endif
 	if ( keepPulseOn() ) {
 		// no normal attribute reaches a world material: the face's own, from screen derivatives (it always faces the eye).
 		// shared.ts PULSE_GLSL: the ring as before, a filled pulse (the muzzle) shaded by N.L and held under the cap
@@ -246,11 +353,13 @@ varying vec3 vCol;
 varying vec3 vWPos;
 varying vec3 vRim;
 varying vec3 vWN;
-#ifdef GUN
+#if defined( GUN ) || defined( HANDS )
 varying vec3 vVN;
+varying vec3 vVP;
+#endif
+#ifdef GUN
 varying vec3 vKeyCol;
 varying vec3 vKeyV;
-varying vec3 vVP;
 #endif
 void main() {
 	vUv0 = uv;
@@ -265,6 +374,35 @@ void main() {
 	#ifdef BREATH
 	// 2 mm of chest at 0.25 Hz, weight in UV1.x
 	transformed += normal * ( 0.002 * sin( uTime * 1.5708 ) * uv1.x );
+	#ifdef USE_INSTANCING
+	// creatures and props, pass i1 (the visual reviewer: "a line of identical balls"): the nine at the tally table are one
+	// instanced mesh. Each one's HEAD (weight in UV1.y: bider_table_static only, 0 on every other mesh) is turned, bowed
+	// and tipped a little about its neck (NOD_PIVOT, the asset's extra nod_pivot) by angles hashed from where it sits:
+	// up to 24 degrees aside, 4 back to 15 down, 8 over a shoulder. No triangle, no draw call, no second mesh.
+	// Pass i2 (the reviewers: "the nine are near-identical", "vary the slumps"): the head goes further (5 degrees back to 24
+	// down: one or two have their chin on their chest), and the TRUNK slumps as well, about the hips (LEAN_PIVOT, the
+	// asset's extra lean_pivot at the seat's height), by the weight in UV1.x: one leans on an elbow, one sags forward over
+	// the table, one sits back. The forearms and hands carry no weight and stay where they lie. The mesh is marked by
+	// UV1.y >= 0.02 on every vertex (0.02 .. 1 = the head's weight); 0 on every other breathing static.
+	if ( uv1.y > 0.01 ) {
+		float hw = ( uv1.y - 0.02 ) / 0.98;
+		vec2 seat = vec2( instanceMatrix[ 3 ].x, instanceMatrix[ 3 ].z );
+		vec3 hh = fract( sin( vec3( dot( seat, vec2( 12.9898, 78.233 ) ), dot( seat, vec2( 39.346, 11.135 ) ), dot( seat, vec2( 73.156, 52.235 ) ) ) ) * 43758.5453 );
+		float ay = ( hh.x - 0.5 ) * 0.84, ax = hh.y * hh.y * 0.51 - 0.09, az = ( hh.z - 0.5 ) * 0.34;
+		float cy = cos( ay ), sy = sin( ay ), cx = cos( ax ), sx = sin( ax ), cz = cos( az ), sz = sin( az );
+		mat3 nod = mat3( cy, 0.0, -sy, 0.0, 1.0, 0.0, sy, 0.0, cy ) * mat3( 1.0, 0.0, 0.0, 0.0, cx, sx, 0.0, -sx, cx ) * mat3( cz, sz, 0.0, -sz, cz, 0.0, 0.0, 0.0, 1.0 );
+		const vec3 NOD_PIVOT = vec3( 0.0, 1.007, 0.140 );
+		transformed = mix( transformed, NOD_PIVOT + nod * ( transformed - NOD_PIVOT ), hw );
+		objectNormal = normalize( mix( objectNormal, nod * objectNormal, hw ) );
+		vec3 hl = fract( sin( vec3( dot( seat, vec2( 27.619, 57.583 ) ), dot( seat, vec2( 91.137, 33.71 ) ), dot( seat, vec2( 5.297, 61.93 ) ) ) ) * 43758.5453 );
+		ay = ( hl.x - 0.5 ) * 0.30; ax = hl.y * hl.y * 0.22 - 0.05; az = ( hl.z - 0.5 ) * 0.26;
+		cy = cos( ay ); sy = sin( ay ); cx = cos( ax ); sx = sin( ax ); cz = cos( az ); sz = sin( az );
+		mat3 lean = mat3( cy, 0.0, -sy, 0.0, 1.0, 0.0, sy, 0.0, cy ) * mat3( 1.0, 0.0, 0.0, 0.0, cx, sx, 0.0, -sx, cx ) * mat3( cz, sz, 0.0, -sz, cz, 0.0, 0.0, 0.0, 1.0 );
+		const vec3 LEAN_PIVOT = vec3( 0.0, 0.500, -0.050 );
+		transformed = mix( transformed, LEAN_PIVOT + lean * ( transformed - LEAN_PIVOT ), uv1.x );
+		objectNormal = normalize( mix( objectNormal, lean * objectNormal, uv1.x ) );
+	}
+	#endif
 	#endif
 	#include <skinning_vertex>
 	mat4 mm = modelMatrix;
@@ -274,11 +412,18 @@ void main() {
 	vec4 wp = mm * vec4( transformed, 1.0 );
 	#ifdef WIND
 	{
-		// sway: weight = height above the pivot
-		float w = max( transformed.y, 0.0 );
+		// sway: weight = distance from the pivot, the fixed end. Release pass p0 (creatures-props): it was the height
+		// ABOVE the pivot, and everything that carries the wind flag (the coats and shawls of the peg stair, the strain
+		// cloth) hangs BELOW its peg: nothing ever moved. A hung thing swings along its wall (its own X) and billows
+		// out from it (its own +Z, the modelled face), never into the wall behind.
+		float w = abs( transformed.y );
 		float ph = uTime * 1.7 + mm[ 3 ].x * 0.9 + mm[ 3 ].z * 1.3;
-		wp.x += sin( ph ) * 0.035 * w + sin( ph * 2.3 + 1.0 ) * 0.012 * w;
-		wp.z += cos( ph * 0.8 ) * 0.03 * w;
+		vec3 side = mm[ 0 ].xyz, fwd = mm[ 2 ].xyz;
+		float sl = length( side ), fl = length( fwd );
+		if ( sl > 1e-5 && fl > 1e-5 ) {
+			wp.xyz += ( side / sl ) * ( ( sin( ph ) * 0.030 + sin( ph * 2.3 + 1.0 ) * 0.010 ) * w );
+			wp.xyz += ( fwd / fl ) * ( ( 0.5 + 0.5 * cos( ph * 0.8 ) ) * 0.022 * w );
+		}
 	}
 	#endif
 	vWPos = wp.xyz;
@@ -319,11 +464,13 @@ void main() {
 	#else
 	vFog = vec4( keepFogColourE( ray / max( dist, 1e-4 ), dist, uObjExt ), keepFogAmountE( ray, dist, uObjExt ) );
 	#endif
-	#ifdef GUN
+	#if defined( GUN ) || defined( HANDS )
 	vVN = normalize( mat3( viewMatrix ) * wn );
+	vVP = ( viewMatrix * wp ).xyz;
+	#endif
+	#ifdef GUN
 	vKeyCol = uObjAmbient + uObjKey;
 	vKeyV = uObjVm > 0.5 ? uObjKeyDir : normalize( mat3( viewMatrix ) * uObjKeyDir );
-	vVP = ( viewMatrix * wp ).xyz;
 	#endif
 	gl_Position = projectionMatrix * viewMatrix * wp;
 }
@@ -344,11 +491,29 @@ varying vec3 vCol;
 varying vec3 vWPos;
 varying vec3 vRim;
 varying vec3 vWN;
-#ifdef GUN
+#if defined( GUN ) || defined( HANDS )
 varying vec3 vVN;
+varying vec3 vVP;
+uniform sampler2D uDetail;
+// Release pass p0 (ruling R14; the reviewers: "a smooth toy-like casting", "two brown lumps"): the view-model's surface
+// detail. One channel of height in the albedo's layout (0.5 = flat) bends the view-space normal: the slope is taken from
+// two more taps one pixel away, against the surface's own screen derivatives, so the relief is in metres whatever the
+// distance. h is the height itself (the cavity term).
+vec3 keepBump( vec3 vn, float metres, out float h ) {
+	vec2 dx = dFdx( vUv0 ), dy = dFdy( vUv0 );
+	h = texture2D( uDetail, vUv0 ).r;
+	float hx = texture2D( uDetail, vUv0 + dx ).r - h;
+	float hy = texture2D( uDetail, vUv0 + dy ).r - h;
+	vec3 sx = dFdx( vVP ), sy = dFdy( vVP );
+	vec3 r1 = cross( sy, vn ), r2 = cross( vn, sx );
+	float det = dot( sx, r1 );
+	vec3 g = ( hx * r1 + hy * r2 ) * ( metres * sign( det ) );
+	return normalize( abs( det ) * vn - g );
+}
+#endif
+#ifdef GUN
 varying vec3 vKeyCol;
 varying vec3 vKeyV;
-varying vec3 vVP;
 #endif
 void main() {
 	vec3 albedo = vCol;
@@ -358,8 +523,23 @@ void main() {
 	albedo *= texel.rgb;
 	gloss = texel.a;
 	#endif
+	vec3 lit = vLight;
+	#ifdef HANDS
+	// the hands (m_hands): lit per pixel by the view-model's rig through the bent normal (the vertex light is the same
+	// rig through the smooth one), and the seams and creases hold shade
+	float handH = 0.5;
+	vec3 handN = normalize( vVN );
+	#ifdef TEXTURED
+	handN = keepBump( handN, ${HANDS_BUMP.toFixed(4)}, handH );
+	#endif
+	{
+		float hk = dot( handN, uObjKeyDir );
+		lit = uObjAmbient * ( 0.7 + 0.3 * handN.y ) + uObjKey * ( 0.92 * max( hk, 0.0 ) + 0.08 * ( hk * 0.5 + 0.5 ) );
+		albedo *= clamp( 1.0 + ( handH - 0.5 ) * ${HANDS_CAVITY.toFixed(2)}, 0.66, 1.10 );
+	}
+	#endif
 	// a filled pulse (the muzzle): held under the cap per pixel, then shaded (shared.ts PULSE_GLSL)
-	vec3 c = albedo * vLight;
+	vec3 c = albedo * lit;
 	if ( keepPulseOn() ) {
 		vec4 filled;
 		vec3 ring = keepPulseLit( vWPos, normalize( vWN ), filled );
@@ -368,6 +548,16 @@ void main() {
 	#ifdef GUN
 	{
 		vec3 vn = normalize( vVN );
+		#ifdef TEXTURED
+		{
+			// release pass p0 (R14): tx_gun_detail bends what the steel mirrors (seams, screw slots, tool marks, the grain
+			// of the walnut) and its hollows hold shade
+			float gh;
+			vn = keepBump( vn, ${GUN_BUMP.toFixed(4)}, gh );
+			float cav = clamp( 1.0 + ( gh - 0.5 ) * ${GUN_CAVITY.toFixed(2)}, 0.5, 1.08 );
+			c *= cav; gloss *= cav;
+		}
+		#endif
 		// Look-dev, polish round 3 (R6): blued steel is DARK and shows by what it mirrors. Round 3's first rig added a
 		// flat share of the ambient to every face: each facet came out one even mid-grey (a plastic gun). Now the base
 		// stays near the albedo and the faces mirror a small studio in VIEW space, looked up by the reflected EYE RAY
@@ -379,40 +569,85 @@ void main() {
 		vec3 rf = reflect( ve, vn );
 		float fr = 1.0 - max( dot( -ve, vn ), 0.0 );
 		fr = 0.30 + 0.70 * fr * fr;
-		// look team gun, round 5 (the critic: "a pale flat-grey slab ... primer-grey plastic"): rounds 3 and 4 kept the gun
-		// out of black with a FLAT floor (0.58 of the ambient + 0.20 of the key on every face that mirrors the ground), and
-		// seen from its side that floor was the whole frame plate: one even L* 37. The studio now has a value structure:
-		// a dark floor that still falls away under the gun (never flat, never black), the horizon tilted and LOWERED so its
-		// hard line runs across the frame plate and along the barrel at the idle pose, and a sky that carries the mood.
+		// Pass i1 (both visual reviewers: "one glossy cobalt colour from muzzle to grip", "matt putty-grey in warm rooms",
+		// "tint the reflection, not the base value"). Until now the horizon band was broad (exp -5 hz) and in the KEY's colour,
+		// so most of every face was the key at half strength: a tan gun in the Tally House, and out of doors the albedo's blue
+		// tinted all of it (x 0.55). The studio is now three things with three jobs:
+		//   the ground   what the room's key falls on, in the key's hue, dim: warm undersides on the street and in the lamp
+		//                rooms, teal ones underground. It carries the MOOD;
+		//   the sky      the mood's ambient, low: the body of the steel stays DARK in every room;
+		//   the band     a thin hot line of the key on the horizon: the streak along the barrel and the frame's edge.
+		// And the texture decides how much a texel mirrors: blued steel a little, steel worn bright (tx_gun's edge wear,
+		// holster rub, scratches) three times as much, so the wear is drawn in light, not in grey paint.
+		float aMax = max( albedo.r, max( albedo.g, albedo.b ) );
+		float bare = smoothstep( ${GUN_BARE_0.toFixed(3)}, ${GUN_BARE_1.toFixed(3)}, aMax ) * smoothstep( 0.45, 0.70, gloss );
 		float hz = rf.y + ${GUN_HZ_X.toFixed(2)} * rf.x + ${GUN_HZ_0.toFixed(2)};
 		float sky = smoothstep( -0.04, 0.06, hz );
-		float band = sky * exp( -hz * 5.0 );
+		float band = sky * exp( -hz * ${GUN_BAND_FALL.toFixed(1)} );
 		float under = smoothstep( -0.75, 0.0, hz );
-		vec3 env = uObjAmbient * ( ${GUN_FLOOR_A.toFixed(2)} + ${GUN_FLOOR_A2.toFixed(2)} * under + sky * ( ${GUN_SKY_A.toFixed(2)} + 0.40 * hz ) ) + uObjKey * ( ${GUN_FLOOR_K.toFixed(2)} + ${GUN_BAND_K.toFixed(2)} * band );
-		// a face turned to the eye mirrors her, not the room: dark (the blue reads there); and the blue tints what it mirrors
-		env *= 1.0 - 0.32 * smoothstep( -0.10, 0.75, rf.z );
-		env *= mix( vec3( 1.0 ), albedo / max( max( albedo.r, max( albedo.g, albedo.b ) ), 0.02 ), 0.55 );
+		float gk = 0.30 + 0.70 * under * under;
+		// Pass i2 (both visual reviewers: "flat pale pewter in the shutter-lit Tally House", "a light grey casting with no
+		// orange in it"): the steel's blue tinted EVERYTHING it mirrored, the room's light with it, so a lamp-orange key
+		// came back grey. The blue tints what comes from the room's fill (the sky term, the floor's ambient); what comes
+		// from the KEY (the horizon band, the lit floor, the hot spot) keeps the light's own colour, as a highlight on
+		// blued steel does: orange edges on dark steel in the lamp rooms, teal ones underground.
+		const vec3 LW = vec3( 0.2126, 0.7152, 0.0722 );
+		float steelK = smoothstep( 0.62, 0.90, albedo.b / max( albedo.r, 1e-4 ) );
+		vec3 gAmb = mix( uObjAmbient, mix( vec3( dot( uObjAmbient, LW ) ), uObjAmbient, ${GUN_AMB_SAT.toFixed(2)} ) * vec3( ${GUN_STEEL.map((v) => v.toFixed(2)).join(', ')} ), steelK );
+		vec3 gKey = mix( uObjKey, mix( vec3( dot( uObjKey, LW ) ), uObjKey, ${GUN_KEY_SAT.toFixed(2)} ) * vec3( ${GUN_STEEL.map((v) => v.toFixed(2)).join(', ')} ), steelK );
+		vec3 envA = mix( gAmb * ( ${GUN_GND_A.toFixed(2)} * gk ), gAmb * ( ${GUN_SKY_A.toFixed(2)} + ${GUN_SKY_H.toFixed(2)} * hz ), sky );
+		vec3 envK = mix( gKey * ( ${GUN_GND_K.toFixed(3)} * gk ), uObjKey * ( ${GUN_BAND_K.toFixed(2)} * band ), sky );
+		vec3 hue = mix( vec3( 1.0 ), albedo / max( aMax, 0.02 ), ${GUN_TINT.toFixed(2)} * ( 1.0 - bare ) );
+		// a face turned to the eye mirrors her, not the room: dark
+		vec3 env = ( envA * hue + envK * mix( vec3( 1.0 ), hue, ${GUN_TINT_KEY.toFixed(2)} ) ) * ( 1.0 - 0.32 * smoothstep( -0.10, 0.75, rf.z ) );
+		// ... and what sits in a hollow mirrors the gun, not the room (pass i2, "a constant cyan-white stripe on the lower
+		// frame in every zone": the frame's ledge under the cylinder faces straight up, took the whole rim and the sky term,
+		// and lies 3 mm under the cylinder). COLOR_0 is the baked occlusion: it gates every mirrored term.
+		float open = ${GUN_OCC_FLOOR.toFixed(2)} + ${(1 - GUN_OCC_FLOOR).toFixed(2)} * smoothstep( ${GUN_OCC_0.toFixed(2)}, ${GUN_OCC_1.toFixed(2)}, vCol.g );
+		float refl = mix( ${GUN_REFL.toFixed(2)}, ${GUN_REFL_BARE.toFixed(2)}, bare ) * open;
 		float nh = max( dot( rf, vKeyV ), 0.0 );
 		float nk = max( dot( vn, vKeyV ), 0.0 );
-		c += gl * ( fr * env + uObjKey * ( pow( nh, 24.0 ) * 0.9 + pow( nk, 6.0 ) * 0.10 ) );
+		vec3 gsp = gl * refl * ( fr * env + uObjKey * ( pow( nh, 40.0 ) * 2.0 + pow( nk, 8.0 ) * 0.05 ) );
 		#ifdef TEXTURED
-		c += texture2D( uMatcap, vn.xy * 0.5 + 0.5 ).rgb * gloss * vKeyCol * 0.35;
+		gsp += texture2D( uMatcap, vn.xy * 0.5 + 0.5 ).rgb * gloss * mix( vKeyCol, mix( vec3( dot( vKeyCol, LW ) ), vKeyCol, ${GUN_KEY_SAT.toFixed(2)} ) * vec3( ${GUN_STEEL.map((v) => v.toFixed(2)).join(', ')} ), steelK ) * ( 0.09 * refl );
 		#endif
-		c += vRim * ( ${GUN_RIM.toFixed(2)} * ( 0.25 + 0.75 * gl ) );   // round 5: the cool rim from above painted every upward face lavender (x 1 until then)
+		gsp += vRim * ( ${GUN_RIM.toFixed(2)} * ( 0.25 + 0.75 * gl ) * refl );   // round 5: the cool rim from above painted every upward face lavender (x 1 until then)
+		{
+			// pass i3: the shoulder (see GUN_CAP)
+			float gsl = dot( gsp, LW ), glim = ${GUN_CAP.toFixed(2)} * dot( uObjKey, LW ) + 1e-4;
+			float gov = max( gsl - glim, 0.0 );
+			gsp *= ( min( gsl, glim ) + gov * glim / ( gov + glim ) ) / max( gsl, 1e-5 );
+		}
+		c += gsp;
 		// integration: a NARROW rim. The revolver is seen from behind and above: nearly every face of the barrel and the
 		// frame is at a grazing angle, and rim^3 x 0.35 of the sky colour washed the whole gun pale teal out of doors on
 		// High (shots/integrate-art/game_high/cp_street_clear.png). It stays the darkest thing in the frame.
 		float rim = 1.0 - max( vn.z, 0.0 );
 		float rim2 = rim * rim;
-		c += uSkyCol * ( uFresnel * rim2 * rim2 * rim * 0.10 );
+		c += uSkyCol * ( uFresnel * rim2 * rim2 * rim * 0.10 * open );
 		// round 5: "never black" is held by a toe, not by a flat floor on every face: only what would fall under the
 		// rig's own shadow level is lifted to it (in the ambient's hue), so the dark faces keep their gradient above it
-		vec3 toe = uObjAmbient * ${GUN_TOE.toFixed(2)};
+		vec3 toe = gAmb * ${GUN_TOE_STEEL.toFixed(2)};
 		float tl = dot( toe, vec3( 0.2126, 0.7152, 0.0722 ) );
-		c += toe * clamp( 1.0 - dot( c, vec3( 0.2126, 0.7152, 0.0722 ) ) / ( 2.5 * tl + 1e-5 ), 0.0, 1.0 );
+		c += toe * clamp( 1.0 - dot( c, vec3( 0.2126, 0.7152, 0.0722 ) ) / ( ${GUN_TOE_KNEE.toFixed(1)} * tl + 1e-5 ), 0.0, 1.0 );
 	}
 	#else
-	#ifdef TEXTURED
+	#ifdef HANDS
+	{
+		// worked leather has a soft sheen where it is worn smooth (tx_hands' alpha): a broad lobe of the key, a little
+		// of the room at a grazing angle
+		vec3 he = normalize( vVP );
+		vec3 hr = reflect( he, handN );
+		float hf = 1.0 - max( dot( -he, handN ), 0.0 );
+		c += gloss * ( uObjKey * ( pow( max( dot( hr, uObjKeyDir ), 0.0 ), 10.0 ) * 0.30 ) + uObjAmbient * ( hf * hf * 0.30 ) );
+		// never black (R6), as on the steel: only what falls under the rig's shadow level is lifted to it (the cuff's
+		// folds, the inside of the fist), in the ambient's hue
+		vec3 htoe = uObjAmbient * ${(GUN_TOE * HANDS_TOE).toFixed(3)};
+		float htl = dot( htoe, vec3( 0.2126, 0.7152, 0.0722 ) );
+		c += htoe * clamp( 1.0 - dot( c, vec3( 0.2126, 0.7152, 0.0722 ) ) / ( 2.5 * htl + 1e-5 ), 0.0, 1.0 );
+	}
+	#endif
+	#if defined( TEXTURED ) && ! defined( HANDS )
 	{
 		// emissive cells of tx_palette_emis; the knot pulse is 0.7 -> 1.0 at 1.5 Hz
 		vec3 e = texture2D( uEmisMap, vUv0 ).rgb;
@@ -421,7 +656,9 @@ void main() {
 		float col = floor( vUv0.x * 16.0 );
 		float violet = step( e.g * 1.3, e.b ) * step( e.g * 1.1, e.r );
 		// wrong_fade: a knot's violet goes out (the husk grey is its albedo), a livery band's turns aqua
-		float band = step( 5.5, col );
+		// (pass i3: columns 6 and 7 only. The crown knot's painted glass lies in columns 10 to 13, blender/tex/knot_atlas.py:
+		// it goes out like every other knot)
+		float band = step( 5.5, col ) * step( col, 7.5 );
 		vec3 turned = mix( vec3( 0.0 ), vec3( 0.2, 0.89, 0.76 ) * max( e.r, e.b ), band );
 		e = mix( e, turned, wf * violet );
 		c += e * ( uObjEmissive * pulse * uHdr );
@@ -548,12 +785,20 @@ export interface LampInfo {
   rgbh: Float32Array;
   /** many lamps packed close (see lampInfoOf): held under the High tier's bloom (MaterialFactory.denseHold) */
   dense: boolean;
+  /**
+   * Pass i3: where each lamp's lit face LOOKS (object space, x, y, z per lamp): the sum of its triangles' area vectors over
+   * the sum of their areas. A disc or a strip that faces one way has length 1 along its normal; a closed bulb or a box has 0
+   * (it shines all round). The air light gives a lamp that looks down a cone under it (post.ts AIR_CONE_ANGLE).
+   */
+  face: Float32Array;
 }
 class EmisState {
   count = 0; mask = 0; boost = 1; triggered = false;
   lastSeen = -1;
   info: LampInfo | null = null;
   lamps = 0;
+  /** index of the layout zone whose static geometry the mesh belongs to (-1: a dynamic thing), for the air light */
+  zone = -1;
   constructor(readonly mesh: THREE.Mesh) {}
 }
 
@@ -650,6 +895,24 @@ function lampInfoOf(geometry: THREE.BufferGeometry, lampCount: number, textured:
     at[g * 4 + 3] = Math.max((max[g * 3] as number) - (min[g * 3] as number), (max[g * 3 + 1] as number) - (min[g * 3 + 1] as number), (max[g * 3 + 2] as number) - (min[g * 3 + 2] as number));
     rgbh[g * 4] = (sum[g * 4] as number) / k; rgbh[g * 4 + 1] = (sum[g * 4 + 1] as number) / k; rgbh[g * 4 + 2] = (sum[g * 4 + 2] as number) / k;
   }
+  // pass i3: where each lamp looks (LampInfo.face)
+  const face = new Float32Array(count * 3);
+  {
+    const area = new Float32Array(count);
+    const index = geometry.getIndex();
+    const tris = Math.floor((index ? index.count : n) / 3);
+    for (let t = 0; t < tris; t++) {
+      const a = index ? index.getX(t * 3) : t * 3, b = index ? index.getX(t * 3 + 1) : t * 3 + 1, c = index ? index.getX(t * 3 + 2) : t * 3 + 2;
+      const g = group[a] as number;
+      if (g >= count) continue;
+      const ax = pos.getX(a), ay = pos.getY(a), az = pos.getZ(a);
+      const ux = pos.getX(b) - ax, uy = pos.getY(b) - ay, uz = pos.getZ(b) - az, vx = pos.getX(c) - ax, vy = pos.getY(c) - ay, vz = pos.getZ(c) - az;
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      face[g * 3] = (face[g * 3] as number) + nx; face[g * 3 + 1] = (face[g * 3 + 1] as number) + ny; face[g * 3 + 2] = (face[g * 3 + 2] as number) + nz;
+      area[g] = (area[g] as number) + Math.sqrt(nx * nx + ny * ny + nz * nz);
+    }
+    for (let g = 0; g < count; g++) { const k = (area[g] as number) > 1e-12 ? 1 / (area[g] as number) : 0; face[g * 3] = (face[g * 3] as number) * k; face[g * 3 + 1] = (face[g * 3 + 1] as number) * k; face[g * 3 + 2] = (face[g * 3 + 2] as number) * k; }
+  }
   // a DENSE set: more than DENSE_LAMPS lamps whose nearest neighbour stands within its own size of it (the Windlass's
   // gauge: 26 segments of 0.3 m on a 0.15 m pitch; not fifteen pendants 6 m apart on one mesh)
   let dense = false;
@@ -668,7 +931,7 @@ function lampInfoOf(geometry: THREE.BufferGeometry, lampCount: number, textured:
     }
     dense = close > count * 0.75;
   }
-  return { count, at, rgbh, dense };
+  return { count, at, rgbh, dense, face };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -752,6 +1015,8 @@ export class MaterialFactory {
   private readonly emisStates = new WeakMap<THREE.Object3D, EmisState>();
   private readonly lampInfos = new WeakMap<THREE.BufferGeometry, LampInfo>();
   private readonly emitters: EmisState[] = [];
+  /** the layout's zone ids, in the layout's order (EmisState.zone and the system's air weights index it) */
+  readonly zoneIds: string[] = [];
   private readonly layers = new Map<TextureId, LayerUniforms>();
   private readonly layerList: LayerUniforms[] = [];
   private readonly exterior = new Set<string>();
@@ -784,6 +1049,7 @@ export class MaterialFactory {
     for (const z of ctx.data.layout.zones) {
       if (z.kind === 'exterior') this.exterior.add(z.id);
       this.zoneMood.set(z.id, z.mood);
+      this.zoneIds.push(z.id);
     }
     this.propOnBeforeRender = (_r, _s, _c, _g, object) => { this.applyProp(object); };
     this.emisOnBeforeRender = (_r, _s, _c, _g, object) => { this.applyEmis(object); };
@@ -800,7 +1066,9 @@ export class MaterialFactory {
 
   material(name: string, mesh: THREE.Mesh, def: AssetDef | null): THREE.Material {
     if (name === 'm_emis') return this.emis(mesh, def);
-    if (name === 'm_prop' || name === 'm_gun') return this.dynamic(name, mesh);
+    // m_hands (ruling R14, release pass p0): the view-model's hands, a dynamic material like m_prop with its own albedo
+    // (tx_hands). It used to fall through to the world shader. Reading the two height maps is the gun team's shader work.
+    if (name === 'm_prop' || name === 'm_gun' || name === 'm_hands') return this.dynamic(name, mesh, def);
     return this.world(name, mesh, def);
   }
 
@@ -871,6 +1139,8 @@ export class MaterialFactory {
     if (light === 'UNLIT') defines.UNLIT = '';
     if (spec.tex === 'd') { defines.DETAIL = ''; m.map = detail; } else if (spec.tex === 'p') m.map = palette;
     if (cloud) defines.CLOUD = '';
+    // the sand's own block of the world shader (the High tier's sparkle); it reads the baked light, so only where there is a lightmap
+    if (spec.name === 'm_sand' && light === 'LM') defines.SAND = '';
     if (farFog) defines.FARFOG = '';
     if (farCard) { defines.FARCARD = ''; defines.FARCARD_H = cardHeight.toFixed(3); defines.FARCARD_PX = FARCARD_MIN_PX.toFixed(1); } else if (ext) defines.EXT = '';
     if (place) defines.PLACE = '';
@@ -1035,6 +1305,7 @@ export class MaterialFactory {
         this.lampInfos.set(mesh.geometry, info);
       }
       s.info = info;
+      for (let p: THREE.Object3D | null = mesh.parent; p; p = p.parent) { const z = this.zoneIds.indexOf(p.name); if (z >= 0) { s.zone = z; break; } }
       this.emisStates.set(mesh, s);
       if (this.emitters.length < MAX_EMITTERS) this.emitters.push(s);
     }
@@ -1069,6 +1340,62 @@ export class MaterialFactory {
     return s ? { count: s.count, mask: s.mask, boost: s.boost, triggered: s.triggered } : null;
   }
 
+  /**
+   * Render-tech, pass i1 (the High tier's air light, post.ts): every emissive mesh under `root` is made known now, not at
+   * its first draw. A halo sits on its lamp, so "drawn last frame" is the right test for it; a lamp's glow in the air is
+   * metres wide and is on screen before and after the lamp's own mesh is.
+   */
+  registerEmitters(root: THREE.Object3D): void {
+    const mesh = root as THREE.Mesh;
+    if (mesh.isMesh && (mesh.material as THREE.Material).name === 'm_emis') this.emisState(mesh);
+    const kids = root.children;
+    for (let i = 0; i < kids.length; i++) this.registerEmitters(kids[i] as THREE.Object3D);
+  }
+  /**
+   * The lit lamps of every emissive mesh that is in the scene and not hidden, offered to the air light (High). The lamp
+   * states, hues and the share of a many-lamp set are the halo pass's own (emitHalos); a lamp's level also follows its
+   * size (AIR_SIZE metres and more is a whole lamp, a knot or an indicator a fraction), its reach AIR_REACH_*. Nothing
+   * tests whether a lamp's light REACHES the air it is added to, so a lamp of the static world counts by its zone's weight:
+   * the gallery's strips under the Tally House's floor laid a teal veil over the whole orange room.
+   */
+  emitAir(air: AirLights, wrong: number, zoneWeight: Float32Array): void {
+    const list = this.emitters, v = this.v;
+    for (let e = 0; e < list.length; e++) {
+      const s = list[e] as EmisState, info = s.info;
+      if (!info) continue;
+      // a lamp of the static world lights the air of its own zone (zoneWeight: 1 where she stands, eased)
+      const zw = s.zone >= 0 ? (zoneWeight[s.zone] as number) : 1;
+      if (zw <= 0.01) continue;
+      let shown = true, root: THREE.Object3D = s.mesh;
+      for (;;) { if (!root.visible) { shown = false; break; } if (root.parent === null) break; root = root.parent; }
+      if (!shown || !(root as THREE.Scene).isScene) continue;
+      const mw = s.mesh.matrixWorld;
+      const sx = mw.elements[0] as number, sy = mw.elements[1] as number, sz = mw.elements[2] as number;
+      const objScale = Math.sqrt(sx * sx + sy * sy + sz * sz);
+      const share = info.count > 8 ? 8 / info.count : 1;
+      for (let i = 0; i < info.count; i++) {
+        const g = info.rgbh[i * 4 + 1] as number;
+        let lit = info.rgbh[i * 4] as number;
+        if (s.triggered) { if (!(i < s.count || (i < 32 && ((s.mask >>> i) & 1) === 1))) lit = 0; } else if (g > 0.75) lit = 0;
+        if (g > 0.25 && g <= 0.75) lit *= 0.7;
+        if (lit <= 0.02) continue;
+        v.set(info.at[i * 4] as number, info.at[i * 4 + 1] as number, info.at[i * 4 + 2] as number).applyMatrix4(mw);
+        let hue = HUE_BY_COLUMN[(info.rgbh[i * 4 + 3] as number) | 0] ?? HUE.aqua;
+        if (wrong * (info.rgbh[i * 4 + 2] as number) > 0.5 && (hue === HUE.violet || hue === HUE.violetCore)) hue = HUE.aqua;
+        const size = (info.at[i * 4 + 3] as number) * objScale, sk = size >= AIR_SIZE ? 1 : size / AIR_SIZE;
+        air.x = v.x; air.y = v.y; air.z = v.z;
+        air.reach = AIR_REACH_MIN + (AIR_REACH_MAX - AIR_REACH_MIN) * sk;
+        air.r = hue.r; air.g = hue.g; air.b = hue.b;
+        air.level = Math.min(1.6, lit * s.boost) * share * sk * zw;
+        // pass i3: how far the lamp's face looks down in the world (1: a pendant's disc; 0: a bulb, a sign on a wall): its cone's share
+        const down = -((mw.elements[1] as number) * (info.face[i * 3] as number) + (mw.elements[5] as number) * (info.face[i * 3 + 1] as number) + (mw.elements[9] as number) * (info.face[i * 3 + 2] as number)) / Math.max(objScale, 1e-6);
+        const ct = (down - AIR_CONE_FACE_FROM) / (AIR_CONE_FACE_TO - AIR_CONE_FACE_FROM);
+        air.cone = ct <= 0 ? 0 : ct >= 1 ? 1 : ct * ct * (3 - 2 * ct);
+        air.offer();
+      }
+    }
+  }
+
   /** One halo per lit lamp of every emissive mesh that was drawn in the last frame (the Low tier's bloom substitute). */
   emitHalos(sink: HaloSink, wrong: number): number {
     const list = this.emitters, v = this.v, scale = this.haloScale;
@@ -1077,8 +1404,14 @@ export class MaterialFactory {
     for (let e = list.length - 1; e >= 0; e--) {
       const s = list[e] as EmisState;
       if (s.lastSeen < this.frame - 1) {
-        // not drawn for a long time and no longer in a scene: forget it
-        if (s.lastSeen < this.frame - 600 && s.mesh.parent === null) { list[e] = list[list.length - 1] as EmisState; list.pop(); this.emisStates.delete(s.mesh); }
+        // not drawn for a long time and no longer in a scene: forget it. Release pass p0 (closer): "in a scene" is asked
+        // of the ROOT. A mesh inside a released instance keeps its instance node as parent, so `parent === null` never
+        // pruned anything: 35 stale entries a set swap, and at MAX_EMITTERS Low's lamp halos stopped for new meshes
+        if (s.lastSeen < this.frame - 600) {
+          let root: THREE.Object3D = s.mesh;
+          while (root.parent !== null) root = root.parent;
+          if (!(root as THREE.Scene).isScene) { list[e] = list[list.length - 1] as EmisState; list.pop(); this.emisStates.delete(s.mesh); }
+        }
         continue;
       }
       const info = s.info;
@@ -1131,7 +1464,7 @@ export class MaterialFactory {
   }
 
   // ---- dynamic ----------------------------------------------------------------------------------------------------
-  private dynamic(name: string, mesh: THREE.Mesh): THREE.Material {
+  private dynamic(name: string, mesh: THREE.Mesh, def: AssetDef | null): THREE.Material {
     const g = mesh.geometry;
     const spec: DynSpec = {
       name, hasColor: g.getAttribute('color') !== undefined, textured: g.getAttribute('uv') !== undefined && !inPlaceholder(mesh),
@@ -1142,7 +1475,11 @@ export class MaterialFactory {
       variant: (mesh as THREE.SkinnedMesh).isSkinnedMesh === true ? 'skin' : '',
     };
     // dynamic casters of the High tier's sun shadow map
-    mesh.castShadow = name !== 'm_gun';
+    mesh.castShadow = name !== 'm_gun' && name !== 'm_hands';
+    // pass i1: which map it casts into (system.ts setCasters; the mark is copied to every clone with userData). 2: the
+    // sun's and a room's (a creature, a projectile, a loose thing that is drawn instanced); 1: the sun's only (a door, a
+    // gate, a cradle, a lift: fixed machinery whose shade is in the room's bake already)
+    if (mesh.castShadow) mesh.userData.keepCast = def !== null && (def.category === 'enemies' || def.category === 'boss' || def.instanced === true) ? 2 : 1;
     const m = this.buildDynamic(spec);
     this.note('d', spec, m, g, spec.variant === 'skin', false);
     return m;
@@ -1150,18 +1487,22 @@ export class MaterialFactory {
   private buildDynamic(spec: DynSpec): THREE.ShaderMaterial {
     const { name, hasColor, wind, breath } = spec;
     const gun = name === 'm_gun';
-    const albedo = spec.textured ? this.texture(gun ? 'tx_gun' : 'tx_palette') : null;
+    const hands = name === 'm_hands';
+    const albedo = spec.textured ? this.texture(gun ? 'tx_gun' : hands ? 'tx_hands' : 'tx_palette') : null;
     const key = `${name}|${hasColor ? 'c' : 'n'}|${albedo ? 't' : '-'}|${wind ? 'w' : ''}|${breath ? 'b' : ''}|${spec.variant}`;
     const cached = this.cache.get(key) as THREE.ShaderMaterial | undefined;
     if (cached) return cached;
     const defines: Record<string, string> = {};
     if (albedo) defines.TEXTURED = '';
     if (gun) defines.GUN = '';
+    if (hands) defines.HANDS = '';
     if (wind) defines.WIND = '';
     if (breath) { defines.BREATH = ''; defines.USE_UV1 = ''; }
     const uniforms: Record<string, Uniform<unknown>> = {
-      uAlbedo: { value: albedo }, uEmisMap: { value: albedo && !gun ? this.texture('tx_palette_emis') : null },
+      uAlbedo: { value: albedo }, uEmisMap: { value: albedo && !gun && !hands ? this.texture('tx_palette_emis') : null },
       uMatcap: { value: gun ? this.texture('tx_matcap_steel') : null },
+      // release pass p0 (R14): the view-model's height maps (GUN / HANDS branches of DYN_FRAG)
+      uDetail: { value: albedo && gun ? this.texture('tx_gun_detail') : albedo && hands ? this.texture('tx_hands_detail') : null },
       uObj: { value: new Float32Array([1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]) }, uFresnel: this.uFresnel,
     };
     this.shared.attach(uniforms);
@@ -1272,14 +1613,18 @@ export class MaterialFactory {
       // the view-model's own rig (moods.ts VM_AMB): the mood's hues at display levels, directions fixed in view space.
       // Under the overhang it is L0's (the Long Light's colours behind a third of a stop of glare).
       if (s.mood === 'L1' && this.fallbackMood === 'L0') mood = MOODS.L0;
-      const hands = ((object as THREE.Mesh).material as THREE.Material).name === 'm_gun' ? 1 : VM_HANDS;
+      // look team gun, pass i3 ("copper-orange on the mint-green gallery stair"): the stair down from the hatch is the Tally
+      // House's zone and the gallery's light. Under the hall's floor the view-model takes the gallery's rig.
+      let hands = ((object as THREE.Mesh).material as THREE.Material).name === 'm_gun' ? 1 : VM_HANDS;
+      if (s.mood === 'L2' && y < VM_STAIR_Y) { hands *= (MOODS.L3[M_EXPOSURE] as number) / (mood[M_EXPOSURE] as number); mood = MOODS.L3; }   // (the frame is still exposed for the Tally House: the rig's levels are display levels)
       let vkr = (mood[M_VM_KEY] as number) * hands, vkg = (mood[M_VM_KEY + 1] as number) * hands, vkb = (mood[M_VM_KEY + 2] as number) * hands;
       if (s.mood === 'L2' && this.bladeAt(x, y, z)) {
         const l1 = MOODS.L1;
         vkr = (l1[M_KEY] as number) * 0.7 * hands; vkg = (l1[M_KEY + 1] as number) * 0.7 * hands; vkb = (l1[M_KEY + 2] as number) * 0.7 * hands;
       }
       const vr = (mood[M_VM_AMB] as number) * hands, vg = (mood[M_VM_AMB + 1] as number) * hands, vb = (mood[M_VM_AMB + 2] as number) * hands;
-      const vrr = mood[M_VM_RIM] as number, vrg = mood[M_VM_RIM + 1] as number, vrb = mood[M_VM_RIM + 2] as number;
+      const vrk = mood === MOODS.L3 && s.mood === 'L2' ? (MOODS.L3[M_EXPOSURE] as number) / (MOODS.L2[M_EXPOSURE] as number) : 1;
+      const vrr = (mood[M_VM_RIM] as number) * vrk, vrg = (mood[M_VM_RIM + 1] as number) * vrk, vrb = (mood[M_VM_RIM + 2] as number) * vrk;
       s.dx = VM_KEY_DIR.x; s.dy = VM_KEY_DIR.y; s.dz = VM_KEY_DIR.z;
       if (s.ar === vr && s.ag === vg && s.ab === vb && s.kr === vkr && s.kg === vkg && s.kb === vkb && s.rr === vrr && s.rg === vrg && s.rb === vrb) return;
       s.ar += (vr - s.ar) * k; s.ag += (vg - s.ag) * k; s.ab += (vb - s.ab) * k;
@@ -1327,7 +1672,7 @@ export class MaterialFactory {
     const mesh = object as THREE.Mesh;
     if (mesh.isMesh) {
       const name = (mesh.material as THREE.Material).name;
-      if (name === 'm_prop' || name === 'm_gun') this.propState(mesh).emissive = scale;
+      if (name === 'm_prop' || name === 'm_gun' || name === 'm_hands') this.propState(mesh).emissive = scale;
       else if (name === 'm_emis') this.emisState(mesh).boost = scale;
     }
     const kids = object.children;

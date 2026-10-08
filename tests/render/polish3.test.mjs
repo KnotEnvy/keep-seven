@@ -115,7 +115,10 @@ test('R6: the revolver is lit by its own rig in every zone: not darker than what
     assert.ok(m.meanL >= Math.min(m.bgL - 9, 27), `${name}: the view-model (L* ${m.meanL.toFixed(1)}) is not darker than what it covers (${m.bgL.toFixed(1)}) by more than 9, nor under L* 27`);
     // (a gun at L* 32 or under is never a pale cut-out, however dark the ledge behind it: R6 wants it lit)
     assert.ok(m.meanL <= Math.max(m.bgL + 16, 32), `${name}: nor a pale cut-out on it (L* ${m.meanL.toFixed(1)} on ${m.bgL.toFixed(1)})`);
-    assert.ok(m.highlight >= 0.02, `${name}: ${(m.highlight * 100).toFixed(1)} % of it is highlight (at least 2)`);
+    // look team gun, pass i1 (both visual reviewers: "one glossy colour", "matt putty-grey in warm rooms"): the 2 % bound was met
+    // by a broad band of the key's colour over every face, which is what made the gun pale. The steel is dark now and its
+    // highlights are thin (worn edges, the streak along the barrel, the muzzle's crown): at least 1 % of the view-model
+    assert.ok(m.highlight >= 0.01, `${name}: ${(m.highlight * 100).toFixed(1)} % of it is highlight (at least 1)`);
     assert.ok(m.black < 0.04, `${name}: ${(m.black * 100).toFixed(1)} % of it is under L* 12`);
     // the rig's ambient is held toward grey: no blue gloves in the shade of the Long Light
     const a = light.m_prop;
@@ -142,16 +145,21 @@ test('R5 / R7: the far rim is a dark land under a lit sky; the fire is a flame w
   await page.evaluate(() => window.__dbg.ext.core.stepAsync(120, true));
   const before = await view([10, 18, 102], [40, -10, -420], 'rim_no_fire', 6);
   await show('viewModel', false);
+  // pass i2 (exterior look): the sky draws clouds now. The frame's values are judged with them; the gradient's steps are
+  // measured on the bare sky (a lit bar of cloud is a step of its own), and the fire is compared on the bare sky too
+  const clouded = await grab('rim_no_fire_no_gun_clouds');
+  await page.evaluate(() => { const R = window.__dbg.ext.render.system(); if (R.sky) { R.sky.cloudCover = 0; R.sky.starCover = 0; } window.__dbg.step(0, true); });   // (pass i3: and without the stars: they twinkle on High, and a star over the fire's column is a white pixel that changed)
   const dark = await grab('rim_no_fire_no_gun');
-  const s = squint(dark);
+  const s = squint(clouded);
   console.log(`the fire's view before it kindles: L* p5 / p50 / p95 ${s.p5.toFixed(0)} / ${s.p50.toFixed(0)} / ${s.p95.toFixed(0)}, dark ${(s.dark * 100).toFixed(0)} % (round 2: 28 / 40 / 51, dark 20 %)`);
   assert.ok(s.p5 < 17, `the land is dark: p5 L* ${s.p5.toFixed(1)}`);
   assert.ok(s.p95 > 62, `the afterglow is light: p95 L* ${s.p95.toFixed(1)}`);
   assert.ok(s.dark > 0.5, `${(s.dark * 100).toFixed(0)} % of the frame is under L* 35`);
-  // the sky is a gradient, not a stripe: down the column at a quarter of the width, from the top to the horizon, no step
+  // the sky is a gradient, not a stripe: down a column of bare sky (pass i2: right of the Rule, x 560 to 640; the town
+  // card's pylon now stands in the old column at a quarter of the width), from the top to the horizon, no step
   // of more than 9 L* between rows 8 px apart
   let worst = 0, last = null;
-  for (let y = 4; y < H * 0.42; y += 8) { let r = 0, g = 0, b = 0; for (let x = 200; x < 280; x++) { const i = (y * W + x) * 4; r += dark.data[i]; g += dark.data[i + 1]; b += dark.data[i + 2]; } const l = Lstar(r / 80, g / 80, b / 80); if (last !== null) worst = Math.max(worst, Math.abs(l - last)); last = l; }
+  for (let y = 4; y < H * 0.42; y += 8) { let r = 0, g = 0, b = 0; for (let x = 560; x < 640; x++) { const i = (y * W + x) * 4; r += dark.data[i]; g += dark.data[i + 1]; b += dark.data[i + 2]; } const l = Lstar(r / 80, g / 80, b / 80); if (last !== null) worst = Math.max(worst, Math.abs(l - last)); last = l; }
   assert.ok(worst < 9, `the sky's largest step between rows 8 px apart is ${worst.toFixed(1)} L*`);
   // the fire, as the ending kindles it
   await page.evaluate(async () => { const d = window.__dbg, h = d.ext.core.ctx().render.vfx.acquireCard('last_fire'); h.setPosition(40, -10, -420); h.setLevel(1); h.setVisible(true); window.__fire = h; await d.ext.core.stepAsync(120, true); });
@@ -159,11 +167,19 @@ test('R5 / R7: the far rim is a dark land under a lit sky; the fire is a flame w
   await show('viewModel', true);
   await grab('rim_fire');
   const d = diff(lit, dark, 30);
-  const hot = d.hit.filter((p) => { const i = p * 4; return lit.data[i] > 235 && lit.data[i + 1] > 170; });
-  let hy0 = H, hy1 = -1; for (const p of hot) { const y = (p / W) | 0; if (y < hy0) hy0 = y; if (y > hy1) hy1 = y; }
+  // (pass i2: the fire's own column only, 60 px either side of the frame's middle: a lit window of the town is as hot as a small flame)
+  const hot = d.hit.filter((p) => { const i = p * 4; return Math.abs((p % W) - W / 2) <= 60 && lit.data[i] > 235 && lit.data[i + 1] > 170; });
+  // pass i3 (exterior look): the hot BODY is the longest run of rows that hold a hot pixel. The first and last hot row of
+  // the whole column counted single grains of the afterglow that the fire's wide glow lifts over the level (five pixels
+  // 30 rows above a 29 row flame made it "61 px tall")
+  let hy0 = H, hy1 = -1;
+  { const rows = new Set(); for (const p of hot) rows.add((p / W) | 0); let a0 = -1, prev = -2; const ys = [...rows].sort((a, b) => a - b); ys.push(1e9);
+    for (const y of ys) { if (y !== prev + 1) { if (a0 >= 0 && prev - a0 > hy1 - hy0) { hy0 = a0; hy1 = prev; } a0 = y; } prev = y; } }
   const darker = d.hit.filter((p) => { const i = p * 4; return Lstar(lit.data[i], lit.data[i + 1], lit.data[i + 2]) < Lstar(dark.data[i], dark.data[i + 1], dark.data[i + 2]) - 3 && ((p / W) | 0) < hy0; });
   console.log(`the fire: ${d.hit.length} px changed (box ${d.x1 - d.x0 + 1} x ${d.y1 - d.y0 + 1}), white-hot ${hot.length} px over ${hy1 - hy0 + 1} rows, ${darker.length} px of smoke above it (round 2: a 20 px soft dot)`);
-  assert.ok(hy1 - hy0 + 1 >= 30, `the flame's hot body is ${hy1 - hy0 + 1} px tall (30 or more)`);
+  // pass i2 (exterior look; both story reviewers: the line is "one small fire"; the 92 px flame read as a bonfire at the edge of town):
+  // a small flame, FIRE_PX 30 in src/render/vfx/vfx.ts
+  assert.ok(hy1 - hy0 + 1 >= 8 && hy1 - hy0 + 1 <= 48, `the flame's hot body is ${hy1 - hy0 + 1} px tall (a small fire: 8 to 48)`);
   // warm light only: the Rule's two threads in the sky pulse between the two frames
   const glow = d.hit.filter((p) => lit.data[p * 4] - dark.data[p * 4] > 30 && lit.data[p * 4] - dark.data[p * 4] > lit.data[p * 4 + 2] - dark.data[p * 4 + 2] + 15);
   // ... and round the flame only: the town's windows flicker too, 450 px to its left
@@ -171,7 +187,7 @@ test('R5 / R7: the far rim is a dark land under a lit sky; the fire is a flame w
   let gx0 = W, gx1 = -1; for (const p of glow) { const x = p % W; if (Math.abs(x - hx) > 220) continue; if (x < gx0) gx0 = x; if (x > gx1) gx1 = x; }
   assert.ok(gx1 - gx0 + 1 >= 90 && gx1 - gx0 + 1 < 400, `its glow is ${gx1 - gx0 + 1} px wide (90 or more)`);
   assert.ok(darker.length >= 60, `smoke stands over it (${darker.length} px darker than the sky behind)`);
-  await page.evaluate(() => { window.__fire.release(); });
+  await page.evaluate(() => { window.__fire.release(); const R = window.__dbg.ext.render.system(); if (R.sky) { R.sky.cloudCover = 1; R.sky.starCover = 1; } });
   void before;
 });
 
@@ -188,7 +204,8 @@ test('High is not Low: knots and lamps bloom (the same view, the tier switched i
   console.log(`the Tally House, Low against High: mean absolute difference ${(sum / n).toFixed(2)} of 255, ${(100 * big / n).toFixed(2)} % of pixels differ by more than 24 (round 2: 0.1 to 1.2, under 0.5 %); bloom threshold ${info.threshold.toFixed(3)} at exposure ${info.exposure.toFixed(2)}, emissive x${info.hdr}`);
   assert.equal(info.tier, 'high');
   assert.ok(info.hdr > 1.5, 'emissive things are drawn over white on High');
-  assert.ok(Math.abs(info.threshold * info.exposure - 1.15) < 0.01, `the bloom's threshold is a display level (${(info.threshold * info.exposure).toFixed(3)})`);
+  // underground look, pass i1: the Tally House names its own threshold now (moods.ts L2 bloomT 0.62; it was the plain 1.15)
+  assert.ok(Math.abs(info.threshold * info.exposure - 0.62) < 0.01, `the bloom's threshold is a display level (${(info.threshold * info.exposure).toFixed(3)})`);
   assert.ok(big / n > 0.01, `${(100 * big / n).toFixed(2)} % of the frame differs by more than 24 levels (over 1 %)`);
   assert.ok(sum / n > 1.5, `mean absolute difference ${(sum / n).toFixed(2)} (over 1.5)`);
 });

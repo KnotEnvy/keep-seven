@@ -111,7 +111,7 @@ test('boots and plays with NO asset files: every asset and texture synthesised f
     const report = await game.page.evaluate(() => window.__dbg.ext.assets.report());
     assert.equal(report.assetsFromFiles, 0);
     assert.equal(report.texturesFromFiles, 0);
-    assert.ok(report.assetsSynthesised >= 37 && report.texturesSynthesised === 18, JSON.stringify(report));
+    assert.ok(report.assetsSynthesised >= 37 && report.texturesSynthesised === 21, JSON.stringify(report));
     const placeholders = await game.page.evaluate(() => ['env_the_lip', 'env_plenty_street', 'enemy_bider', 'weapon_revolver'].map((id) => window.__dbg.ext.assets.isPlaceholder(id)));
     assert.deepEqual(placeholders, [true, true, true, true], 'isPlaceholder is true for synthesised assets');
     await game.dbg('god', true);
@@ -123,7 +123,7 @@ test('boots and plays with NO asset files: every asset and texture synthesised f
     // the real renderer also counts the bone texture of every skinned enemy alive (16 KiB each: src/render collectStats);
     // the stub renderer counts the manifest alone
     const bones = STUBS && STUBS.includes('render') ? 0 : perf.enemiesAlive * 16384;
-    assert.equal(perf.textureBytes - bones, 30343168, 'memory is accounted by the manifest, placeholder or not');
+    assert.equal(perf.textureBytes - bones, 32789845, 'memory is accounted by the manifest, placeholder or not');
     await game.shot('greybox_no_asset_files');
   } finally { await game.close(); }
 });
@@ -135,7 +135,7 @@ test('the asset store reports its sources and the R8 upload verdict', async () =
     console.log(`assets: ${report.assetsFromFiles} from files, ${report.assetsSynthesised} synthesised; textures: ${report.texturesFromFiles} from files, ${report.texturesSynthesised} synthesised; R8 upload: ${report.r8} (sample ${report.sample.join(',')}, gl error ${report.glError})`);
     assert.ok(['r8', 'rgba'].includes(report.r8), 'the R8 path was measured');
     assert.equal(report.assetsFromFiles + report.assetsSynthesised, 65, 'every asset of the three sets is decoded in test mode');
-    assert.equal(report.texturesFromFiles + report.texturesSynthesised, 18);
+    assert.equal(report.texturesFromFiles + report.texturesSynthesised, 21);
     // the seam with the pipeline: once `node tools/build-assets.mjs --placeholders` has run, nothing is synthesised
     const shipped = fs.existsSync(path.join(ROOT, 'public/assets/env/env_the_lip.glb'));
     if (shipped) {
@@ -143,6 +143,7 @@ test('the asset store reports its sources and the R8 upload verdict', async () =
       assert.equal(report.texturesSynthesised, 0, 'every texture comes from its file in public/assets');
     } else console.log('assets: public/assets is empty, the store synthesised everything (run npm run assets:placeholders)');
     // an R8 fallback would cost 4x on eight textures: the store counts it
-    assert.equal(report.activeTextureBytes, report.r8 === 'r8' ? 30343168 : 30343168 + 3 * (699051 * 3 + 349525 + 21845 + 262144));
+    // release pass p0: + tx_gun_detail (R8, 699 051), tx_hands (RGBA8, 1 398 101), tx_hands_detail (R8, 349 525): R14
+    assert.equal(report.activeTextureBytes, report.r8 === 'r8' ? 32789845 : 32789845 + 3 * (699051 * 4 + 349525 * 2 + 21845 + 262144));
   } finally { await game.close(); }
 });

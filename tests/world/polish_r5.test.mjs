@@ -3,7 +3,7 @@
 // and director.spec.ts.
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mark, marker, open, server, STORY } from './lib.mjs';
+import { mark, marker, open, server, status, STORY } from './lib.mjs';
 
 let srv;
 before(async () => { srv = await server(); });
@@ -123,7 +123,10 @@ test('R5: 6 m back from the stone to look at the Rule: no ending at 25 s; the cl
     const s10 = await since();
     assert.ok(s10 > 9 && s10 <= 10.1, `the clock runs while nothing is said (${s10})`);
     // a line comes on screen (5.5 s): the clock stands
-    await say(game, 'nar_rim_3');
+    // (pass i1: the rim's own scenery lines are told at the ledge's edge now; any line does)
+    await say(game, 'nar_marks');
+    await game.run([{ steps: 2 }]);
+    assert.equal((await status(game)).story.current, 'nar_marks', 'a line is on screen');
     await game.run([{ steps: 5 * 60 }]);
     const s15 = await since();
     assert.ok(s15 - s10 < 0.5, `the clock stood while the line was on screen (${s10} -> ${s15})`);
@@ -137,7 +140,8 @@ test('R5: 6 m back from the stone to look at the Rule: no ending at 25 s; the cl
     const again = (await game.state()).tick;
     await game.run([{ steps: 39 * 60 }]);
     assert.equal((await game.events(seq, 'ending/stone')).length, 0, 'not before 40 s');
-    await game.run([{ steps: 90 }]);
+    // (release pass p0: the warning line, said ten seconds before the clock runs out, stops the clock while it is up)
+    await game.run([{ steps: 90 + 6 * 60 }]);
     const e = (await game.events(seq, 'ending/stone'))[0];
     assert.ok(e && e.payload.taken === false && e.tick - again >= 2400 - 2, `a real leave still ends the stage, 40 s on (${e ? e.tick - again : 'never'} ticks)`);
     void left;
@@ -145,7 +149,7 @@ test('R5: 6 m back from the stone to look at the Rule: no ending at 25 s; the cl
 });
 
 // ---- lines that came after the thing they describe ---------------------------------------------------------------
-test('a quick take at the stone: "He had not taken hers." on the take\'s tick over what is on screen; none of the stone\'s lines after it; the lamps are still counted before the fire', async () => {
+test('a quick take at the stone: answered on its tick (pass i3); none of the stone\'s four lines after it; the lamps, then the Rule\'s line, then the fire', async () => {
   const STONE = marker('trg_stone'), ROUND = marker('ia_stone_round'), ARRIVE = marker('trg_rim_arrive');
   const game = await open(srv, { checkpoint: 'cp_rim' });
   try {
@@ -158,9 +162,14 @@ test('a quick take at the stone: "He had not taken hers." on the take\'s tick ov
     assert.ok(end.met, 'the end card');
     const ev = await lineEvents(game, seq);
     const after = ev.filter((e) => e.tick >= took.tick).map((e) => e.payload.key);
-    assert.equal(after[0], 'nar_take_1', after.join(' '));
-    assert.ok(ev.find((e) => e.payload.key === 'nar_take_1').tick - took.tick <= 1, 'on the take (it was 7 to 16 s after)');
-    assert.equal(after[1], 'nar_take_2');
+    // (pass i1: the stone's first line had not started: the one condensed stone line answers the take, then the take's two)
+    // (pass i2: the lamps' count, begun before the take, is finished first; after "Seven again." only the fire)
+    // (pass i3, story reviewer b: answered on the tick of the take again, as in round 5; the lamps' lines follow the
+    // take's unbroken, then the thread and the Rule against it (story reviewer a: never lost), then the fire)
+    assert.deepEqual(after, ['nar_take_1', 'nar_take_2', 'nar_lamps', 'nar_lamps_count', 'nar_rim_2', 'nar_rim_3', 'nar_fire', 'nar_last'], after.join(' '));
+    assert.ok(ev.find((e) => e.payload.key === 'nar_take_1').tick - took.tick <= 1, 'the take is answered on its tick');
+    const lampsAt = ev.find((e) => e.payload.key === 'nar_lamps'), countAt = ev.find((e) => e.payload.key === 'nar_lamps_count');
+    assert.ok(countAt.tick - (lampsAt.tick + Math.round(lampsAt.payload.seconds * 60)) <= 20, '"She counted them" and the count are one breath apart (they were 23.6 s and four lines apart)');
     for (const k of ['nar_stone_1', 'nar_stone_2', 'nar_stone_3', 'nar_stone_4']) assert.ok(!after.includes(k), `${k} is not said after the take (${after.join(' ')})`);
     const all = ev.map((e) => e.payload.key);
     for (const k of ['nar_lamps', 'nar_lamps_count', 'nar_fire', 'nar_last']) assert.ok(all.includes(k), `${k} (${all.join(' ')})`);
@@ -238,8 +247,8 @@ test('the street\'s after-the-fight line is not said once the yard fight has beg
   } finally { await game.close(); }
 });
 
-test('the watcher in the niche: its lines are said as she passes; walked on to the bay locker before their turn, they are not said there', async () => {
-  const W = marker('trg_watcher'), LOCKER = marker('ia_line_locker_bay');
+test('the watcher in the niche: its lines are said when she has looked at it (pass i2); walked on to the bay locker before their turn, they are not said there', async () => {
+  const W = marker('trg_watcher'), LOCKER = marker('ia_line_locker_bay'), FIG = marker('prop_watcher');
   for (const stays of [true, false]) {
     const game = await open(srv, { checkpoint: 'cp_tally_hatch' })   // (the last checkpoint before the peg stair);
     try {
@@ -248,7 +257,7 @@ test('the watcher in the niche: its lines are said as she passes; walked on to t
       const seq = await mark(game);
       // a room's description is on screen as she comes down the flight
       await say(game, 'nar_marks');
-      await game.run([{ steps: 10 }, tp(W, 180), { steps: 3 }]);
+      await game.run([{ steps: 10 }, tp(W, 180), { aimAt: [FIG.pos[0], FIG.pos[1] + 0.95, FIG.pos[2]], steps: 30 }]);
       if (!stays) await game.run([{ steps: 30 }, { call: ['teleport', LOCKER.pos[0], LOCKER.pos[1], LOCKER.pos[2] - 1, 0, 0] }]);
       await game.run([{ steps: 30 * 60 }]);
       const keys = (await lineEvents(game, seq)).map((e) => e.payload.key);

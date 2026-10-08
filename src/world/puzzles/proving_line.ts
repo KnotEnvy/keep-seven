@@ -81,7 +81,8 @@ class ProvingLine implements Puzzle, ShotOwner {
     // the first line round fired, wherever: the narrator says what it is (once)
     s.ctx.events.on('weapon/fired', (e) => {
       if (e.ammo !== 'line_round') return;
-      s.story.say(namedLine(this.core.volume, 'lines', 'firstLine'));
+      // (p0: on her act, over a room's description: it was said a room later, or never)
+      s.story.sayUrgent(namedLine(this.core.volume, 'lines', 'firstLine'));
       this.afterLine(e);
     });
   }

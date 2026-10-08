@@ -15,7 +15,7 @@ import { Adds } from './adds.ts';
 import { Arm, bayOfBearing, bearingDeg, canisterBearing, clampToArc, oppositeBay } from './arm.ts';
 import { beginIndex, breakPhase, enterDry, startKill, tickFight } from './attacks.ts';
 import { Ordnance } from './ordnance.ts';
-import { parleyShot, startParley, tickParley } from './parley.ts';
+import { parleyShot, parleyShown, startParley, tickParley } from './parley.ts';
 
 const RAD = Math.PI / 180;
 const SPHERE_SLOP = 0.025;
@@ -109,6 +109,51 @@ export class Boss {
   private lineHeld = 0;
   /** a restore put the fight back in a fighting phase: `player/respawned` fills her health once (BOSS.retryFullHealth) */
   retryHeal = false;
+  /**
+   * Release pass p0. `storyLive`: a `story/line` has been heard in this page, so something shows lines (never reset; the
+   * sandboxes and the module's own tests show none and the asking keeps its clock there). `parleyAwait`: the parley
+   * line said and not yet shown; `parleySaidAt`: the unscaled phase second it was said at; `parleyShift`: how far the
+   * lines as shown run behind the written timeline (every later stage is that much later); `inspectAt`: when the six
+   * mouths opened (-1 before).
+   */
+  storyLive = false;
+  parleyAwait = '';
+  parleySaidAt = 0;
+  parleyShift = 0;
+  inspectAt = -1;
+  /**
+   * Pass i3 (parley.ts). The asking as the story data has it: `parleyKeys` the lines that exist, `parleyHolds` the
+   * seconds each is held; `parleyDue`: the unscaled phase second the next stage is due; `parleyWritten`: the same by
+   * the data alone (the difference is `parleyShift`); `keptSaid`: the six have shut. The roll-call's lamps: `rollLines`
+   * lines name the six, line `rollLine` came on screen at `rollAt` for `rollHold` seconds, `rollLit` lamps are on.
+   * `askedBefore`: an asking has been heard out or refused in this page, or a fight past it was restored (never reset:
+   * a new run does not forget it); `parleySkipped`: her shot has cut this one short.
+   */
+  readonly parleyKeys: string[] = [];
+  readonly parleyHolds: number[] = [];
+  parleyDue = 0;
+  parleyWritten = 0;
+  keptSaid = false;
+  rollLines = 0;
+  rollLine = -1;
+  rollAt = 0;
+  rollHold = 0;
+  rollLit = 0;
+  askedBefore = false;
+  parleySkipped = false;
+  /** the try began after `BOSS.moveDeaths` deaths in this phase: the direct hint is owed (0 none, 1 before the first saying, 2 before the second, 3 said twice) */
+  moveOwed = 0;
+  private moveShown = false;
+  /**
+   * Release pass p0: the fighting phase a restore put the fight back into, until its lead-in has run out ('' = none).
+   * On a death the real game restores the save AND resets the encounter (`encounter/reset` -> stop(), then the world's
+   * `startBoss`): the phase is begun a second time in the same tick, and that second beginning used to be a first
+   * arrival's (1.5 s to the first attack: polish round 5's 4 s lead-in never ran after a death, only after a debug
+   * jump or "Go on"). start() now finds the retry still owed and gives it (applyRetry).
+   */
+  retryOf: BossPhase | '' = '';
+  /** the phase whose haul last said the teaching line (kept across retries; forgotten with the run) */
+  teachSaidIn: BossPhase | '' = '';
   drySaid = 0;
   shots3b = 0;
   reload3b = false;
@@ -267,6 +312,11 @@ export class Boss {
   cue(cue: GameEvents['audio/cue']['cue']): void {
     this.hub(this.tmp);
     this.S.cue(cue, this.tmp.x, this.tmp.y, this.tmp.z);
+  }
+  /** pass i3: a lamp of the roll-call comes on (a small tick from the head) */
+  lampTick(): void {
+    this.hub(this.tmp);
+    this.S.cue('listen_tick', this.tmp.x, this.tmp.y, this.tmp.z, BOSS.rollTickGain, BOSS.rollTickPitch);
   }
 
   // ---- geometry -------------------------------------------------------------------------------------------
@@ -804,6 +854,10 @@ export class Boss {
     this.S.hush = false;
     this.hits = 0; this.guard = 'parked'; this.fresh = true;
     this.parleyStage = 0; this.refused = false;
+    this.parleyAwait = ''; this.parleySaidAt = 0; this.parleyShift = 0; this.inspectAt = -1;
+    this.parleyDue = 0; this.parleyWritten = 0; this.keptSaid = false; this.parleySkipped = false;
+    this.rollLines = 0; this.rollLine = -1; this.rollAt = 0; this.rollHold = 0; this.rollLit = 6;
+    this.moveOwed = 0; this.moveShown = false;
     for (let i = 0; i < 6; i++) { this.want[i] = 0; this.openF[i] = 0; this.lamp[i] = 1; this.relightAt[i] = 0; }
     this.clearDark();
     this.pawl[0] = 0; this.pawl[1] = 0;
@@ -832,6 +886,8 @@ export class Boss {
     this.parleyHeard = heard; this.deaths = deaths;
     this.ensureBody();
     this.lead = 1.5;
+    // (pass i3) a fight begun past its asking: she has heard one, in this page or in the run the save came from
+    if (phase !== 'idle' && phase !== 'parley') this.askedBefore = true;
     switch (phase) {
       case 'idle': this.setPhase('idle'); return;
       case 'parley': startParley(this); return;
@@ -865,6 +921,8 @@ export class Boss {
     if (phase === 'hush') phase = 'p3a';
     if (phase === 'proven') phase = 'p3b';
     this.startPhase(phase);
+    // (the world reset the encounter after a restore and begins the phase again: the retry is still owed)
+    if (this.retryOf !== '' && this.retryOf === this.phase) this.applyRetry(); else this.retryOf = '';
   }
 
   /** Stop without events: the encounter was reset or cleared. */
@@ -890,8 +948,23 @@ export class Boss {
     // polish round 5: a retry of a fighting phase. The head holds its first attack `retryLead` seconds (startPhase
     // gives 1.5: she was hit again before she had found the room), and she is given her health back (onRespawned).
     this.retryHeal = false;
-    if (phase === 'p1' || phase === 'p2' || phase === 'p3a') { this.lead = BOSS.retryLead; this.retryHeal = true; }
+    this.retryOf = '';
+    if (phase === 'p1' || phase === 'p2' || phase === 'p3a') { this.retryOf = phase; this.retryHeal = true; this.applyRetry(); }
     else if (phase === 'dead') this.restDead();
+  }
+
+  /**
+   * The lead-in of a retry (a restore into a fighting phase): `retryLead` seconds before the first attack. Release pass
+   * p0: from the `moveDeaths`-th death in one cylinder phase it is `retryLeadLate`, the direct hint is said early in it
+   * (tick), and this try's haul does not repeat the teaching line she has had twice.
+   */
+  private applyRetry(): void {
+    this.lead = BOSS.retryLead;
+    if ((this.phase === 'p1' || this.phase === 'p2') && this.deaths >= BOSS.moveDeaths && this.S.ctx.data.story.lines[BOSS.moveKey] !== undefined) {
+      this.lead = BOSS.retryLeadLate;
+      this.moveOwed = 1; this.moveShown = false;
+      this.taught = true;
+    }
   }
 
   /**
@@ -910,7 +983,17 @@ export class Boss {
   }
 
   /** A line came on screen or left it (index.ts). */
-  onLine(on: boolean): void { this.lineOn = on; this.lineQuiet = 0; this.lineHeld = 0; }
+  onLine(on: boolean, key: string = '', seconds = 0): void {
+    this.lineOn = on; this.lineQuiet = 0; this.lineHeld = 0;
+    if (!on) return;
+    this.storyLive = true;
+    if (key === BOSS.moveKey && !this.moveShown) {
+      this.moveShown = true;
+      // a late retry's first attack waits until the direct hint has been read (defs.ts `moveRead`)
+      if (this.retryOf !== '' && this.sub === 'transition') this.lead = Math.min(Math.max(this.lead, this.t + BOSS.moveRead), Math.max(this.lead, BOSS.retryLeadMax));
+    }
+    if (this.phase === 'parley') parleyShown(this, key, seconds);
+  }
 
   /**
    * `player/respawned`: core has applied the three saves. After a restore into a fighting phase she has full health on
@@ -947,6 +1030,14 @@ export class Boss {
       else if ((this.lineHeld += FIXED_DT) > 12) this.lineOn = false;   // (no line holds this long: one was cut without its end)
       if (this.phase === 'parley') tickParley(this);
       else tickFight(this, dt);
+      if (this.retryOf !== '' && (this.sub !== 'transition' || this.phase !== this.retryOf)) this.retryOf = '';   // the lead-in ran out
+      // release pass p0: the direct hint of a late retry, early in its lead-in; once more if the line box did not take it
+      if (this.moveOwed > 0 && this.sub === 'transition') {
+        if (this.moveOwed === 1 && this.ut >= BOSS.moveHintAt) { this.moveOwed = 2; S.say(BOSS.moveKey); }
+        else if (this.moveOwed === 2 && this.ut >= BOSS.moveHintAgain) { this.moveOwed = 3; if (!this.moveShown) S.say(BOSS.moveKey); }
+        // (the line box has it but has not shown it yet: the lead-in holds for it, `retryLeadMax` at most)
+        if (this.storyLive && !this.moveShown && this.lead - this.t < BOSS.moveRead) this.lead = Math.min(this.t + BOSS.moveRead, Math.max(this.lead, BOSS.retryLeadMax));
+      } else if (this.moveOwed > 0) this.moveOwed = 0;
     } else if (this.phase === 'dead' || this.phase === 'idle') S.tokens.limit = 0;
     // the arm: a ratchet click per 60 degree step
     if (this.arm.moving) {
@@ -975,6 +1066,8 @@ export class Boss {
       step: this.step, hauling: this.hauling, deaths: this.deaths, parleyHeard: this.parleyHeard, body: this.inst !== null,
       rings: this.ord.rings, canisters: this.ord.flying, lance: this.ord.lanceStage, fan: this.ord.fanStage,
       lidClose: this.closeTable !== null, addsSpawned: this.adds.spawned, addsPending: this.adds.pending, chargeAsked: this.chargeAsked, cleanSix: this.cleanSix,
+      lead: this.lead, storyLive: this.storyLive, parleyAwait: this.parleyAwait, parleyShift: Math.round(this.parleyShift * 1e4) / 1e4, inspectAt: Math.round(this.inspectAt * 1e4) / 1e4, moveOwed: this.moveOwed,
+      askedBefore: this.askedBefore, parleySkipped: this.parleySkipped, parleyKeys: this.parleyKeys.slice(), parleyHolds: this.parleyHolds.slice(), rollLit: this.rollLit,
     };
   }
 }

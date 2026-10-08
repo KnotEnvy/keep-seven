@@ -38,6 +38,16 @@ export function keyed(node: Element, tokens: readonly TextToken[]): void {
   }
 }
 
+/**
+ * A card of a readable: its paragraphs as text nodes of their own with the blank line between them a node of its own
+ * (`white-space: pre-line` draws it), so every text node on the page is one piece of story.json.
+ */
+export function paragraphs(node: Element, text: string): void {
+  node.textContent = '';
+  const parts = text.split(/(\n[ \t]*\n)/);
+  for (const part of parts) if (part !== '') node.appendChild(document.createTextNode(part));
+}
+
 /** A line glyph drawn twice: a wider ink stroke under the visible one (the 1 px outline of ART_BIBLE 10). */
 export function inked(tag: string, attrs: Readonly<Record<string, string | number>>, parent: Element, cls: string): SVGElement {
   svg(tag, attrs, parent, 'ink ' + cls);

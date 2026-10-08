@@ -3,12 +3,16 @@
 import { describe, expect, it } from 'vitest';
 import type { Bindings } from '../../src/core/contracts.ts';
 import { defaultBindings } from '../../src/core/options.ts';
-import { clockTime, format, horizontalFov, keyName, keyStoryKey, roman, splitCard, splitCards, tokenize, uiOr, useStoryUi, wrapSubtitle, SUBTITLE_LINE_CHARS } from '../../src/ui/text.ts';
+import { CREDITS_FALLBACK, REPOSITORY, VERSION, clockTime, creditsBody, creditsText, publishedDate, repositoryUrl, format, horizontalFov, keyName, keyStoryKey, loadingLine, packCards, roman, sheetLines, splitCard, splitCards, tokenize, uiOr, useStoryUi, wrapSubtitle, CARD_LINE_CHARS, CARD_MAX_LINES, SHORT_CARD_CHARS, SUBTITLE_LINE_CHARS } from '../../src/ui/text.ts';
+import { BOOT_FILE_BYTES, DECODE_SHARE, FILES_SHARE, LOAD_SHARE, loadShare } from '../../src/ui/loadMeter.ts';
+import { MARK_MIN_SCALE, MARK_SMALL_SCALE, markScale } from '../../src/ui/mark.ts';
 import story from '../../design/story.json';
 
 interface Fs {
   readFileSync(path: string, encoding: 'utf8'): string;
   readdirSync(path: string): string[];
+  existsSync(path: string): boolean;
+  statSync(path: string): { size: number };
 }
 const fs = (await import('node:fs' as string)) as Fs;
 const ROOT = decodeURIComponent(new URL('../../', import.meta.url).pathname).replace(/\/$/, '');
@@ -98,8 +102,103 @@ describe('subtitles, cards, numbers', () => {
     expect(splitCards(story.readables.rd_ledger.body)).toHaveLength(3);
     expect(splitCards(story.readables.rd_backstory.body)).toHaveLength(4);
     expect(splitCards(story.readables.rd_plate_proving.body)).toEqual([story.readables.rd_plate_proving.body]);
-    expect(splitCards(story.readables.rd_note_lip.body)[0]).toBe('Reeve Ware. Water to you.');
     for (const [key, r] of Object.entries(story.readables)) expect(splitCards(r.body).join('\n\n'), key).toBe(r.body);
+  });
+  it('pass i1: a salutation or a signature shares a card with the paragraph beside it; no card of a note is one short line', () => {
+    // the first note was three presses for four sentences, its first card the one line of the salutation
+    const lip = splitCards(story.readables.rd_note_lip.body);
+    expect(lip).toHaveLength(2);
+    expect(lip[0]).toBe('Reeve Ware. Water to you.\n\nYou are two days behind and walking well. I have hung the gate below for you. Count what I hung.');
+    expect(splitCards(story.readables.rd_note_hearth.body)).toHaveLength(2);
+    // the rule itself: a short single line joins the next card, a short last line the one before; a long one stands
+    expect(splitCards('Hello.\n\nA paragraph that is long enough to stand on a card by itself.\n\n— D.')).toEqual(['Hello.\n\nA paragraph that is long enough to stand on a card by itself.\n\n— D.']);
+    expect(splitCards('One.\n\nTwo.\n\nA paragraph that is long enough to stand on a card by itself.')).toEqual(['One.\n\nTwo.\n\nA paragraph that is long enough to stand on a card by itself.']);
+    expect(splitCards('A short line\nand another')).toEqual(['A short line\nand another']);
+    expect(splitCards('Alone.')).toEqual(['Alone.']);
+    const long = 'x'.repeat(SHORT_CARD_CHARS + 1);
+    expect(splitCards(`${long}\n\n${long}`)).toEqual([long, long]);
+    for (const [key, r] of Object.entries(story.readables)) {
+      const cards = splitCards(r.body);
+      if (cards.length > 1) for (const c of cards) expect(c.length > SHORT_CARD_CHARS || c.includes('\n'), `${key}: "${c}"`).toBe(true);
+    }
+  });
+  it('pass i2: a note found in the world is laid out by what the sheet holds; every note and plate of story.json is one card', () => {
+    for (const [key, r] of Object.entries(story.readables)) {
+      if (key === 'rd_backstory') continue;
+      expect(packCards(r.body), key).toEqual([r.body]);
+      expect(sheetLines(r.body), key).toBeLessThanOrEqual(CARD_MAX_LINES);
+    }
+    // the reviewer's two: the first note (36 words) and the ledger (75 words, three paragraphs)
+    expect(story.readables.rd_note_lip.body.split(/\s+/).length).toBeLessThan(60);
+    expect(packCards(story.readables.rd_ledger.body)).toHaveLength(1);
+    // more than a sheet holds is broken between paragraphs, never inside one, and nothing is lost
+    const back = story.readables.rd_backstory.body, paras = back.split('\n\n');
+    expect(packCards(back)).toEqual([paras[0] + '\n\n' + paras[1], paras[2] + '\n\n' + paras[3]]);
+    expect(packCards(back).join('\n\n')).toBe(back);
+    const para = 'x'.repeat(CARD_LINE_CHARS * 5);
+    expect(sheetLines(para)).toBe(5);
+    expect(sheetLines('a\n\nb')).toBe(3);
+    expect(packCards([para, para, para].join('\n\n'))).toEqual([para + '\n\n' + para, para]);
+    expect(packCards('x'.repeat(CARD_LINE_CHARS * 20))).toHaveLength(1);
+    // a closing line or a signature never stands on a card of its own
+    expect(packCards([para, para, '— D.'].join('\n\n'))).toEqual([para + '\n\n' + para + '\n\n— D.']);
+    expect(packCards([para, para, 'x'.repeat(CARD_LINE_CHARS), '— D.'].join('\n\n'))).toEqual([para + '\n\n' + para, 'x'.repeat(CARD_LINE_CHARS) + '\n\n— D.']);
+    expect(packCards('')).toEqual(['']);
+    // the story so far keeps its four authored cards (splitCards)
+    expect(splitCards(back)).toHaveLength(4);
+  });
+  it('pass i2: the loading line is story.json\'s, and index.html\'s pre-boot page says the same words', () => {
+    useStoryUi(story.ui);
+    const line = loadingLine(story.readables.rd_backstory.body);
+    const own = (story.ui as Record<string, string>).ui_loading_line;
+    if (own !== undefined) expect(line).toBe(own);
+    else { expect(story.readables.rd_backstory.body).toContain(line); expect(line).toMatch(/^[A-Z].+\. [A-Z].+\.$/); }
+    expect(line.length).toBeGreaterThan(12);
+    expect(line.length).toBeLessThanOrEqual(60);
+    const html = fs.readFileSync(ROOT + '/index.html', 'utf8');
+    expect(/<div class="says">([^<]*)<\/div>/.exec(html)?.[1]).toBe(line);
+    // the courtesy is never a stock greeting (story.json meta.rules.courtesy_cap)
+    expect(line).not.toMatch(/Water to you|And shade/);
+  });
+  it('pass i2: the loading line follows bytes in, then the decodes; with no byte seen it is the count\'s, as before', () => {
+    // no byte seen: pass i1's shares exactly
+    expect(loadShare(0, 'always', 2, 4)).toBeCloseTo(0.07, 5);
+    expect(loadShare(0, 'surface', 4, 8)).toBeCloseTo(0.57, 5);
+    expect(loadShare(0, 'surface', 8, 8)).toBe(1);
+    expect(LOAD_SHARE.always?.[1]).toBe(LOAD_SHARE.surface?.[0]);
+    // bytes: half the bytes in and nothing decoded is 40 % of the line; all in and all decoded leaves the tail
+    expect(loadShare(BOOT_FILE_BYTES / 2, 'always', 0, 13)).toBeCloseTo(FILES_SHARE / 2, 5);
+    expect(loadShare(BOOT_FILE_BYTES, 'surface', 40, 40)).toBeCloseTo(FILES_SHARE + DECODE_SHARE, 5);
+    expect(FILES_SHARE + DECODE_SHARE).toBeLessThan(1);
+    // more bytes than the figure (a stale figure, the later sets under ?test=1) never pass the files' share
+    expect(loadShare(BOOT_FILE_BYTES * 3, 'surface', 0, 40)).toBeCloseTo(FILES_SHARE + DECODE_SHARE * 0.14, 5);
+    // monotonic in both
+    let last = -1;
+    for (let b = 0; b <= 10; b++) { const at = loadShare((BOOT_FILE_BYTES * b) / 10 + 1, 'surface', b * 4, 40); expect(at).toBeGreaterThan(last); last = at; }
+  });
+  it('pass i2: BOOT_FILE_BYTES is the size of the boot sets\' files (within a wide margin: a stale figure only bends the line)', () => {
+    const manifest = JSON.parse(fs.readFileSync(ROOT + '/design/assets.json', 'utf8')) as { sets: Record<string, { assets?: string[]; textures: string[] }>; assets: Record<string, { path: string }>; textures: Record<string, { path: string }> };
+    let bytes = 0, files = 0;
+    for (const set of ['always', 'surface']) {
+      const s = manifest.sets[set]!;
+      for (const p of [...s.textures.map((id) => manifest.textures[id]!.path), ...(s.assets ?? []).map((id) => manifest.assets[id]!.path)]) {
+        const f = ROOT + '/public/' + p;
+        if (fs.existsSync(f)) { bytes += fs.statSync(f).size; files++; }
+      }
+    }
+    expect(files).toBeGreaterThan(40);
+    // to bring it up to date: put the number this prints into src/ui/loadMeter.ts BOOT_FILE_BYTES
+    expect(Math.abs(bytes - BOOT_FILE_BYTES) / bytes, `public/assets boot sets are ${bytes} bytes; BOOT_FILE_BYTES is ${BOOT_FILE_BYTES}`).toBeLessThan(0.3);
+  });
+  it('pass i1: the HUD mark holds its floor at 720p and comes down with the height under 600 px', () => {
+    expect(markScale(1920, 1080)).toBe(MARK_MIN_SCALE);          // the floor holds to 1166 px of height, as before
+    expect(markScale(1280, 720)).toBe(MARK_MIN_SCALE);
+    expect(markScale(1067, 600)).toBe(MARK_MIN_SCALE);
+    expect(markScale(800, 450)).toBeCloseTo(0.81, 5);
+    expect(markScale(480, 270)).toBe(MARK_SMALL_SCALE);
+    expect(markScale(2560, 1440)).toBeCloseTo(1.3333, 3);
+    // its share of the frame's height: no more in a 450 px window than the quarter it has at 600 px
+    expect((139 * markScale(800, 450)) / 450).toBeLessThanOrEqual((139 * markScale(1067, 600)) / 600 + 1e-9);
   });
   it('movement cards split into numeral and title; card_title and card_end are single lines', () => {
     expect(splitCard(story.lines.card_iv.text)).toEqual({ numeral: 'IV', title: 'The Line' });
@@ -149,12 +248,17 @@ describe('strings (static scan of src/ui)', () => {
         }
       }
     }
-    // the only capitalised literals left are console diagnostics, which are for developers
-    expect(found.filter((f) => !/\[ui\] /.test(f))).toEqual([]);
+    // the only capitalised literals left are console diagnostics, which are for developers, and (pass i3) the credits'
+    // four fallbacks and the repository's address, all in text.ts and nowhere else (docs/requests/ui.md asks for the keys)
+    const credits = [...Object.values(CREDITS_FALLBACK), REPOSITORY].map((v) => `text.ts: '${v}'`);
+    expect(found.filter((f) => !/\[ui\] /.test(f) && !credits.includes(f))).toEqual([]);
+    expect(Object.keys(CREDITS_FALLBACK).sort()).toEqual(['ui_credits_made', 'ui_credits_report', 'ui_credits_source', 'ui_credits_version']);
   });
   it('every ui_* key of story.json is used by src/ui (none is intentionally unused)', () => {
     const all = sources.map((s) => strip(s.text)).join('\n');
-    const INTENTIONALLY_UNUSED: string[] = [];
+    // pass i1: the end card shows a feat only when it was done ("... No" told nobody what it measured), so its "No" has
+    // no place left; asked to be taken out of story.json (docs/requests/ui.md, pass i1)
+    const INTENTIONALLY_UNUSED: string[] = [];                         // closer, pass i1: ui_end_no is out of story.json
     const unused = Object.keys(story.ui).filter((k) => !new RegExp(`'${k}'`).test(all) && !INTENTIONALLY_UNUSED.includes(k));
     expect(unused).toEqual([]);
     // and every key the code names exists
@@ -162,7 +266,7 @@ describe('strings (static scan of src/ui)', () => {
     const CUES = ['ui_move', 'ui_select', 'ui_back'];             // AudioCue names, not strings
     // the allow-list: keys asked of the story owner (docs/requests/code-ui.md 2.1 to 2.3), read through uiOr() with a
     // fallback until they land (the key names, the subtitle size words, the end card's "of"); 'ui_key_' is the prefix
-    const PENDING = ['ui_key_', 'ui_key_mouse_left', 'ui_key_mouse_middle', 'ui_key_mouse_right', 'ui_opt_size_s', 'ui_opt_size_m', 'ui_opt_size_l', 'ui_opt_size_xl', 'ui_end_of'];
+    const PENDING = ['ui_key_', 'ui_key_mouse_left', 'ui_key_mouse_middle', 'ui_key_mouse_right', 'ui_opt_size_s', 'ui_opt_size_m', 'ui_opt_size_l', 'ui_opt_size_xl', 'ui_end_of', 'ui_loading_line', ...Object.keys(CREDITS_FALLBACK)];
     const missing = [...named].filter((k) => !(k in story.ui) && !CUES.includes(k) && !PENDING.includes(k));
     expect(missing).toEqual([]);
     // every pending key is read through uiOr / the key-name table (never through ctx.data.ui, which throws on a missing key)
@@ -191,8 +295,45 @@ describe('strings (static scan of src/ui)', () => {
     expect(css.replace(/\/\*[\s\S]*?\*\//g, '').match(/var\(--violet\)/g)).toHaveLength(1);
     for (const { file, text } of sources) {
       expect(/from '(three|postprocessing)/.test(text), file).toBe(false);
-      expect(/getContext\(|new Image\(|fetch\(/.test(text), file).toBe(false);
+      // pass i3 (R15): one picture, the share picture behind the loading screen, asked for once in system.ts
+      expect(/getContext\(|fetch\(/.test(text), file).toBe(false);
+      expect((text.match(/new Image\(/g) ?? []).length, file).toBe(file === 'system.ts' ? 1 : 0);
+      if (file !== 'loadMeter.ts') expect(strip(text).match(/\.(jpe?g|png|webp|gif|svg)\b/g) ?? [], file).toEqual(file === 'system.ts' ? ['.jpg'] : []);
       for (const m of text.matchAll(/from '([^']+)'/g)) expect(/^\.\/|^\.\.\/core\//.test(m[1] as string), `${file} imports ${m[1]}`).toBe(true);
     }
+  });
+});
+
+describe('pass i3: the credits sheet', () => {
+  it('the version is package.json\'s, and the repository is the one the Pages workflow publishes from', () => {
+    const pkg = JSON.parse(fs.readFileSync(ROOT + '/package.json', 'utf8')) as { version: string };
+    expect(VERSION).toBe(pkg.version);
+    expect(REPOSITORY).toMatch(/^https:\/\/github\.com\/[^/]+\/[^/]+$/);
+  });
+  it('a page on github.io names its own repository; any other address names REPOSITORY', () => {
+    expect(repositoryUrl('knotenvy.github.io', '/keep-seven/')).toBe('https://github.com/knotenvy/keep-seven');
+    expect(repositoryUrl('someone-else.github.io', '/a.fork_1/index.html')).toBe('https://github.com/someone-else/a.fork_1');
+    expect(repositoryUrl('knotenvy.github.io', '/')).toBe(REPOSITORY);
+    expect(repositoryUrl('knotenvy.github.io', '/index.html')).toBe(REPOSITORY);
+    expect(repositoryUrl('127.0.0.1', '/keep-seven/')).toBe(REPOSITORY);
+    expect(repositoryUrl('evil.github.io.example.com', '/x/')).toBe(REPOSITORY);
+    expect(repositoryUrl('a.github.io', '/"><script>/')).toBe(REPOSITORY);
+  });
+  it('the day the copy was published, from document.lastModified; nothing when it is no date', () => {
+    expect(publishedDate('10/07/2026 14:03:22')).toBe('2026-10-07');
+    expect(publishedDate('')).toBe('');
+    expect(publishedDate('Invalid Date')).toBe('');
+  });
+  it('the credits keep story.json\'s words and add what the game is made with, once; a key in story.json wins over the fallback', () => {
+    useStoryUi(story.ui);
+    const body = creditsBody(story.ui.ui_credits_body);
+    expect(body.startsWith(story.ui.ui_credits_body)).toBe(true);
+    expect(body).toMatch(/three\.js/);
+    expect(creditsBody(body)).toBe(body);
+    expect(body.includes('\n\n')).toBe(false);                    // one card
+    useStoryUi({ ...story.ui, ui_credits_version: 'Count' });
+    expect(creditsText('ui_credits_version')).toBe('Count');
+    useStoryUi(story.ui);
+    expect(creditsText('ui_credits_version')).toBe(CREDITS_FALLBACK.ui_credits_version);
   });
 });

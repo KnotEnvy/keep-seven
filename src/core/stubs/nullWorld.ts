@@ -165,6 +165,7 @@ class NullWorld implements WorldSystem {
   }
 
   get lamps(): number { return Math.min(48, 9 + this.stats.freed); }
+  get lampsOf(): number { return Math.min(48, 9 + this.stats.freed + this.stats.felled); }
 
   // ---- building -----------------------------------------------------------------------------------
   private zonesOf(set: ResidentSet): ZoneId[] {

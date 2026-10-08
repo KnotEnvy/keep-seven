@@ -25,7 +25,7 @@ ASSET = "prop_hat_hung"
 
 def build(args):
     rng = scene.rng(args.seed)
-    SEG = 7
+    SEG = 8
     # ONE skin: out along the underside of the brim, round its edge, in over the top, up the crown, into the crease.
     # The brim is a wedge of felt 9 mm thick at the crown thinning to its edge: one edge, no doubled sheet.
     def warp(v):
@@ -39,7 +39,10 @@ def build(args):
             v.z += 0.012 * abs(math.cos(a)) - 0.010 * max(0.0, -math.sin(a))               # high at the sides, low at the front pinch
         return v
     top_z = 0.128
-    hat = dc.lathe("hat", [(0.092, 0.003), (0.19, 0.004), (0.092, 0.012), (0.080, 0.112), (0.0, 0.086)], seg=SEG, phase=0.2, warp=warp)
+    # pass i2 (the reviewer, from the flight below: "faceted black ribbons and loops"): the skin began at the crown's foot,
+    # so from under the brim the crown was an open hole and the hat a seven-sided LOOP on the wall. The underside is a
+    # closed disc now (a pole under the crown: the dark of the sweatband is painted), and the brim has eight sides
+    hat = dc.lathe("hat", [(0.0, 0.006), (0.19, 0.004), (0.092, 0.012), (0.080, 0.112), (0.0, 0.086)], seg=SEG, phase=0.2, warp=warp)
     hat.name = ASSET + "_mesh"
     dc.smooth(hat, angle=55)
     dc.paint(hat, "linen", "#6A5443")
@@ -61,7 +64,9 @@ def build(args):
         p.mul(top * np.clip(1.0 - np.hypot(q[:, 0], q[:, 1]) / 0.04, 0, 1), 0.62)        # the crease holds a shadow
         p.mix(np.clip(p.nrm[:, 2], 0, 1) * (~wall) * 0.28, "sand")                        # dust on what faces up
         under = (fr > 0.095) & (p.fnrm[:, 2] < -0.3)
-        p.mul(under, 0.62)                                                                # the underside of the brim in shade
+        p.mul(under, 0.95)                                                                # the underside of the brim in shade
+        low = (p.fnrm[:, 2] < -0.3)
+        p.mix(low * np.clip(1.0 - np.hypot(q[:, 0], q[:, 1]) / 0.085, 0, 1) ** 0.5 * 0.85, "#1F1714")   # the dark inside of the crown, seen from below
         p.mix((~under) * (~wall) * np.clip((np.hypot(q[:, 0], q[:, 1]) - 0.15) / 0.04, 0, 1) * 0.25, "#8A7460")   # the brim's edge worn pale
     dc.compose(hat, ao=0.45, gradient=(0.9, 1.05), part_jitter=0.0, face_jitter=0.0, seed=args.seed, painters=[felt], quiet=True)
 

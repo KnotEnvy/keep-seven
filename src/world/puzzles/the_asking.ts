@@ -16,6 +16,24 @@ const FLUTTER_SECONDS = 1.2;
 const FLUTTER_STEP = 0.15;
 /** question 3: the hint clock runs only while she keeps emptying the ring (one fill's length after each shot) */
 const EMPTYING_WINDOW = 9;
+/**
+ * Pass i2 (story reviewer a: "IDENTIFY STATION." six times in two minutes, once between the cradle's two lines, and
+ * the first narrator hint only at 120 s). An unanswered question is asked again no sooner than `REASK_MIN` seconds
+ * after it was last on screen (the volume's `reaskSeconds`, 20, is the design's older number: the larger wins), and
+ * the clock runs only while NOTHING is being said or waiting to be said and she is not turned to the cradle from
+ * within its look range (she is reading the room: the door does not talk over it). The repeat is queued like any
+ * line, so it can never come between two lines of a pair.
+ */
+export const REASK_MIN = 50;
+const CRADLE_COS = Math.cos(40 * Math.PI / 180);
+/**
+ * Pass i2: the asking's own hint ladder (seconds inside the antechamber without a right answer). Tier 1 (the right
+ * port's lamp flutters) at 30 s and the first line ("It asked for numbers. The walls were covered in numbers.") at
+ * 45 s on Normal: the shared ladder's 60 / 120 left her two minutes with a door that only repeated itself. Tiers 3
+ * and 4 are the shared ones.
+ */
+export const ASK_HINT_NORMAL: readonly number[] = [30, 45, 210, 300];
+export const ASK_HINT_FAST: readonly number[] = [15, 25, 120, 180];
 
 class TheAsking implements Puzzle, ShotOwner {
   readonly id = 'the_asking' as const;
@@ -54,7 +72,7 @@ class TheAsking implements Puzzle, ShotOwner {
   private readonly listenPayload: GameEvents['asking/listen'] = { lit: 0, of: 12 };
 
   constructor(private readonly s: State) {
-    this.core = new PuzzleCore(s, this.id, 3);
+    this.core = new PuzzleCore(s, this.id, 3, { normal: ASK_HINT_NORMAL, fast: ASK_HINT_FAST });
     this.view = this.core.view;
     const { data } = s.ctx;
     const elements = data.markersOfType('puzzle_element').filter((m) => m.params.puzzle === this.id);
@@ -70,7 +88,7 @@ class TheAsking implements Puzzle, ShotOwner {
     this.listenPayload.of = this.ringCount;
     const vol = this.core.volume;
     this.answers = vol && Array.isArray(vol.params.answers) ? (vol.params.answers as (number | string)[]) : [4, 6, 'hold fire'];
-    this.reask = vol ? paramNumber(vol, 'reaskSeconds', 20) : 20;
+    this.reask = Math.max(REASK_MIN, vol ? paramNumber(vol, 'reaskSeconds', 20) : 20);
     this.door = doorOfPuzzle(s, this.id);
     const inZone = data.markersInZone(this.zone);
     this.cradle = inZone.find((m) => m.params.kind === 'look_target');
@@ -152,6 +170,13 @@ class TheAsking implements Puzzle, ShotOwner {
     }
     this.sync();
   }
+  /** she is turned to the cradle from within its look range */
+  private atCradle(): boolean {
+    const c = this.cradle;
+    if (!c) return false;
+    const p = this.s.ctx.player.position, dx = p.x - c.pos[0], dz = p.z - c.pos[2], r = paramNumber(c, 'lookRange', 4);
+    return dx * dx + dz * dz <= r * r && this.s.lookCos(c.pos[0], c.pos[1], c.pos[2]) >= CRADLE_COS;
+  }
   private onFired(): void {
     if (this.question !== 3 || this.view.solved || !this.attached) return;
     // any shot, anywhere, empties the ring at once; it starts again from nothing
@@ -230,9 +255,11 @@ class TheAsking implements Puzzle, ShotOwner {
       }
     }
     if (this.question < 3) {
-      // an unanswered question is simply asked again
-      if (this.core.inside) this.reaskT += FIXED_DT;
-      if (this.reaskT >= this.reask) { this.reaskT = 0; s.story.sayNow(namedLine(this.core.volume, 'lines', 'q' + this.question)); }
+      // an unanswered question is asked again, in a quiet moment (REASK_MIN)
+      const key = namedLine(this.core.volume, 'lines', 'q' + this.question);
+      if (s.story.current === key) this.reaskT = 0;                      // counted from the end of the question itself
+      else if (this.core.inside && s.story.idle && !this.atCradle()) this.reaskT += FIXED_DT;
+      if (this.reaskT >= this.reask) { this.reaskT = 0; s.story.say(key); }
       return;
     }
     // ---- question 3: the ring counts while she holds her fire, inside the volume

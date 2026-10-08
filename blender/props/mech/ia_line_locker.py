@@ -26,6 +26,9 @@ OX, OZ0, OZ1 = 0.22, 0.40, 1.02  # the door opening
 SHELF = 0.60
 
 
+LEAN = 0.55                    # how far an upright face's shading normal leans up (mech_common.relight): 29 degrees
+
+
 def build(args):
     static, door = [], []
     ch = 0.02
@@ -40,12 +43,15 @@ def build(args):
         polys.append([mid[k], mid[j], fr[j], fr[k]])
     polys += mc.holed_front(-(W / 2 - ch), W / 2 - ch, Z0 + ch, Z1 - ch, -OX, OX, OZ0, OZ1, -D)
     static.append(mc.faces_obj("body", polys, "enamel"))
-    inner = mc.faces_obj("inside", mc.recess(-OX, OX, OZ0, OZ1, -D, 0.24), "steel_dark")
+    # release pass p0: the niche is an enamel-lined light box (it was steel_dark, and its strip faced the shelf: from eye
+    # height the round stood in a black hole). The liner takes the light from above (`relight`), the strip faces the room.
+    inner = mc.faces_obj("inside", mc.recess(-OX, OX, OZ0, OZ1, -D, 0.24), "enamel_stain")
     static.append(inner)
     static.append(mc.slab("kick", (W - 0.03, D - 0.03, Z0), (0, -(D - 0.03) / 2, Z0 / 2), "steel", drop=("y+", "z-", "z+")))
     # ---- inside: the shelf, an always-lit aqua strip under the head of the recess, the brass cradle
     static.append(mc.slab("shelf", (2 * OX, 0.20, 0.03), (0, -0.17, SHELF - 0.015), "steel", drop=("y+", "x-", "x+")))
-    static.append(mc.quad("glow", [(-0.16, -0.26, OZ1 - 0.003), (-0.16, -0.10, OZ1 - 0.003), (0.16, -0.10, OZ1 - 0.003), (0.16, -0.26, OZ1 - 0.003)], "aqua"))
+    gy = -D + 0.24 - 0.004
+    static.append(mc.quad("glow", [(-0.18, gy, 0.80), (0.18, gy, 0.80), (0.18, gy, 0.832), (-0.18, gy, 0.832)], "aqua"))   # over the round's head, in sight from eye height
     seat_z = SHELF + 0.03
     seat = mc.lathe("seat", [(0.05, SHELF), (0.05, SHELF + 0.012), (0.018, seat_z), (0.0125, seat_z + 0.012), (0.0063, seat_z + 0.012), (0.0063, seat_z), (0.0, seat_z)], 6, "brass")
     mc.place(seat, (0, -0.17, 0)); static.append(seat)
@@ -65,6 +71,14 @@ def build(args):
     for o in plate.values(): mc.place(o, (0.0, -D, 0.305))
     for o in plate.values(): o.data.transform(Matrix.Scale(0.8, 4, (1, 0, 0)) @ Matrix.Identity(4))
     static.append(plate["plate"])
+    # release pass p0 (the reviewer: "flat untextured volumes"): the flanks were two bare enamel rectangles. Three louvre
+    # slots over the numeral and a service seam under it, each with its stain (below)
+    for sx in (-1, 1):
+        xf = sx * (W / 2 + 0.0006)
+        for k in range(3):
+            z = 0.985 + k * 0.045
+            static.append(mc.quad("louvre", [(xf, -0.24, z), (xf, -0.10, z), (xf, -0.10, z + 0.018), (xf, -0.24, z + 0.018)][::sx], "steel_dark"))
+        static.append(mc.quad("flank_seam", [(xf, -0.285, 0.43), (xf, -0.015, 0.43), (xf, -0.015, 0.437), (xf, -0.285, 0.437)][::sx], "steel_dark"))
     for z in (0.50, 0.92):                                                      # hinge knuckles on the left edge
         static.append(mc.lathe("knuckle", [(0.016, -0.05), (0.016, 0.05)], 5, "steel", centre=(-OX - 0.03, -D - 0.012, z), cap_start=True, cap_end=True))
     # ---- the door: rounded lens glass in a steel rim, a pull on the right; the inside face shows when it stands open
@@ -80,6 +94,17 @@ def build(args):
     ob = rig.join_as_rigid_skin({"root": static, "door": door}, arm, ASSET + "_mesh")
     mc.ao_compose(ob, distance=0.3, jitter=0.0, seed=args.seed, gradient=(0.84, 1.05), hidden=[pd])
     vcol.streak_under(ob, [(-0.27, -D, 1.05), (0.27, -D, 1.05)], width=0.05, length=0.3)
+    vcol.streak_under(ob, [(sx * W / 2, y, 0.985) for sx in (-1, 1) for y in (-0.22, -0.12)], width=0.05, length=0.26)   # the louvres weep
+    mc.grime_below(ob, Z0, Z0 + 0.42, 0.80)                                     # kicked and handled low down
+    # the niche was baked shut behind its door: lift it, then paint the strip's light down the liner (aqua, falling off
+    # to the shelf and toward the door)
+    def niche(p, n): return (np.abs(p[:, 0]) < OX + 0.001) & (p[:, 1] > -D + 0.004) & (p[:, 1] < -0.055) & (p[:, 2] > OZ0 - 0.001) & (p[:, 2] < OZ1 + 0.001)
+    mc.lift(ob, niche, 0.82)
+    def strip_light(p, n):
+        k = np.clip(1.0 - np.abs(p[:, 2] - 0.82) / 0.42, 0, 1) ** 1.3 * (0.45 + 0.55 * np.clip((p[:, 1] + D) / 0.24, 0, 1))
+        f = (0.30 + 0.70 * k)[:, None] * np.array([[0.62, 1.0, 0.96]], np.float32)
+        return np.where(niche(p, n)[:, None], f, 1.0)
+    mc.shade(ob, strip_light)
     # the door was baked shut: its rim and inside face must not stay AO-black when it stands open
     mc.lift(ob, lambda p, n: (p[:, 1] < -D + 0.001) & (np.abs(p[:, 0]) < OX + 0.04) & (p[:, 2] > OZ0 - 0.04) & (p[:, 2] < OZ1 + 0.04), 0.8)
     # the lens glass: one painted highlight (two pale diagonals), so it reads as glass and not as a hole
@@ -89,6 +114,7 @@ def build(args):
         hl.append(mc.quad("sheen", [(xa, y, 0.90), (xa + wdt, y, 0.90), (xa + wdt + 0.07, y, 0.985), (xa + 0.07, y, 0.985)], "steel"))
     for o in hl: o.vertex_groups.new(name="door").add(range(len(o.data.vertices)), 1.0, 'REPLACE')
     ob = mc.overlay_join(ob, hl)
+    mc.relight(ob, LEAN, niche)                                                 # upright faces take half the key; the liner all of it
     zone.lamp_set("lamp", [mc.lamp_rect((0, -D - 0.0145, 1.095), 0.44, 0.036)], colour="aqua")
     dd, ds = mc.Decals(), mc.Decals()
     dd.add((0.0, -D - 0.028, 0.80), 0.34, 0.085, "picto_line", None, "enamel", lift=0.001)

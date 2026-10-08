@@ -306,12 +306,12 @@ opened. "A known gap listed in your report is worth more than a hidden one."
 
 | Budget | Cap | Shares |
 |---|---|---|
-| Draw calls, Low | ≤ 100 typical, ≤ 150 worst | computed per visibility cell in `assets.json` (`visibility.cells[].budget`); art holds its per-asset `drawCalls`; the heaviest cell is `cell_gallery` at 83 / 91 |
-| Triangles in view, Low | ≤ 120 000 | per-asset `triBudget`; the heaviest cell is `cell_gallery` at 117 500: **there is no slack: an asset over budget fails the build** |
-| Textures + render targets | ≤ 64 MiB Low, ≤ 128 MiB High | per stage in `assets.json` `stages`: surface 57.0, seam 61.0, underground 49.7, coda 37.7 MiB on Low |
+| Draw calls, Low | ≤ 100 typical, ≤ 150 worst | computed per visibility cell in `assets.json` (`visibility.cells[].budget`); art holds its per-asset `drawCalls`; the heaviest cell is `cell_gallery` at 84 / 92 (release pass p0) |
+| Triangles in view, Low | ≤ 120 000 | per-asset `triBudget`; the heaviest cells are `cell_street` and `cell_yard` at 119 930 (release pass p0, after ruling R14 gave the view-model 18 000 of it and took 12 000 from chunk plans, the day backdrop and the effects allowance): **there is no slack: an asset over budget fails the build** |
+| Textures + render targets | ≤ 64 MiB Low, ≤ 128 MiB High | per stage in `assets.json` `stages`: surface 51.3, seam 55.3, underground 44.0, coda 32.0 MiB on Low; High at 1920 x 1080: 117.0, 121.0, 109.8, 97.8 (release pass p0, the closer's corrected render-target ledger: Low 20 bytes a pixel, High 39.33; 2.3 MiB of each is the view-model's own texture set, ruling R14) |
 | JS per frame | ≤ 4 ms | player 0.4 · enemies 1.0 · world 0.5 · render 1.5 (JS submission side) · audio 0.3 · ui 0.2 · core 0.1 (median, worst fight) |
 | Allocation | ≤ 6 KB per tick | zero per-frame allocation in every piece; the 6 KB is the libraries' floor |
-| Download (MiB: ruling 21) | ≤ 20 MB | env exterior GLBs 2.4 + lightmaps 3.1 (ruling 24) · env interior GLBs 2.5 + lightmaps 3.0 · props 0.8 · weapons 0.65 · enemies 0.8 · boss 0.6 · shared textures 1.5 · JS + CSS 1.5 (MB) |
+| Download (MiB: ruling 21) | ≤ 20 MB | env exterior GLBs 2.4 + lightmaps 3.1 (ruling 24) · env interior GLBs 2.5 + lightmaps 3.0 · props 0.8 · weapons 0.65 · enemies 0.8 · boss 0.6 · shared textures 1.5 · script + style 1.75 · design data 0.35 (MiB; release pass p0: it was "JS + CSS 1.5" with the design data inside the script, and the script alone was 1.83 MiB. The three design files are now separate `.json` files and the script is 1.55 MiB. The shares sum to 17.45 of 20) |
 
 ## 6. Producer rulings (where the source documents were silent or disagreed)
 

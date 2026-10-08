@@ -1,60 +1,192 @@
-# Known issues after polish round 5
+# Known issues in this build (2026-10-07, after the third iteration toward release)
 
-These are the issues the final reviewers listed after the last round of changes. Nothing
-here blocks finishing the stage. One is rated major; the rest are polish. Performance was
-last reviewed in round 4 (8.6) and is not repeated here; its open notes are in
-`docs/INTEGRATION_REPORT.md`.
+This is everything we know to be still open. Nothing here stops the stage from being
+played from the title to the end card. The numbers behind each line are in
+`docs/INTEGRATION_REPORT.md`, Part P.
 
-No person has yet checked real-GPU frame rate, the audio, or how the game plays in human
-hands. Reports on those are worth more than anything below.
+## Not yet checked by a person: the most useful things to report
 
-Labels such as R6 or R13 that remain in the text are the project's internal review rulings
-(for example: the revolver must be a handsome, readable object; the High tier must look
-visibly richer than Low).
+- **Frame rate on a real graphics card.** The game has only ever run on a software
+  renderer. We do not know its frame rate on integrated graphics, or what the High
+  setting costs. In this pass High gained cones of light under ceiling lamps, drifting
+  dust underground, shafts of sun in the gully, stars at dusk and a glow round the far
+  town's lamps; none of it has been timed on real hardware. If it stutters, add `?perf=1`
+  to the page's address for the overlay and tell us the numbers, your graphics card and
+  whether the setting was Low or High.
+- **Automatic quality.** The game picks Low or High by itself on the first load. The
+  thresholds it uses were never measured on real hardware. If it picks badly, say what it
+  picked; Options lets you override it.
+- **Sound.** All audio is synthesised and nobody has listened to it on speakers. Reports
+  on loudness, harshness and whether cues can be told apart are welcome.
+- **How it plays in human hands.** Every fight was tuned with scripted players, and they
+  were not replayed after this pass's changes (the boss's opening speech is five seconds
+  shorter and its rule is now taught at the first hit and the first retry). Easy and Hard
+  were not replayed. The timing of the narrator's lines, which now wait for you to look at
+  the thing they are about, was checked by script, not by a person.
+- **Screens that are not 16:9.** Ultra-wide (21:9) and 4:3 were checked for the menus and
+  the ending, but not for every scene. At the dial on the bore door the lowered revolver
+  was checked at 16:9 only.
+- **The published page.** It was checked locally from a sub-path with a plain file
+  server. The publishing workflow has never run; somebody should open the real page once.
 
-## Visuals — 8.0 / 10
+## Fights
 
-- **Major.** At idle the hand reads as two brown lumps and the revolver as a smooth toy-like casting — R13 asks for a hand that reads as a hand and R6 for a handsome object.
-- High is still indistinguishable from Low in the gully, at the lip gate and in the yard — High now shows real sun shadows in the street and bloom on lamps, beacons, knots and the hall arch, but in the first zone and the yard a player flipping tiers sees no change.
-- On High, bloom washes the antechamber station plate '4' into an unreadable glowing square — The lit plate reads '4' crisply on Low; on High the bloom halo erases the numeral and spreads a yellow-green glow over the wall.
-- The rim lift cage interior is a flat maroon box — Turning round on arrival at the rim shows plain maroon walls with a wavy line texture, a flat tiled floor and thin coloured stripes: it reads as blockout next to the layered mesa outside.
-- The end card sits on top of the revolver, and the fire is small beside it — the last image is strong, but the card covers the right third exactly where the pale gun is, leaving a ghosted gun behind the statistics, and the fire is roughly a 20 x 45 px cone next to the derrick.
-- A few props read as primitive shapes up close — The hung coats on the gallery stair are faceted olive blobs at arm's length, and the orange locker/crate boxes in the lift hall and the dark bore stair are flat untextured volumes.
+- **The corridor fight underground (the queue of six) barely touches a careful player.**
+  A player who backs away and shoots straight takes one hit at most. It does punish
+  standing still.
+- **The big machine in the lift hall is the costliest fight before the boss.** Its ground
+  slam takes more than a third of your health. A player who never steps out of the ring
+  still dies to the third slam, though the game tells you to move.
+- **Standing still in the boss's second phase is still fatal** (about 16 seconds after a
+  respawn). The game now says "move" the first time you are hit.
+- **In the corridor fight, the two enemies that come from behind slow down if you turn
+  and watch them from far away.** It can look odd.
+- The street fight now begins when you come within about 20 metres of the kneeling figure
+  or look at it from a little further, not at the gate. Nobody has played it that way by
+  hand.
+- On Hard, only the timing of the boss and the big machine is tighter; nobody has played it.
 
-## Combat and gunfeel — 8.5 / 10
+## Story and guidance
 
-- The yard is the stage's sharpest spike and can run a player dry — The second fight of the stage kills proxies more often than the boss does, and several runs ended it with an empty pouch.
-- The file is still free for a player who shoots straight — After the line round frees the first six, the second wave of six Biders each die to one body shot and almost never complete a wind-up against a 0.45 s-reaction player.
-- The Tamper is the dearest fight and punishes a static player hard — The slam (38 HP, 3.5 m radius) lands on anyone who does not step away during its 1.15 s wind-up, and a hurt arrival from the file can die here.
-- Hard plays almost like Normal — Hard is winnable, but a plain-skill proxy sees little difference in the Tamper and the Windlass, so the setting offers a veteran little extra.
-- The idle hand is two smooth sausage fingers — The revolver itself now reads at a glance (barrel, fluted cylinder, recoil shield, hammer spur), but at idle the hand is a pair of unmodelled brown tubes with no knuckles or glove seams.
-- The act card sits over the Tamper during its first charge after a checkpoint load — "V THE WEIGHT" is drawn at screen centre over the Tamper while it winds up its first charge, hiding the telegraph on a respawn.
-- The tracer starts below the muzzle on the first frame of a shot — The flash is now on the muzzle, but the tracer streak on the first drawn frame begins lower-left of the flash rather than from the barrel.
+- **The wait before the boss fight is shorter but still a wait**: 17 seconds from the
+  machine's first line to the moment you can act, 22 to the fight proper, and about 2
+  seconds more if a narrator line is on screen as you walk in.
+- On a second attempt in the same sitting, a shot during the boss's speech skips to the
+  end of it instead of counting as a refusal. Nothing on screen says so, and the game
+  forgets it if you reload the page.
+- The six small lamps on the boss that light up as it names its chambers are only a few
+  pixels each on the Low setting.
+- **A fast player can still miss narrator lines.** If the yard's walking machine is shot
+  down before it turns to you, its introduction is never said. The watcher in the stair
+  niche speaks only if you look at it. On the peg stair, a player who runs straight down
+  and on into the bay does not hear the second line about the coats.
+- In the Tally House at a brisk pace, the station's line about daylight comes several
+  seconds after the lights come on, because it waits for two narrator lines. The line
+  about the table cloth is dropped if you shoot the cord quickly.
+- **In the ending where you leave the round on the stone, one line about the round
+  ("He had not taken hers. She had given it.") is still said.** Two earlier reviewers
+  read it as belonging to the other ending. It was kept on purpose; say so if it
+  confuses you.
+- With "reduce motion" switched on, the view is not turned for you in the ending, so the
+  line about the Rule leaning can be said with the Rule out of sight.
+- The revolver is lowered when the last fire catches, not a moment earlier when the line
+  about it begins.
+- The goal line top left also appears during a fight (it names the fight). There is no
+  option to switch it off.
+- When you look straight at the man on the far rim, the crosshair sits across his feet.
+- The drawing of the lift head in the lift hall is hidden behind a pillar from the middle
+  of the hall.
+- With exactly ten people freed, the end card says "10" under a row of twenty lamps (the
+  count skips nineteen).
+- The end card's numbers let you work out how many townsfolk were shot rather than
+  freed, although the game never says so.
+- The loading bar fills by size, but can stand still for up to a second while one large
+  file arrives on a slow connection.
+- The save made when the boss dies shows no "saved" mark on screen.
+- The bell in the loft that hints at a secret uses a stand-in chime, not a bell sound.
+- When you continue from a save that opens a new movement, the movement's title card is
+  shown again.
+- The hint that you can run may now appear beside a narrator line (on its own row).
 
-## Playthrough — 8.5 / 10
+## Picture
 
-- The file is still free for a player who looks both ways — The round-5 change (two Biders from the stair behind, four bursting from the far door) makes the file cost a careless player, but a plain-skill player who turns on the nearest threat and back-pedals still takes no damage.
-- The file's warning lines arrive after the ambush they describe — The narrator's cues for the fight's two surprises trail the events, and "Four more, from the far door" is on screen about a second before the fight is over.
-- The Tamper swings between harmless and nearly lethal — The slam decides the whole fight: the same duel costs nothing in some runs and almost a full health bar in others, and a back-pedalling player takes more than one who stands still.
-- Windlass phase 2 kills a player who stands still in about 11 seconds, every respawn — A player who stands and shoots in phase 2 dies, respawns and dies again on the same schedule.
-- Walking away from the stone ends the stage with no warning — The final choice is safe while she stands at the stone or waits on the ledge, but stepping back from it silently resolves to "she left it" about 40 to 60 s later.
-- Nothing in play points at either secret — Both secrets work and pay twelve rounds each, but no line, glint or sound draws the eye to the loft bell or the cold bay knot.
-- The end card's TIME leaves out failed attempts and deaths are never shown — TIME counts only the surviving timeline, so a run with deaths reads much shorter than it was played, and the card has no deaths row to explain the gap.
+- **The revolver in the Tally House** is still warm: under the lamps its barrel carries a
+  broad orange band and the whole gun reads bronze rather than blue steel. **In the dark
+  rooms** (the gallery, the plate door, the rim) the steel is lighter than what is behind
+  it, where a reviewer asked for darker.
+- **The hand**: the three fingers round the grip point almost at you, so each shows about
+  one and a half joints rather than a whole finger, and the little finger is below the
+  edge of the screen. The gloves take the room's colour whole (olive under the teal
+  light underground).
+- The revolver's flank has no engraving or maker's mark. Taking a round from a locker and
+  unloading were not looked at frame by frame with the new hand.
+- **High and Low still look almost the same in a few places**: inside the lift cage on
+  the rim, looking back at that cage, the yard looking at the derrick, and the view down
+  on the big machine's hall. Outdoors the average difference between the settings did
+  not grow in this pass; what High adds changed (shafts, deeper shadow, stars).
+- On High, a plain wall close to you in shade can look like a flat dark plum block.
+- **The gully's rock above head height is still a few very large flat faces** with long
+  straight skylines; only the band you walk beside was broken up. The patches of sun on
+  its floor are painted: no gap in the rock above lets that sun in, and on High each
+  shaft fades in a few metres over the floor.
+- **The court in front of the town gate still has nothing tall in its middle**; the
+  fallen shade roof is flat. The grey line poles in the last stretch of the gully read
+  weakly against the red rock.
+- The mule's bones near the start are simple shapes if you walk right up to them.
+- Brick showing through broken plaster looks stepped from less than a metre away. The
+  adobe walls got new paint only, no new shapes.
+- In the last picture the leftmost building of the town is cut by the edge of the screen
+  (more so at 4:3). The dune in front of the fire has no fire-lit edge.
+- Dead trees, bushes, rock slabs, the bones, the fallen poles and the half-buried pipe in
+  the gully cannot be bumped into; pressing into the foot of a wall can put the view
+  against a trunk.
+- **The coats on the peg stair** now have backs, collars and sleeves, but hang stiff, and
+  from arm's length their outline is close to a rectangle. Under the teal light they are
+  dark olive and their toggles are faint. On High a soft dark halo shows on the wall
+  round each coat.
+- **The seated figures in the Tally House** show their simple shapes from closer than
+  about 70 cm (ten-sided hoods, mitten hands, box legs under the table). They are lit
+  once, so they do not brighten when the shutters open. The glass knot on a freed, seated
+  figure is a plain grey bead and can read a little like a cap.
+- The glowing knots on machines and latches (the yard and hatch latches, the boss's
+  mouths) are still clusters of flat facets; only the hooded figures' knots were remade.
+- The hoods carry two faint slits and a breath stain that can read as a face.
+- When a hooded figure is freed and sits down, its hood changes shape slightly.
+- The ring on a stand in the proving bay shows its fourteen flat sides from two metres.
+- **The seventh shot**: from the mark you face the bore, so the ring of light that crosses
+  the floor leaves from behind you and you see only its far side. The drifting dust on
+  High is a few small specks in any one frame.
+- Underground: the rim of the bore is still a ring of large blocks; looking straight down
+  the bore, the lining below the rim is visibly faceted. The peg stair's concrete shows
+  faint dark course lines. Under a long strip lamp, High's light cone comes from the
+  strip's middle rather than its whole length.
+- The lift cage at the rim: its back wall is noticeably brighter than the rest of the
+  cage against the dusk.
+- On High a dark soft-edged smudge shows round some wall plates underground.
+- On High the sun, when in view from the yard, is a bleached blob that swallows its disc.
+- The ammunition dispenser in the antechamber is a flat dark block at arm's length.
+- The cabinet at the foot of the lift-hall ramp has no cable run or stained foot. A small
+  pocket beside it, the ramp and the gantry can hold the player briefly.
+- The first frames after the first load are drawn at reduced resolution under a fade from
+  black, by design. On a slow machine the picture may stay soft for longer.
+- The preview renders in `shots/art-weapons/` show an older revolver and gloves.
 
-## Story and UX — 8.5 / 10
+## Performance and build
 
-- The Windlass parley text runs about 9 s behind the boss — When the player answers the third question and walks straight in, the narrator's cradle line and the station's sign-off still hold the subtitle queue as the parley starts.
-- Nothing tells the player that walking away from the stone is a choice — On the rim the objective reads only 'Go on.' and the only prompts are 'E Read' and 'E Take'.
-- A brisk player loses several lines that carry story or teaching — Lines queue behind room descriptions and go stale.
-- Movement card is faint over a bright sky and sits on the view — The movement numeral and title ('VII / SEVEN') are thin outlined type centred just above the crosshair.
-- End-card row 'Six dry mouths, one cylinder' uses a word the player never reads — Everywhere else in the fight the boss's ports are 'chambers' (the objective is 'The head is dry.
-- 'Hold SHIFT to run' hint appears mid-fight under the crosshair — The run hint first shows during the Front Street fight and stays about 17 s, centred just below the crosshair where the Biders are.
-- At idle the muzzle covers part of the asking dial — Facing the bore door square on, the barrel overlaps the ports and numerals at 3 and 4 on the dial the player is asked to read and shoot.
+- **Memory on High at 1080p is close to its limit** in one place: 121 of 128 MiB while the
+  Tally House and the gallery below it are both loaded. Low peaks at 55 of 64 MiB.
+- High draws up to about 220 000 triangles in the street and yard (the limit is 400 000)
+  because the town is drawn a second time to cast shadows. Low peaks at about 97 000 of
+  120 000.
+- The game still allocates about 5 to 6 kB of memory per tick and drawn frame (inside the
+  3D library and the main loop). Memory stays flat in long runs and no tick is slow, but
+  it is not the zero we aimed for.
+- The first time you choose High in Options, its shaders are compiled behind the pause
+  menu, which can hitch on a slow machine. Switching back and forth afterwards is free.
+- The script is one 1.7 MB file (0.5 MB compressed). The first load fetches about 9.4 MB
+  in 60 requests before the title appears.
+- After three full runs in one page without a reload, two stale lamp entries per run
+  remain in memory (a few hundred kB). Reloading the page clears it.
+- Rebuilding every asset from the Blender scripts takes about nine minutes, and any change
+  to a design file rebuilds all of them. Two rebuilds give the same files except the
+  outdoor lightmap, which differs slightly each time.
+- Several pieces are at the edge of their triangle allowance and cannot be refined
+  further without moving allowance from elsewhere: the street and yard (about 160
+  triangles left), the boss room (175), the upper gully rock (under 300).
+- The triangle count the game submits from the peg stair includes every coat in the
+  gallery, seen or not (hidden ones are drawn at zero size). It is inside the limit.
 
-## Robustness — 8.8 / 10
+## Tests and tools
 
-- Menus and end card break in a very small window (480x270) — At 480x270 the end card overflows the window: its title and first row are above the top edge, values wrap one word per line, and 'Walk it again' / 'Title' sit below the bottom edge.
-- Every tier switch relinks about 39 shader programs — Changing the graphics tier in Options relinks roughly 39 programs each time, which is a visible hitch behind the pause menu on a slow machine.
-- Unpaced High-tier test runs outgrow the browser memory limit — A whole-stage High-tier tour driven by the step hook with drawing on dies with 'Target crashed' (the memory watchdog kills the renderer).
-- Test bot's title start does not know the new 'Begin?' confirmation — tests/e2e/lib/bot.mjs startFromTitle clicks 'play' and expects play to begin.
-- Last-lift checkpoint and post-ending 'Go on' replay finished beats — The checkpoint held during the proving-lift ride (cp_boss_proven) restores the Windlass alive in its dry phase, so a page reload or 'Back to the last count' on that ride makes the player fire the last six rounds again.
+- The scripted whole-stage runs with a "plain" and a "careless" player were not repeated
+  after the last changes; each team replayed only what it changed.
+- The test player shoots the big machine's back vent from the front (slower, still passes)
+  and never looks at the watcher in the stair niche, so that line is not exercised by the
+  full run (a separate test covers it).
+- One test allowance was loosened in this pass: the revolver in the Tally House may be
+  2.5 lightness steps brighter than the room behind it (it was 2).
+- One run of the sound tests failed once because the test machine's network changed
+  under the browser; the second run passed.
+- Nothing of the last four passes is committed yet. The page is published from a commit,
+  so every changed and new file must be committed before the release tag (the list is in
+  the integration report, P.7).

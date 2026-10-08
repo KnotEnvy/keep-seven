@@ -11,6 +11,7 @@ import { DEG2RAD } from '../../core/math.ts';
 import { Shot, inVolume, paramList, paramNumber, paramString } from '../internals.ts';
 import type { Puzzle, ShotOwner, State } from '../internals.ts';
 import { PuzzleCore } from './hints.ts';
+import { URGENT_READ } from '../story.ts';
 
 /** each blade's narration starts when its landing patch comes within 30 degrees of the crosshair, or 4 s after the drop */
 const LOOK_COS = Math.cos(30 * DEG2RAD);
@@ -103,6 +104,11 @@ class Daylight implements Puzzle, ShotOwner {
     }
     this.knotHint = hint;
     if (this.knotMarker) s.forcers.set(this.knotMarker.id, (announce = false) => this.force(announce));
+    // Pass i3 (both story reviewers: "The share-cloth hung in the light's way" was said 24 to 34 s after the cloth had
+    // fallen, at the hearth and two rooms on). The key shutter's line is about the cloth with the light on it: it is
+    // dropped unheard when its turn comes with the cloth down (story.ts UNKEPT: it no longer waits for ever).
+    const key = this.shutters[this.key];
+    if (key) for (const k of paramList(key.marker, 'lines')) s.story.unless(k, () => this.cloth);
   }
 
   // ---- what is built --------------------------------------------------------------------------------
@@ -288,7 +294,12 @@ class Daylight implements Puzzle, ShotOwner {
     if (this.cell) {
       if (announce) {
         s.cueAt('cell_wake', this.cell);
-        for (const key of paramList(this.cell, 'lines')) s.story.say(key);
+        // (p0: the station's answer to the light is next in line: said behind the room's lines a brisk player lost both)
+        // (pass i1: its first line is about this second: over a room line once that line has had URGENT_READ of its
+        // time; it came up to 6 s after the light, behind a narrator line)
+        const wake = paramList(this.cell, 'lines');
+        if (wake.length > 0) s.story.sayUrgent(wake[0] as string, URGENT_READ);
+        for (let i = 1; i < wake.length; i++) s.story.sayFront(wake[i] as string);
       }
       s.story.setObjective(paramString(this.cell, 'objective'));
     }
@@ -307,7 +318,9 @@ class Daylight implements Puzzle, ShotOwner {
     if (announce) {
       s.knotBurst(this.knot.id, false, this.knot.x, this.knot.y, this.knot.z);
       s.progress(this.view, this.knot.id);
-      s.story.sayFrontAll(paramList(this.knotMarker, 'lines'));          // on the event: the two rise now
+      // on the event: the two rise now (pass i1: urgent, over a room line; "Two of them stood" was said late or,
+      // when the two were down first, never)
+      for (const key of paramList(this.knotMarker, 'lines')) s.story.sayUrgent(key);
     }
     if (this.hatch) s.doors.ajar(this.hatch);
     if (announce && this.encounter) s.director.start(this.encounter);
@@ -345,10 +358,13 @@ class Daylight implements Puzzle, ShotOwner {
       sh.since += FIXED_DT;
       const hit = sh.hits[0];
       const looked = hit !== undefined && s.lookCos(hit.pos[0], hit.pos[1], hit.pos[2]) >= LOOK_COS;
-      if (!looked && sh.since < NARRATE_AFTER) continue;
+      // (pass i3: the key shutter's landing is the cloth, which she shoots down next: its line does not wait for the look)
+      if (!looked && sh.since < NARRATE_AFTER && i !== this.key) continue;
       sh.narrated = true;
       if (i === this.key && this.clothMissed) continue;
-      for (const key of paramList(sh.marker, 'lines')) s.story.say(key);
+      // (pass i3: a landing she is looking at is told next, behind the continuation of the line on screen; one she never
+      // turned to waits its turn like any room line. The cloth's is told next either way: the cord is what she shoots next)
+      for (const key of paramList(sh.marker, 'lines')) { if (looked || i === this.key) s.story.sayPresent(key, false); else s.story.say(key); }
     }
     if (this.lightIn >= 0) { this.lightIn -= FIXED_DT; if (this.lightIn < 0) this.light(true); }
     if (this.frayIn >= 0 && !this.cloth) { this.frayIn -= FIXED_DT; if (this.frayIn < 0) this.fall(true); }

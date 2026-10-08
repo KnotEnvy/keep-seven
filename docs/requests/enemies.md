@@ -129,3 +129,149 @@ load; 17 of 17 restores (measured while other teams were still editing: the clos
 | 3.1 (moot rule for `stn_boss_hauling` / `stn_boss_indexing`) | **Not applied**: a guard for a case nobody has seen; the story queue is not touched unverified in the last hour. Listed as a known gap |
 | 4 (standing still in phase 2 after a respawn) | **Stands** as a known gap (INTEGRATION_REPORT J.6) |
 | the slower `slam_windup` clip as a picture | not judged by a look team; listed |
+
+## Fixer, release pass p0 (2026-10-07): decisions
+
+| Row | Decision |
+|---|---|
+| "Hard plays almost like Normal" (the combat critic) | **Applied by the fixer in your tables** (listed so you know): `src/enemies/defs.ts` new `TAMPER.slamRecoverBy` `{ easy 1.5, normal 1.5, hard 1.275 }` and `BOSS_BY.*.glowScale` (`hard 0.85`); read in `tamper.ts` (two places that read `TAMPER.slamRecover`) and `boss/attacks.ts` (`fireSlot` and the pattern's slot clock). Normal and Easy are tick-identical (`tests/e2e/release_p0.test.mjs`; `tests/enemies` 65 pass). `SLAM_CYCLE` (the unseen-attack delay) still uses 1.5 on every difficulty. Not replayed by a proxy on Hard: yours to judge |
+| hint after a death at the Tamper | **Key added**: `hint_tamper_ring` "The ring on the floor was where the arm came down. She stepped out of it." |
+| the phase-2 hint never says to move | **Key added**: `hint_boss_move` "Standing still was the one thing it could hit. The ribs were cover." for the second death in phase 2 |
+
+## Code team enemies, release pass p0 (2026-10-07): the five open issues of the final reviewers
+
+Evidence: `scratch/p0-team-enemies/` (`NOTES.md`, every log named below), `shots/p0-team-enemies/parley_02_boss_inspection.png`.
+Tests: `tests/enemies/release_p0.test.mjs` (6 new), `tests/enemies/logic.spec.ts` (1 new, 1 updated for the fixer's
+tables); `node --test tests/enemies/` 71 pass, `npx vitest run tests/enemies` 22 pass, `npx tsc --noEmit` clean.
+
+### 1. What changed
+
+| # | Issue | Cause found | Change | Proof (real game, Normal unless said) |
+|---|---|---|---|---|
+| 1 | The file is free for a player who shoots straight | (a) the rear pair run 57 m and reached her 1.9 s after the door's four, so the two ends were shot in turn; (b) a `circle` Bider trailed a player who walked on at 4.5 m, outside the 3.8 m it attacks from, for as long as she walked (206 ticks through a whole reload in the critic's leg) | `BIDER.hurryWaves` `{ 'enc_file/R' }` (or a spawn marker with `hurry: true`): x `hurrySpeed` 1.3 while more than `hurryBeyond` 18 m off AND outside her view cone, else 5.8 m/s. `circle` -> `approach` when a melee token is free and she is beyond 3.8 m | `a_file*.log`: plain proxy 18 / 18 / 0 HP (was 0 / 0 / 0), careless 54 / 72 / 36 (was 72 / 72 / 72), 0 deaths, 28 to 33 s; Hard plain 25. The rear pair's first wind-up 0.25 s after the fourth of the door goes down (was 0.7 s, with the second of the pair never attacking) |
+| 2, 3 | The Tamper is the dearest fight / swings between harmless and nearly lethal | the pause after a slam that hurt her (`slamAfterHit`) was applied where the `slam` state ended; a round into the open chest vent in those 0.3 s (the right answer) staggered it and skipped the pause: the next ring was down 1.8 s after the hit (three slams, 108 of 100, in both critics' runs). And the only teaching was dying | the pause is a time on the body (`Actor.quietUntil`), set on the tick the slam hurts her; no stagger shortens it. From the second slam in a row that hurt her the pause is `TAMPER.slamAfterRun` 4.5 s on Normal and Easy (Hard 1.5): the next ring is laid as the hint ends. `hint_tamper_ring` is said on the second slam of a fight, and 1 s after the respawn that follows a death to a slam. `slamRadius` stays 3.5 | `c_mat*.log`: plain 76 / 76 / 0 (was 105 / 76 / 18 from the checkpoint, 108 / 107 / 184 + a death continuous), careless 0 / 38 / 76 (was 0 / 56 / 38, and 147 + a death in the closer's run): never more than two slams. The critic's mid-skill proxy that never moves (`matMid_3`): 5 deaths in a row before, 0 after (`b_matMid_3.log`). Hard plain: 0 / 105, 0 deaths |
+| 4 | Windlass phase 2 kills a standing player every 11 s under a hint that never says to move | (a) **polish round 5's 4 s retry lead never ran after a real death**: the game applies the save and THEN resets the encounter and begins the boss again, and that second beginning was a first arrival's (1.5 s): first discharge 2.32 s after the respawn (`stand_p2.log`); (b) `hint_boss_haul` was said at every try's first haul, cut off by the death and replayed by the line box at the respawn: four readings by the third try | `Boss.retryOf` / `applyRetry`: the retry survives the encounter reset. From the second death in one cylinder phase (`BOSS.moveDeaths`): lead-in `retryLeadLate` 6.5 s, `hint_boss_move` said 0.5 s after the respawn (the first attack waits until it has been on screen 4 s, 11 s at most). The teaching line is said once per phase of a run, not on every try | `stand_p2_after.log` (she never moves or fires): respawn 1: first discharge after 4.82 s (2.32 before); respawn 2: `hint_boss_move` on screen after 0.52 s, first discharge after 7.32 s, death 16.2 s after the respawn (11.2 before). Moving proxies (`c_boss*.log`): plain 0 deaths in 3, P1 50 s, P2 46 to 74 s; careless 1 death in 3 (P2, then cleared in 62 s); Hard plain 0 deaths in 2 |
+| 5 | The parley text runs 9 s behind the boss | the stages ran on a clock while their lines waited behind `nar_cradle_2` and `stn_ask_done` | the asking follows its lines as SHOWN (`story/line`): each line is asked for when the one before has been on screen its written time, the six mouths open on the tick `stn_parley_4` appears, the close and `nar_parley_kept` 4 s and phase 1 5 s after it; after a kept asking the first tell waits `parleyKeptLead` 4.5 s. A line never shown holds its stage `parleyLineWait` 14 s at most; with nothing showing lines (the sandboxes) the written clock runs unchanged | `parley_after.log` (the critic's leg): door 29.0 s; `stn_parley_4` 60.7 = inspection 60.7; shut 64.7; phase 1 65.7; `nar_parley_kept` 66.0; first stake 71.1. Before: six open at 52.0 under the roll-call, phase 1 at 57.0, the teaching line at 60.7, the narrator at 66.0. The frame: `shots/p0-team-enemies/parley_02_boss_inspection.png` |
+
+The test bot's whole run after these (`scratch/p0-team-enemies/whole.mjs`, twice, a browser each): 31 114 ticks, 8.64 min,
+88 rounds, 0 deaths, no god mode, hash `272ab932` both times (other teams were still editing: the closer's number is the
+one to print).
+
+### 2. For the closer: numbers to mirror into the documents
+
+| Document | What |
+|---|---|
+| GDD 7.1 state table, `circle` | leaves to `approach` when a token is free and she is more than 3.8 m off (it no longer trails a walking player) |
+| GDD 7.1 / 10 `enc_file` | the rear pair (wave R) run 7.5 m/s (5.8 x 1.3) while more than 18 m from her and outside her view cone, 5.8 m/s otherwise. Measured: plain 18 / 18 / 0, careless 54 / 72 / 36, Hard plain 25 |
+| GDD 7.3 `slam`, GDD 15 | after a slam that hurt her no attack starts for 1.5 s past its recover, whatever interrupts it; 4.5 s from the second in a row on Normal and Easy. `hint_tamper_ring` on the second slam of a fight and 1 s after a respawn that follows a slam death. Measured: plain 76 / 76 / 0, careless 0 / 38 / 76, 42 to 50 s |
+| GDD 8.1 | the asking is paced by its lines as shown; the inspection opens when `stn_parley_4` appears; phase 1 five seconds later; its first tell 4.5 s after that. Walking straight in from the cradle it is about 37 s from the door to phase 1 (28 s when the line box is free) |
+| GDD 8.3 | a retry holds its first attack 4 s (now also after a death, not only after "Go on"); 6.5 s and `hint_boss_move` from the second death in one cylinder phase; `hint_boss_haul` once per phase of a run |
+| INTEGRATION_REPORT "Legs started from cp_boss_p1/p2/p3 have a 4 s lead-in" | true for a death as well now |
+
+### 3. Asked of others
+
+| # | Of | What |
+|---|---|---|
+| 1 | code-world (`src/world/checkpoints.ts`, in progress in this pass) | `cp_boss_proven` is saved twice (at the proof and again when the Windlass dies): `tests/e2e/playthrough.test.mjs` "every checkpoint, once, in order" fails on it. Not caused by `src/enemies` (`scratch/p0-team-enemies/proven.mjs` output in `NOTES.md`): either the second save is meant and the test's list changes, or it is not |
+| 2 | code-world (`src/world/director.ts`) | nothing needed for the file now. If the rear pair is ever re-timed there (`FILE_REAR`), remove `'enc_file/R'` from `BIDER.hurryWaves` in the same change, or the pair arrive first |
+| 3 | level design (`design/layout.json`, frozen for this pass) | a spawn marker may carry `hurry: true`; `sp_file_10` / `sp_file_11` could then say it themselves and the table in `defs.ts` go |
+| 4 | whoever owns `tests/core` | with `KEEP7_REAL=all` five tests fail on this tree, none in `src/enemies` (`scratch/p0-team-enemies/core_real.log`): `boot.test.mjs` x2 (21 textures against an expected 18: the three new view-model textures), `budget.test.mjs` "assertBudget fails a frame that is over", `seam.test.mjs` (55.28 MiB measured, the manifest says 63.3), `stubs.test.mjs` "startServer pieces" (the page with every slot stubbed is not ready in 120 s; repeated alone, same) |
+
+### 4. Known gaps
+
+- A player who never moves still dies in phase 2 (16 s after the respawn instead of 11) and to the Tamper's third slam;
+  what changed is that she has been told, in time to act on it.
+- The hurry rule is seen if she turns to look at the rear pair mid-run: they drop from 7.5 to 5.8 m/s at 18 m or more. Not
+  judged as a picture (the look teams work after this pass).
+- No person has played these fights; the proxies see everything round them at once. The careless proxy died once in
+  phase 2 (seed 1), where it had not in the final review; the other five boss legs match or better their earlier damage.
+- Easy was not run by a proxy in this pass.
+
+## Closer, release pass p0 (2026-10-07): decisions on this file's p0 rows
+
+Evidence: `docs/INTEGRATION_REPORT.md` Part K, `scratch/p0-closer/NOTES.md`, `scratch/p0-closer/gate/`.
+
+| Row | Decision |
+|---|---|
+| Section 2, numbers to mirror | **Applied**: GDD 23.12 (7.1, 7.3, 8.1, 8.3, the file), INTEGRATION_REPORT Part K |
+| 3.1 `cp_boss_proven` saved twice | **Closed, no change needed**: the world's second save is silent (no `checkpoint/saved`); `tests/e2e/playthrough.test.mjs` passes on the final tree (31 114 ticks, hash `53fa8759`) |
+| 3.2 `FILE_REAR` and `hurryWaves` | Noted; nothing re-timed in this pass |
+| 3.3 `hurry: true` on the spawn markers | **Ruled, not applied**: the layout was frozen for this pass; the table in `defs.ts` stays |
+| 3.4 `tests/core` under `KEEP7_REAL=all` | **Fixed**: 76 pass, 0 fail. Texture counts 18 -> 21 and bytes, the budget bounds 77 / 83 / 119 931, the view-model's three meshes; the stub build's boot (an import cycle, `src/core/coreOf.ts`) |
+| Section 4, known gaps | Carried into `docs/KNOWN_ISSUES.md` |
+
+## Closer, pass i1 (2026-10-07): one edit in this team's file
+
+The team was not active in pass i1. **`src/enemies/bider.ts`, two places** (ruling R11; INTEGRATION_REPORT M.1 row 1):
+at the end of the rise the Bider's last-known place is her position now (it was the position she had when the Bider was
+put in its seat, for the Tally House's risers a point in the street behind the door the fight shuts), and in
+`approachVelocity` a Bider that has reached the end of its route to a last-known place without seeing her takes her
+position as the next one. Test: `tests/e2e/i1.test.mjs` "a riser that cannot see her as it stands ... still comes for
+her". `tests/enemies/` 71 pass. The playthrough's hash changed (`a800634c` to `f0d0f8ff`), its length did not.
+
+
+## Pass i3, team enemies (2026-10-07): "Thirty seconds of standing through the parley"
+
+Evidence: `scratch/i3-team-enemies/` (`NOTES.md`, `leg_ante.mjs` / `.log`, `lamps_skip.mjs` / `lamps_skip_low.log`,
+`playthrough.log`), `shots/i3-team-enemies/lamps_low_*.png` (opened), `tests/enemies/i3.test.mjs`.
+
+### 1. What was found, and what changed in `src/enemies`
+
+Reproduced by input from `cp_bore_ante` (`leg_ante.log`): the seal, `stn_parley_1` on screen 2.08 s later (behind
+`nar_cradle_2`), the inspection at 24.92 s, phase 1 at **29.92 s**. All of it is text: 5.5 + 4.5 + 4.5 + 3.5 + 3.5 s of
+lines held one at a time with 0.25 s between two, then the 4 s inspection and 1 s. **The length of a line on screen is
+not this module's**: `src/enemies` can only ask for a key (`story/say`); the hold is `design/story.json` `seconds` or
+`src/world/director.ts` `story.hold()`, and the line box is serial. So the first hearing cannot be made shorter from
+this folder (rows 2.1 and 2.2 below are what makes it shorter). What this pass did:
+
+| | Change | Proof |
+|---|---|---|
+| a | **The asking's clock is read from the story data and from the lines as shown** (`boss/parley.ts` `parleyPlan`, `shown`). A stage lasts exactly as long as its line is held: the `seconds` that `story/line` reports (the world's hold), or `story.json` `seconds` where nothing shows lines. A key the data does not carry is not asked for. The table `BOSS.parley` is now only today's text written out (and the 4 s window, the 1 s after). **A text or hold change needs no code change here.** | `tests/enemies/i3.test.mjs` test 1: today's holds 22.75 s to the inspection and 27.75 s to phase 1 with a free line box; every hold shortened by the box alone (3 / 4 / 4 / 3 / 3) 18.25 and 23.25 s; **the reviewer's text (one roll-call line of 4.5 s, a 3.5 s first line, `stn_parley_3` gone) 18.0 and 23.0 s**. `tests/enemies/logic.spec.ts` "pass i3". With today's data nothing moved: the real leg is tick for tick the reviewer's (3 525 ticks, phase 1 at 29.92 s) and `tests/world/i2_real.test.mjs` passes unchanged |
+| b | **The roll-call is shown** (the reviewer: "while the six chambers light in turn"). The six mouth lamps are dark from the seal and come on one by one as their chambers are named, at the middles of equal parts of each roll-call line as held (0.58, 1.75, 2.92 s into a 3.5 s line of three), each with a small tick (`listen_tick`, gain 0.7, pitch 0.75: `BOSS.rollTickGain` / `rollTickPitch`). All six are lit when the six open. With one merged line the six come on across it | test 1 (order, the ticks, all six before the inspection, the merged case); the real game `leg_ante.log` (ticks at 17.97, 19.13, 20.30, 21.73, 22.90, 24.07 s); `shots/i3-team-enemies/lamps_low_0_seal.png` (dark), `_1_two.png`, `_2_five.png`, `_3_inspection.png` |
+| c | **A second hearing can be cut short.** Once an asking has been heard out or refused in this page, or a fight past it was restored (`Boss.askedBefore`; a new run does not forget it), a shot before the inspection is **not a refusal**: the lines between are passed over, `stn_parley_4` is asked for at once and the six open when it comes on screen (behind the line that is up, 5.5 s at most). The gift of two is still hers; a second impatient shot changes nothing; left alone the asking runs whole. A first hearing is unchanged (a shot refuses) | test 2; the real game (`lamps_skip_low.log`): a jump back to `cp_bore_ante` in the same page, one real shot 2.03 s after the seal: inspection at **5.75 s**, phase 1 at **10.75 s** (27.82 s unskipped in the same run), no `stn_parley_refused` |
+
+Not changed, and why: the 4 s the six stand open (the gift needs it), the 1 s after, and `parleyKeptLead` 4.5 s (release
+pass p0: the first chamber must not glow under `nar_parley_kept`). Moving phase 1 to the tick the six shut would move a
+label and the checkpoint by 1 s and nothing a player does or sees.
+
+### 2. Asked of others (the first hearing's 20 s is here)
+
+| # | Of | What | Effect (free line box; add up to one line's wait at the seal) |
+|---|---|---|---|
+| 1 | closer / story (`design/story.json`, `design/layout.json`: frozen for this team) | Merge `stn_parley_2` and `stn_parley_3` into one roll-call line of about 4.5 s under the key `stn_parley_2` (wording is the story owner's; it must still name stake, stake, canister twice), and remove `stn_parley_3` from `story.json` and from `trg_enc_windlass` `params.parley`. Give `stn_parley_1` 3.5 s (or cut it to its formula) | seal to inspection **22.75 -> 18.0 s**, to phase 1 **27.75 -> 23.0 s**. Each further second taken off `nar_parley` / `rv_ask` (4.5 s each, nine words each) is a second off both. `src/enemies` needs no change |
+| 2 | code-world (`src/world/director.ts`, active in this pass) | Without touching text: `s.story.hold('stn_parley_1', 3.5)` beside `PARLEY_ROLL_HOLD` | 2 s off at once; the Windlass follows the hold as shown |
+| 3 | code-world | At the seal `stn_parley_1` waits out `nar_cradle_2` (2.08 s for the test player who walks straight in from the cradle). `opening` could cut a narrator line that has had most of its time, or the cradle's second line could be gated so it is not begun in the last steps before the door | up to 2 s |
+| 4 | whoever applies row 1 | Tests that pin today's six lines and their times, to be edited with the data: `tests/enemies/boss_p1.test.mjs` ("the asking": the line list and `[0, 5.5, 10, 14.5, 18, 21.5, 25.5]`), `tests/enemies/release_p0.test.mjs` (`LINES`, `want`, 1 290 / 1 590 ticks), `tests/enemies/i3.test.mjs` (the "today" block; its "merged" block is then the real one), `tests/enemies/logic.spec.ts` (`PARLEY_LINES`, "pass i3"), `tests/world/i2_real.test.mjs` (21.5 / 26.5 s and the two 3.5 s roll-call lines), and the written table `BOSS.parley` in `src/enemies/defs.ts` (a fallback only; `parleyPlan` skips a key the data lacks) | |
+| 5 | core (a persisted profile, not a save) | "An asking has been heard" is remembered per page, not across a reload: `EnemiesSave` is a contract and `src/enemies` writes no storage of its own. A boolean in the stored options/profile would let the skip of 1c work on a second play after a reload | |
+| 6 | underground look / boss art | The six mouth lamps are a few pixels each at 720p (`lamps_low_1_two.png`): the roll-call reads if looked for. Larger or brighter lamp cards would make it read at a glance. No logic depends on it | |
+
+### 3. For the closer: numbers to mirror into the documents
+
+| Document | What |
+|---|---|
+| GDD 8.1 | the asking's stages last as long as their lines are held (data-driven); the six mouth lamps are dark from the seal and come on in turn under the roll-call; on a second hearing in one page a shot before `stn_parley_4` skips to the inspection instead of refusing (first hearing unchanged) |
+| GDD 8.1 / 23 timing table | unchanged until row 2.1 or 2.2 is applied: 22.75 s to the inspection and 27.75 s to phase 1 with a free line box, 24.9 and 29.9 s for the test player |
+| `docs/KNOWN_ISSUES.md` | the first hearing is still about 28 to 30 s unless rows 2.1 / 2.2 are applied; the skip is per page |
+
+### 4. Known gaps
+
+- **The first hearing is not shorter today.** With rows 2.1 and 2.2 it is 23 s to phase 1 and 18 s to the first thing to
+  do; 20 s to phase 1 needs about 3 s more off the text, which is a story decision.
+- Nothing on screen says that a shot skips a second hearing; it is the gesture an impatient player makes.
+- The skip waits for the line that is up (5.5 s at most): cutting it needs the world's `sayNow`, which a `story/say`
+  from another system does not reach.
+- The whole playthrough ran green and deterministic on the shared tree (`playthrough.log`: 31 119 ticks, hash
+  `18ba953c`, the same on a second load) while other teams were editing; the closer's number is the one to print. This
+  team's own leg from `cp_bore_ante` is tick for tick what it was (3 525).
+
+## Closer, pass i3 (2026-10-07): decisions
+
+| Row | Decision |
+|---|---|
+| 2.1 merge the roll-call, 3.5 s first line | **Applied.** `design/story.json`: `stn_parley_2` = "ONE, TWO: STAKE. THREE: CANISTER. FOUR, FIVE: STAKE. SIX: CANISTER." (67 characters, 4.5 s), `stn_parley_3` removed, `stn_parley_1` 3.5 s, `nar_parley` and `rv_ask` 4 s; `trg_enc_windlass.params.parley` is five keys. With a free line box: 17.0 s to the open mouths, 22.0 s to phase 1 |
+| 2.2 the world's hold | **Applied with 2.1**: `PARLEY_FIRST_HOLD` 3.5, `PARLEY_ROLL_HOLD` 4.5 (the data carries the same seconds) |
+| 2.3 the wait behind `nar_cradle_2` | **Not done**: a narrator's line is never cut (GDD 12.1) |
+| 2.4 the tests and `BOSS.parley` | **Edited with the data** by the closer: `tests/enemies/logic.spec.ts`, `boss_p1.test.mjs`, `release_p0.test.mjs`, `i3.test.mjs`, `tests/world/i2_real.test.mjs`; `BOSS.parley` = { 0, 3.5, 7.5, 11.5, line4 16, windowEnd 20, phase1 21 } and `PARLEY_LINES` is five rows |
+| 2.5 a persisted "an asking has been heard" | **Declined for this release** (a core contract change); the skip is per page: `docs/KNOWN_ISSUES.md` |
+| 2.6 larger lamp cards | **Not done** (the boss asset; no team owned it in this pass): `docs/KNOWN_ISSUES.md` |
+| 3 documents | Mirrored: GDD 8.1 (in place) and 23.17 |

@@ -3,10 +3,10 @@
 // title card). Events set classes and texts; update() compares cached values and writes only what differs; timers count
 // fixed ticks (they stop with the simulation), and every motion is a CSS transition or keyframe started by a class.
 import { FIXED_DT } from '../core/contracts.ts';
-import type { BossPhase, GameContext, GameEvents, HitOutcome, Options, SeventhState, Speaker, StoryKey } from '../core/contracts.ts';
+import type { BossPhase, GameContext, GameEvents, HitOutcome, LayoutMarker, Options, SeventhState, Speaker, StoryKey } from '../core/contracts.ts';
 import { el, flag, inked, keyed, setText, svg } from './dom.ts';
 import { MarkWidget } from './mark.ts';
-import { format, roman, splitCard, tokenize, wrapSubtitle } from './text.ts';
+import { format, roman, splitCard, tokenize, uiOr, wrapSubtitle } from './text.ts';
 
 /** GDD 6.8: the HUD ring turns one notch between 120 and 300 ms after the shot (0.18 s). */
 export const RING_TURN_DELAY = 0.12;
@@ -17,6 +17,14 @@ export const ARC_SECONDS = 0.6;
 export const SEGMENT_FLASH_SECONDS = 0.4;
 export const CHECKPOINT_SECONDS = 2;
 export const CARD_FADE_OUT = 0.8;
+/**
+ * Release pass p0: the card's opacity is counted in fixed ticks like its timers, not left to a CSS transition on the wall
+ * clock: a card whose time was up still stood, fading, over whatever the game had reached meanwhile whenever the game ran
+ * faster or slower than the wall clock (a hitch, a stepped capture), and a paused game went on fading it. It comes up in
+ * CARD_FADE_IN, holds, and goes in CARD_FADE_OUT (or CARD_FADE_QUICK); `CARD_STEPS` opacity steps, written when changed.
+ */
+export const CARD_FADE_IN = 0.6;
+export const CARD_STEPS = 20;
 /**
  * Polish round 5: a movement card never stands over a fight. Once a threat shows (a telegraph, an encounter or a wave
  * starting, a boss phase, a hit on her, her own shot) a card that is up has CARD_MIN_SECONDS on screen in all and then
@@ -51,6 +59,70 @@ const SPEAKER_CLASS: Readonly<Record<Speaker, string>> = {
 export const PROMPT_OF: Readonly<Record<'read' | 'take' | 'use' | 'kept', StoryKey>> = { read: 'ui_prompt_read', take: 'ui_prompt_take', use: 'ui_prompt_use', kept: 'ui_prompt_kept' };
 /** the lazy key hints world may raise with `ui/hint` (GDD 12.1), one at a time; `ui_prompt_kept` is the persistent one of hint tier 3 */
 export const HINT_KEYS: readonly StoryKey[] = ['ui_hint_move', 'ui_hint_fire', 'ui_hint_reload', 'ui_hint_sprint', 'ui_hint_interact', 'ui_hint_line', 'ui_prompt_kept'];
+/**
+ * Release pass p0: the hints that teach a key of walking about (not of the fight) are not drawn while a fight is on: an
+ * encounter is live or the Windlass is fighting. "Hold SHIFT to run" stood 17 s under the crosshair, on the Biders, in
+ * the first fight. World still raises and lowers them as before (it is told nothing); the row comes up once the fight is
+ * over if the hint is still asked for. Fire, reload, the line round and "break the band" are the fight's own and are
+ * never held back.
+ */
+export const HINTS_HELD_IN_A_FIGHT: readonly StoryKey[] = ['ui_hint_move', 'ui_hint_sprint', 'ui_hint_interact'];
+/**
+ * Pass i1 (R12; story reviewers): a lazy hint is a reminder, not a fixture. "Hold SHIFT to run" stood from the gully to
+ * the street (56 s) under the crosshair, and "W A S D to walk" came up over the narrator's first line. Each of the
+ * walking-about hints is DRAWN for HINT_STAND_SECONDS, then taken away although world still asks for it; still asked for
+ * HINT_RETURN_SECONDS later it is drawn once more, and after HINT_SHOWS stands never again in this run. The clocks count
+ * drawn time on the fixed tick (a fight or a pause does not use the stand up). The walk hint also waits for the
+ * narrator: it is not drawn while a line is on screen (HINTS_HELD_UNDER_A_LINE). All hints stand in the lower third,
+ * above the subtitle (ui.css `.prompt.hint`), not under the crosshair.
+ */
+export const LAZY_HINTS: readonly StoryKey[] = HINTS_HELD_IN_A_FIGHT;
+export const HINT_STAND_SECONDS = 8;
+export const HINT_RETURN_SECONDS = 40;
+export const HINT_SHOWS = 2;
+export const HINTS_HELD_UNDER_A_LINE: readonly StoryKey[] = ['ui_hint_move'];
+/** ... nor in the breath between two lines: the narrator has been quiet this long before it is drawn (the opening's two lines are half a second apart) */
+export const HINT_QUIET_SECONDS = 1.5;
+/**
+ * Pass i1: under this share of her health (the last segment is all she has) the bars breathe and the frame's edge is
+ * inked in, for as long as it lasts (ui.css `.hud.low`). Reduce flashes / reduce motion: a steady outline, no pulse.
+ */
+export const LOW_HEALTH = 35;
+/**
+ * Pass i2 (story reviewer, major; R5 / R12): the work at hand was drawn on the pause screen alone, so a player who never
+ * paused was never told the goal, and the line that names the last choice was not on screen at the stone. Each new
+ * objective (`objective/changed`: a trigger, a cleared fight, a restored checkpoint) is now drawn in play under the
+ * checkpoint numeral for OBJECTIVE_SECONDS of simulated time and then fades. It waits for a movement card to be gone
+ * (both arrive on entering a zone) and is not drawn under a sheet or a menu. It is NOT held back by a fight: the
+ * objectives that change in one name that fight ("Lead will not hold it. The bore wants proving."), and held to its end
+ * they would never be read; it stands top left, out of the fight's part of the frame.
+ * An objective of OBJECTIVE_STANDS stays up for as long as she is inside the volume it names (the stone's: the choice).
+ */
+export const OBJECTIVE_SECONDS = 5;
+export const OBJECTIVE_STANDS: Readonly<Record<StoryKey, string>> = { obj_rim_choice: 'trg_stone' };
+/**
+ * Pass i2: the dot beside the reserve numeral is named ("Line") beside it for LINE_LABEL_SECONDS when the first line
+ * round is taken (the count goes from none to some), and for as long as the seat-a-line-round hint is drawn.
+ */
+export const LINE_LABEL_SECONDS = 6;
+export const LINE_HINT: StoryKey = 'ui_hint_line';
+/**
+ * Pass i2 (story reviewer): close to the asking's dial the subtitle box lay on numeral 5 and the port under it. While
+ * she is inside the puzzle's volume and it is unsolved, the talk column drops to the frame's bottom margin and the
+ * box's backing thins (ui.css `.k7.dial`): the numerals and the ports read through and above it.
+ */
+export const DIAL_VOLUME = 'trg_pz_asking';
+export const DIAL_PUZZLE = 'the_asking';
+/**
+ * Pass i3 (story reviewer b): the bore door's question was a 2.5 s subtitle and then nowhere: a player who looked at
+ * the embers or the cradle first came back to a dial with nothing on screen saying what was being asked. World tells
+ * which question is up (`asking/question`); its words are the station's own line (the volume's `lines.q1 .. q3`), drawn
+ * under the work at hand with its count ("IDENTIFY STATION.  1 of 3") for as long as she is inside the puzzle's volume
+ * and it is unsolved, and for OBJECTIVE_SECONDS more when she leaves. The pause screen shows the same line.
+ */
+export const ASK_QUESTIONS = 3;
+/** boss phases in which she is being fought (the parley and the proof are talk and a puzzle) */
+const BOSS_FIGHTING: Readonly<Record<BossPhase, boolean>> = { idle: false, parley: false, p1: true, p2: true, p3a: true, hush: false, proven: false, p3b: true, dead: false };
 const BOSS_SHOWN: Readonly<Record<BossPhase, boolean>> = { idle: false, parley: true, p1: true, p2: true, p3a: true, hush: true, proven: true, p3b: true, dead: false };
 const BOSS_PIPS = 26;
 const BOSS_GROUPS: readonly number[] = [10, 10, 6];
@@ -132,6 +204,15 @@ export class Hud {
   private hintText = '';
   private promptOn = false;
   private hintOn = false;
+  /** index of the asked-for hint in LAZY_HINTS (-1: not one of them) */
+  private hintLazy = -1;
+  /** per lazy hint: seconds drawn in its current stand, stands completed in this run, seconds waited since the last one */
+  private readonly lazyDrawn = new Float32Array(LAZY_HINTS.length);
+  private readonly lazyShows = new Uint8Array(LAZY_HINTS.length);
+  private readonly lazyRest = new Float32Array(LAZY_HINTS.length);
+  private low = false;
+  /** seconds since the last line ended (HINT_QUIET_SECONDS and more: quiet) */
+  private quiet = HINT_QUIET_SECONDS;
   /** the last `weapon/kept` was `loading`, `chambered` or `fired`, not `unloaded`: the round is out of its slot */
   private keptLoading = false;
   /** the seventh is out of its slot (chambered) or spent: nothing is left to break */
@@ -143,6 +224,15 @@ export class Hud {
   private readonly cardTitle: HTMLDivElement;
   private cardHold = 0;
   private cardLeft = 0;
+  /** seconds the fade-out of the card on screen takes (CARD_FADE_OUT, or CARD_FADE_QUICK once it was cut) */
+  private cardFade = CARD_FADE_OUT;
+  /** the opacity step as last written (0 .. CARD_STEPS) */
+  private cardStep = 0;
+  private readonly cardOpacity: string[] = [];
+  /** encounters started and not yet cleared or reset (ids are layout strings: no allocation after the first of each) */
+  private readonly liveEncounters = new Set<string>();
+  /** a fight is on, as last looked at in tick() */
+  private fight = false;
   /** seconds the card on screen has been up */
   private cardAge = 0;
   /** tick of the last threat (-1: none in this life) */
@@ -153,11 +243,41 @@ export class Hud {
   private gaugesOn = false;
   private gaugesFade = false;
   private riding = false;
+  // ---- the objective in play (pass i2)
+  objective = '';
+  private readonly objBox: HTMLDivElement;
+  private readonly objText: HTMLDivElement;
+  private objKey: StoryKey = '';
+  /** an objective that has changed and has not been drawn yet (it waits for the card) */
+  private objPending = false;
+  private objLeft = 0;
+  private objOn = false;
+  private objStandIn: LayoutMarker | null = null;
+  private lineLabelLeft = 0;
+  private lineLabelOn = false;
+  private lineLabelWant = false;
+  /** tick before which a count that appears is a restored one (a checkpoint, Go on), not a first line round taken */
+  private lineQuietUntil = 0;
+  private lineRoundsSeen = -1;
+  private readonly dialVolume: LayoutMarker | null;
+  private dial = false;
+  // ---- the asking's live question (pass i3). Not in debug(): the playthrough's hash is of the state's keys as they were
+  /** the question that is up (0: none), and its line as drawn under the work at hand ('' when none) */
+  askQuestion = 0;
+  question = '';
+  private readonly objAsk: HTMLDivElement;
+  private readonly objAskSay: HTMLSpanElement;
+  private readonly objAskCount: HTMLSpanElement;
+  private readonly askText: string[] = [''];
+  private readonly askCount: string[] = [''];
+  private askShown = 0;
+  private readonly lowFrame: HTMLDivElement;
 
   constructor(private readonly ctx: GameContext, root: HTMLElement) {
     const ui = ctx.data.ui.bind(ctx.data);
     for (let i = 0; i <= FILL_STEPS; i++) this.fillTransform.push(`scaleX(${(i / FILL_STEPS).toFixed(4)})`);
     for (let i = 0; i < ARC_DIRECTIONS; i++) this.arcTransform.push(`rotate(${(i * 360) / ARC_DIRECTIONS}deg)`);
+    for (let i = 0; i <= CARD_STEPS; i++) this.cardOpacity.push((i / CARD_STEPS).toFixed(2));
 
     // ---------------------------------------------------------------- gauges
     this.gauges = el('div', 'hud', root);
@@ -181,7 +301,7 @@ export class Hud {
     const numerals: string[] = [];
     const reserveText = ui('ui_hud_reserve');
     for (let n = 0; n < 100; n++) numerals.push(format(reserveText, ctx.options.value.bindings, { n: String(n) }));
-    this.mark = new MarkWidget(this.gauges, 'mark', numerals);
+    this.mark = new MarkWidget(this.gauges, 'mark', numerals, ui('ui_hud_line_rounds'));
 
     const health = el('div', 'health', this.gauges);
     for (let i = 0; i < 3; i++) {
@@ -198,16 +318,41 @@ export class Hud {
       for (let i = 0; i < count; i++) this.pips.push(el('i', 'pip', group));
     }
 
+    // pass i3: low health is also four pale brackets and a hairline just inside the frame (ui.css `.lowf`): the ink edge
+    // alone was invisible where the frame's edges are already dark (the Tally House, the bore)
+    this.lowFrame = el('div', 'lowf', this.gauges);
+    for (const corner of ['tl', 'tr', 'bl', 'br']) el('i', corner, this.lowFrame);
+
     // ---------------------------------------------------------------- text
     this.texts = el('div', 'txt', root);
     this.checkpointBox = el('div', 'cp', this.texts);
+    this.objBox = el('div', 'obj', this.texts);
+    setText(el('div', 'obj-label', this.objBox), ui('ui_pause_objective'));
+    this.objText = el('div', 'obj-line', this.objBox);
+    this.objAsk = el('div', 'obj-ask', this.objBox);
+    this.objAskSay = el('span', 'ask-say', this.objAsk);
+    this.objAskCount = el('span', 'ask-n', this.objAsk);
+    this.dialVolume = ctx.data.marker(DIAL_VOLUME) ?? null;
+    // the station's own words for each question (the volume's `lines`), and "1 of 3" in the end card's word
+    const askLines = (this.dialVolume?.params as { lines?: Record<string, unknown> } | undefined)?.lines;
+    const of = uiOr('ui_end_of', '/');
+    for (let q = 1; q <= ASK_QUESTIONS; q++) {
+      const key = askLines ? askLines['q' + q] : undefined;
+      this.askText.push(typeof key === 'string' ? ctx.data.story.lines[key]?.text ?? '' : '');
+      this.askCount.push(`${q} ${of} ${ASK_QUESTIONS}`);
+    }
     this.cardBox = el('div', 'card', this.texts);
     this.cardNumeral = el('div', 'card-num', this.cardBox);
     el('div', 'card-rule', this.cardBox);
     this.cardTitle = el('div', 'card-title', this.cardBox);
-    this.promptBox = el('div', 'prompt', this.texts);
-    this.hintBox = el('div', 'prompt hint', this.texts);
+    // pass i1: the hint is the top of the talk column (above the caption and the subtitle, whatever their size), not a
+    // row under the crosshair.
+    // pass i3 (story reviewer a): so is the interact prompt, above the hint. It stood 60 px under the crosshair: on the
+    // proving plate's pictogram, on the stone's cases, against the muzzle. It takes no room in the column when it is
+    // not drawn, so the hint under it never moves.
     const talk = el('div', 'talk', this.texts);
+    this.promptBox = el('div', 'prompt row', talk);
+    this.hintBox = el('div', 'prompt hint', talk);
     this.captionBox = el('div', 'capt', talk);
     this.subBox = el('div', 'sub', talk);
     this.subWho = el('span', 'who', this.subBox);
@@ -232,11 +377,19 @@ export class Hud {
   setTexts(on: boolean): void { flag(this.texts, 'on', on); }
   onRide(e: Readonly<GameEvents['ride/state']>): void { this.riding = e.stage === 'started'; this.applyGauges(); }
   /** a new run (Begin, Go on, Walk it again, the title): every card may be shown once more */
-  newRun(): void { this.cardsShown.clear(); }
+  newRun(): void {
+    this.cardsShown.clear();
+    this.lineRoundsSeen = -1;
+    this.lazyDrawn.fill(0); this.lazyShows.fill(0); this.lazyRest.fill(0);
+    this.applyRows();
+  }
   /** a run begins or a checkpoint is restored: nothing of the last life stays on screen */
   reset(): void {
     this.riding = false;
+    this.quiet = HINT_QUIET_SECONDS;
     this.threatAt = -1;
+    this.liveEncounters.clear();
+    this.fight = false;
     this.keptSettle = false;
     this.keptLoading = false;
     this.captionShownAt.clear();
@@ -250,6 +403,14 @@ export class Hud {
     this.endCaption();
     this.endCheckpoint();
     this.endCard();
+    this.endObjective();
+    this.objPending = false;
+    this.lineLabelLeft = 0;
+    this.lineLabelWant = false;
+    this.lineRoundsSeen = -1;               // a restored count is not a first line round
+    this.lineQuietUntil = this.ticks + 90;
+    this.setDial(false);
+    this.setQuestion(0);
     this.setPrompt('', '');
     this.setHint('', false);
   }
@@ -372,6 +533,10 @@ export class Hud {
 
   // =============================================================== boss events
   onBossPhase(): void { this.bossLitEvent = -1; this.onThreat(); }
+  /** `encounter/started` and `encounter/wave` (live: true), `encounter/cleared` and `encounter/reset` (false) */
+  onEncounter(id: string, live: boolean): void {
+    if (live) { this.liveEncounters.add(id); this.onThreat(); } else this.liveEncounters.delete(id);
+  }
   onBossPips(e: Readonly<GameEvents['boss/pips']>): void { this.bossLitEvent = e.lit; }
 
   // =============================================================== story events
@@ -386,6 +551,8 @@ export class Hud {
     this.subBox.className = SPEAKER_CLASS[e.speaker] ?? (SPEAKER_CLASS.narrator as string);
     // world ends the line with story/line_end; this only clears a line whose end never arrives
     this.subLeft = e.seconds + 1.5;
+    this.quiet = 0;
+    this.applyRows();                                    // the walk hint waits for the line to be over
   }
   onLineEnd(e: Readonly<GameEvents['story/line_end']>): void {
     if (this.subKey !== '' && e.key !== this.subKey) return;
@@ -395,6 +562,7 @@ export class Hud {
     if (this.subtitle === '' && this.subKey === '') return;
     this.subKey = ''; this.subtitle = ''; this.speaker = ''; this.subLeft = 0;
     this.subBox.className = 'sub';
+    this.applyRows();
   }
   onCaption(e: Readonly<GameEvents['story/caption']>): void {
     // a sound that plays again and again (a room of Biders rattling) does not keep its caption up for ever
@@ -430,7 +598,9 @@ export class Hud {
     const seconds = e.seconds > 0 ? e.seconds : 3.5;
     this.cardLeft = seconds;
     this.cardHold = Math.max(0, seconds - CARD_FADE_OUT);
+    this.cardFade = CARD_FADE_OUT;
     this.cardAge = 0;
+    this.drawCard();
     // a fight is already on (she came back into it): the card is brief from the start
     if (this.threatAt >= 0 && this.ticks - this.threatAt < Math.round(CARD_THREAT_SECONDS / FIXED_DT)) this.cutCard();
   }
@@ -438,6 +608,27 @@ export class Hud {
     if (this.card === '') return;
     this.card = ''; this.cardLeft = 0; this.cardHold = 0; this.cardAge = 0;
     flag(this.cardBox, 'on', false);
+    this.drawCard();
+  }
+  /**
+   * The card's opacity from its own clock: up in CARD_FADE_IN, down over the last `cardFade` seconds, never a jump when
+   * it is cut short while still coming up. Reduce motion: whole while it is held, then gone.
+   */
+  private drawCard(): void {
+    let o = 0;
+    if (this.card !== '' && this.cardLeft > 0) {
+      if (this.ctx.options.value.reduceMotion) o = this.cardHold > 1e-6 ? 1 : 0;
+      else {
+        const up = this.cardAge / CARD_FADE_IN, down = this.cardLeft / this.cardFade;
+        o = up < down ? up : down;
+        if (o > 1) o = 1;
+        if (o < 1 / CARD_STEPS) o = 1 / CARD_STEPS;        // a card that is up is never invisible (its first tick)
+      }
+    }
+    const step = Math.round(o * CARD_STEPS);
+    if (step === this.cardStep) return;
+    this.cardStep = step;
+    this.cardBox.style.opacity = this.cardOpacity[step] as string;
   }
   /** A threat has shown itself (system.ts wires the enemy and encounter events here). */
   onThreat(): void {
@@ -451,8 +642,10 @@ export class Hud {
     if (hold >= this.cardHold) return;
     this.cardHold = hold;
     this.cardLeft = hold + CARD_FADE_QUICK;
+    this.cardFade = CARD_FADE_QUICK;
     flag(this.cardBox, 'quick', true);
     if (hold <= 1e-6) flag(this.cardBox, 'on', false);
+    this.drawCard();
   }
   onCheckpoint(e: Readonly<GameEvents['checkpoint/saved']>): void {
     const text = format(this.ctx.data.ui('ui_checkpoint'), this.ctx.options.value.bindings, { movement: roman(e.movement), n: String(e.section) });
@@ -465,6 +658,74 @@ export class Hud {
     if (this.checkpoint === '') return;
     this.checkpoint = ''; this.checkpointLeft = 0;
     flag(this.checkpointBox, 'on', false);
+  }
+
+  // =============================================================== the objective in play
+  /** `objective/changed`: drawn at once, or when the card that is up has gone (tick). */
+  onObjective(e: Readonly<GameEvents['objective/changed']>): void {
+    if (e.key === '' || e.text === '') { this.objPending = false; this.endObjective(); return; }
+    this.objKey = e.key;
+    setText(this.objText, e.text);
+    const volume = OBJECTIVE_STANDS[e.key];
+    this.objStandIn = volume !== undefined ? this.ctx.data.marker(volume) ?? null : null;
+    this.objPending = true;
+    if (this.objOn) { this.objOn = false; this.objective = ''; this.objLeft = 0; flag(this.objBox, 'on', false); }
+    this.showObjective();
+  }
+  private showObjective(): void {
+    if (!this.objPending || this.card !== '') return;
+    this.objPending = false;
+    this.objOn = true;
+    this.objLeft = OBJECTIVE_SECONDS;
+    this.objective = this.objText.textContent ?? '';
+    flag(this.objBox, 'on', true);
+  }
+  private endObjective(): void {
+    this.objLeft = 0;
+    if (!this.objOn) return;
+    this.objOn = false;
+    this.objective = '';
+    flag(this.objBox, 'on', false);
+  }
+  /** the choice stands while she is at the stone and has not made it (the round taken, or the ending begun) */
+  private objectiveStands(): boolean {
+    const m = this.objStandIn;
+    if (m === null) return false;
+    const { ctx } = this;
+    if (ctx.world.objective !== this.objKey || ctx.world.stats.tookStoneRound || ctx.state.current === 'ending') return false;
+    const p = ctx.player.position;
+    return inVolume(m, p.x, p.y, p.z);
+  }
+  /** `asking/question`: the question that is up (0 takes it away). Drawn by drawQuestion when the objective is its own. */
+  setQuestion(q: number): void {
+    const n = q >= 1 && q <= ASK_QUESTIONS && (this.askText[q] as string) !== '' ? q : 0;
+    if (n === this.askQuestion) return;
+    this.askQuestion = n;
+    this.drawQuestion();
+    // a new question is news: the work at hand comes up with it, wherever she stands
+    if (n > 0 && this.question !== '' && this.objKey !== '' && !this.objOn) { this.objPending = true; this.showObjective(); }
+    else if (n > 0 && this.objOn && this.objLeft < OBJECTIVE_SECONDS) this.objLeft = OBJECTIVE_SECONDS;
+  }
+  /** the question as the pause screen shows it ("IDENTIFY STATION.", "1 of 3"); null when none is up */
+  questionParts(): readonly [string, string] | null {
+    const q = this.askShown;
+    return q > 0 ? [this.askText[q] as string, this.askCount[q] as string] : null;
+  }
+  /** the line under the objective: only while the asking is the work at hand and is unsolved */
+  private drawQuestion(): void {
+    const { ctx } = this;
+    const q = this.askQuestion > 0 && ctx.world.zone === this.dialVolume?.zone && !ctx.world.puzzle(DIAL_PUZZLE).solved ? this.askQuestion : 0;
+    if (q === this.askShown) return;
+    this.askShown = q;
+    this.question = q > 0 ? `${this.askText[q] as string} ${this.askCount[q] as string}` : '';
+    setText(this.objAskSay, q > 0 ? this.askText[q] as string : '');
+    setText(this.objAskCount, q > 0 ? this.askCount[q] as string : '');
+    flag(this.objAsk, 'on', q > 0);
+  }
+  private setDial(on: boolean): void {
+    if (on === this.dial) return;
+    this.dial = on;
+    flag(this.texts, 'dial', on);
   }
 
   // =============================================================== prompt and hint
@@ -484,7 +745,12 @@ export class Hud {
   private applyRows(): void {
     const kept = PROMPT_OF.kept, busy = this.keptLoading || this.keptAway;
     const promptOn = this.promptKey !== '' && !(busy && this.promptKey === kept);
-    const hintOn = this.hintKey !== '' && !(busy && this.hintKey === kept) && !(promptOn && this.hintKey === this.promptKey);
+    const lazy = this.hintLazy;
+    // a lazy hint has stood its time (it may come back once, HINT_RETURN_SECONDS later), or waits for the narrator
+    const stood = lazy >= 0 && ((this.lazyShows[lazy] as number) >= HINT_SHOWS || ((this.lazyShows[lazy] as number) > 0 && (this.lazyRest[lazy] as number) < HINT_RETURN_SECONDS));
+    const spoken = (this.subKey !== '' || this.quiet < HINT_QUIET_SECONDS) && HINTS_HELD_UNDER_A_LINE.includes(this.hintKey);
+    const hintOn = this.hintKey !== '' && !(busy && this.hintKey === kept) && !(promptOn && this.hintKey === this.promptKey)
+      && !(this.fight && HINTS_HELD_IN_A_FIGHT.includes(this.hintKey)) && !stood && !spoken;
     if (promptOn !== this.promptOn) { this.promptOn = promptOn; flag(this.promptBox, 'on', promptOn); }
     if (hintOn !== this.hintOn) { this.hintOn = hintOn; flag(this.hintBox, 'on', hintOn); }
     this.prompt = promptOn ? this.promptText : '';
@@ -504,12 +770,15 @@ export class Hud {
     if (!show) {
       if (key !== '' && key !== this.hintKey) return;      // a hint that is no longer the one shown
       if (this.hintKey === '') return;
-      this.hintKey = ''; this.hintText = '';
+      // a stand that world cut short is not a stand: the hint may be shown its whole time when it is asked for again
+      if (this.hintLazy >= 0) this.lazyDrawn[this.hintLazy] = 0;
+      this.hintKey = ''; this.hintText = ''; this.hintLazy = -1;
       this.applyRows();
       return;
     }
     if (key === this.hintKey) return;
     this.hintKey = key;
+    this.hintLazy = LAZY_HINTS.indexOf(key);
     flag(this.hintBox, 'aqua', key === PROMPT_OF.kept);
     this.renderPrompt(this.hintBox, key, true);
   }
@@ -519,6 +788,23 @@ export class Hud {
   tick(): void {
     const dt = FIXED_DT;
     this.ticks++;
+    // a fight is on: the walking-about hints wait for it to be over (HINTS_HELD_IN_A_FIGHT). Looked at on the fixed tick,
+    // not the drawn frame: what visibleText() reports must not depend on how many frames were drawn
+    const fight = this.liveEncounters.size > 0 || BOSS_FIGHTING[this.ctx.enemies.boss.phase] === true;
+    if (fight !== this.fight) { this.fight = fight; this.applyRows(); }
+    if (this.subKey === '' && this.quiet < HINT_QUIET_SECONDS && (this.quiet += dt) >= HINT_QUIET_SECONDS - 1e-6) { this.quiet = HINT_QUIET_SECONDS; this.applyRows(); }
+    // the lazy hint's stand (HINT_STAND_SECONDS drawn) and its one return (HINT_RETURN_SECONDS asked for and not drawn)
+    const lazy = this.hintLazy;
+    if (lazy >= 0) {
+      if (this.hintOn) {
+        if ((this.lazyDrawn[lazy] = (this.lazyDrawn[lazy] as number) + dt) >= HINT_STAND_SECONDS - 1e-6) {
+          this.lazyDrawn[lazy] = 0; this.lazyRest[lazy] = 0; this.lazyShows[lazy] = (this.lazyShows[lazy] as number) + 1;
+          this.applyRows();
+        }
+      } else if ((this.lazyShows[lazy] as number) > 0 && (this.lazyShows[lazy] as number) < HINT_SHOWS && (this.lazyRest[lazy] as number) < HINT_RETURN_SECONDS) {
+        if ((this.lazyRest[lazy] = (this.lazyRest[lazy] as number) + dt) >= HINT_RETURN_SECONDS) this.applyRows();
+      }
+    }
     if (this.markerLeft > 0 && (this.markerLeft -= dt) <= dt * 0.5) this.clearMarker();
     if (this.turnLeft > 0 && (this.turnLeft -= dt) <= 1e-6) { this.turnLeft = 0; this.mark.turnDone(); }
     if (this.kickLeft > 0 && (this.kickLeft -= dt) <= 1e-6) { this.kickLeft = 0; this.mark.kickDone(); }
@@ -537,10 +823,39 @@ export class Hud {
     if (this.subLeft > 0 && (this.subLeft -= dt) <= 1e-6) this.endLine();
     if (this.captionLeft > 0 && (this.captionLeft -= dt) <= 1e-6) this.endCaption();
     if (this.checkpointLeft > 0 && (this.checkpointLeft -= dt) <= 1e-6) this.endCheckpoint();
+    // ---- the objective: its five seconds, or for as long as she stands in the volume it names
+    if (this.objPending) this.showObjective();
+    if (this.objStandIn !== null && !this.objPending) {
+      const stands = this.objectiveStands();
+      if (stands) { if (!this.objOn) { this.objPending = true; this.showObjective(); } this.objLeft = OBJECTIVE_SECONDS; }
+      else if (this.objOn && this.objLeft > 1 && (this.ctx.world.stats.tookStoneRound || this.ctx.state.current === 'ending')) this.objLeft = 1;
+    }
+    if (this.objLeft > 0 && (this.objLeft -= dt) <= 1e-6) this.endObjective();
+    // ---- the line dot's name: looked at on the fixed tick (what debugState reports must not depend on drawn frames)
+    const lines = this.ctx.player.weapon.lineRounds;
+    if (lines !== this.lineRoundsSeen) {
+      if (this.lineRoundsSeen === 0 && lines > 0 && this.ticks >= this.lineQuietUntil) this.lineLabelLeft = LINE_LABEL_SECONDS;
+      this.lineRoundsSeen = lines;
+    }
+    if (this.lineLabelLeft > 0 && (this.lineLabelLeft -= dt) <= 1e-6) this.lineLabelLeft = 0;
+    this.lineLabelWant = lines > 0 && (this.lineLabelLeft > 0 || (this.hintOn && this.hintKey === LINE_HINT));
+    // ---- at the asking's dial the talk column stands low and thin
+    const dv = this.dialVolume;
+    if (dv !== null) {
+      const p = this.ctx.player.position;
+      const inside = inVolume(dv, p.x, p.y, p.z) && !this.ctx.world.puzzle(DIAL_PUZZLE).solved;
+      this.setDial(inside);
+      if (this.askQuestion > 0 || this.askShown > 0) this.drawQuestion();
+      // the question stands with the work at hand while she is at the door (and comes back when she comes back)
+      if (inside && this.askShown > 0 && this.objKey !== '' && this.card === '') {
+        if (!this.objOn) { this.objPending = true; this.showObjective(); }
+        this.objLeft = OBJECTIVE_SECONDS;
+      }
+    }
     if (this.cardLeft > 0) {
       this.cardLeft -= dt; this.cardHold -= dt; this.cardAge += dt;
       if (this.cardLeft <= 1e-6) this.endCard();
-      else if (this.cardHold <= 1e-6) flag(this.cardBox, 'on', false);
+      else { if (this.cardHold <= 1e-6) flag(this.cardBox, 'on', false); this.drawCard(); }
     }
   }
 
@@ -556,6 +871,9 @@ export class Hud {
     if (moved && this.keptSettle) { this.keptSettle = false; this.kick(); }
     mark.setReserve(weapon.reserve);
     mark.setLineRounds(weapon.lineRounds);
+    // the dot is named when the first line round is taken, and while the hint that teaches its key is drawn (tick)
+    const label = this.lineLabelWant;
+    if (label !== this.lineLabelOn) { this.lineLabelOn = label; mark.setLineLabel(label); }
     const seventh: SeventhState = weapon.seventh;
     mark.setSeventh(seventh);
     const away = seventh === 'chambered' || seventh === 'spent';
@@ -567,6 +885,8 @@ export class Hud {
     if (legal !== this.legal) { this.legal = legal; flag(this.cross, 'legal', legal); }
     // ---- health: three segments, a fill each
     const hp = (player.health / (player.maxHealth || 100)) * 100;
+    const low = hp > 0 && hp < LOW_HEALTH;
+    if (low !== this.low) { this.low = low; flag(this.gauges, 'low', low); }
     let floor = 0;
     for (let i = 0; i < 3; i++) {
       const top = SEGMENT_TOP[i] as number;
@@ -610,8 +930,10 @@ export class Hud {
       gauges: this.gaugesOn && !this.riding, ringTurns: this.mark.turns, ringAngleDeg: this.mark.turns * 60, ringTurning: this.turnLeft > 0,
       ringTurnLeft: +this.turnLeft.toFixed(4), marker: this.markerKind, markerLeft: +this.markerLeft.toFixed(4), arcDeg: this.arcDeg,
       shiver: this.mark.isShivering, seventh: w.seventh, plumb: this.plumb, legal: this.legal, bossLit, bossShown,
-      cardLeft: +this.cardLeft.toFixed(4),
+      cardLeft: +this.cardLeft.toFixed(4), cardOpacity: this.cardStep / CARD_STEPS, fight: this.fight,
       segments: [this.segFill[0], this.segFill[1], this.segFill[2]],
+      hintStands: [this.lazyShows[0], this.lazyShows[1], this.lazyShows[2]],
+      objective: this.objective, objectiveLeft: +this.objLeft.toFixed(4), objectivePending: this.objPending, lineLabel: this.lineLabelWant, dial: this.dial,
     };
   }
 }
@@ -621,4 +943,17 @@ function arcPath(r: number, span: number): string {
   const h = ((span / 2) * Math.PI) / 180;
   const x = (r * Math.sin(h)).toFixed(2), y = (-r * Math.cos(h)).toFixed(2);
   return `M-${x} ${y} A${r} ${r} 0 0 1 ${x} ${y}`;
+}
+
+/** Is a point inside a marker's volume (pos is the centre of its bottom face, size is before rotY)? As src/world reads it. */
+export function inVolume(m: Readonly<LayoutMarker>, x: number, y: number, z: number): boolean {
+  const size = m.size;
+  if (!size) return false;
+  const dy = y - m.pos[1];
+  if (dy < -0.01 || dy > size[1]) return false;
+  const dx = x - m.pos[0], dz = z - m.pos[2];
+  if (m.rotY === 0) return Math.abs(dx) <= size[0] / 2 && Math.abs(dz) <= size[2] / 2;
+  const r = (m.rotY * Math.PI) / 180, c = Math.cos(r), sn = Math.sin(r);
+  const lx = dx * c - dz * sn, lz = dx * sn + dz * c;
+  return Math.abs(lx) <= size[0] / 2 && Math.abs(lz) <= size[2] / 2;
 }

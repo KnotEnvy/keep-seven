@@ -64,6 +64,8 @@ class World implements WorldSystem {
   get checkpoint(): CheckpointId { return this.s.checkpoint; }
   get stats(): Readonly<RunStats> { return this.s.stats; }
   get lamps(): number { return lampCount(this.s.stats.freed); }
+  /** pass i1: the windows that could have been lit (the end card's "lit of"): nine and every Bider she met */
+  get lampsOf(): number { return Math.max(lampCount(this.s.stats.freed), lampCount(this.s.stats.freed + this.s.stats.felled)); }
 
   // ---- what is built: the files that hang things on a zone, in dependency order ---------------------------
   private attach(zone: ZoneId): void {
@@ -103,6 +105,9 @@ class World implements WorldSystem {
       s.story.clear();
       s.rides.reset();
       s.ctx.render.setOutline(null);
+      // (closer, pass i2) core has stood her on the start mark behind the loading screen: the zone and what is drawn follow
+      // on this event, not on the title's first tick (a quit from underground showed a frame of sky and no ground)
+      s.placed(0);
     });
     registerDebug(s);
   }

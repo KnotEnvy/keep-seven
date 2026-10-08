@@ -21,7 +21,7 @@ ASSET = "prop_sighting_loop"
 
 ZC = 2.018
 RI, RO, T = 0.25, 0.31, 0.03
-SEG = 16
+SEG = 14          # pass i3: 16 -> 14, the sixteen triangles went to the cradle and the pedestal (the budget is 220)
 
 
 def build(args):
@@ -41,13 +41,29 @@ def build(args):
         pts = [(c * r0 - s * w, YB, ZC + s * r0 + c * w), (c * r0 + s * w, YB, ZC + s * r0 - c * w),
                (c * r1 + s * w, YB, ZC + s * r1 - c * w), (c * r1 - s * w, YB, ZC + s * r1 + c * w)]
         parts.append(mc.quad("tick", pts, "steel_dark"))
-    # the post: tapered, a clamp under the ring, a foot plate bolted to the floor
-    parts.append(mc.slab("post", (0.09, 0.09, ZC - RO - 0.02), (0, 0.0, (ZC - RO - 0.02) / 2), "steel", drop=("z-", "z+"), taper=(0.62, 0.62)))
-    parts.append(mc.slab("clamp", (0.16, 0.085, 0.07), (0, 0.0, ZC - RO + 0.005), "steel_dark", drop=("z-",), taper=(0.8, 1.0)))
-    parts.append(mc.pillow("foot", 0.30, 0.30, 0.03, 0.012, "steel", centre=(0, 0, 0), rot=(math.radians(-90), 0, 0), sides=False))
+    # Look team creatures-props, pass i3 (the reviewer: "a plain black ring on a thin black pole ... reads as a primitive").
+    # It was a ring, a stick and a clamp. It is an instrument stand now: a ceramic pedestal with a hazard collar where
+    # the steel post is let into it, and a forked CRADLE whose two arms take the ring by its lower flanks (the ring is
+    # carried, not skewered). The ring, its ticks and its hairline are where they were: the sight line is the layout's.
+    ZP = 0.52                                                                    # the top of the pedestal
+    ZH = ZC - RO - 0.105                                                         # the hub the cradle springs from
+    parts.append(mc.slab("pedestal", (0.17, 0.15, ZP), (0, 0.0, ZP / 2), "enamel_stain", drop=("z-",), taper=(0.70, 0.70)))
+    parts.append(mc.slab("collar", (0.135, 0.120, 0.05), (0, 0.0, ZP + 0.012), "hazard", drop=("z-", "z+")))
+    # (the post's only vertices are let into the collar and the hub: left in the bake its four faces come out black from
+    # end to end, so it is joined after the bake, like an overlay)
+    post = mc.slab("post", (0.062, 0.062, ZH - ZP), (0, 0.0, (ZH + ZP) / 2), "steel", drop=("z-", "z+"), taper=(0.8, 0.8))
+    for sg in (-1, 1):
+        x0, z0 = sg * 0.012, ZH - 0.02
+        a = math.radians(-48.0)
+        x1, z1 = sg * (RO - 0.02) * math.cos(a), ZC + (RO - 0.02) * math.sin(a)
+        ln = math.hypot(x1 - x0, z1 - z0)
+        parts.append(mc.slab(f"arm{sg}", (0.050, 0.070, ln), ((x0 + x1) / 2, 0.0, (z0 + z1) / 2), "steel_dark", drop=("z-", "z+"),
+                             rot=(0, math.atan2(x1 - x0, z1 - z0), 0), taper=(0.72, 0.9)))
+    parts.append(mc.pillow("foot", 0.34, 0.30, 0.03, 0.012, "steel", centre=(0, 0, 0), rot=(math.radians(-90), 0, 0), sides=False))
     ob = mesh.join(parts, ASSET + "_mesh")
-    mc.ao_compose(ob, distance=0.25, jitter=0.0, seed=args.seed, gradient=(0.84, 1.04), ao_strength=0.7)
+    mc.ao_compose(ob, distance=0.25, jitter=0.0, seed=args.seed, gradient=(0.84, 1.04), ao_strength=0.7, hidden=[post])
     vcol.darken_contact(ob, height=0.12, factor=0.75)
+    ob = mc.overlay_join(ob, [post], gradient=(0.80, 0.98))
     lamp = []
     r0, r1 = RI + 0.004, RI + 0.017
     for k in range(SEG):
@@ -56,8 +72,8 @@ def build(args):
         q = [(math.cos(a0) * r0, y, ZC + math.sin(a0) * r0), (math.cos(a1) * r0, y, ZC + math.sin(a1) * r0),
              (math.cos(a1) * r1, y, ZC + math.sin(a1) * r1), (math.cos(a0) * r1, y, ZC + math.sin(a0) * r1)]
         lamp.append(q[::-1])
-    for k in range(8):                                                          # the far face: the same line in eight chords, kept on the ring's face
-        a0 = mc.TAU * k / 8; a1 = a0 + mc.TAU / 8; y = -T - 0.0015; s0, s1 = RI + 0.030, RI + 0.044
+    for k in range(6):                                                          # the far face: the same line in six chords, kept on the ring's face
+        a0 = mc.TAU * k / 6; a1 = a0 + mc.TAU / 6; y = -T - 0.0015; s0, s1 = RI + 0.041, RI + 0.054
         lamp.append([(math.cos(a0) * s0, y, ZC + math.sin(a0) * s0), (math.cos(a1) * s0, y, ZC + math.sin(a1) * s0),
                      (math.cos(a1) * s1, y, ZC + math.sin(a1) * s1), (math.cos(a0) * s1, y, ZC + math.sin(a0) * s1)])
     zone.lamp_set("loop_rim", [lamp], colour="aqua", flicker_group=1.0, origin=(0, 0, ZC))

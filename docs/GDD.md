@@ -60,7 +60,7 @@ lamps) and states the worst of them most plainly.
 |---|---|---|
 | **Reeve** | A sworn gun-officer of the Assize. The player. Tamsin Ware, eleven years sworn. | Narration from the first minute. |
 | **the Assize** | A court that rode circuit and judged water rights. Gone. | Narration; the stamp under the loading gate. |
-| **the Rule** | The hairline of violet light on the far horizon that every well was once sunk true to. It leans about one degree. | Visible from every exterior. |
+| **the Rule** | The hairline of violet light on the far horizon that every well was once sunk true to. It leans: six degrees seen from the gully, nine from the far rim (pass i2; it was two and a half and five in pass i1, which measured about two on screen in the gully). | Visible from every exterior. |
 | **the kept round** | The banded cartridge given to a Reeve at swearing. Carried always, fired never. "Keeping seven" is being in good standing. | The sealed seventh on the HUD. |
 | **lead** | Ordinary rounds. | Use. |
 | **line round** | A Pellam *line charge*: one dead-straight line through everything it meets. The one special ammunition. | The proving bay, zone 4. |
@@ -272,7 +272,7 @@ All values from the feel spec (`docs/research/game-feel.md` section 9) unless st
 | Last-hit grace | a fatal hit from above 25 HP leaves 1 HP and 0.75 s of immunity |
 | Hidden assists | an enemy's first shot at a fresh target always misses; enemy accuracy x0.8 against a player moving faster than 3 m/s; the last 20 HP absorb x0.75 |
 | Damage feedback | directional arc on the HUD for 0.6 s (pale, not red); trauma +0.3 to +0.6 by damage; low thud; health segment flashes outline. Never a full-screen flash |
-| Interaction | `E`, range 2.2 m, cone 25° from the crosshair; prompt appears at 3.0 m. Readables pause the simulation while open |
+| Interaction | `E`, **one reach, 3.0 m, for the prompt and for the key** (pass i3, ruling R1: it was 2.2 m for the key under a prompt shown from 3.0 m, so a thing was offered that could not be used), cone 25° from the crosshair. Readables pause the simulation while open |
 | Death | 0.6 s fade to dark with `ui_death` coming up with the ink (whole at 0.6 s, 9 vh above centre); control is returned 1.8 s (108 ticks) after the fatal tick; the line stays, outlined, 1.4 s after the respawn and fades in 0.4 s: whole for 2.6 s (polish round 4) |
 | Respawn | at the last checkpoint with max(saved, 60) HP, max(saved, 18) reserve rounds, a full cylinder, and the line rounds held at the checkpoint. The current encounter resets; freed and felled Biders of that encounter are removed from the counts; vignettes and title cards never replay |
 
@@ -636,7 +636,7 @@ State machine:
 | `advance` | walks toward the player | 2.5 m/s |
 | `slam_windup` | arm up, a rising hiss; the **chest vent opens for the last 0.6 s of the wind-up** (`TAMPER.slamVentLateBy`, polish round 3; it was the whole 1.0 s, and on Easy it still is, polish round 4); a hot-orange ring with eight tick marks (shape) is painted on the floor, radius 3.5 m. Starts inside 4.5 m. Needs the heavy token | **1.15 s on Normal, 1.38 s on Easy, 0.9 s on Hard** (`TAMPER.slamWindupBy` 1.15 / 1.15 / 1.0 x the difficulty's telegraph scale, polish round 5: it was 1.0 x the scale; the vent's window is unchanged, the last 0.6 s, on Easy the last 1.0 s; the clip is played slower by the ratio) |
 | `slam` | 38 damage within 3.5 m of the impact point (line of sight required: ribs block) | 0.3 s |
-| `slam_recover` | chest vent stays open the first 0.5 s | 1.5 s |
+| `slam_recover` | chest vent stays open the first 0.5 s | 1.5 s (Hard 1.275 s: release pass p0, section 15) |
 | `charge_windup` | head down, foot scraping sparks, a falling pneumatic howl (`cap_tamper_howl`). Starts at 8–20 m with a clear lane. The direction is fixed at the end of the wind-up | 0.8 s |
 | `charge` | straight line at 9 m/s, 35 damage on contact, up to 22 m | until contact |
 | `charge_stun` | if the charge meets a rib or wall: stunned, **back vent open** | 2.0 s |
@@ -733,8 +733,10 @@ parried** (a heavier lid: clank). The fan in phase 3 cannot be parried.
 
 On entering, the door seals. The Windlass indexes to face her. `stn_parley_1`. Then
 `nar_parley`, then her question on screen, `rv_ask`. The machine answers with procedure: it
-reads out what each chamber holds, in order (`stn_parley_2`, `stn_parley_3`), which is its
-whole phase-1 pattern, and ends `stn_parley_4`. **All six mouths open for 4.0 s, starting
+reads out what each chamber holds, in order, in **one roll-call line** (`stn_parley_2`: "ONE, TWO: STAKE. THREE:
+CANISTER. FOUR, FIVE: STAKE. SIX: CANISTER."; pass i3: it was two lines), which is its
+whole phase-1 pattern, and ends `stn_parley_4`. **The roll-call is shown as well as said** (pass i3): the six mouth
+lamps are dark from the seal and come on one by one as their chambers are named, each with a small tick. **All six mouths open for 4.0 s, starting
 on the tick `stn_parley_4` appears** (the line is on screen while they stand open). A
 player who held fire gets **two** free hits into the open knots (`BOSS.parleyGift` 2, polish
 round 3; it was up to six, and phase 1 was over before its pattern had been seen): the lids
@@ -752,10 +754,17 @@ the lid is more than half open and the guard is not set.
 
 A shot at any time before `stn_parley_4`: a clank off a shut plate, `stn_parley_refused`,
 and phase 1 begins at once with no inspection. Nothing is lost by impatience but the
-advantage. Timeline if heard out, from the door sealing (line holds from
-`design/story.json`): `stn_parley_1` 0–5.5 s, `nar_parley` 5.5–10, `rv_ask` 10–14.5,
-`stn_parley_2` 14.5–19, `stn_parley_3` 19–23, `stn_parley_4` and the open mouths 23–27,
-phase 1 from 28 s. **Total 28 s.**
+advantage. **A second hearing can be cut short** (pass i3): once an asking has been heard out or refused in this page
+(a new run does not forget it; a reload does), a shot before `stn_parley_4` is not a refusal: the lines between are
+passed over, `stn_parley_4` comes as soon as the line on screen has had its time, and the six open with it; the gift of
+two is still hers.
+
+**The asking's stages last exactly as long as their lines are held** (pass i3: the Windlass follows `story/line`'s
+`seconds`, and `design/story.json` where nothing shows lines; no table in the code). Timeline if heard out, from the first
+line appearing, with the line box's quarter second between two lines: `stn_parley_1` 0-3.5 s, `nar_parley` 3.75-7.75,
+`rv_ask` 8-12, `stn_parley_2` 12.25-16.75, `stn_parley_4` and the open mouths 17-21, `nar_parley_kept` at 21, phase 1
+from **22 s** (it was 24.25 s before the roll-call was merged, 27.75 in pass i2, 36.7 before that). The first line waits out
+a narrator's line that is on screen at the seal (about 2 s for a player who walks straight in from the cradle).
 
 ### 8.2 Phases
 
@@ -1044,7 +1053,8 @@ section was rewritten to them in revision 2 (request 1, section 23).
   - South end: `ia_ammo_box` on the south wall west of the door; the lantern.
   - South-east corner (**stop two**): the hearth, a chimney breast on the east wall at
     z −20..−16.6, holding the town's own ash, four days cold (dressing; nobody narrates
-    it). On the hearthstone: **his cup**, the dregs dried to a ring (`nar_tally_hearth`),
+    it). On the hearthstone: **his cup**, the dregs dried to a ring (`nar_tally_hearth`:
+    said when the fight in the hall is over, pass i1),
     `rd_note_hearth`, `pk_rounds_12`, `pk_canteen`. In front of it, pulled out to face the
     seated: the head chair, a folding camp chair that is not one of theirs
     (−85.5, 0, −20; `nar_tally_chair`, `nar_tally_chair_2`).
@@ -1285,9 +1295,15 @@ plus 20 puzzle shots. The lamp count (`9 + freed`) is clamped at 48 as before.
   on the bulkhead). The Bider in the stair niche and the queue show Biders at rest.
 - **Lazy key hints.** Each appears only if the player has not done the action within 4 s
   of first needing it, and never again after the first success: `ui_hint_move`,
-  `ui_hint_fire`, `ui_hint_reload` (only after two dry clicks), `ui_hint_sprint`,
+  `ui_hint_fire`, `ui_hint_reload`, `ui_hint_sprint`,
   `ui_hint_interact`, `ui_hint_line` (at the locker), `ui_prompt_kept` (phase 3a, on a
-  mark; at T3 persistently). No others.
+  mark; at T3 persistently). No others. **As built (pass i1, section 23.14):** the walk, run
+  and interact hints stand 8 s, come back once 40 s later, then never again in that run, and
+  the walk hint waits until the narrator has been quiet 1.5 s; the run hint waits for three
+  quiet seconds outside every puzzle; the reload hint is shown for a low cylinder at rest
+  (two rounds or fewer, lead in reserve, 1.5 s), never on a dry click (a dry click reloads by
+  itself). A hint stands at the top of the talk column (88 % of the height when nothing is
+  said), not across the revolver.
 - The way forward is always the brightest, most contrasting or only moving thing in frame.
 
 ### 12.2 HUD
@@ -1330,13 +1346,14 @@ only (`obj_*`). Each is set by exactly one event:
 | `obj_boss_dry` | the kept round fired |
 | `obj_proving_lift` | the Windlass dead |
 | `obj_rim` | `cp_rim` |
+| `obj_rim_choice` ("The seventh on the stone is his. Take it, or go on without it.": release pass p0) | `trg_stone` |
 
 ### 12.3 Menus
 
 - **Title.** `ui_title`, `ui_subtitle`; `ui_menu_play`, `ui_menu_continue` (if a save
   exists), `ui_menu_story`, `ui_menu_options`, `ui_menu_credits`. Behind it: the overhang
   doorway shot, live. Polish round 5: with a stored save **Go on is the chosen item and names its count**
-  ("GO ON  VI · 2"), and Begin over a save asks first (a column "Begin?": Go on, Begin, Back; only that Begin
+  ("GO ON  VI · 2"), and Begin over a save asks first (a column headed `ui_ask_begin` "Begin again?" over `ui_ask_begin_note` "The count kept so far will be lost.", release pass p0; it read "Begin?": Go on, Begin, Back; only that Begin
   starts a new run; Escape and Back return). With no save Begin starts at once.
 - **Pause.** `ui_pause_resume`, `ui_pause_options`, `ui_pause_restart_cp`,
   `ui_pause_quit`; the current objective; the cylinder widget enlarged with the seventh
@@ -1349,6 +1366,12 @@ only (`obj_*`). Each is set by exactly one event:
   burst; lines of three or more; a clean six (yes or no); secrets (n of 2);
   **lamps lit in Plenty** (n); **the Reeve carries** (6, or 7 with `ui_end_carries_his`).
   Never a count of the felled. Then `ui_end_again`, `ui_end_menu`.
+  Pass i1: the lamps row reads **"n of m"** (`ui_end_of`) when a window that could have
+  been lit stayed dark, m being nine and every Bider she met (`world.lampsOf`); the dark
+  windows are drawn as dark panes beside the lit ones; one line under them says whose the
+  lamps are (`ui_end_lamps_freed` "Nine who kept their seats, and {n} she cut loose.", or
+  `ui_end_lamps_kept` with nobody freed). The clean-six row is labelled "Six chambers, six
+  shots". Still no element holds a count of the felled.
 
 ### 12.4 The seventh as a system (so nobody tidies it away)
 
@@ -1433,7 +1456,10 @@ without recomputing the blades in the generator.
   - `shutter_m` crosses the whole hall over the heads of the seated (it grazes one hood)
     and lands on the **head chair** and then the **hearthstone** in the south-east corner:
     a chair that is not one of theirs, pulled out to face the seated; his cup, dry; his
-    note. `nar_tally_chair`, `nar_tally_chair_2`, `nar_tally_hearth`.
+    note. `nar_tally_chair`, `nar_tally_chair_2`. (Pass i1: the cup's line,
+    `nar_tally_hearth`, follows `nar_nine` when the fight clears; `nar_ask` is the third
+    line of the peg stair. Four lines on one shutter were 23 s of text in a puzzle a
+    brisk player solves in 15.)
   - `shutter_n` is aimed at the day-cell, 3.5 m in, but lands on the share cloth.
     `nar_tally_cloth`. Shoot the cloth's cord: it falls; the blade reaches the day-cell.
 - **The story blades land behind her, by design.** The hatch, the day-cell and the ledger
@@ -1637,6 +1663,15 @@ Three more rows by difficulty (polish round 4). The Tamper's chest vent opens fo
 between stakes on Easy and Normal and 1.2 s on Hard. On Hard the Windlass rests 0.4 s after
 each phase-1 notch (0.8 s otherwise) and its stakes fly at 23 m/s (20 otherwise): before,
 Hard played the boss at Normal's lengths with only more damage.
+
+Two more on Hard only (release pass p0, the combat critic: a plain-skill proxy saw little difference between Hard
+and Normal at the Tamper and the Windlass). **The Windlass's glow before a discharge is 15 % shorter** in phases 1 and
+2 (0.765 s for 0.9, 0.68 s for 0.8: `BOSS_BY.hard.glowScale` 0.85; each slot is shorter by the same amount, so a
+phase-1 slot is 1.365 s against Normal's 1.9; the lance is unchanged). **The Tamper stands over a slam 15 % shorter**
+(1.275 s for 1.5: `TAMPER.slamRecoverBy`; the chest vent's 0.5 s after the blow is unchanged). The boss's tells are
+otherwise still not scaled by the telegraph column: this is the answer to the question left open in
+`docs/requests/code-enemies.md` ("telegraph durations scale with difficulty" without excepting the boss).
+Normal and Easy are untouched.
 
 ---
 
@@ -1859,7 +1894,7 @@ cuts anything that is not on this list without asking.
 | 6 | The Transit staking the bell (`vig_yard_bell`) | T1 emerges and turns; the bell is still shootable |
 | 7 | `sec_loft_bell` and `rd_rain_tally` | secrets row dropped from the end card |
 | 8 | End-card rows "lines of three or more" and "a clean six" | the other rows stay |
-| 9 | High-tier extras: heat shimmer, sand sparkle, sun shadow map, cloud-shadow scroll | Low look on High |
+| 9 | High-tier extras: heat shimmer, sand sparkle, sun shadow map, cloud-shadow scroll (pass i1: all four exist; and the air light round lamps, relief on sunlit surfaces, the sun's veil and dust motes outdoors, the one shadow map pointed down from overhead in rooms) | Low look on High |
 | 10 | Checkpoints `cp_hall_gantry` and `cp_gallery_bay` (15 remain) | a death there costs up to 30 s more; the 90 s rule still holds |
 | 11 | Per-clip polish on enemy clips that are never seen close: `circle_strafe`, `falter`, `sidestep_l/r` | reuse `run`, `stumble`, `walk` under the listed names |
 | 12 | Wave B of `enc_file` | the File is six |
@@ -2197,3 +2232,193 @@ floor of 0.85 of the rig is not moved. The gun team's change to `tests/render/po
 hidden while two beams are measured) and render-tech's to `tests/player/flash.test.mjs` ("at the muzzle as drawn")
 are accepted: neither relaxes a bound. `BOSS.chargeRequiredAt` stays 12 s. The pocket beside `lh_ramp_cabinet` and
 `ia_lift_cage`'s single-sided panels are not changed and are listed as known gaps.
+
+### 23.11 Release pass p0 record (cross-cutting fixer, 2026-10-07): the final reviewers' open issues
+
+Ruling R1 applies: where a number below differs from an earlier section, this one holds and the section was edited in
+place where it is a table row.
+
+| Section | Was | Now |
+|---|---|---|
+| 15 Hard | damage, tokens, tells, drops, knot radius; Windlass phase-1 rest 0.4 s, stakes 23 m/s; Transit cooldown 1.2 s; slam wind-up 0.9 s | also: **the Windlass's glow 15 % shorter** (0.765 / 0.68 s) with the slot shorter by the same; **the Tamper's `slam_recover` 1.275 s**. Normal and Easy unchanged |
+| 12.2 end card | row "Six dry mouths, one cylinder" | **"Six dry chambers, one cylinder"** (`ui_end_clean_six`): the word the objective and the station use |
+| 9.8 the rim | the objective stays "Go on."; no warning before the leave branch | reaching the stone sets **`obj_rim_choice`** ("The seventh on the stone is his. Take it, or go on without it."); the layout's `trg_stone.endAfterSeconds` is 40 (the built value); the warning line **`nar_stone_wait`** exists for the world team to say before the leave branch begins |
+| 16 / 18 text | — | new keys for the code teams to wire (all original text): `hint_tamper_ring`, `hint_boss_move`, `nar_stone_wait`, `cap_loft_bell`, `obj_rim_choice`, `ui_ask_begin`, `ui_ask_begin_note`, `ui_end_deaths`; `meta.rules.never_stale` now names the never-dropped lines (the 28 the world's patterns matched, plus `stn_tally_wake_2` and `nar_line_first`) |
+| 19 the view-model (ruling R14) | 6 000 triangles, 2 draw calls, `tx_gun` + `tx_matcap_steel` | **18 000 triangles, up to 3 draw calls** (`m_gun`, `m_hands`, `m_prop`), plus `tx_gun_detail` (1024 x 512 R8), `tx_hands` (512 x 512 RGBA8), `tx_hands_detail` (512 x 512 R8). Paid for out of chunk plans whose built meshes stand far under them; every cell holds 120 000 triangles (worst 119 930) and the seam stage 63.3 of 64 MiB on Low |
+| 19 quality | the first second at the full ratio, then (when the cadence is steady and slow) 50 frames at the minimum ratio two seconds in | **the opening look**: the first 17 frames at the minimum ratio under a 0.7 s fade of the picture from black, then the full ratio; the same slow cadence at both is the display's and nothing moves again; a faster one at the minimum is load and the ratio steps down from the top |
+| 19 download | one 1.92 MB script holding the design data; share JS + CSS 1.5 MiB | the three design files are separate, preloaded `.json` files (0.30 MiB); the script is 1.62 MB. **Shares: script + style 1.75 MiB, design data 0.35 MiB** (the total is 11.6 of 20) |
+
+### 23.12 Release pass p0 record (closer, 2026-10-07): the game as released
+
+Ruling R1 applies: where a row below differs from an earlier section, this one holds. The rows are the code and look
+teams' own (their request files carry the evidence paths); the closer checked each against the tree, ran the whole gate
+on it and mirrored it here. Measurements: `docs/INTEGRATION_REPORT.md` Part K.
+
+| Section | Was | Now |
+|---|---|---|
+| 5 / 6.9 the view-model's place | `VIEW_PLACE` (0, 0.025, 0.026; pitch -7, yaw 7.5, roll -13) | **(-0.006, 0.024, 0; pitch -8, yaw 7.5, roll -13)**: 2.6 cm farther, 6 mm inboard, the muzzle a degree lower. At 720p the gun and hand are 11.6 to 11.9 % of the frame (ruling R13: 8 to 14), the gun the hand does not cover 8.2 %, the hand 3.5 %, the muzzle 13.6 % of the frame height from the crosshair. The hands wear **fingerless gloves** and are their own material and texture set (ruling R14); the hammer spur is inside the right edge |
+| 6.5 pickups | the yard gives nothing before its fight | **a packet of six lies 1.9 m inside the yard door** from the yard's first wave on, on every attempt (made by the director, not a layout marker) |
+| 6.6 the line box | lines wait their turn | **urgent lines**: a wave's line, the file's "Six, in a queue" and the first line-round line come up at once over a line that may be cut (never one of `never_stale`, never one in its last second; another urgent line only after 3 s), else they are next. A cut line counts as said. Measured in the file: the three warnings 2.1 to 3.4 s after their waves (they were 7.8 to 8.6 s) |
+| 6.8 the shot | the tracer begins where the muzzle of the shot's tick is seen | the tracer's start **rides the drawn muzzle** for the frames it lives (0.4 px off at 960 x 540; it was 76 to 194 px) |
+| 6.8 what High adds | shadows of dynamic things, bloom, contact shade, sheen | also **sun shafts** outdoors by day (no new pass or target) and a firmer contact shade under a sky. With the sun behind her and nothing dynamic in view High is still Low plus anti-aliasing |
+| 7.1 Bider | `circle` trails a walking player | `circle` leaves to `approach` when a melee token is free and she is more than 3.8 m off |
+| 7.1 / 10 the file | the rear pair run at 5.8 m/s | the rear pair **hurry at 7.5 m/s** (5.8 x 1.3) while more than 18 m from her and outside her view, 5.8 otherwise. Measured: plain proxy 18 / 18 / 0 HP, careless 54 / 72 / 36, 0 deaths, 28 to 33 s |
+| 7.3 the Tamper's slam | the pause after a slam that hurt her could be skipped by a stagger | the pause is a time on the body: **no attack for 1.5 s past the slam's recover, 4.5 s from the second slam in a row** that hurt her (Normal and Easy; Hard 1.5). **`hint_tamper_ring`** is said on the second slam of a fight and 1 s after a respawn that follows a death to a slam. Measured: plain 76 / 76 / 0, careless 0 / 38 / 76, 42 to 50 s |
+| 8.1 the asking | the stages ran on a clock, up to 9 s ahead of their lines | **paced by its lines as shown**: the six mouths open on the tick `stn_parley_4` appears, phase 1 five seconds later, its first tell 4.5 s after that. About 37 s from the door to phase 1 walking straight in |
+| 8.3 a retry | the 4 s lead only after "Go on" (it never ran after a real death) | **4 s after a death too; 6.5 s and `hint_boss_move` from the second death in one cylinder phase**; `hint_boss_haul` once per phase of a run |
+| 9.8 the rim | stepping back from the stone ended the stage after 40 silent seconds | **`nar_stone_wait` is said 10 s before the 40 s run out**, the clock stands while it is on screen; the north edge says the same line on her first step onto it and takes her at her word only if she is still on it when the line ends. `obj_rim_choice` is the objective at the stone |
+| 10 the yard | four Transits (a bug: the bell vignette's Transit was counted twice) | **three Transits**, as designed. The yard from its checkpoint: plain proxy 0 to 22 HP, careless 18 to 92 |
+| 11 secrets | neither secret was pointed at | the loft bell rings by itself the first time she is within 22 m with no fight on (three times a run at most, 30 s apart; caption `cap_loft_bell`); a faint violet halo lies at the foot of the cold bay's door until its secret is found |
+| 12.1 key hints | every raised hint is drawn | **move, run and interact hints are not drawn during a fight** and come up after it if still raised; the run hint is raised on the walk down the gully (at the glare trigger) as well as in the first fight's second wave |
+| 12.2 movement card | 27 % from the top; faded on the wall clock | **12 % from the top**, with an ink halo and a soft ink ground; its fades (0.6 s in, 0.8 s out, 0.3 s when cut) are counted in game ticks |
+| 12.3 title | words at once on black while the picture fades in; "Begin?" | the words rise in 0.7 s with the picture after a load; **"Begin again?"** with "The count kept so far will be lost."; after "Quit to title" the title is in the opening mood again (it kept the left run's) |
+| 12.4 end card | nine rows, "never a count of her deaths"; panel ink 80 %; the revolver held under it | **ten rows: "Times she went down" is the second**; panel ink 88 %, never taller than the window, laid out down to 360 x 240; **the revolver is let down out of the frame** while the card is up (0.75 m in 0.9 s); the last fire's glow is half again as wide |
+| 15 quality detection | benchmark over 4 ms a pass -> `min` | in effect **over 8 ms** (4 to 8 ms is reported as 4); not measured on a real GPU |
+| 18 checkpoints | the Windlass's death saved nothing | **the Windlass's death re-saves `cp_boss_proven` silently** (no mark, no second event): a reload on the way to the lift finds it dead. **The end card clears the save**: the title after a finished run offers Begin and no Go on |
+| 19 memory | Low's render targets 28 bytes a pixel, High's 35.33 | **20 and 39.33** (what GL allocates): Low's worst stage is 55.3 of 64 MiB, High's 121.0 of 128 at 1920 x 1080 |
+| 19 first load (ruling R15) | a black page until the script has arrived; the browser asks the host's root for an icon | a brass hairline on ink while the script loads; an inline icon. Served from a sub-path, the page asks for nothing outside it |
+
+**The test bot's whole run** (`tests/e2e/playthrough.test.mjs`): 31 114 ticks, 8.4 minutes of play, 89 rounds, 35 freed,
+0 deaths, no god mode, hash `53fa8759`, the same on a second load.
+
+### 23.13 Pass i1 record (cross-cutting fixer, 2026-10-07): story seams named by the release reviewers
+
+Ruling R1 applies: where a row below differs from an earlier section, this one holds. Evidence:
+`docs/INTEGRATION_REPORT.md` Part L, `tests/e2e/i1.test.mjs`.
+
+| Section | Was | Now |
+|---|---|---|
+| 4.4 / 9.8 the lamps | "Lamps, down in Plenty. She counted them." and "{n}, by her count. Somebody had found the matches."; nothing tied the count to her | a third line on the same trigger, **`nar_lamps_hers` "Nine had kept their seats. The rest were hers."**, said only when she freed somebody (never stale; kept through the ending's branch like the other two) |
+| 12.4 end card, the lamps | a bare number over a row of lit glyphs | **"31 of 44"**: lit of the windows that could have been (nine and every Bider she met), dark panes for the unlit, and the line "Nine who kept their seats, and 22 she cut loose." No element holds a count of the felled; the narrator never counts them |
+| 12.4 end card, the clean six | "Six dry chambers, one cylinder" | **"Six chambers, six shots"** |
+| 9.2 stop one | the pot, the note and the tin at (11.5, 14, 104.5), 56 degrees left of the opening view and out of the first frame, while the first two lines describe them | **at (14.4, 14, 102.9), where the overhang's shaft of sun lands**: 18 degrees left of the opening view, 4.9 m ahead; the note and the tin keep their offsets |
+| 9.4 / 13.2 the Tally House's lines | `shutter_m` said four lines (23 s): at five seconds a shutter the chair's second line and "Two of them stood" were dropped and three more were said rooms later | `shutter_m`: the chair's two lines. **`nar_tally_hearth` follows `nar_nine` when the fight clears; `nar_ask` is the third line of the peg stair** |
+| 9.6 the lift-head diagram | `nar_mark_1..3` on a 4 x 5 m patch at the diagram's foot, 5 m off the way to the cage | **the whole floor before the ring** (x 12..20.4, z -24..-11): nobody reaches the cage without crossing it; the three lines are never stale (they follow her onto the lift), and so are the ride's own `stn_lift_1..3` (asked for in the hall, the first went stale four seconds after the ride carried her out of it whenever a line was still on screen). At the test bot's pace, lever thrown 2.9 s after the first line: the diagram's lines at -2.9 / 2.9 / 7.6 s of the ride, the station's at 13.4 / 18.1 / 23.9 s, none dropped |
+| 12.1 the interact hint | raised for good once she had been within 3 m of the first note; it came up 4 s later wherever she was and stood until she used the key | **taken back when she walks on** (more than 3 m from the note): the note now lies beside the way out, so everybody passes it. It still comes up after 4 s spent at the note without aiming at it |
+| 19 first load (R15) | an empty page title and no description until the script ran | the page's head carries the name, a description, and a share picture (`public/share.jpg`, 1200 x 630) addressed relative to the page; the publishing workflow makes the picture's address absolute |
+| 19 contracts | `WorldSystem.lamps` | + **`WorldSystem.lampsOf`** (ARCHITECTURE section 5) |
+
+### 23.14 Pass i1 record (closer, 2026-10-07): the game as built by the pass's code and look teams
+
+Ruling R1 applies: where a row below differs from an earlier section, this one holds. Sources: the "pass i1" sections
+of `docs/requests/world.md`, `ui.md`, `gun.md`, `exterior-look.md`, `underground-look.md`, `creatures-props.md`,
+`render-tech.md`; `docs/INTEGRATION_REPORT.md` Part M.
+
+| Section | Was | Now |
+|---|---|---|
+| 2 the Rule | leans about one degree (two on the rim) | **2.5 degrees from the gully, 5 from the rim** (`src/world/ending.ts` `LEAN_OPENING`, `LEAN_RIM`); "It leaned" and "Further than from the gully" are both true of the picture |
+| 5 / 6.9 the view-model's place | `VIEW_PLACE` (-0.006, 0.024, 0; pitch -8, yaw 7.5, roll -13) | **(-0.004, 0.022, 0.010; pitch -8, yaw 9.5, roll -13)**: two degrees further side-on. At 720p the muzzle is 92 px (12.8 % of the height) from the crosshair, the gun and hand 11.0 to 11.6 % of the frame on Low |
+| 5 the hands | fingerless gloves (p0) | **whole gloves again**, stitched and creased to the fingertips; a longer thumb; three fingers wrap the grip |
+| 6 the revolver | hump-backed frame, low spur (round 4) | **a single action's rear**: the frame falls to the back strap behind the cylinder, the cocked hammer stands 8 to 17 mm proud as one horn; blue-black steel with worn edges and holster rub, oiled red-brown walnut |
+| 6.6 the line queue | an urgent line cuts the line on screen | **an urgent line may let the line on screen be read first**: it cuts in once that line has had 65 % of its time (the day-cell's first wake line, a vignette's first line, a latch knot's line on sight, the Transit's turn). **A trigger on the seam between two zones is about both** (the peg stair's lines no longer go stale when the zone changes) |
+| 9.2 stop one | the spent case over the first note lies still | it **glints** (0.35 s every 2.5 s) from the line that names it until the note is read or she is 14 m on |
+| 9.3 the sighting | "When she looked again there was only rim" needs 2 s looking away | once the tally door has opened, **half a second off him is enough** (turning to the door is looking away); the line, once on screen, is not cut when she walks in |
+| 9.4 the Tally House | nine at the table in two identical rows; bare plaster | each of the nine holds its head its own way and sits a few degrees off square (`prop_tally_seated.params.seats`: -8 to +8 degrees); a dado, a peg rail, a watch slate, shelves; the chalk rows of the tally wall read across the whole wall |
+| 9.5 the peg stair | the watcher's lines start on crossing `trg_watcher` | they **start on a look** at the figure (within 9 m, a 28 degree cone, a clear line); the niche has its own pilot lamp and a small glint in its mouth; crossing without a look holds the lines 1.5 s |
+| 9.6 the lift hall | the diagram's lines start on the floor before the ring | **also on a look** at the drawing from within 26 m once the Tamper is down |
+| 9.7 the asking | the idle revolver stood in front of the dial's lower ports | inside `trg_pz_asking`, facing the door wall, **the gun is tucked** 3.4 cm down and 4 degrees muzzle-down (0.45 s; a shot, reload or sprint returns it in 0.08 s; nothing in the simulation reads it) |
+| 9.7 the bore | the catwalk's hand rail crossed the first look at the Windlass | a knee rail at 0.5 m between the viewing bay's jambs |
+| 9.8 the rim's lines | `nar_rim_2`, `nar_rim_3` could be dropped; a take before the stone's lines was answered late | **never dropped** (told at the ledge's edge ahead of the lamps, or by the branch); a take before `nar_stone_1` is answered with **`nar_stone_short`**, a take between the first and last line with `nar_stone_4`, then the take's two. The ending is about 17 s longer |
+| 10 / 11 the yard latch | the knot is described from 26 m | **from 16 m** (`KNOT_SEEN`): the street's quiet line is read first |
+| 12.2 HUD | a hint on its own row at 64 % of the height; no low-health cue; the mark 150 px tall in a 450 px window | hints at the top of the talk column; **under 35 health the three bars breathe a pale outline and the frame's edge is inked in** (no red; still under reduce motion); the mark scales down below 600 px of height (0.72 at the least) |
+| 12.3 the readable sheet | NEXT and CLOSE without a key | **a key cap before each** (the bound interact key; Esc with a free cursor, Right click under pointer lock); the right mouse button closes a note read in play. A one-line paragraph of 40 characters or fewer shares a card (`rd_note_lip`, `rd_note_hearth`: 2 cards, were 3) |
+| 12.3 Begin | starts the run; the back-story is a title item only | **a first Begin in a browser lays the four cards of `rd_backstory` over the run's first frame** (paused, no HUD): interact or fire turns a card, Enter or the right button skips; shown once (`localStorage keepseven.ui.story_seen.v1`); never under `?test=1` unless that key holds '0' |
+| 12.3 loading (R15) | the word LOADING over a hairline | **the title arriving**: the name and the six-and-one mark in the title's own place before the script runs (`index.html #preload`), through loading, to the title; a 2 px line that fills with the files in and never runs backwards, with a glint that moves while the script decodes |
+| 12.3 options | scrim ink at 70 %, some text under 12 px | ink at 86 %; no text under 12 px at 1280 x 720, 960 x 720, 800 x 450 |
+| 12.4 end card | ten rows, "Six chambers, six shots: Yes / No"; items "Walk it again", "Title" | **the feat's row is there only when it was done** (`ui_end_no` is gone from `design/story.json`); items **"Walk it again", "The rim again" (`ui_end_rim`: goes on from the rim's save), "Title"** |
+| 12.4 / 18 after the end | the end card cleared the save; no revolver on the title after an ending | **the end card keeps the rim's save**: the title then offers "Go on VII · 1" (chosen) and "Begin" asks first; going on is the rim told again with the stone untouched, so the other ending is a minute away. "Walk it again" is a new run and lets the save go. The revolver is back the moment the end card closes |
+| the deflected round (ART_BIBLE 9) | a 6 m streak (a line to the top of the frame when shot head-on) | a 0.7 m spark thrown 1.6 m off the plate, two ticks |
+| 7.1 a Bider that has lost her | goes to her last known place; a riser's was her position when it was put in its seat | **a riser's last known place is where she is when it has stood up**, and at the end of a route to a place it cannot stand on it goes on to where she is (the Tally House's hatch cowl was a perch: ruling R11) |
+| 19 row 9, High | heat shimmer and sand sparkle listed, never built | built, with the air light, relief, the sun's veil, dust in the light and the shadow map indoors (ARCHITECTURE 8.4, pass i1) |
+| 21 the playthrough | 31 093 ticks | see INTEGRATION_REPORT Part M for the current length and hash |
+
+Not changed, and still open: `docs/KNOWN_ISSUES.md`.
+
+### 23.15 Pass i2 record (closer, 2026-10-07): the game as built by the pass's code and look teams
+
+Ruling R1 applies: where a row below differs from an earlier section (23.14 included), this one holds. Sources: the
+"pass i2" sections of `docs/requests/world.md`, `ui.md`, `render-tech.md`, `gun.md`, `exterior-look.md`,
+`underground-look.md`, `creatures-props.md`; `docs/INTEGRATION_REPORT.md` Part N.
+
+| Section | Was | Now |
+|---|---|---|
+| 2 the Rule | 2.5 degrees from the gully, 5 from the rim | **6 degrees from the gully, 9 from the rim** (`src/world/ending.ts` `LEAN_OPENING`, `LEAN_RIM`); on screen 5.9 and 8.6 |
+| 5 / 6.9 the view-model's place | `VIEW_PLACE` (-0.004, 0.022, 0.010; pitch -8, yaw 9.5, roll -13) | **(-0.004, 0.030, 0.004; pitch -11, yaw 9.5, roll -13)**. At 720p the muzzle is 67 px right and 69 px below the crosshair (96 px, 13.3 % of the height); the view-model is 12.8 % of the frame, the gun no hand covers 6.5 %. The hand is in the frame: thumb, forefinger on the trigger, middle finger, the top of the ring finger |
+| 8.1 the Windlass's asking | line 1 at 0, narrator 5, the Reeve 10, roll-call 14.5 and 19, the inspection 23 to 27, phase 1 at 28 s | **line 1 at 0, narrator 5.5, the Reeve 10, roll-call 14.5 and 18 (each held 3.5 s: `design/story.json` `stn_parley_2` / `_3`), the inspection 21.5 to 25.5, phase 1 at 26.5 s** (`src/enemies/defs.ts` `BOSS.parley`). `stn_parley_1` opens the scene: lines only waiting that the story does not stand on are dropped, and it is said as soon as no narrator's line is on screen |
+| 9.3 the sighting | the figure about 28 px tall at 720p | **about 56 px** (`src/world/director.ts` `SIGHT_MIN_PX` 62) |
+| 9.4 the Tally House | `nar_tally_hearth` is said when the fight clears | **said at the hearth**: turned to the cup from within 3 m for 0.4 s out of a fight, or on opening `rd_note_hearth`, whichever is first; the fight's end is the fallback of a player who never went near. `nar_tally_cloth` is never stale. The nine at the table wear painted sack hoods and each slumps its own way |
+| 9.5 the peg stair | the watcher's lines start on a look, or 1.5 s after the trigger | **said only when she has looked at the figure** (inside 28 degrees, within 9 m, a clear line, 0.4 s), before, on or after the trigger. Crossing without a look plays the figure's motion and says nothing. The figure is lit by its niche's lamp |
+| 9.6 the lift hall | the diagram's lines start on the floor before the ring, or on a look | **only once the drawing has been in her view** (inside 30 degrees, within 26 m, a clear line, 0.4 s) with the Tamper down; the floor says nothing by itself; within 3.5 m of the cage they are said anyway. **A ride is held up to 8 s** while one of its own lines still waits its turn. The drawing's seventh is a dead signal lamp hung apart |
+| 9.7 the asking, the tuck | 3.4 cm down, 4 degrees muzzle-down | **9.6 cm down, 2.8 cm to the right, 8 degrees** (`VIEW_PLACE_TUCK`, new field `right`): at 2, 3 and 5 m numeral 4 and port 4 are clear of the gun |
+| 9.7 the bore | a knee rail at 0.5 m in the catwalk's viewing bay | **no rail in the bay** (the layout's blocker holds it; kick plate 80 mm): nothing crosses the first look at the Windlass. The kerb is a machined casting whose seams carry the bore's light |
+| 9.7 / 19 row 12 the seventh | the standing line, the ring, the colour turning | **the bore answers**: inside the line's 2.4 s flare four rings of aqua light climb the line to the vault and twelve threads of light are drawn up the shaft's wall; nothing after 2.35 s (the four seconds of nothing are untouched); Reduce Flashes shows none of it |
+| 9.8 the rim's lines | `nar_rim_2`, `nar_rim_3` never dropped; the take answered on its tick | **once a branch is decided the order is fixed**: the lamps' lines not yet told, in order and unbroken; then the branch's own (take: `nar_stone_short` or `nar_stone_4`, `nar_take_1`, `nar_take_2`; leave: `ending_branch.leave`); then the fire's two. Scenery lines of the rim still unsaid when a branch begins are **dropped**. A take is answered on its tick only when no lamps line is on screen or waiting |
+| 9.8 the last image | the eased view rests on the fire, 0.15 of the way to the town; a flame of about 92 px | **the view rests on the fire's bearing, 7 degrees above it** (`TURN_TOWARD_TOWN` 0, `TURN_LIFT_DEG` 7): the land's edge at 62 % of the frame's height. **The fire is small and far**: a steady flame of about 18 px, a tight bloom, a thin pool of light on the flat, a hairline of smoke, no sparks |
+| 9.8 `nar_take_1` in the leave branch | said (rulings at the close, p0 and i1) | **stays** (asked again by a reviewer, by its key): the line is about her own kept round |
+| 12.1 the sequencer | an urgent line cuts in once the line on screen has had 65 % of its time | **a polite urgent line (the day-cell's wake, a knot looked at, the bell's second line, the watcher) never takes down a narrator's or the Reeve's line**: it is the very next line; it still cuts a station line or a hint that has had two thirds of its time. **A line and its continuation are not parted** (the key with the same stem and another number): what is put next goes behind the continuation. A wave's line and her own act still come at once |
+| 12.2 the objective | drawn only on the pause screen | **also in play: every change is drawn top left under the checkpoint numeral for 5 s** (it waits for a movement card; never under a sheet, a menu or the end card; a fight does not hold it back). **`obj_rim_choice` stands for as long as she is inside `trg_stone`** |
+| 12.2 line rounds | a cyan dot beside the reserve numeral | the word **"LINE"** stands under the dots for 6 s when the count goes from none to some, and while `ui_hint_line` is drawn |
+| 12.2 the subtitle at the asking | the talk column 8 % from the bottom everywhere | inside `trg_pz_asking` while the asking is unsolved: **1.4 % from the bottom, the backing at 45 %** of the option's value, so the dial's ports read through it |
+| 12.2 the proving prompt | aqua capitals, no backing | bone capitals on the subtitle's ink backing, the key in a cap filled with the proving aqua |
+| 12.3 readables | a blank line starts a card: the first note 2 cards, the ledger 3 | **every note and plate found in the world is one card** (paragraphs packed up to 12 lines of 58 characters; a paragraph is never split). "The story so far" keeps its four cards |
+| 12.3 the title and loading (R15) | the mark 18 x 28 px of 1080; the line fills by files decoded; the column 13 % from the bottom | **the mark 36 x 56 px of 1080 (34 x 52 floor)**; one italic line under it in the narrator's voice ("The court is gone. The Rule leans.", the same words in `index.html`); **the line fills by bytes of asset files in** (80 %), then the sets' decode count (12 %), then an ease to 98.5 %; in a frame narrower than 3:2 the column stands 5.5 % from the bottom |
+| 13.4 the asking | asked again every 20 s (`trg_pz_asking.reaskSeconds`); the shared hint ladder | **asked again after 50 quiet seconds** (counted only while nothing is on screen or waiting and she is not turned to the cradle); **its own hint ladder: 30 / 45 / 210 / 300 s on Normal, 15 / 25 / 120 / 180 on Fast** |
+| 19 row 9, High | the shadow map holds moving things only | **the town's fixed world casts into the sun's map** (fence rails, awning posts, carts, eaves); the bake's shade is deepened and cooled near her; relief in shade and in rooms; the afterglow's shafts on the rim. At a walked doorway the air snaps to the new place and the eye adapts (Low and High) |
+| 21 the playthrough | 32 122 ticks | see INTEGRATION_REPORT Part N for the current length and hash |
+
+Not changed, and still open: `docs/KNOWN_ISSUES.md`.
+
+### 23.16 Pass i3 record (cross-cutting fixer, 2026-10-07): text, budgets and rulings that open the pass
+
+Ruling R1 applies: where a row below differs from an earlier section, this one holds. The pass's code and look teams
+work after this; what they change is recorded by the closer. Source: `docs/INTEGRATION_REPORT.md` Part O.
+
+| Section | Was | Now |
+|---|---|---|
+| 4 and 9.4, the note on the hearthstone (`rd_note_hearth`) | "They did not suffer long. I sat with them and counted, so that somebody had." (a first reader took the eleven for dead, against `nar_first_seat`, `nar_nine` and the lamps) | **"They are not suffering now.** I sat with them and counted, so that somebody had." The townsfolk are alive and biding; no text says or implies otherwise |
+| 12.2 the work at hand, `obj_yard` | "Clear the yard." (the one line in an instruction's voice) | **"The yard is not empty."** Every work-at-hand line is in the narrator's voice |
+| 2 and 9.2, the trace, stop one | a swept patch of floor, a flat stone, his coffee pot, the note | the same, and **his blanket may lie folded or rolled on the swept patch** (cloth with folds and a soft contact shadow, in place of the flat patch of colour). Still **no fire, no ash and no ring of stones**: one fire, at stop three |
+| 19 budgets (ruling R14) | the chunk plans of release pass p0 | re-allocated through `tools/gen_assets.mjs`; every cell holds 120 000 triangles and no texture changed. The table is ARCHITECTURE 7.5; the moves are listed in INTEGRATION_REPORT O.2 |
+| ruling R15, the page | the share picture's address is absolute in the Pages build | the same, and the build also writes `og:url`, `og:image:secure_url`, `twitter:image` and a canonical link; the workflow refuses to publish a page whose picture is relative |
+
+### 23.17 Pass i3 record (closer, 2026-10-07): the game as built by the pass's code and look teams
+
+Mirrored under ruling R1 from the "pass i3" sections of `docs/requests/world.md`, `enemies.md`, `ui.md`, `gun.md`,
+`exterior-look.md`, `underground-look.md`, `creatures-props.md` and `render-tech.md`. Where a row below differs from an
+earlier section of this document, the row holds. Sections 5 (the one reach) and 8.1 (the asking) are corrected in place.
+
+| Section | Was | Is |
+|---|---|---|
+| 5 interaction | key 2.2 m, prompt 3.0 m | **one reach, 3.0 m** (`USE_RANGE` = `PROMPT_RANGE`) |
+| 5 / 6.9 the view-model's place | `VIEW_PLACE` (-0.004, 0.030, 0.004; -11, 9.5, -13); 12.8 % of the frame | **(0.006, 0.036, -0.030; -11, 9.5, -13)**: the muzzle 81 px right and 55 px below the crosshair at 720p (13.5 % of the height), gun and glove 11.5 to 12.8 % of the frame; the hand is seated round the grip (thumb, forefinger in the guard, two fingers on the left panel) |
+| 6.6, 14 the kept ladder | `F` off the mark in phase 3a: nothing; the key's prompt with the third tier (45 s) | `F` off the mark says `hint_kept_2` at once and outlines the nearest mark (not again within 12 s); the prompt comes with the **second** tier (30 s) |
+| 8.1 the asking | six lines, 24 to 30 s of standing | **five lines** (one roll-call line, the lamps coming on under it), **17 s to the open mouths and 22 s to phase 1** from the first line; a second hearing in one page can be cut short by a shot (8.1) |
+| 8.2, 14 teaching the Windlass (ruling R2) | `hint_boss_move` after two deaths, `hint_boss_haul` at the first haul of a try | **the first stake or canister that lands on her in phase 1 or 2 says `hint_boss_move` at once (once a run); the first retry says `hint_boss_haul` 0.5 s after she has control.** The Windlass's own sayings stay as the repeat, never within 40 s of the world's |
+| 9.1 `trg_glare` | `nar_rule` on the trigger | **`nar_rule` waits for the Rule**: inside 38 degrees of the middle of her view with open sky that way; dropped if she leaves the gully without the look |
+| 2, 9.2 stop one | a swept patch | **his blanket**: dark wool folded once, one end still rolled, the pot's stone beside it (no fire, no ash, no stones) |
+| 9.2 the gully | scree, slabs, four trees, a cart, a main | a beat every 10 to 15 m: a mule's bones and pack saddle, the Old World's line hanging rim to rim, talus and fallen blocks, two Frontier line poles and a third down, a fallen shade roof in the forecourt (nothing with a collider, nothing over 0.33 m on the open floor); three raking patches of low sun across the floor, shafts in the air on High |
+| 9.3 the sighting | the figure's boots a pixel over the mesa's edge | the figure **stands into the rim** (5 % of its drawn height into a knob 8.4 m wide) |
+| 9.3 / 10 Fight 1 | the fight and `nar_kneeler` at the gate posts (43 m off: a speck) | **the posts show card II and say `nar_plenty`; the fight and `nar_kneeler` begin within 24 m of the kneeler with it inside 20 degrees of the middle of her view and no line on screen, or within 20 m whatever she faces**; a round into it from further off starts the fight without the line; a second attempt starts at the gate |
+| 9.4 the cloth's line | never stale, said after a look | `nar_tally_cloth` is asked for the moment the north shutter opens and is **dropped once the cord is shot** (it was said after the fight) |
+| 9.5 the peg stair | the lines on flight 2 | **the peg lines begin at the hatch** (a look down it at the first flight's coats, else flight 1 from its second step); `nar_pegs_2` is dropped when its turn comes with her more than 2.5 m into the bay. The stair is three pools of light in a dim slot (it was a mint flood). The watcher's two lines go ahead of everything that only waits |
+| 9.7 the gantry and the antechamber | lines on the triggers | **look gates**: `nar_windlass_seen` on a look at the Windlass through the grille (30 degrees, 0.4 s, within 30 m), else a ratchet with `cap_ratchet` and the line 8.5 m on; `nar_embers_1/2` on a look at the third camp (35 degrees, 8 m), else after 6 s with the camp inside 50 degrees, and at 20 s whatever she faces. In the door's volume the gun is tucked further (drop 0.112, right 0.040) |
+| 9.8 a branch's order | lamps, then the take's lines | **a take is answered on its tick**: `nar_take_1` (after `nar_rim_3` if that is on screen), `nar_take_2`, the lamps' lines not yet told, `nar_rim_2` / `nar_rim_3` if untold, the fire, the last line. `nar_stone_short` and `nar_stone_4` are not said after a take. **`nar_rim_3` is never lost and is said with the thread and the Rule in view** |
+| 9.8 the last image | the eased view 7 degrees over the fire; the revolver in frame; `FIRE_PX` 30; no stars | **12 degrees** (the land's edge at 63 % of the height, the fire at 68 %); **the revolver is let down as the fire catches** and stays down to the card (a shot or a reload brings it back); the fire 38 px with one soft column of smoke; **the first stars** of the blue hour |
+| 9.7 / 19 row 12 the seventh shot | a column and a change of light | the column holds its white peak 0.28 s, a shock ring with a wake crosses the floor to the walls, the kerb's seams go white before the aqua, a bloom on the vault, three rising rings and eight threads, one knock of the camera (none under Reduce Motion); still 17 of 18 quads, nothing after 2.4 s |
+| 12.1 PRESENT lines | every line waited its turn | a line about what she is looking at this second is the very next line (it never cuts a narrator's line): the watcher, the Windlass from the gantry, the embers, the kneeler, the shutters' landings, the Rule on the rim |
+| 12.1 the run hint | waited for the narrator to fall silent | shown beside a line once she has walked 15 m since it was owed; a showing under 2 s does not count as one of its two |
+| 12.2 the interact prompt | 54 px under the crosshair | **the top row of the talk column**, above the key hint and the subtitle (186 px and more under the crosshair) |
+| 12.2 low health (under 35 %) | an ink edge, three small bars | plus a pale hairline inside the frame with a bracket in each corner, breathing; the bars 1.8 times their size. No red, no flash |
+| 12.2 / 13.4 the asking's question | a 2.5 s subtitle | **stands under the work at hand with its count ("IDENTIFY STATION.  1 OF 3")** while she is inside the door's volume and the puzzle is unsolved; the pause screen carries it too |
+| 12.3 the title in narrow frames | bare column | the column stands on a soft ink ground (frames narrower than 3:2) |
+| 12.3 sheets | Close names Esc | on the last or only card Close names the key that turned the cards ("E  Close") |
+| 12.3 credits | one sentence | the sentence, "Made with three.js and Blender.", then Version (1.0.0 and the day the page was published), Source and Report a problem (links to the repository). The four words are `ui_credits_made`, `_version`, `_source`, `_report` in `design/story.json` |
+| R15 the pre-boot page and the loading screen | name, mark and line on flat ink | the title picture behind them, dim and out of focus (`share.jpg`, the UI's one image), fading off the live shot in 0.7 s when the title is reached |
+| 7.1 the Bider's knot | a cluster of faceted lobes | **bound glass**: a clouded bead with a light in it, lashed by three cords in a grommet of twisted cord (the faceted lobes remain the knot of machines and latches) |
+
+Ruled by the closer: `meta.rules.never_stale` and `meta.rules.ending_branch` stay as they are in `design/story.json` (the
+world carries `nar_tally_cloth`, `nar_rule` and `nar_rim_3` in its own lists and `tests/world/` pins the data; the
+branch lists are read by `src/world/ending.ts` as each branch's own lines, the lamps' and the rim's lines are placed by
+the code). The look gates, the kneeler's held start and the stair's second volume stay constants in
+`src/world/director.ts`; `design/layout.json` carries a note on each trigger that says so. `nar_stone_short` stays in the
+data and is said by nothing after a take.

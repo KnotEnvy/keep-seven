@@ -3,6 +3,7 @@
 // the first loading screen; tests/render/prewarm.test.mjs fails when a playthrough meets a pair that is not listed.
 export const PREWARM: readonly string[] = [
   "{\"k\":\"d\",\"s\":{\"name\":\"m_gun\",\"hasColor\":true,\"textured\":true,\"wind\":false,\"breath\":false,\"variant\":\"skin\"},\"shape\":\"s|nu|4\"}",
+  "{\"k\":\"d\",\"s\":{\"name\":\"m_hands\",\"hasColor\":true,\"textured\":true,\"wind\":false,\"breath\":false,\"variant\":\"skin\"},\"shape\":\"s|nu|4\"}",
   "{\"k\":\"d\",\"s\":{\"name\":\"m_prop\",\"hasColor\":false,\"textured\":false,\"wind\":false,\"breath\":false,\"variant\":\"\"},\"shape\":\"|n|0\"}",
   "{\"k\":\"d\",\"s\":{\"name\":\"m_prop\",\"hasColor\":true,\"textured\":true,\"wind\":false,\"breath\":false,\"variant\":\"\"},\"shape\":\"|nu|4\"}",
   "{\"k\":\"d\",\"s\":{\"name\":\"m_prop\",\"hasColor\":true,\"textured\":true,\"wind\":false,\"breath\":false,\"variant\":\"inst\"},\"shape\":\"i|nu|4\"}",

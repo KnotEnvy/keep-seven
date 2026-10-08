@@ -33,6 +33,15 @@ jobs:
       - run: npm run test:unit
       # The built assets in public/assets are committed, so no Blender is needed here.
       - run: npm run build
+        env:
+          # where the page will live: link previews want an absolute address for the share picture (vite.config.mts)
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+      # A link pasted into a chat shows the picture only when its address is absolute: do not publish a page without it.
+      - name: The share picture has an absolute address
+        run: |
+          grep -q '<meta property="og:image" content="https://' dist/index.html
+          grep -q '<meta name="twitter:image" content="https://' dist/index.html
+          test -s dist/share.jpg
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

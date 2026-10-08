@@ -145,8 +145,17 @@ test('the ending waits for the narrator: a round taken at once still ends on the
     // (polish round 4: of the stone's four only the first; the other three describe a round she has already pocketed)
     // (polish round 5, R12: her own act is answered on its tick. The take's two lines come first, over the line that
     // was on screen; none of the stone's lines is said about a round she has pocketed; the lamps follow, then the fire)
-    assert.deepEqual(keys, ['nar_rim_1', 'nar_take_1', 'nar_take_2', 'nar_lamps', 'nar_lamps_count', 'nar_fire', 'nar_last'], keys.join(' '));
-    assert.ok(lines.find((e) => e.payload.key === 'nar_take_1').tick - taken.tick <= 1, 'the take is answered on its tick');
+    // (pass i1: a take before the stone's first line is answered with the condensed stone line, the take's own two
+    // behind it; the rim's two scenery lines are no longer dropped by the branch: they are told ahead of the lamps)
+    // (pass i2, both story reviewers: the Rule's lean and the lamp count stood between "Seven again." and the fire. The
+    // lamps' lines, asked for before the take, are told first and unbroken; then the condensed stone line and the take's
+    // two; then the fire. The rim's scenery lines not yet said are dropped by the branch again, as before pass i1)
+    // (pass i3, story reviewer b: that order answered the take 13 s late. The take's two lines on its tick, over the line
+    // on screen; then the lamps' lines, unbroken; then the thread and the Rule seen against it, which are never lost
+    // (story reviewer a); then the fire. `nar_stone_short` is not said of a stone she has emptied)
+    assert.deepEqual(keys, ['nar_rim_1', 'nar_take_1', 'nar_take_2', 'nar_lamps', 'nar_lamps_count', 'nar_rim_2', 'nar_rim_3', 'nar_fire', 'nar_last'], keys.join(' '));
+    assert.ok(lines[1].tick - taken.tick <= 1, 'the take is answered on its tick');
+    for (let i = 1; i < 7; i++) assert.ok(lines[i].tick - (lines[i - 1].tick + Math.round(lines[i - 1].payload.seconds * 60)) <= 20, `${keys[i]} straight after ${keys[i - 1]}`);
     const fireLine = lines.find((e) => e.payload.key === 'nar_fire'), lastLine = lines.find((e) => e.payload.key === 'nar_last');
     assert.ok(fireLine.tick >= fire.tick && fireLine.tick - fire.tick <= 2 * 60, `the narrator names the fire within 2 s of it (${(fireLine.tick - fire.tick) / 60} s)`);
     const lastEnd = ends.find((e) => e.payload.key === 'nar_last');
@@ -164,7 +173,8 @@ test('nar_lamps_count spells the count in words', async () => {
     await game.page.evaluate(() => { for (let i = 0; i < 28; i++) window.__dbg.emit('enemy/freed', { x: 0, y: 0, z: 0, id: 'x#' + i, encounter: '', cause: 'crown', counted: true }); });
     await game.dbg('checkpoint', 'cp_rim');
     const seq = await mark(game);
-    await game.run([{ call: ['teleport', LAMPS.pos[0] + 3, LAMPS.pos[1], LAMPS.pos[2] + 2, 0, 0] }, { steps: 12 * 60 }]);
+    // (pass i1: at the ledge's edge the two scenery lines about the town are told first, 10 s)
+    await game.run([{ call: ['teleport', LAMPS.pos[0] + 3, LAMPS.pos[1], LAMPS.pos[2] + 2, 0, 0] }, { steps: 22 * 60 }]);
     const line = (await game.events(seq, 'story/line')).find((e) => e.payload.key === 'nar_lamps_count');
     assert.ok(line, 'the count is said');
     assert.equal(line.payload.text, STORY.lines.nar_lamps_count.text.replace('{n}', 'Thirty-seven'));
@@ -278,28 +288,46 @@ test('narration does not follow her into the next place: lines still waiting whe
 });
 
 // ---- the key hints -------------------------------------------------------------------------------------------------
-test('the reload hint appears on the second dry click although each click starts a reload; R takes it away for good', async () => {
+test('the reload hint (pass i1): never over a reload a dry click started; shown when the cylinder is low and the gun at rest; R takes it away for good', async () => {
   const game = await open(srv);
   try {
     await game.run([{ steps: 30 }]);
     const seq = await mark(game);
     const hints = async () => (await game.events(seq, 'ui/hint')).filter((e) => e.payload.key === 'ui_hint_reload').map((e) => e.payload.show);
-    const dry = [{ call: ['emit', 'weapon/dry_fire', { reason: 'empty' }] }, { call: ['emit', 'weapon/reload', { stage: 'open', chambered: 0, reserve: 18 }] }, { steps: 2 }];
+    // a pull on an empty cylinder starts a reload by itself: two such clicks, each with its reload, raise nothing
+    const dry = [{ call: ['setAmmo', 0, 18, 0] }, { call: ['emit', 'weapon/dry_fire', { reason: 'empty' }] }, { call: ['emit', 'weapon/reload', { stage: 'open', chambered: 0, reserve: 18 }] }, { steps: 120 },
+      { call: ['emit', 'weapon/dry_fire', { reason: 'empty' }] }, { call: ['emit', 'weapon/reload', { stage: 'round', chambered: 1, reserve: 17 }] }, { steps: 240 }];
     await game.run(dry);
-    assert.deepEqual(await hints(), [], 'not after one dry click');
+    assert.deepEqual(await hints(), [], 'a reload is running: the hint would tell her to do what the gun is doing');
     assert.ok(!(await game.state()).world.flags.includes('did_reload'), 'a reload the click started is not "she has reloaded"');
-    await game.run([{ steps: 300 }, ...dry]);
-    assert.deepEqual(await hints(), [true], 'on the second dry click');
+    // the reload closes on a full cylinder: still nothing
+    await game.run([{ call: ['setAmmo', 6, 12, 0] }, { call: ['emit', 'weapon/reload', { stage: 'close', chambered: 6, reserve: 12 }] }, { steps: 600 }]);
+    assert.deepEqual(await hints(), [], 'six in the gun: never');
+    // two left under the hammer, the gun at rest: after a second and a half
+    await game.run([{ call: ['setAmmo', 2, 12, 0] }, { steps: 60 }]);
+    assert.deepEqual(await hints(), [], 'not at once (between two shots)');
+    await game.run([{ steps: 45 }]);
+    assert.deepEqual(await hints(), [true], 'low and at rest for 1.5 s');
+    // a reload opens (whoever started it): the hint is down on that tick
+    await game.run([{ call: ['emit', 'weapon/reload', { stage: 'open', chambered: 2, reserve: 12 }] }, { steps: 2 }]);
+    assert.deepEqual(await hints(), [true, false], 'taken down as the reload opens');
+    await game.run([{ call: ['emit', 'weapon/reload', { stage: 'close', chambered: 2, reserve: 12 }] }, { steps: 10 * 60 }]);
+    assert.deepEqual(await hints(), [true, false], 'not again within 20 s');
+    await game.run([{ steps: 12 * 60 }]);
+    assert.deepEqual(await hints(), [true, false, true], 'still low 20 s on: once more');
     await game.run([{ steps: 7 * 60 }]);
-    assert.deepEqual(await hints(), [true, false], 'it stands six seconds');
-    await game.run(dry);
-    assert.deepEqual(await hints(), [true, false, true], 'and comes back with the next dry click');
+    assert.deepEqual(await hints(), [true, false, true, false], 'it stands six seconds');
+    // nothing in reserve: the key would do nothing, the hint is not shown
+    await game.run([{ call: ['setAmmo', 1, 0, 0] }, { steps: 30 * 60 }]);
+    assert.deepEqual(await hints(), [true, false, true, false], 'no lead to load: no hint');
     // the reload action itself: the tick the key is pressed on
-    await game.page.evaluate(() => { const dbg = window.__dbg; dbg.tap('reload'); dbg.step(1, false); dbg.emit('weapon/reload', { stage: 'open', chambered: 0, reserve: 18 }); dbg.step(2, false); });
-    assert.deepEqual(await hints(), [true, false, true, false]);
+    await game.run([{ call: ['setAmmo', 2, 12, 0] }, { steps: 100 }]);
+    assert.deepEqual(await hints(), [true, false, true, false, true], 'the third and last time');
+    await game.page.evaluate(() => { const dbg = window.__dbg; dbg.tap('reload'); dbg.step(1, false); dbg.emit('weapon/reload', { stage: 'open', chambered: 2, reserve: 12 }); dbg.step(2, false); });
+    assert.deepEqual(await hints(), [true, false, true, false, true, false]);
     assert.ok((await game.state()).world.flags.includes('did_reload'));
-    await game.run([...dry, ...dry, { steps: 60 }]);
-    assert.deepEqual(await hints(), [true, false, true, false], 'never again');
+    await game.run([{ call: ['emit', 'weapon/reload', { stage: 'close', chambered: 2, reserve: 12 }] }, { steps: 40 * 60 }]);
+    assert.deepEqual(await hints(), [true, false, true, false, true, false], 'never again');
   } finally { await game.close(); }
 });
 

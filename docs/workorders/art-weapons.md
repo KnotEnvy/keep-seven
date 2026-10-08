@@ -55,7 +55,9 @@ Never edit `blender/lib/`, `design/*.json`, `tools/`, `src/`, or other owners' f
 
 ## 4. Deliverables
 
-### 4.1 `weapon_revolver` — 6 000 tris (gun ≤ 3 200, hands and arms ≤ 2 800), 2 draw calls, one armature
+### 4.1 `weapon_revolver` — 18 000 tris, up to 3 draw calls, one armature (it was 6 000 tris: gun ≤ 3 200, hands and arms ≤ 2 800, 2 draw calls)
+
+**Ruling R14 (release pass p0, 2026-10-06): the view-model has 18 000 triangles (it was 6 000), up to 3 draw calls (`m_gun`, `m_hands`, and `m_prop` where the palette still serves), and its own texture set: `tx_gun` 1024 x 512 RGBA8 and `tx_matcap_steel` as before, plus `tx_gun_detail` (1024 x 512 R8: height in `tx_gun`'s layout), `tx_hands` (512 x 512 RGBA8: albedo, A = gloss) and `tx_hands_detail` (512 x 512 R8: height). The split between gun and hands inside the 18 000 is the gun team's (a guide: gun 10 000, hands and forearms 8 000). The 31 bones, the nodes and the 15 clips are unchanged. The numbers in `design/assets.json` hold.**
 
 **Frame (superseded in polish round 2: ART_BIBLE 8.3 as amended holds the built placement: muzzle (0.052, −0.034, −0.52), 55.8 % / 43.3 %, bore 12° inboard; `tests/art_weapons/framing.test.mjs` holds the numbers).** Authored **in camera space**, in the `idle` pose: camera at the origin looking down −Z (game space), +Y up. Idle placement: **muzzle at (0.075, −0.070, −0.56); grip centre at (0.135, −0.165, −0.30)**; the bore converges on the crosshair at 12 m (`cam_look` empty at the aim point, (0, 0, −12)). Rendered with a fixed **52° vertical FOV**, near plane 0.02 m: on a 16:9 frame the muzzle sits at 58 % across and 37 % up; gun and hand cover **no more than 18 % of the frame, never cross the vertical centre line**, and stay clear of the lower-right HUD ring.
 
@@ -136,7 +138,7 @@ The rounds in the gun (`round_n`, `round_hand_*`, `kept_loop`) must be the same 
 ## 6. Definition of done (measured)
 
 1. `node tools/build-assets.mjs --only weapons` succeeds from clean.
-2. `weapon_revolver` ≤ 6 000 tris, exactly 2 meshes / 2 draw calls, 31 bones; cartridges and pickups within their budgets. Actual numbers reported.
+2. `weapon_revolver` ≤ 18 000 tris (ruling R14; it was 6 000), at most 3 draw calls (it was exactly 2 meshes / 2 draw calls), 31 bones; cartridges and pickups within their budgets. Actual numbers reported.
 3. All 15 clips final (no placeholder, no fallback copy). Authored frame counts listed against the manifest seconds.
 4. Download share: `weapon_revolver.glb` ≤ 350 KB, the five ammunition GLBs ≤ 40 KB together, `tx_gun.webp` + `tx_matcap_steel.webp` ≤ 250 KB.
 5. ART_BIBLE section 12 items 7, 25, 26 marked PASS / FAIL with the file looked at: octagon-to-round barrel, six flutes, gate with the stamp beneath, walnut grip with one brass pin, grey muzzle, no ornament; **the kept round visible in its cuff loop during every reload**; hammer and cylinder motion on frames 4–9; coverage ≤ 18 %.

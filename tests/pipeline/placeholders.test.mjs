@@ -11,15 +11,15 @@ const M = loadManifest();
 test('check-glb --all passes on the shipped set', () => {
   const r = node(['tools/check-glb.mjs', '--all', '--quiet']);
   assert.equal(r.code, 0, r.out.slice(-3000));
-  assert.match(r.out, /84 assets, 18 textures, .*all pass/);
+  assert.match(r.out, /84 assets, 21 textures, .*all pass/);
 });
 
-test('asset-status accounts for all 84 assets and 18 textures', () => {
+test('asset-status accounts for all 84 assets and 21 textures', () => {
   const r = node(['tools/asset-status.mjs', '--json']);
   assert.equal(r.code, 0, r.out.slice(-2000));
   const s = JSON.parse(r.out);
   assert.equal(s.summary.assets, 84); assert.equal(s.summary.missingAssets, 0);
-  assert.equal(s.summary.textures, 18); assert.equal(s.summary.missingTextures, 0);
+  assert.equal(s.summary.textures, 21); assert.equal(s.summary.missingTextures, 0);
   assert.equal(s.summary.clips, 88);
   const finals = s.rows.filter((x) => x.kind === 'texture' && x.state === 'final').map((x) => x.id).sort();
   for (const id of ['tx_frontier_trim', 'tx_mask', 'tx_palette', 'tx_palette_emis', 'tx_pellam_trim', 'tx_sand']) assert.ok(finals.includes(id), `${id} is final`);
@@ -30,7 +30,7 @@ test('asset-status accounts for all 84 assets and 18 textures', () => {
   }
 });
 
-test('all 18 textures exist with the manifest size and format', async () => {
+test('all 21 textures exist with the manifest size and format', async () => {
   for (const [id, t] of Object.entries(M.textures)) {
     assert.ok(fs.existsSync(t._pub), `${t.path} exists`);
     const r = await checkTexture(M, id);

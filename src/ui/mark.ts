@@ -32,6 +32,16 @@ export const MARK_VIEW = { x: -44, y: -44, w: 88, h: 116 + MARK_DROP } as const;
  * 1280 x 720 frame (polish round 3: at 0.864 it was 76 x 111 with 8.6 px dots and was lost over the sleeve in the street).
  */
 export const MARK_MIN_SCALE = 1.08;
+/**
+ * Pass i1: the floor is for a frame of 720p and up. In a window under MARK_FLOOR_HEIGHT tall it took a third of the
+ * height (150 px of 450), so there the floor comes down with the height, to MARK_SMALL_SCALE at the least (the reserve
+ * numeral is then 11 px). ui.css `--mk` is the same rule; markScale() is it in numbers (the kick and the tests use it).
+ */
+export const MARK_FLOOR_HEIGHT = 600, MARK_SMALL_SCALE = 0.72;
+export function markScale(width: number, height: number): number {
+  const u = Math.min(height / 1080, width / 1440);
+  return Math.max(u, Math.min(MARK_MIN_SCALE, Math.max(MARK_SMALL_SCALE, (height * MARK_MIN_SCALE) / MARK_FLOOR_HEIGHT)));
+}
 /** the pause screen's enlarged mark: this many viewport units per mark unit, and the floor of that (ui.css `.mark.big`) */
 export const MARK_BIG_SCALE = 3, MARK_BIG_MIN_SCALE = 0.864 * 3;
 /** the broken band: its halves' tops below the shoulder (the whole band sits at 3), and the width of each half */
@@ -45,6 +55,7 @@ const TURN_CLASS: readonly string[] = ['turn', 'turn ta', 'turn tb'];
 const KICK_CLASS: readonly string[] = ['rk', 'rk ka', 'rk kb'];
 const SHIVER_CLASS: readonly string[] = ['svw', 'svw shiver'];
 const PIP_CLASS: readonly string[] = ['lp', 'lp on'];
+const LABEL_CLASS: readonly string[] = ['ll', 'll on'];
 /**
  * The backing (polish round 4, when the HUD mark stood on the revolver's frame and grip; since round 5 it stands lower
  * left, over whatever the world is there: glare sand at worst). Two soft ink discs lie under it, one under the ring and the numeral, one under the seventh: ink at BACKING_ALPHA out to
@@ -67,6 +78,8 @@ export class MarkWidget {
   private readonly shiverGroup: SVGElement;
   private readonly chambers: SVGElement[] = [];
   private readonly pips: SVGElement[] = [];
+  private readonly lineLabel: SVGElement;
+  private lineLabelOn = false;
   private readonly chamberState = new Int8Array(6).fill(-1);
   private seventhState = -1;
   private reserveShown = -1;
@@ -78,7 +91,7 @@ export class MarkWidget {
   turns = 0;
 
   /** `numerals[n]` is the reserve text for n (preformatted from `ui_hud_reserve`, so a change allocates nothing). */
-  constructor(parent: Element, cls: string, private readonly numerals: readonly string[]) {
+  constructor(parent: Element, cls: string, private readonly numerals: readonly string[], lineName = '') {
     const v = MARK_VIEW;
     const root = svg('svg', { viewBox: `${v.x} ${v.y} ${v.w} ${v.h}`, 'aria-hidden': 'true' }, parent, cls);
     this.root = root;
@@ -114,6 +127,9 @@ export class MarkWidget {
 
     // line rounds: 0 to 2 pips under the ring, left of the reserve numeral
     for (let i = 0; i < 2; i++) this.pips.push(svg('circle', { cx: -23 + i * 7, cy: 45.5, r: 2.5 }, root, PIP_CLASS[0] as string));
+    // pass i2: the dots' name, under them, for a few seconds when the first line round is taken (hud.ts LINE_LABEL_SECONDS)
+    this.lineLabel = svg('text', { x: -26.5, y: 63, 'font-size': 9.5 }, root, LABEL_CLASS[0] as string);
+    this.lineLabel.textContent = lineName;
     this.reserve = svg('text', { x: 0, y: RESERVE_BASELINE, 'text-anchor': 'middle', 'font-size': RESERVE_SIZE }, root, 'rs');
 
     // the seventh: a cartridge side-on, upright; nose up, rim down, its band a filled bar
@@ -152,6 +168,11 @@ export class MarkWidget {
     if (n === this.lineShown) return;
     this.lineShown = n;
     for (let i = 0; i < this.pips.length; i++) (this.pips[i] as SVGElement).setAttribute('class', PIP_CLASS[i < n ? 1 : 0] as string);
+  }
+  setLineLabel(on: boolean): void {
+    if (on === this.lineLabelOn) return;
+    this.lineLabelOn = on;
+    this.lineLabel.setAttribute('class', LABEL_CLASS[on ? 1 : 0] as string);
   }
   setSeventh(state: SeventhState): void {
     const n = SEVENTH_INDEX[state];

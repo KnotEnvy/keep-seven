@@ -27,6 +27,8 @@ export interface DebugHost {
   sightPeak(reset: boolean): number;
   /** tests: the deaths counted in the running boss phase (the mercy scale and the teaching line read it) */
   setBossDeaths(n: number): void;
+  /** tests (pass i3): set or forget "an asking has been heard in this page" */
+  setBossAsked(v: boolean): void;
 }
 
 export interface RoundResult { id: string; kind: string; part: string; outcome: string; damage: number; healthLeft: number; stops: boolean; stopsLine: boolean; x: number; y: number; z: number }
@@ -51,6 +53,7 @@ function actorView(e: Actor): Record<string, unknown> {
     sees: e.sees, lane: e.lane, order: e.order, vignette: e.vignette,
     ventChest: e.ventChest, ventBack: e.ventBack, shots: e.shots, point: e.point, fresh: e.fresh, miss: e.miss,
     aim: [round4(e.aimX), round4(e.aimY), round4(e.aimZ)], hood: round4(e.hood), tint: e.tint, pathLen: e.pathLen, pathAt: e.pathAt, pathGoal: e.pathGoal, stuck: round4(e.stuck), lost: round4(e.lost), grounded: e.grounded,
+    quietUntil: round4(e.quietUntil), slamsLanded: e.slamsLanded, slamsRun: e.slamsRun, hurry: e.hurry,
   };
 }
 
@@ -135,6 +138,7 @@ export function createExt(S: Shared, host: DebugHost): Record<string, (...args: 
     },
     boss: () => host.bossState(),
     bossDeaths: (n: number) => host.setBossDeaths(n),
+    bossAsked: (v: boolean) => host.setBossAsked(v),
     /** World centre of a part of the Windlass: knot 0..5, pawl 0 (l) / 1 (r), the guard, the hub. */
     bossPoint: (kind: 'knot' | 'pawl' | 'guard' | 'hub', i = 0) => host.bossPoint(kind, i).map(round4),
     lobCanister: (x: number, y: number, z: number) => host.lobCanister(x, y, z),

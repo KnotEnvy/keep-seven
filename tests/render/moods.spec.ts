@@ -54,8 +54,10 @@ describe('mood table (code-render 4.3)', () => {
       const m = MOODS[k], ex = m[M_EXPOSURE] as number;
       // on screen (x exposure) the gun's ambient and key never fall under the floors, whatever the room
       // (the gallery's rig is held to 0.85 of them: the darkest room behind the gun)
-      expect(lum(m, M_VM_AMB) * ex).toBeGreaterThanOrEqual(VM_AMB * 0.85 - 1e-4);
-      expect(lum(m, M_VM_KEY) * ex).toBeGreaterThanOrEqual(VM_KEY * 0.85 - 1e-4);
+      // (look team gun, pass i2: the Tally House is the exception, 0.5 and 0.75 of them: two reviewers found the gun "flat pale
+      // pewter" there at the floors, L* 30 over a room of 18 to 24; tests/art_weapons/framing.test.mjs holds its picture)
+      expect(lum(m, M_VM_AMB) * ex).toBeGreaterThanOrEqual(VM_AMB * (k === 'L2' ? 0.5 : 0.85) - 1e-4);
+      expect(lum(m, M_VM_KEY) * ex).toBeGreaterThanOrEqual(VM_KEY * (k === 'L2' ? 0.75 : 0.85) - 1e-4);
       expect(lum(m, M_VM_RIM) * ex).toBeCloseTo(VM_RIM, 3);
       // the key is well over the ambient: form, not a flat fill
       expect(lum(m, M_VM_KEY)).toBeGreaterThan(lum(m, M_VM_AMB) * 2.5);
@@ -65,14 +67,18 @@ describe('mood table (code-render 4.3)', () => {
     }
     // the bore, the dark rooms: the gun is as bright on screen there as under the overhang (within a third)
     const shown = (k: MoodKey): number => lum(MOODS[k], M_VM_KEY) * (MOODS[k][M_EXPOSURE] as number);
-    for (const k of ['L2', 'L3', 'L4', 'L5', 'L5a', 'L6'] as MoodKey[]) { expect(shown(k)).toBeGreaterThanOrEqual(VM_KEY * 0.85 - 1e-3); expect(shown(k)).toBeLessThan(VM_KEY * (k === 'L6' ? 1.8 : 1.45)); }   // the blue hour's rig is x1.75: its grade's contrast (1.22) crushed the shadow side (18 % of the gun under L* 12)
+    for (const k of ['L2', 'L3', 'L4', 'L5', 'L5a', 'L6'] as MoodKey[]) { expect(shown(k)).toBeGreaterThanOrEqual(VM_KEY * (k === 'L2' ? 0.75 : 0.85) - 1e-3); expect(shown(k)).toBeLessThan(VM_KEY * (k === 'L6' ? 1.8 : 1.45)); }   // the blue hour's rig is x1.75: its grade's contrast (1.22) crushed the shadow side (18 % of the gun under L* 12)
     // under the overhang she stands in shade: the key is the rig's floor, not the Long Light's sun
     expect(shown('L0')).toBeLessThan(shown('L1') * 0.8);
   });
   it('polish round 3: the chamber gives dynamic things a cool fill; the blue hour has a dark zenith and a bright ember', () => {
     const lum = (m: Float32Array, at: number): number => 0.2126 * (m[at] as number) + 0.7152 * (m[at + 1] as number) + 0.0722 * (m[at + 2] as number);
     for (const k of ['L5', 'L5c', 'L5p'] as MoodKey[]) expect(lum(MOODS[k], M_RIM)).toBeGreaterThan(0.15);
-    for (const k of ['L1', 'L2', 'L3', 'L4', 'L6'] as MoodKey[]) expect(lum(MOODS[k], M_RIM)).toBe(0);
+    for (const k of ['L1', 'L2', 'L4', 'L6'] as MoodKey[]) expect(lum(MOODS[k], M_RIM)).toBe(0);
+    // look team creatures-props, pass i3: the stair and the gallery fill the upright faces of dynamic things too (the
+    // sighting loop was "a plain black ring on a thin black pole" beside lit walls), at no more than the chamber's level
+    expect(lum(MOODS.L3, M_RIM)).toBeGreaterThan(0.15);
+    expect(lum(MOODS.L3, M_RIM)).toBeLessThan(lum(MOODS.L5, M_RIM));
     // L5's ambient is slate, not violet: blue is under twice the green (it was 3.1 x)
     expect((MOODS.L5[M_AMBIENT + 2] as number) / (MOODS.L5[M_AMBIENT + 1] as number)).toBeLessThan(2.6);
     // L6 on screen: the glow band over 0.45 linear, the zenith under 0.02, the fog away from the afterglow under 0.05

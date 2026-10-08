@@ -352,7 +352,10 @@ test('visibleText() is what is on screen: prompt, hint, checkpoint, card; each w
     let p = await game.page.evaluate(() => { const e = document.querySelector('.k7 .prompt:not(.hint)'), k = e.querySelector('.key'), c = getComputedStyle(k), pc = getComputedStyle(e); return { text: e.textContent, key: k.textContent, border: c.borderTopWidth + ' ' + c.borderTopStyle + ' ' + c.borderTopColor, transition: pc.transitionDuration, transform: pc.textTransform, on: e.classList.contains('on') }; });
     assert.deepEqual(p, { text: 'E  Read', key: 'E', border: '1px solid rgb(233, 226, 208)', transition: '0.2s', transform: 'uppercase', on: true });
     await emit(game, 'interact/focus', { id: 'ia_mark_1', prompt: 'ui_prompt_kept', kind: 'kept' });
-    assert.equal((await shown('.prompt:not(.hint)')).colour, 'rgb(124, 242, 226)', 'the proving prompt is aqua');
+    // pass i2: bone on the subtitle's ink backing, its key in a cap filled with the proving aqua (thin aqua capitals
+    // were lost on the bore's pale aqua floor)
+    const kept = await game.page.evaluate(() => { const e = document.querySelector('.k7 .prompt:not(.hint)'), k = e.querySelector('.key'), c = getComputedStyle(e), kc = getComputedStyle(k), r = e.getBoundingClientRect(); return { colour: c.color, bg: c.backgroundColor, key: kc.backgroundColor, keyInk: kc.color, centre: Math.abs((r.left + r.right) / 2 - innerWidth / 2) < 1.5, hugs: r.width < innerWidth / 2 }; });
+    assert.deepEqual(kept, { colour: 'rgb(233, 226, 208)', bg: 'rgba(20, 17, 15, 0.62)', key: 'rgb(124, 242, 226)', keyInk: 'rgb(20, 17, 15)', centre: true, hugs: true }, 'the proving prompt: bone on ink, an aqua key cap');
     assert.equal((await vt()).prompt, 'F  Break the band');
     await emit(game, 'interact/focus', { id: 'ia_locker', prompt: '', kind: 'take' });
     assert.equal((await vt()).prompt, 'E  Take', 'a focus that names only its kind');
@@ -365,7 +368,9 @@ test('visibleText() is what is on screen: prompt, hint, checkpoint, card; each w
       assert.equal((await vt()).hint, text, key);
       assert.equal((await shown('.prompt.hint')).text, text);
     }
-    assert.equal((await shown('.prompt.hint')).colour, 'rgb(124, 242, 226)');
+    // pass i2: the tier 3 hint is the same plate as the prompt: bone on ink, the key cap aqua
+    assert.equal((await shown('.prompt.hint')).colour, 'rgb(233, 226, 208)');
+    assert.deepEqual(await game.page.evaluate(() => { const e = document.querySelector('.k7 .prompt.hint'); return [getComputedStyle(e).backgroundColor, getComputedStyle(e.querySelector('.key')).backgroundColor]; }), ['rgba(20, 17, 15, 0.62)', 'rgb(124, 242, 226)']);
     await emit(game, 'ui/hint', { key: 'ui_hint_move', show: false });
     assert.equal((await vt()).hint, want.ui_prompt_kept, 'hiding another hint leaves the one that is up');
     await emit(game, 'ui/hint', { key: 'ui_prompt_kept', show: false });
@@ -382,20 +387,32 @@ test('visibleText() is what is on screen: prompt, hint, checkpoint, card; each w
     await emit(game, 'story/card', { key: 'card_iv', text: l.text, seconds: l.seconds });
     const card = await game.page.evaluate(() => {
       const c = document.querySelector('.k7 .card'), num = c.querySelector('.card-num'), rule = c.querySelector('.card-rule'), ttl = c.querySelector('.card-title');
-      return { num: num.textContent, title: ttl.textContent, numSize: parseFloat(getComputedStyle(num).fontSize) / innerHeight, titleSize: parseFloat(getComputedStyle(ttl).fontSize) / innerHeight, rule: rule.getBoundingClientRect().width / (innerHeight / 1080), ruleColour: getComputedStyle(rule).backgroundColor, fadeIn: getComputedStyle(c).transitionDuration, bg: getComputedStyle(c).backgroundColor, modal: window.__dbg.state().systems.ui.modal, vt: window.__dbg.state().ui.card, numFamily: getComputedStyle(num).fontFamily.split(',')[0] };
+      return { num: num.textContent, title: ttl.textContent, numSize: parseFloat(getComputedStyle(num).fontSize) / innerHeight, titleSize: parseFloat(getComputedStyle(ttl).fontSize) / innerHeight, rule: rule.getBoundingClientRect().width / (innerHeight / 1080), ruleColour: getComputedStyle(rule).backgroundColor, fadeIn: getComputedStyle(c).transitionDuration, opacity: getComputedStyle(c).opacity, top: c.getBoundingClientRect().top / innerHeight, bg: getComputedStyle(c).backgroundColor, modal: window.__dbg.state().systems.ui.modal, vt: window.__dbg.state().ui.card, numFamily: getComputedStyle(num).fontFamily.split(',')[0] };
     });
     assert.deepEqual([card.num, card.title, card.vt], ['IV', 'The Line', l.text]);
     assert.ok(Math.abs(card.numSize - 0.09) < 0.001 && Math.abs(card.titleSize - 0.024) < 0.001, 'numeral 9 %, title 2.4 % of the height');
     assert.ok(Math.abs(card.rule - 120) < 1, 'a 120 px rule');
-    assert.deepEqual([card.ruleColour, card.fadeIn, card.bg, card.modal], ['rgb(201, 161, 74)', '0.6s', 'rgba(0, 0, 0, 0)', false]);
+    // release pass p0: the opacity is the script's, from the card's tick clock (no transition on the wall clock), and the
+    // card stands in the upper third (12 % down)
+    assert.deepEqual([card.ruleColour, card.fadeIn, card.bg, card.modal], ['rgb(201, 161, 74)', '0s', 'rgba(0, 0, 0, 0)', false]);
+    assert.ok(Math.abs(card.top - 0.12) < 0.004, `the card's top is 12 % down (${card.top})`);
+    assert.ok(parseFloat(card.opacity) > 0 && parseFloat(card.opacity) <= 0.1, `coming up from its first tick (${card.opacity})`);
+    await frame(game, 18);
+    assert.equal(await game.page.evaluate(() => getComputedStyle(document.querySelector('.k7 .card')).opacity), '0.5', 'half way up at 0.3 s');
+    await frame(game, 18);
+    assert.equal(await game.page.evaluate(() => getComputedStyle(document.querySelector('.k7 .card')).opacity), '1', 'whole at 0.6 s');
     assert.match(card.numFamily, /Iowan Old Style/);
     const hold = Math.round((l.seconds - 0.8) * 60);
-    await frame(game, hold - 1);
+    await frame(game, hold - 1 - 36);
     assert.equal((await shown('.card')).on, true, 'held');
     await frame(game, 1);
-    const out = await game.page.evaluate(() => ({ on: document.querySelector('.k7 .card').classList.contains('on'), fade: getComputedStyle(document.querySelector('.k7 .card')).transitionDuration, vt: window.__dbg.state().ui.card }));
-    assert.deepEqual(out, { on: false, fade: '0.8s', vt: l.text }, 'fading out over 0.8 s');
-    await frame(game, 48);
+    let out = await game.page.evaluate(() => ({ on: document.querySelector('.k7 .card').classList.contains('on'), opacity: getComputedStyle(document.querySelector('.k7 .card')).opacity, vt: window.__dbg.state().ui.card }));
+    assert.deepEqual(out, { on: false, opacity: '1', vt: l.text }, 'the fade out begins');
+    await frame(game, 24);
+    out = await game.page.evaluate(() => ({ on: document.querySelector('.k7 .card').classList.contains('on'), opacity: getComputedStyle(document.querySelector('.k7 .card')).opacity, vt: window.__dbg.state().ui.card }));
+    assert.deepEqual(out, { on: false, opacity: '0.5', vt: l.text }, 'half gone 0.4 s into a 0.8 s fade');
+    await frame(game, 24);
+    assert.equal(await game.page.evaluate(() => getComputedStyle(document.querySelector('.k7 .card')).opacity), '0', 'gone');
     assert.equal((await vt()).card, '');
     await emit(game, 'story/card', { key: 'card_title', text: STORY.lines.card_title.text, seconds: 4 });
     assert.deepEqual(await game.page.evaluate(() => [document.querySelector('.k7 .card-num').textContent, getComputedStyle(document.querySelector('.k7 .card-title')).display]), [STORY.lines.card_title.text, 'none'], 'card_title is a single line');

@@ -42,7 +42,7 @@ test('title: the name, the mark, the column; Go on only with a stored save; keyb
     assert.equal(await screen(game), 'title');
     assert.deepEqual(await items(game), [STORY.ui.ui_menu_play + '*', STORY.ui.ui_menu_story, STORY.ui.ui_menu_options, STORY.ui.ui_menu_credits], 'no save: no Go on');
     const look = await game.page.evaluate(() => {
-      const name = document.querySelector('.k7 .title-name'), cs = getComputedStyle(name), r = name.getBoundingClientRect();
+      const name = document.querySelector('.k7 .title .title-name'), cs = getComputedStyle(name), r = name.getBoundingClientRect();
       const menu = document.querySelector('.k7 .title .menu').getBoundingClientRect(), pm = document.querySelector('.k7 .title .pm'), sel = document.querySelector('.k7 .title .mi.sel');
       const before = getComputedStyle(sel, '::before');
       return {
@@ -56,8 +56,8 @@ test('title: the name, the mark, the column; Go on only with a stored save; keyb
     assert.match(look.family, /Iowan Old Style/);
     assert.ok(Math.abs(look.tracking - 0.3) < 0.01, 'tracked 0.3em');
     assert.deepEqual([look.colour, look.upperLeft, look.lowerLeft, look.sel, look.pmColour, look.discs, look.modal], ['rgb(233, 226, 208)', true, true, 'rgb(201, 161, 74)', 'rgb(201, 161, 74)', 6, true]);
-    // 28 px at 1080p; on a small frame it stops at 26 screen pixels (at 720p it would be 18.7: a speck)
-    assert.ok(Math.abs(look.pm - Math.max(28 * look.u, 26)) < 0.5 && Math.abs(look.pmW / look.pm - 2.44 / 3.75) < 0.01 && Math.abs(look.hair - 12) < 0.5, `the mark is 28 px (never under 26 on screen), the hairline 12 px (${look.pm} x ${look.pmW}, ${look.hair})`);
+    // pass i2: 56 px at 1080p, never under 52 on screen (it was 28 / 26: too small to read as six and one)
+    assert.ok(Math.abs(look.pm - Math.max(56 * look.u, 52)) < 0.5 && Math.abs(look.pmW / look.pm - 2.44 / 3.75) < 0.01 && Math.abs(look.hair - 12) < 0.5, `the mark is 56 px (never under 52 on screen), the hairline 12 px (${look.pm} x ${look.pmW}, ${look.hair})`);
     // keyboard: down, down, up; W / S too; each move is a ui_move cue
     await game.page.keyboard.press('ArrowDown'); await game.page.keyboard.press('KeyS'); await game.page.keyboard.press('ArrowUp');
     assert.equal((await items(game))[1], STORY.ui.ui_menu_story + '*');
@@ -79,7 +79,13 @@ test('title: the name, the mark, the column; Go on only with a stored save; keyb
     // mouse: credits
     await item(game, 'credits');
     assert.equal(await screen(game), 'credits');
-    assert.equal(await game.page.evaluate(() => document.querySelector('.k7 .sheet-body').textContent), STORY.ui.ui_credits_body);
+    // pass i3: story.json's words first, then what the game is made with, the version and where the source is
+    const credits = await game.page.evaluate(() => ({ body: document.querySelector('.k7 .sheet-body').textContent, extra: [...document.querySelectorAll('.k7 .sheet-extra.on .cr-line')].map((l) => l.textContent), links: [...document.querySelectorAll('.k7 .sheet-extra.on a')].map((l) => [l.href, l.target, l.rel]) }));
+    assert.ok(credits.body.startsWith(STORY.ui.ui_credits_body) && /three\.js/.test(credits.body), credits.body);
+    assert.equal(credits.extra.length, 3);
+    assert.match(credits.extra[0], /1\.\d+\.\d+ · \d{4}-\d\d-\d\d$/, 'the version and the day');
+    assert.deepEqual(credits.links.map((l) => l[0]), ['https://github.com/KnotEnvy/keep-seven', 'https://github.com/KnotEnvy/keep-seven/issues']);
+    assert.ok(credits.links.every((l) => l[1] === '_blank' && /noopener/.test(l[2])));
     await game.page.keyboard.press('Enter');
     assert.equal(await screen(game), 'title');
     const screens = (await events(game, 'ui/screen')).map((e) => `${e.screen}:${e.open ? 'open' : 'close'}`);
@@ -230,33 +236,47 @@ test('readables: cards on blank lines, E / Enter / Space advance, Escape closes;
       if (!s) return null;
       const cs = getComputedStyle(s), body = s.querySelector('.sheet-body');
       const ch = parseFloat(getComputedStyle(body).maxWidth) / parseFloat(getComputedStyle(body).fontSize);
-      return { title: s.querySelector('.sheet-title').textContent, body: body.textContent, bg: cs.backgroundColor, colour: cs.color, transform: getComputedStyle(body).textTransform, items: [...s.querySelectorAll('.mi')].filter((m) => getComputedStyle(m).display !== 'none').map((m) => m.textContent + (m.classList.contains('sel') ? '*' : '')), dots: [...s.querySelectorAll('.dots i')].filter((d) => getComputedStyle(d).display !== 'none').map((d) => (d.classList.contains('on') ? 1 : 0)).join(''), ch, fits: body.scrollWidth <= body.clientWidth + 1 && s.getBoundingClientRect().bottom < innerHeight && s.getBoundingClientRect().top > 0 };
+      return { title: s.querySelector('.sheet-title').textContent, body: body.textContent, bg: cs.backgroundColor, colour: cs.color, transform: getComputedStyle(body).textTransform, items: [...s.querySelectorAll('.mi')].filter((m) => getComputedStyle(m).display !== 'none').map((m) => m.querySelector('.mi-label').textContent + (m.classList.contains('sel') ? '*' : '')), caps: [...s.querySelectorAll('.mi')].filter((m) => getComputedStyle(m).display !== 'none').map((m) => m.querySelector('.key')?.textContent ?? ''), dots: [...s.querySelectorAll('.dots i')].filter((d) => getComputedStyle(d).display !== 'none').map((d) => (d.classList.contains('on') ? 1 : 0)).join(''), ch, fits: body.scrollWidth <= body.clientWidth + 1 && s.getBoundingClientRect().bottom < innerHeight && s.getBoundingClientRect().top > 0 };
     });
-    const ledger = STORY.readables.rd_ledger, cards = ledger.body.split('\n\n');
-    assert.equal(cards.length, 3);
+    // pass i2: a note found in the world is laid out by what the sheet holds (text.ts packCards): the ledger's three
+    // short paragraphs are one card. The four paragraphs of rd_backstory, opened as a note, are two cards of two: the
+    // sheet with more than one card that the rest of this test (and the three after it) turns.
+    const led = STORY.readables.rd_ledger;
+    assert.equal(led.body.split('\n\n').length, 3);
     await open('rd_ledger');
     let s = await sheet();
-    assert.deepEqual([s.title, s.body, s.dots, s.items], [ledger.title, cards[0], '100', [STORY.ui.ui_read_next + '*', STORY.ui.ui_read_close]]);
+    assert.deepEqual([s.title, s.body, s.dots, s.items, s.fits], [led.title, led.body, '', [STORY.ui.ui_read_close + '*'], true], 'the ledger is one card');
+    await game.page.keyboard.press('Escape');
+    const ledger = STORY.readables.rd_backstory, paras = ledger.body.split('\n\n');
+    assert.equal(paras.length, 4);
+    const cards = [paras[0] + '\n\n' + paras[1], paras[2] + '\n\n' + paras[3], ''];
+    await open('rd_backstory');
+    s = await sheet();
+    assert.deepEqual([s.title, s.body, s.dots, s.items], [ledger.title, cards[0], '10', [STORY.ui.ui_read_next + '*', STORY.ui.ui_read_close]]);
+    // pass i1: the sheet says which key turns it and which closes it (the bound interact key, and Esc), in key caps
+    assert.deepEqual(s.caps, ['E', 'Esc']);
     assert.deepEqual([s.bg, s.colour, s.fits], ['rgba(233, 226, 208, 0.96)', 'rgb(20, 17, 15)', true]);
     assert.equal((await game.state()).systems.ui.modal, true);
     const before = (await game.events(0)).length;
     await game.page.keyboard.press('KeyE');
     s = await sheet();
-    assert.deepEqual([s.body, s.dots], [cards[1], '010'], 'E (the interact key) turns the card');
+    assert.deepEqual([s.body, s.dots, s.items], [cards[1], '01', [STORY.ui.ui_read_close + '*']], 'E (the interact key) turns the card; the last card offers only Close');
+    await game.page.keyboard.press('Escape');
+    await open('rd_backstory');
     await game.page.keyboard.press('Space');
     s = await sheet();
-    assert.deepEqual([s.body, s.dots, s.items], [cards[2], '001', [STORY.ui.ui_read_close + '*']], 'the last card offers only Close');
+    assert.deepEqual([s.body, s.dots], [cards[1], '01'], 'Space turns it too');
     await game.page.keyboard.press('Enter');
     assert.equal(await sheet(), null, 'Enter on the last card closes');
     const st = await game.state();
     assert.deepEqual([st.game, st.ui.screen, st.systems.ui.modal], ['playing', '', false]);
     const since = (await game.events(0)).slice(before).filter((e) => e.name !== 'audio/cue');
-    assert.deepEqual(since.map((e) => e.name + (e.name === 'game/state' ? ':' + e.payload.reason : e.name === 'ui/screen' ? ':' + e.payload.screen + ':' + e.payload.open : '')), ['game/state:readable_closed', 'ui/screen:readable:false']);
+    assert.deepEqual(since.map((e) => e.name + (e.name === 'game/state' ? ':' + e.payload.reason : e.name === 'ui/screen' ? ':' + e.payload.screen + ':' + e.payload.open : '')).slice(-2), ['game/state:readable_closed', 'ui/screen:readable:false']);
     // Escape closes from the first card; the mouse works too
-    await open('rd_ledger');
+    await open('rd_backstory');
     await game.page.keyboard.press('Escape');
     assert.equal((await game.state()).game, 'playing');
-    await open('rd_ledger');
+    await open('rd_backstory');
     await game.page.evaluate(() => document.querySelector('.k7 .reader.on [data-item="next"]').click());
     assert.equal((await sheet()).body, cards[1]);
     await game.page.evaluate(() => document.querySelector('.k7 .reader.on [data-item="close"]').click());
@@ -264,7 +284,9 @@ test('readables: cards on blank lines, E / Enter / Space advance, Escape closes;
     // every readable fits the screen card by card; plates are enamel with ink capitals
     for (const [key, r] of Object.entries(STORY.readables)) {
       await open(key);
-      const pages = r.body.split('\n\n');
+      // pass i2: every note and plate of story.json is one card on the sheet (text.ts packCards: at most 12 lines of
+      // 58 characters); the four paragraphs of the story so far, opened as a note, are two cards
+      const pages = key === 'rd_backstory' ? cards.slice(0, 2) : [r.body];
       for (let i = 0; i < pages.length; i++) {
         s = await sheet();
         assert.equal(s.body, pages[i], `${key} card ${i + 1}`);
@@ -296,8 +318,9 @@ test('readables with the pointer locked: the fire button turns the card and clos
     assert.deepEqual(await reader(), { card: 0, screen: '', game: 'playing', locked: true });
     // the note opens while the fire button is down (she was shooting): that press turns nothing
     await game.page.mouse.down();
-    await open('rd_ledger');
+    await open('rd_backstory');
     assert.deepEqual(await reader(), { card: 0, screen: 'readable', game: 'paused', locked: true }, 'the readable keeps the pointer lock');
+    assert.deepEqual(await game.page.evaluate(() => [...document.querySelectorAll('.k7 .reader.on .mi')].filter((m) => getComputedStyle(m).display !== 'none').map((m) => m.querySelector('.key').textContent + ' ' + m.querySelector('.mi-label').textContent)), ['E ' + STORY.ui.ui_read_next, STORY.ui.ui_key_mouse_right + ' ' + STORY.ui.ui_read_close]);
     await game.page.evaluate(() => document.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true, cancelable: true })));
     assert.equal((await reader()).card, 0, 'a button already down when the note opened turns no card');
     await game.page.mouse.up();
@@ -306,10 +329,24 @@ test('readables with the pointer locked: the fire button turns the card and clos
     assert.equal((await reader()).card, 1, 'a fresh press of the fire button: the next card');
     assert.equal((await events(game, 'audio/cue')).at(-1).cue, 'ui_select');
     assert.equal((await events(game, 'audio/cue')).length, cues + 1);
-    await game.page.mouse.down({ button: 'right' }); await game.page.mouse.up({ button: 'right' });
+    await game.page.mouse.down({ button: 'middle' }); await game.page.mouse.up({ button: 'middle' });
     assert.equal((await reader()).card, 1, 'another button is not the fire button');
+    // pass i1: with the pointer locked the sheet names the right button beside Close (Esc would let the mouse go), and
+    // that button closes the note from any card, keeps the pointer and fires nothing
+    const caps = () => game.page.evaluate(() => [...document.querySelectorAll('.k7 .reader.on .mi')].filter((m) => getComputedStyle(m).display !== 'none').map((m) => m.querySelector('.key').textContent + ' ' + m.querySelector('.mi-label').textContent));
+    // (pass i2: this is the sheet's last card, so Close stands alone; the first card names E beside Next: asserted where it opened)
+    // (pass i3: on the last card Close names the key that turned the cards, E; the right button still closes: below)
+    assert.deepEqual(await caps(), ['E ' + STORY.ui.ui_read_close]);
+    const firedBefore = (await events(game, 'weapon/fired')).length;
+    await game.page.mouse.down({ button: 'right' });
+    assert.deepEqual([(await reader()).screen, (await reader()).game, (await reader()).locked], ['', 'playing', true], 'the right button closes the note and the pointer stays');
+    await frame(game, 6);
+    await game.page.mouse.up({ button: 'right' });
+    await frame(game, 6);
+    assert.equal((await events(game, 'weapon/fired')).length, firedBefore, 'and it fired nothing');
+    await open('rd_backstory');
     await game.page.mouse.down(); await game.page.mouse.up();
-    assert.equal((await reader()).card, 2);
+    assert.equal((await reader()).card, 1);
     const fired = (await events(game, 'weapon/fired')).length;
     await game.page.mouse.down();
     assert.deepEqual([(await reader()).screen, (await reader()).game], ['', 'playing'], 'on the last card the press closes the note');
@@ -320,7 +357,8 @@ test('readables with the pointer locked: the fire button turns the card and clos
     assert.equal((await reader()).locked, true, 'and the pointer never left the game');
     // a fire binding on another mouse button turns the card as well
     await game.page.evaluate(() => { const o = window.__dbg.ext.core.ctx().options; o.set('bindings', { ...o.value.bindings, fire: ['Mouse2'] }); });
-    await open('rd_ledger');
+    await open('rd_backstory');
+    assert.equal(await game.page.evaluate(() => document.querySelector('.k7 .reader.on [data-item="close"] .key').textContent), 'Esc', 'the right button is hers to fire with: Close names Esc again');
     await game.page.mouse.down({ button: 'right' }); await game.page.mouse.up({ button: 'right' });
     assert.equal((await reader()).card, 1, 'fire bound to the right button');
     await game.page.keyboard.press('Escape');
@@ -330,7 +368,7 @@ test('readables with the pointer locked: the fire button turns the card and clos
 test('readables without the pointer lock: a click beside the sheet does nothing (its items take the mouse)', async () => {
   const game = await openIndex(server);
   try {
-    await game.page.evaluate(() => { const dbg = window.__dbg; dbg.emit('readable/opened', { key: 'rd_ledger' }); dbg.ext.core.ctx().state.request('paused', 'readable', 'readable'); dbg.step(0, true); });
+    await game.page.evaluate(() => { const dbg = window.__dbg; dbg.emit('readable/opened', { key: 'rd_backstory' }); dbg.ext.core.ctx().state.request('paused', 'readable', 'readable'); dbg.step(0, true); });
     assert.equal(await game.page.evaluate(() => window.__dbg.ext.core.ctx().input.pointerLocked), false);
     await game.page.mouse.click(8, 8);
     const next = await game.page.evaluate(() => { const r = document.querySelector('.k7 .reader.on [data-item="next"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
@@ -349,7 +387,7 @@ test('readables: a held E does not page through a note (auto-repeat, or the pres
     // the player presses E on the note and keeps it down past the OS repeat delay: the press opens the note (world), and
     // the browser goes on sending repeated keydowns. Playwright sends repeat: true for a key that is already down.
     await game.page.keyboard.down('KeyE');
-    await open('rd_ledger');
+    await open('rd_backstory');
     assert.deepEqual(await reader(), { card: 0, screen: 'readable', game: 'paused' });
     for (let i = 0; i < 4; i++) await game.page.keyboard.down('KeyE');
     assert.deepEqual(await reader(), { card: 0, screen: 'readable', game: 'paused' }, 'held E: still on the first card, still open');
@@ -364,8 +402,7 @@ test('readables: a held E does not page through a note (auto-repeat, or the pres
     assert.deepEqual(await reader(), { card: 1, screen: 'readable', game: 'paused' }, 'repeats of E / Enter / Space / Esc: nothing');
     // the same on the story-so-far sheet from the title: the Enter that chose it, held, turns nothing
     await game.page.keyboard.press('Enter');
-    await game.page.keyboard.press('Enter');
-    assert.deepEqual([(await reader()).screen, (await reader()).game], ['', 'playing'], 'two fresh presses: the last card, then closed');
+    assert.deepEqual([(await reader()).screen, (await reader()).game], ['', 'playing'], 'a fresh press on the last card: closed');
     await game.page.evaluate(() => { window.__dbg.pause(true); window.__dbg.emit('ui/action', { action: 'quit_to_title' }); });
     await idle(game);
     await game.page.keyboard.press('ArrowDown');
@@ -641,42 +678,49 @@ test('end card: a ledger from the stats, the lamps as glyphs, never the felled; 
       assert.deepEqual(g.direct, ['end-panel'], 'everything of the card is on the panel');
       assert.ok(g.left >= 0.59 && g.right <= 0.97, `${w} x ${hgt}: the panel is in the right of the frame (${g.left.toFixed(3)} to ${g.right.toFixed(3)}), clear of the fire in the middle`);
       assert.ok(g.top >= 0.05 && g.bottom <= 0.9, `${w} x ${hgt}: and clear of the top and of the subtitle (${g.top.toFixed(3)} to ${g.bottom.toFixed(3)})`);
-      assert.deepEqual([g.bg, g.inside, g.wraps], ['rgba(20, 17, 15, 0.8)', true, false], `${w} x ${hgt}: the text has its own ink, fits on it, and no row wraps`);
+      assert.deepEqual([g.bg, g.inside, g.wraps], ['rgba(20, 17, 15, 0.88)', true, false], `${w} x ${hgt}: the text has its own ink, fits on it, and no row wraps`);
     }
     await game.page.setViewportSize({ width: 1280, height: 720 });
     assert.equal(await game.page.evaluate(() => getComputedStyle(document.querySelector('.k7 .card')).opacity), '0', 'no title card under the end card');
-    assert.deepEqual(e.order, ['time', 'rounds', 'accuracy', 'knots', 'lines', 'clean_six', 'secrets', 'lamps', 'carries']);
+    assert.deepEqual(e.order, ['time', 'deaths', 'rounds', 'accuracy', 'knots', 'lines', 'clean_six', 'secrets', 'lamps', 'carries']);
     assert.deepEqual(e.rows, {
-      time: [STORY.ui.ui_end_time, '19:47'], rounds: [STORY.ui.ui_end_rounds, '96'], accuracy: [STORY.ui.ui_end_accuracy, '71 of 96'], knots: [STORY.ui.ui_end_knots, '23'],
+      time: [STORY.ui.ui_end_time, '19:47'], deaths: [STORY.ui.ui_end_deaths, '555'], rounds: [STORY.ui.ui_end_rounds, '96'], accuracy: [STORY.ui.ui_end_accuracy, '71 of 96'], knots: [STORY.ui.ui_end_knots, '23'],
       lines: [STORY.ui.ui_end_lines, '2'], clean_six: [STORY.ui.ui_end_clean_six, STORY.ui.ui_end_yes], secrets: [STORY.ui.ui_end_secrets, '1 of 2'],
       lamps: [STORY.ui.ui_end_lamps, '9'], carries: [STORY.ui.ui_end_carries, STORY.ui.ui_end_carries_six],
     });
     assert.deepEqual([e.lamps, e.worldLamps, e.lampRows, e.lampColour], [9, 9, 1, 'rgb(255, 148, 51)'], 'one flame-coloured glyph per lamp');
-    assert.ok(!e.text.includes('777') && !e.text.includes('555') && e.digits.every((d) => !/777|555/.test(d)), 'no element holds the count of the felled (or of her deaths)');
+    // release pass p0: her deaths ARE shown now, in one quiet row under the time (the time is the surviving timeline's)
+    assert.ok(!e.text.includes('777') && e.digits.every((d) => !/777/.test(d)), 'no element holds the count of the felled');
+    assert.equal(e.digits.filter((d) => /555/.test(d)).length, 1, 'her deaths stand in one row only');
     for (let i = 1; i < e.delays.length; i++) assert.ok(e.delays[i] > e.delays[i - 1], 'one row lights at a time');
-    assert.deepEqual(e.items, [STORY.ui.ui_end_again, STORY.ui.ui_end_menu]);
+    assert.deepEqual(e.items, [STORY.ui.ui_end_again, STORY.ui.ui_end_rim, STORY.ui.ui_end_menu]);     // pass i1: with a save stored, "The rim again"
     // 48 lamps in rows of 12, and the other "carries"
     e = await end(60, { ...stats, cleanSix: false, tookStoneRound: true, secrets: [] });
     assert.deepEqual([e.lamps, e.worldLamps, e.lampRows, e.rows.lamps[1]], [48, 48, 4, '48'], 'clamped at 48, four rows of twelve');
-    assert.deepEqual([e.rows.carries[1], e.rows.clean_six[1], e.rows.secrets[1]], [STORY.ui.ui_end_carries_his, STORY.ui.ui_end_no, '0 of 2']);
+    assert.deepEqual([e.rows.carries[1], e.rows.clean_six[1], e.rows.secrets[1]], [STORY.ui.ui_end_carries_his, STORY.ui.ui_end_yes, '0 of 2']);
+    // pass i1: a feat that was not done has no row (the label and "No" told nobody what it measured)
+    assert.equal(await game.page.evaluate(() => getComputedStyle(document.querySelector('.k7 .end [data-row="clean_six"]')).display), 'none');
     // the choice is not live while the rows are still lighting: Enter, arrows and a click do nothing until the menu shows
     let u = (await game.state()).systems.ui;
     assert.equal(u.endLocked, true);
-    assert.ok(Math.abs(u.endLockLeft - (0.9 + 9.6 * 0.38 + 0.25)) < 0.02, `the menu answers when it is half faded in (${u.endLockLeft} s)`);
+    assert.ok(Math.abs(u.endLockLeft - (0.9 + 10.6 * 0.38 + 0.25)) < 0.02, `the menu answers when it is half faded in (${u.endLockLeft} s)`);
     const css = await game.page.evaluate(() => getComputedStyle(document.querySelector('.k7 .end .menu')).animationDelay);
-    assert.ok(Math.abs(parseFloat(css) - (0.9 + 9.6 * 0.38)) < 0.01, `ui.css starts the menu's fade at the same moment (${css})`);
+    assert.ok(Math.abs(parseFloat(css) - (0.9 + 10.6 * 0.38)) < 0.01, `ui.css starts the menu's fade at the same moment (${css})`);
     const actions = (await events(game, 'ui/action')).length;
     await game.page.keyboard.press('Enter'); await game.page.keyboard.press('ArrowRight'); await game.page.keyboard.press('Enter');
     await game.page.evaluate(() => document.querySelector('.k7 .end [data-item="again"]').click());
     await idle(game);
     assert.equal((await events(game, 'ui/action')).length, actions, 'nothing chosen during the reveal');
     assert.deepEqual([(await game.state()).game, await screen(game), (await items(game))[0]], ['ending', 'end', STORY.ui.ui_end_again + '*']);
-    await game.step(Math.round((0.9 + 9.6 * 0.38) * 60));
+    await game.step(Math.round((0.9 + 10.6 * 0.38) * 60));
     assert.equal((await game.state()).systems.ui.endLocked, true, 'still locked when the fade has only begun');
     await game.step(16);
     u = (await game.state()).systems.ui;
     assert.deepEqual([u.endLocked, u.endLockLeft], [false, 0], 'live once the menu is half faded in');
     // menu: quit_to_title; again: a new run
+    // (pass i1: "The rim again" stands between the two, so the title is two steps right)
+    await game.page.keyboard.press('ArrowRight');
+    assert.equal((await items(game))[1], STORY.ui.ui_end_rim + '*', 'one step right: The rim again');
     await game.page.keyboard.press('ArrowRight'); await game.page.keyboard.press('Enter');
     await idle(game);
     assert.equal((await events(game, 'ui/action')).at(-1).action, 'quit_to_title');

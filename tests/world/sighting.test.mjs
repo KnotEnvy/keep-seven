@@ -19,9 +19,9 @@ function figure(file) {
   const at = (x, y) => { const i = (y * png.width + x) * 4; return [png.data[i], png.data[i + 1], png.data[i + 2]]; };
   const luma = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
   let minX = 1e9, maxX = -1, minY = 1e9, maxY = -1, n = 0; const sum = [0, 0, 0]; let skyLuma = 0;
-  for (let y = 300; y <= 372; y++) {
+  for (let y = 280; y <= 372; y++) {
     const bg = luma(at(672, y));                             // the sky (or the mesa) of this row, clear of him
-    for (let x = 680; x <= 738; x++) {
+    for (let x = 680; x <= 760; x++) {
       if (Math.abs(x - 640) <= 12 && Math.abs(y - 360) <= 12) continue;
       const p = at(x, y);
       if (luma(p) > bg - 40) continue;
@@ -46,8 +46,10 @@ test('R4: from the yard the pursued man stands at least 24 px tall at 720p, dark
     assert.equal(best.height, 720);
     console.log(`sighting at 720p from (${cam.x.toFixed(1)}, ${cam.z.toFixed(1)}): figure ${best.w} x ${best.h} px (${best.n} px), mean RGB ${best.mean}, luma ${best.lumaFigure.toFixed(0)} against ${best.lumaSky.toFixed(0)} behind him`);
     assert.ok(best.h >= 24, `the figure is ${best.h} px tall (R4: at least 24)`);
-    assert.ok(best.h <= 40, `the figure is ${best.h} px tall: the world's scale and the owners' floors have multiplied`);
-    assert.ok(best.w >= 6 && best.w <= 24, `the figure is ${best.w} px wide`);
+    // pass i2 (exterior look; the visual reviewer asked for 50 to 60 px): SIGHT_MIN_PX is 62, the figure about 56
+    assert.ok(best.h >= 46, `the figure is ${best.h} px tall (pass i2: about 56)`);
+    assert.ok(best.h <= 70, `the figure is ${best.h} px tall: the world's scale and the owners' floors have multiplied`);
+    assert.ok(best.w >= 12 && best.w <= 44, `the figure is ${best.w} px wide`);
     assert.ok(best.lumaFigure < best.lumaSky - 50, `the figure (luma ${best.lumaFigure.toFixed(0)}) is not clearly darker than the sky (${best.lumaSky.toFixed(0)})`);
     // looked away from the start (her back to him) for 14 s: he is not taken off the mesa unseen
     await game.run([{ aimAt: [cam.x + 50, 1.6, cam.z], steps: 14 * 60 }, { aimAt: [t[0], t[1], t[2] + 30], steps: 3 }]);

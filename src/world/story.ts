@@ -52,7 +52,7 @@ export const STALE_SECONDS_LEFT = 4;
  * lines). `story.json` `meta.rules.never_stale` wins when level design adds it (docs/requests/code-world.md).
  */
 export const NEVER_STALE: readonly RegExp[] = [
-  /^nar_(seven|plate_\d|cradle(_2)?|seal|office|kept|one_left|first_fell|first_seat|ask|lamps(_count)?|stone_\d|take_\d|leave|fire|last|not_for_firing|down_the_bore)$/,
+  /^nar_(seven|plate_\d|cradle(_2)?|seal|office|kept|one_left|first_fell|first_seat|ask|lamps(_count|_hers)?|stone_\d|take_\d|leave|fire|last|not_for_firing|down_the_bore)$/,
   /^rv_/, /^stn_proven$/,
 ];
 /**
@@ -61,7 +61,7 @@ export const NEVER_STALE: readonly RegExp[] = [
  * rule while she stood there with nothing being said. They are not `neverStale` (the ending spares only those when a
  * branch begins): a player who takes the round at once still loses them.
  */
-export const LATE_OK: readonly RegExp[] = [/^nar_rim_\d$/];
+export const LATE_OK: readonly RegExp[] = [/^nar_rim_\d$/, /^nar_stone_wait$/];   // (p0: the warning before the leave branch is never lost to the clock: ending.ts)
 export function lateOk(key: StoryKey): boolean {
   for (let i = 0; i < LATE_OK.length; i++) if ((LATE_OK[i] as RegExp).test(key)) return true;
   return false;
@@ -71,7 +71,65 @@ export function neverStale(key: StoryKey): boolean {
   return false;
 }
 
-interface Entry { key: StoryKey; at: number; lead: number; scope: string }
+/**
+ * Release pass p0 (the playthrough critic: the file's three warnings were on screen 8 s after the waves they name, and
+ * "Four more, from the far door" a second before the fight was over; the story critic: "One round, one line" was not
+ * said at the line shot). An URGENT line is about something happening this second: it stands ahead of everything that
+ * waits (the lines `front` put there too), and it cuts the line on screen unless that line is one the story stands on
+ * (`keep`), is itself urgent, or has less than `URGENT_SPARE` seconds left. A line cut this way counts as said.
+ */
+export const URGENT_SPARE = 1;
+/** an urgent line that is not one the story stands on makes way for the next urgent line once it has been up this long */
+export const URGENT_HOLD = 3;
+/**
+ * Pass i1 (story reviewer: "DAYLIGHT. HEADWORKS WAKING." came 5 s after the light hit the cell because a room line was
+ * on screen; cutting that line at once would lose it, and the same reviewer counts the room's lines lost). A line said
+ * with `read` (a share, 0 to 1) is urgent, but it cuts the line on screen only once that line has had that share of its
+ * own time (a line's hold is 1.5 s and 0.06 s a character: at two thirds of it, it has been read): the wait is two
+ * thirds of a line at most, 4 s for the longest, and nothing unread is lost.
+ */
+export const URGENT_READ = 0.65;
+/**
+ * Pass i2 (both story reviewers: the station's wake line cut "A chair at the head..." after 3.9 of its 6 seconds and
+ * the chair's second line came 9 s later behind two station lines; the watcher's pair was said between "Coats on pegs"
+ * and "The low pegs were bare"; "IDENTIFY STATION." between the cradle's two lines). Two rules:
+ *  - a line said with `read` (a polite urgent line) never takes a NARRATOR's or the Reeve's line down: it is the very
+ *    next line. Over a station line or a hint it still cuts once that line has had its share.
+ *  - a line and its continuation are one thing. The continuation of a key is the key with the same stem and another
+ *    number (`nar_pegs_1` / `nar_pegs_2`, `nar_tally_chair` / `nar_tally_chair_2`, `nar_cradle` / `nar_cradle_2`).
+ *    Nothing that is put "next in line" (front, now, a polite urgent line) goes between the line on screen and the
+ *    `PAIR_KEEP` continuation(s) that wait behind it: they are moved to the head first. Only a line about this second
+ *    (plain urgent: a wave) or her own act (over) still comes between them.
+ */
+export const PAIR_KEEP = 1;
+export function stemOf(key: StoryKey): string { return key.replace(/_\d+$/, ''); }
+/**
+ * Lines that are not dropped for waiting beside story.json's `never_stale` list (the design data is frozen for the
+ * world; docs/requests/world.md asks for the list to follow). Pass i2 held `nar_tally_cloth` here; pass i3 takes it out
+ * again (UNKEPT below) and holds `nar_rule`, which waits for a look at the Rule.
+ */
+export const KEEP_ALSO: readonly StoryKey[] = ['nar_rule'];
+/**
+ * Pass i3 (both story reviewers: lines whose whole point is what is on screen were said many seconds later, somewhere
+ * else; "The share-cloth hung in the light's way" 34 s after its cord had been shot, two rooms on at the line locker).
+ *  - A PRESENT line (`StoryQueue.present`) is about the thing she is looking at this second (the watcher in its niche,
+ *    the Windlass through the gantry's grille, the embers, the kneeler at the trough, the Rule against the thread): it
+ *    is the very next line, ahead of everything that only waits, the continuation of the line on screen included
+ *    (`part`), and it takes a station line or a hint that has been read off the screen. Its owner gives it an `unless`
+ *    rule, so it is dropped unheard when its subject is behind her by the time its turn comes.
+ *  - `UNKEPT`: lines story.json's `never_stale` names that are bound to a place after all: they go stale like any
+ *    other (the design data is frozen for the world in this pass; docs/requests/world.md asks for the list to follow).
+ *    The cloth's line is said while the light lies on the cloth, or not at all.
+ *  - `nar_rule` joins `KEEP_ALSO`: it waits for a look at the Rule (director.ts RULE_COS) instead of going stale behind
+ *    the camp's lines, and is dropped when she leaves the gully without one.
+ */
+export const UNKEPT: readonly StoryKey[] = ['nar_tally_cloth'];
+/**
+ * Pass i3 (ruling R2; story reviewer b): a hint line the world has just said itself (`StoryApi.mute`) is not said again
+ * by another system for `HINT_ECHO` seconds: the Windlass repeats `hint_boss_haul` at its first haul of the same try.
+ */
+export const HINT_ECHO = 40;
+interface Entry { key: StoryKey; at: number; lead: number; scope: string; alt: string; urgent: boolean; read: number; present: boolean }
 export interface QueueOptions {
   /** a line that is never dropped for waiting (default: none is) */
   keep?: (key: StoryKey) => boolean;
@@ -108,6 +166,14 @@ export class StoryQueue {
   private n = 0;
   /** how many of the lines at the head were put there by front(): the next front line stands behind them, in order */
   private fronts = 0;
+  /** how many of those were put there by urgent(): they stand first, in their order */
+  private urgents = 0;
+  /** the line on screen was said by urgent(): another urgent line waits for it (URGENT_HOLD) instead of cutting it */
+  private urgentNow = false;
+  /** ticks the current line was given when it started */
+  private total = 0;
+  /** the line that was on screen last (its continuation is still its pair during the breath after it) */
+  private last: StoryKey = '';
   /** the most the queue has ever held waiting (tests) */
   peak = 0;
   /** where she is now (the zone): the caller keeps it current */
@@ -131,7 +197,7 @@ export class StoryQueue {
     private readonly onEnd: (key: StoryKey) => void,
     options: QueueOptions = {},
   ) {
-    for (let i = 0; i < MAX_WAITING + BACKLOG; i++) this.items.push({ key: '', at: 0, lead: 0, scope: '' });
+    for (let i = 0; i < MAX_WAITING + BACKLOG; i++) this.items.push({ key: '', at: 0, lead: 0, scope: '', alt: '', urgent: false, read: 0, present: false });
     this.keep = options.keep ?? (() => false);
     this.onDrop = options.onDrop ?? (() => {});
     this.moot = options.moot ?? (() => false);
@@ -158,11 +224,11 @@ export class StoryQueue {
   private refuse(key: StoryKey): boolean { return lineClass(key) === 'nar' && (this.played(key) || this.holds(key)); }
   private ticksOf(key: StoryKey): number { return Math.max(1, Math.round(this.seconds(key) * TICKS_PER_SECOND)); }
   /** insert at index i (the entries from i on move back one); false when the list is full */
-  private insert(i: number, key: StoryKey, lead: number, scope: string): boolean {
+  private insert(i: number, key: StoryKey, lead: number, scope: string, urgent = false): boolean {
     if (this.n >= this.items.length) return false;
     const spare = this.items[this.n] as Entry;
     for (let k = this.n; k > i; k--) this.items[k] = this.items[k - 1] as Entry;
-    spare.key = key; spare.at = this.now_; spare.lead = lead; spare.scope = scope;
+    spare.key = key; spare.at = this.now_; spare.lead = lead; spare.scope = scope; spare.urgent = urgent; spare.read = 0; spare.alt = ''; spare.present = false;
     this.items[i] = spare;
     this.n++;
     const c = this.count;
@@ -172,23 +238,31 @@ export class StoryQueue {
   private removeAt(i: number): void {
     const e = this.items[i] as Entry;
     if (i < this.fronts) this.fronts--;
+    if (i < this.urgents) this.urgents--;
     for (let k = i; k < this.n - 1; k++) this.items[k] = this.items[k + 1] as Entry;
     this.n--;
     this.items[this.n] = e;
     e.key = '';
   }
 
-  /** `scope`: the place the line is about (default: where she is) */
-  say(key: StoryKey, scope: string = this.scope): SayResult {
+  /**
+   * `scope`: the place the line is about (default: where she is). `alt`: a second place it is as much about (pass i1:
+   * a trigger on the seam between two sets is said in the zone she stands in and is about the one she is walking into;
+   * the peg stair's lines went stale four seconds after the zone changed under her)
+   */
+  say(key: StoryKey, scope: string = this.scope, alt = ''): SayResult {
     if (this.refuse(key)) return 'dropped';
     const cls = lineClass(key);
     if (cls === 'hint' && !this.idle) return 'dropped';
     const full = this.n >= MAX_WAITING;
-    if (full && cls !== 'nar' && !key.startsWith('rv_')) return 'dropped';
+    // (p0: a station line the story stands on, `keep`, stands in the backlog like a narrator's: "SURFACE STAFF: ELEVEN,
+    // SEATED." was lost to a brisk player because four room lines were waiting when the day-cell woke)
+    if (full && cls !== 'nar' && !key.startsWith('rv_') && !this.keep(key)) return 'dropped';
     // lines said on one tick are one batch: each may wait, beside its own allowance, for the ones said before it
     if (this.batchAt !== this.now_) { this.batchAt = this.now_; this.batchLead = 0; }
     const lead = this.batchLead;
     if (!this.insert(this.n, key, lead, scope)) return 'dropped';
+    (this.items[this.n - 1] as Entry).alt = alt;
     this.batchLead += this.ticksOf(key) + GAP_TICKS;
     return full ? 'backlog' : 'queued';
   }
@@ -198,36 +272,153 @@ export class StoryQueue {
    */
   front(key: StoryKey, scope: string = this.scope): SayResult {
     if (this.refuse(key)) return 'dropped';
+    this.promotePair();
     if (!this.insert(this.fronts, key, 0, scope)) return 'dropped';
     this.fronts++;
     return 'queued';
+  }
+  /**
+   * Pass i3, a PRESENT line (UNKEPT above): about what she is looking at now. On screen at once when nothing is, or over
+   * a station line or a hint that has had URGENT_READ of its time; else the very next line, behind the urgent and the
+   * present lines asked for before it and ahead of everything else. `part` (the default): ahead of the continuation of
+   * the line on screen too (the watcher is said between "Coats on pegs" and "The low pegs were bare", while she looks
+   * at it); false: behind that continuation (a pair is heard out first).
+   */
+  present(key: StoryKey, scope: string = this.scope, part = true, alt = ''): SayResult {
+    if (this.refuse(key)) return 'dropped';
+    const cur = this.current;
+    if (cur === '' ? this.n === 0 || (this.gap === 0 && (part || !this.pairWaiting) && !this.headUrgent()) : this.politeCut(URGENT_READ)) {
+      if (cur !== '') { this.current = ''; this.onEnd(cur); }
+      this.gap = 0;
+      this.begin(key);
+      return 'queued';
+    }
+    if (!part) this.promotePair();
+    const head = !part ? this.pairHead() : '';
+    const stem = head !== '' ? stemOf(head) : null;
+    let i = 0, kept = 0;
+    while (i < this.n) {
+      const e = this.items[i] as Entry;
+      if (e.urgent || e.present) i++;
+      else if (stem !== null && kept < PAIR_KEEP && stemOf(e.key) === stem) { i++; kept++; }
+      else break;
+    }
+    if (!this.insert(i, key, 0, scope)) return 'dropped';
+    (this.items[i] as Entry).present = true; (this.items[i] as Entry).alt = alt;
+    if (i <= this.fronts) this.fronts++;
+    if (i < this.urgents) this.urgents++;
+    // what it stands in front of is not made stale by it: the time it takes is added to their allowance
+    const took = this.ticksOf(key) + GAP_TICKS;
+    for (let k = i + 1; k < this.n; k++) (this.items[k] as Entry).lead += took;
+    return 'queued';
+  }
+  /** an urgent or a present line is already waiting to be next */
+  private headUrgent(): boolean { const e = this.items[0] as Entry; return this.n > 0 && (e.urgent || e.present); }
+  /** the line whose continuation must not be parted from it: the one on screen, or the one just over (the breath) */
+  private pairHead(): StoryKey { return this.current !== '' ? this.current : this.gap > 0 ? this.last : ''; }
+  /** a continuation of the line on screen (or just over) is waiting */
+  get pairWaiting(): boolean {
+    const head = this.pairHead();
+    if (head === '') return false;
+    const stem = stemOf(head);
+    for (let i = 0; i < this.n; i++) if (stemOf((this.items[i] as Entry).key) === stem) return true;
+    return false;
+  }
+  /**
+   * PAIR_KEEP: the continuation(s) of the line on screen stand at the very head of the line, ahead of the urgent and
+   * the front lines that wait (they count as both from here, so what is put next goes behind them).
+   */
+  private promotePair(): void {
+    const head = this.pairHead();
+    if (head === '' || lineClass(head) === 'hint') return;
+    const stem = stemOf(head);
+    let c = 0;
+    for (let i = 0; i < this.n && c < PAIR_KEEP; i++) {
+      const e = this.items[i] as Entry;
+      if (stemOf(e.key) !== stem) continue;
+      for (let k = i; k > c; k--) this.items[k] = this.items[k - 1] as Entry;
+      this.items[c] = e;
+      if (i >= this.fronts) this.fronts++;
+      if (i >= this.urgents) this.urgents++;
+      c++;
+    }
+  }
+  /**
+   * About this second (URGENT_SPARE above): on screen at once when nothing is, or over a line that may be cut; else the
+   * very next line, ahead of everything waiting and behind the urgent lines asked for before it.
+   */
+  urgent(key: StoryKey, scope: string = this.scope, read = 0): SayResult {
+    if (this.refuse(key)) return 'dropped';
+    const cur = this.current;
+    const polite = read > 0;
+    // (pass i2) a polite line never parts a pair, and never takes a narrator's line down
+    const free = cur === '' ? !(polite && this.pairWaiting) : polite ? this.politeCut(read) : this.mayCut();
+    if (free) {
+      if (cur !== '') { this.current = ''; this.onEnd(cur); }
+      this.gap = 0;
+      this.begin(key, true);
+      return 'queued';
+    }
+    if (polite) this.promotePair();
+    if (!this.insert(this.urgents, key, 0, scope, true)) return 'dropped';
+    (this.items[this.urgents] as Entry).read = read;
+    this.urgents++; this.fronts++;
+    return 'queued';
+  }
+  /** the line on screen makes way for an urgent one: not one the story stands on, not in its last second, and an urgent one only once it has had URGENT_HOLD */
+  private mayCut(): boolean {
+    if (this.keep(this.current) || this.left <= URGENT_SPARE * TICKS_PER_SECOND) return false;
+    return !this.urgentNow || this.total - this.left >= URGENT_HOLD * TICKS_PER_SECOND;
+  }
+  /** a polite urgent line (`read`) may take the line on screen down: a station line or a hint that has had its share */
+  private politeCut(read: number): boolean {
+    const cur = this.current;
+    if (lineClass(cur) === 'nar' || cur.startsWith('rv_')) return false;
+    return this.mayCut() && this.total - this.left >= read * this.total;
   }
   /** On screen at once when the screen holds nothing a player must not lose (nothing, a station line, a hint); else next. */
   now(key: StoryKey): SayResult {
     if (this.refuse(key)) return 'dropped';
     if (this.current !== '' && lineClass(this.current) === 'nar') return this.front(key);
+    if (this.current === '' && this.pairWaiting) return this.front(key);      // (pass i2: not in the breath between a pair)
     if (this.current !== '') { const was = this.current; this.current = ''; this.onEnd(was); }
     this.gap = 0;
     this.begin(key);
     return 'queued';
   }
-  private begin(key: StoryKey): void {
+  private begin(key: StoryKey, urgent = false): void {
+    this.urgentNow = urgent;
     this.current = key;
-    this.left = this.ticksOf(key);
+    this.left = this.total = this.ticksOf(key);
     this.onStart(key);
   }
   private isStale(e: Entry): boolean {
     if (this.keep(e.key)) return false;
     const waited = this.now_ - e.at - e.lead;
-    return waited > (e.scope === this.scope ? this.staleTicks : this.staleTicksLeft);
+    return waited > (e.scope === this.scope || e.alt === this.scope ? this.staleTicks : this.staleTicksLeft);
   }
   tick(): void {
     this.now_++;
     if (this.current !== '') {
+      // an urgent line is waiting behind an urgent line that has had its time
+      // (pass i1: or behind a line that has been up as long as the urgent one said it would wait, URGENT_READ)
+      // (pass i2: a continuation moved to the head, PAIR_KEEP, is not urgent itself: it waits its turn, and what is
+      // urgent behind it waits with it; a polite line waits a narrator's line out)
+      const head = this.urgents > 0 ? this.items[0] as Entry : null;
+      if (head && head.urgent && this.left > 1 && this.mayCut() && (this.urgentNow || (head.read > 0 && this.politeCut(head.read))) && !this.wait(head.key)) {
+        const e = this.items[0] as Entry, key = e.key, was = this.current;
+        const stale = this.moot(key);
+        this.removeAt(0);
+        if (stale) { this.stale++; this.onDrop(key); return; }
+        this.current = ''; this.onEnd(was);
+        this.begin(key, true);
+        return;
+      }
       if (--this.left > 0) return;
       const was = this.current;
       this.current = '';
       this.gap = GAP_TICKS;
+      this.last = was;
       this.onEnd(was);
       return;
     }
@@ -239,9 +430,10 @@ export class StoryQueue {
       // a line that waits for its subject to be in view keeps its place; the next one goes ahead
       if (this.wait(key)) { i++; continue; }
       const stale = this.isStale(e) || this.moot(key);
+      const urgent = e.urgent;
       this.removeAt(i);
       if (stale) { this.stale++; this.onDrop(key); continue; }
-      this.begin(key);
+      this.begin(key, urgent);
       return;
     }
   }
@@ -280,7 +472,7 @@ export class StoryQueue {
     const was = this.current;
     this.current = ''; this.left = 0; this.gap = 0;
     for (let i = 0; i < this.n; i++) (this.items[i] as Entry).key = '';
-    this.n = 0; this.fronts = 0;
+    this.n = 0; this.fronts = 0; this.urgents = 0; this.urgentNow = false; this.last = '';
     this.batchAt = -1;
     if (was !== '') this.onEnd(was);
   }
@@ -327,21 +519,39 @@ class Story implements StoryApi {
     const named = Array.isArray(rules.never_stale) ? new Set(rules.never_stale) : null;
     this.named = named;
     this.queue = new StoryQueue(
-      (key) => lines[key]?.seconds ?? 2,
+      (key) => this.holdOf.get(key) ?? lines[key]?.seconds ?? 2,
       (key) => s.flags.has(key) || this.heardKeys.has(key),
       (key) => this.start(key),
       (key) => this.end(key),
       {
-        keep: (key) => (named ? named.has(key) : neverStale(key)) || lateOk(key), onDrop: (key) => this.dropped(key), moot: (key) => this.isMoot(key),
+        keep: (key) => !UNKEPT.includes(key) && ((named ? named.has(key) : neverStale(key)) || lateOk(key) || KEEP_ALSO.includes(key)), onDrop: (key) => this.dropped(key), moot: (key) => this.isMoot(key),
         wait: (key) => this.isWaiting(key),
       },
     );
     this.captions = new CaptionGuard(Object.keys(lines).filter((k) => lines[k]?.speaker === 'caption'));
     // (a line the world has taken says nothing when another system asks for it: the world says it at its own moment)
-    s.ctx.events.on('story/say', (e) => { if (!this.taken.has(e.key)) this.say(e.key); });
+    s.ctx.events.on('story/say', (e) => {
+      if (this.taken.has(e.key)) return;
+      const muted = this.mutedUntil.get(e.key);
+      if (muted !== undefined && this.ticks < muted) return;
+      if (!this.opens.has(e.key)) { this.say(e.key); return; }
+      // (pass i2, `opening`) the first line of a scene another system runs: what was only waiting and is not story is let go
+      this.queue.flush((key) => this.keeps(key) || key.startsWith('rv_'));
+      this.heldHint = '';
+      this.sayNow(e.key);
+    });
   }
+  /** pass i2: seconds a line is held on screen when not story.json's (`hold`) */
+  private readonly holdOf = new Map<StoryKey, number>();
+  hold(key: StoryKey, seconds: number): void { if (key !== '' && seconds > 0) this.holdOf.set(key, seconds); }
+  private readonly opens = new Set<StoryKey>();
+  opening(key: StoryKey): void { if (key !== '') this.opens.add(key); }
   private readonly taken = new Set<StoryKey>();
   take(key: StoryKey): void { if (key !== '') this.taken.add(key); }
+  /** pass i3: hint lines the world has said itself, and the tick until which another system's asking for them is ignored */
+  private readonly mutedUntil = new Map<StoryKey, number>();
+  mute(key: StoryKey, seconds: number): void { if (key !== '') this.mutedUntil.set(key, this.ticks + Math.round(seconds * TICKS_PER_SECOND)); }
+  sayPresent(key: StoryKey, part = true, alsoZone = ''): void { if (key !== '' && this.known(key)) { this.queue.scope = this.s.zone; this.queue.present(key, this.s.zone, part, alsoZone); } }
   /** lines that wait while their subject is out of her view (waitWhile) */
   private readonly waitWhen = new Map<StoryKey, () => boolean>();
   waitWhile(key: StoryKey, away: () => boolean): void { if (key !== '') this.waitWhen.set(key, away); }
@@ -358,11 +568,12 @@ class Story implements StoryApi {
   private isMoot(key: StoryKey): boolean { const over = this.mootWhen.get(key); return over !== undefined && over(); }
   /** a hint line a restore cut off before it had been said to its end: said again after the restore */
   private resay: StoryKey = '';
-  keeps(key: StoryKey): boolean { return this.named ? this.named.has(key) : neverStale(key); }
+  keeps(key: StoryKey): boolean { return !UNKEPT.includes(key) && ((this.named ? this.named.has(key) : neverStale(key)) || KEEP_ALSO.includes(key)); }
   heard(key: StoryKey): boolean { return this.heardKeys.has(key) || this.s.flags.has(key); }
   holds(key: StoryKey): boolean { return this.queue.holds(key); }
   get current(): StoryKey { return this.queue.current; }
   get idle(): boolean { return this.queue.idle; }
+  get cardUp(): boolean { return this.cardLeft > 0 || this.cards.length > 0; }
   played(key: StoryKey): boolean { return this.s.flags.has(key); }
   finished(key: StoryKey): boolean { return this.finishedKeys.has(key) || (this.s.flags.has(key) && !this.queue.holds(key)); }
 
@@ -374,14 +585,14 @@ class Story implements StoryApi {
   private readonly unknown = new Set<string>();
 
   /** `zone`: the place the line is about, when its marker knows (a trigger's own zone); else where she is now */
-  say(key: StoryKey, zone?: string): void {
+  say(key: StoryKey, zone?: string, alsoZone?: string): void {
     if (!this.known(key)) return;
     const line = this.s.ctx.data.story.lines[key];
     if (!line) return;
     if (line.speaker === 'card') { this.card(key); return; }
     if (line.speaker === 'caption') { this.caption(key); return; }
     this.queue.scope = this.s.zone;                     // (the zone is brought up to date before anything speaks in a tick)
-    if (this.queue.say(key, zone ?? this.s.zone) === 'dropped' && lineClass(key) === 'hint') this.heldHint = key;
+    if (this.queue.say(key, zone ?? this.s.zone, alsoZone ?? '') === 'dropped' && lineClass(key) === 'hint') this.heldHint = key;
   }
   cancelHint(): void { this.heldHint = ''; this.resay = ''; }
   /** what is waiting but has not started (lines, then cards): a save keeps it so a restore can say it again */
@@ -411,6 +622,7 @@ class Story implements StoryApi {
   /** a debug warp is another timeline: nothing has been heard */
   forget(): void { this.heardKeys.clear(); this.finishedKeys.clear(); this.resay = ''; }
   sayFront(key: StoryKey): void { if (this.known(key)) { this.queue.scope = this.s.zone; this.queue.front(key); } }
+  sayUrgent(key: StoryKey, read = 0): void { if (key !== '' && this.known(key)) { this.queue.scope = this.s.zone; this.queue.urgent(key, this.s.zone, read); } }
   /** several lines tied to one moment, next in line and in their order */
   sayFrontAll(keys: readonly StoryKey[]): void { for (let i = 0; i < keys.length; i++) this.sayFront(keys[i] as string); }
   flush(spare: readonly StoryKey[]): void { this.heldHint = ''; this.queue.flush((key) => spare.includes(key)); }
@@ -434,7 +646,7 @@ class Story implements StoryApi {
     if (key.startsWith('nar_')) s.flags.add(key);          // once per run, saved (not a visibility flag: no visDirty)
     this.heardKeys.add(key);
     const p = this.linePayload;
-    p.key = key; p.speaker = line.speaker; p.seconds = line.seconds;
+    p.key = key; p.speaker = line.speaker; p.seconds = this.holdOf.get(key) ?? line.seconds;
     // {n}: the one number the narrator counts, the lamps (GDD 4.4)
     p.text = line.text.includes('{n}') ? line.text.replace('{n}', countWord(lampCount(s.stats.freed), line.text.startsWith('{n}'))) : line.text;
     s.ctx.events.emit('story/line', p);
@@ -495,7 +707,7 @@ class Story implements StoryApi {
     this.heardKeys.clear();
     this.captions.reset();
     this.queue.peak = 0; this.queue.stale = 0; this.lastDropped = '';
-    this.resay = '';
+    this.resay = ''; this.mutedUntil.clear();
   }
   clear(): void {
     // (a restore: the hint on screen, waiting in line or held for a quiet moment has not been heard to its end)

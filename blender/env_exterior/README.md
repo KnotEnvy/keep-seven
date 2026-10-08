@@ -219,3 +219,119 @@ machine, almost all of it the 2048² `lm_surface` bake on the GPU (170 to 250 s)
   in (a light in front of the face leaves a red halo round the opening on the cliff), `fill_cage_back` looks from the
   back wall at the wall the opening is cut in, `fill_brow` lies on the ledge under the brow and looks up.
 - The dynamic things in that room (the cage) take the mood `L6c` (`src/render/moods.ts` `rimCage`).
+
+## Look team "exterior-look", release pass p0 (the rim's lift shaft)
+
+- **The round-5 note above is wrong about the cage**: `ia_proving_lift_cage` has lattice panels (`m_mask`) that ARE seen
+  from inside. The round-5 room's walls stood at x 12 / 16 and z 116, exactly the cage's envelope, so they covered the
+  lattice: the "flat maroon box" of the final review was this zone drawn in front of the cage. **No zone face may stand
+  inside the cage's envelope (x 12 .. 16, z 112 .. 116, below 3.5 m) or within 0.25 m outside it.**
+- `env_far_rim.py` now builds the head of a SHAFT round the cage: `build_shaft` (Part `rim_room`: the mesa's beds in
+  relief on three walls from `SHAFT_BEDS`, 0.4 to 0.9 m clear of the cage, dipping as one plane; a slot `SHAFT_PIT`
+  deep round the cage's floor; the shaft goes on to `SHAFT_TOP` over the ledge and is capped dark) and `build_shoring`
+  (Part `rim_shore`: six posts, caps, three cross timbers, a second set up the shaft, braces, lagging boards behind the
+  posts, the hoist's sheave, rope and bail). She sees it THROUGH the lattice: about a third of each wall, so it is a lit
+  thing with dark timber in front of it. Its light is one bake-only point light in the middle of the cage (`fill_shaft`,
+  `KS_RIM_SHAFT` watts, default 85; 0 switches it off). `SHAFT_DARK` is the rock's albedo toward `rock_dark`.
+- The opening's surround is darker than in round 5 so the opening carries the frame: `FACE_DARK` 0.88 (the face the
+  opening is cut in, seen from the cage), `JAMB_DARK` (0.62, 0.86), `fill_cage` leans east at 0.6 of `KS_RIM_CAGE` (the
+  afterglow is north-west: the west jamb is in its own shade), the floor under the cage is x 0.42. The jambs have real
+  beds now (`JAMB`: 0.16 to 0.22 m back, outward only: the 3 m opening is never narrowed).
+- 11 374 of 14 000 triangles. The driver takes `env_backdrop_dusk` as stale after any edit here (it imports this file).
+
+## Look team "exterior-look", pass i1 (the gully's dressing, the painted ground, the last image)
+
+- **`lip_dress.py`** (new; `lip_parts.build` calls it after the boulders): everything mid-scale in the gully and the
+  forecourt. **Nothing in it has a collider.** The rules that keep a body from meeting it: within about 1.5 m of a wall's
+  foot anything may stand (scree, slabs on edge, scrub, the trees' trunks, the cross-arm, the cart); on the open floor
+  nothing is over 0.33 m (the bedrock `plate`s lie WITH the slope, the one `drift` is 0.3 m); and `guard(part, f0, v0)`
+  takes back whatever was just added if any of it stands 0.3 to 1.85 m over the nav link's own floor within 0.55 m of a
+  link (`tests/art_env_exterior/openings.test.mjs` is the judge: it measures from the layout's floor, which lies up to
+  0.15 m under the drawn sand). Call `guard` after every new maker. `nav_dist` is to ALL links of the zone, not the
+  critical path.
+- **Triangles are the limit, chunk by chunk** (`DRESS lip: ...` in the build log; `node scratch/i1-team-exterior-look/chunks.mjs`):
+  `chunk_lip_gate` has 130 left, `chunk_lip_upper` 270, `chunk_lip_rock` 280, `chunk_lip_mid` 630. A tree is forced whole
+  into the chunk it stands in (`Part(chunk=...)`): left to the chunk rule its crown went to `chunk_lip_rock`. Keep trees
+  3.2 m from the chunk planes (z 30, 54) and bushes 1.3 m: a twig cut by a plane is a sliver `check-glb` calls thin.
+  Changing one threshold in the wall loop moves every later random number: check all four chunk counts again.
+- **`lip_parts.column_rows` has four more lightmapped rows** (two eye-level beds). `N3` is the row at 3 m, `UNDER_ROWS` and
+  `LIP_ROWS` say which rows are under a lip and which are lips; the wall charts' second coordinate is the length along
+  the profile. A column within 0.6 m of a chunk plane keeps its rows on its own side of it.
+- **`ground_paint.py`** (new; `bake_surface.py` calls `apply(S, img)` between the bake and `save_lightmap`): multiplies the
+  baked light of the ground charts by ruts, boot prints, the dry wash, the trodden line, wind streaks and the walls'
+  feet. A chart is painted only if its name starts with one of `LIP_CHARTS` / `YARD_CHARTS` AND it is planar from above
+  (the affine fit from UV1 to game (x, z) must hold to 5 cm: the sand wedges and the drum fail it and are left alone).
+  The lines it follows are functions of the layout (`lip_dress.path_points`, `wash_points`, `street_parts.rut_centre`) and
+  of `S.extra["lip"]["cart_site"]`: move the cart and its ruts follow. Street charts (`st_g_street`, the alleys) are not
+  painted. To add a mark: a function of numpy (X, Z) that returns a multiplier, multiplied in `paint_lip` / `paint_yard`.
+- **`drift()` takes `ground_col`**: the toe of a drift must take the ground sheet's own colour there (and stand 6 mm over
+  it, not under it), or it reads as a plate with a dark rim lying on the sand.
+- **The yard**: only two wall feet are more than 1.5 m from every nav link (the north-west corner and the south-west
+  corner by the shed); the bush and the tree stand there. The tree's trunk is half in the west wall's face.
+- **The last image**: `env_backdrop_dusk.foot_col` `ROSE` is `#A2605E` at 0.72 (the fins' north-west flanks hold the
+  afterglow); a `ridge`'s FACE is seen from 18 m up at 8 degrees and fills far more of the frame than its back slope,
+  so the light goes on the back slope (0.30) and the face stays dark (crest 0.045): lit faces read as pale slabs.
+  `env_far_rim`: no loose slab lies on the lip between x 0.5 and 6 (the ending's view from the stone).
+
+## Pass i2 (look team "exterior-look"): what a later builder needs to know
+
+- **`wall_paint.py`** (new; `bake_surface.py` calls `wall_paint.apply(S, img)` after `ground_paint.apply`): the weather of
+  every lightmapped surface that is not ground, painted into `lm_surface` after the bake (no triangle, texture or draw
+  call). `texel_map()` rasterises every charted triangle into the atlas (2 s), so each texel knows its game position,
+  its face's normal and its chart, whatever the chart's shape; a chart's paint runs 3.5 texels past its edge (the
+  bake's margin is 4). What a chart is, is decided by its NAME (`ADOBE`, `TIMBER`, `ROCK`, `CERAMIC` regular
+  expressions at the top of the painters): **a new wall chart is not painted until its name matches one of them**
+  (an adobe building's `st_<name>_f / _s` must be added to `ADOBE`'s list, a boarded one to `TIMBER`'s). The paints are
+  functions of the world position, so two charts of one wall plane agree at their seam. Multipliers are RGB (a stain may
+  be warm or cool) and clipped to 0.4 .. 1.7. Brick courses (0.19 x 0.42 m) are drawn only on charts with 12 texels a
+  metre or more (`dense`); the patch edges are 0.10 m soft because a texel is 6 cm.
+  `paint_shelf` is stop one's shelf (ART_BIBLE: no hearth, no ash; it stays a swept rock).
+- **Iterating on a paint without baking**: `scratch/i2-team-exterior-look/dev/run.sh` (bakes once with `KS_EXT_FAST`
+  into a `.npy`, then repaints and writes `public/assets/lm/lm_surface.webp` in 18 s). It overwrites the shipped
+  lightmap: finish with `node tools/build-assets.mjs --only env_exterior`.
+- **`tx_frontier_trim.py`**: the `strata` row's beds are +-0.13 of the sheet (the art bible's whole range), with varnish
+  streaks under every bedding plane and two pale seams; the `adobe` row's sweep and broad tone are half as strong again.
+  Regions did not move. Every rock face and adobe wall in the game takes it (interiors too: the Tally House's walls).
+- **The sky draws the clouds** (`src/render/sky.ts`, `CLOUD_DAY` / `CLOUD_DUSK`): `env_backdrop_day` no longer builds its
+  five cloud cards (`KS_EXT_CARD_CLOUDS=1` brings them back for a look); it is 1 539 of 2 000 triangles.
+- **The forecourt has ONE strip no nav link crosses**: x 20.9 .. 21.3 along the east rock's foot (the fence stands there),
+  and the south-west corner x 2.5 .. 8, z 6 .. 9. Everywhere else `guard()` takes a post back. `chunk_lip_gate` has about
+  45 triangles left.
+- **The ceramic main in the third reach** (`lip_main`): its crown is 0.12 m over the LOWER of the drawn sand and the nav
+  floor (`kit.path_ground`); 0.21 m over the drawn sand failed `openings.test.mjs` where the nav floor lies a hand under it.
+- **`b_ruin`**: the front walls run to 0.66 m from the door's middle (into the frame's posts). At 0.78 daylight showed
+  between the wall and the leaning post.
+- **`rim_town_card`'s pylon** stands at game (-7.7, 61): west of every line from the ledge (x -2 .. 30) to the fire, so it
+  never crosses the fire; from the stone it stands in front of the town's east end, left of the Rule.
+- **`tests/art_env_exterior/tiers.test.mjs`** (new, the real game): Low against High at five exterior stops (floors 5.5
+  to 7 of 255; measured 7.4 to 11.6) and the Rule's lean on screen (5.9 degrees from the gully, 8.6 from the rim).
+
+## Pass i3 (look team "exterior-look"): what a later builder needs to know
+
+- **Stop one is a blanket, not a rock shelf** (`lip_built.build_blanket`; the fixer's ruling, GDD 23.16): folded once, 1.5 x
+  0.92 m, two layers with a dark line between them on the three open sides, pale and rust end stripes as per-face
+  colours on grid lines that follow them, its east end still rolled (`lip_bedroll`, vertex-lit). One lightmapped chart
+  `lip_blanket` at density 2.5, planar from above; `ground_paint.paint_lip` reads `S.extra["lip"]["blanket"]` and lays
+  its contact shadow on the sand. `wall_paint.paint_shelf` is no longer called by anything. No fire, no ash, no stones.
+- **`lip_dress.build_i3`** (called at the end of `lip_dress.build`, with its OWN random stream: nothing of passes i1 / i2
+  moves when it changes). Each part is forced into its chunk (`lip_i3_upper / _mid / _gate`, `_blocks`, `lip_i3_bones`).
+  Makers: `carcass` (a mule's bones, never over 0.3 m), `sawbuck`, `talus` (stones retinted to the wall's lower beds:
+  pale cap-rock stones in shade read as lit shards), `fallen_block`, `line_pole`, the hanging line across the second
+  reach (its strand's insulators end 2.3 m over the floor), the fallen shade roof in the forecourt (all under 0.3 m: the
+  court is nav floor and the jug puzzle's line of fire), bedrock plates in the last reach. **Triangles now: `chunk_lip_upper`
+  8 471 of 8 500 (nothing left), `chunk_lip_mid` 4 733 of 6 000, `chunk_lip_gate` 6 197 of 6 500.**
+- **`lip_dress.SHAFTS` + `surface_common.add_fills`**: three more shafts of the low sun across the gully's floor (the
+  walls stand 12 to 16 m over a floor the 14 degree sun never reaches). Each is a bake-only SPOT 3.7 m over the floor
+  (`SHAFT_RISE`), 17 000 W (`KS_EXT_SHAFTS`; 0 switches them off), whose shape is its own shader (`notch_gobo`: an ellipse
+  in the light's frame with a noise-ragged edge; no blocker mesh, which would shade the sky's light under it). At 52 000 W
+  with a plain cone they were three white discs. **`src/render/system.ts` `GULLY_SHAFT_TO / _FROM` repeat the same
+  numbers** (the High tier draws each shaft in the air): move a shaft in both places.
+- **`wall_paint.GAIN`**: every weather term at 1.3 to 1.5 times its strength about 1 (clip 0.34 .. 1.8); `paint_rock` has a
+  damp base band a pace high over the gully's floor and a silt line over it (`_floor_y`: the critical path's height by z).
+  `yd_drum`'s chart is at density 1.8 (29 texels a metre): the rivet rows are drawn.
+- **`plug_door_tally` is a recess** (the card, a soffit and two reveals, 8 triangles): past the shut leaves the eye went by
+  the single card to the sky. The street's four drawn nodes count against the zone's sum: 48 039 of 48 200.
+- **`env_backdrop_day`**: the knob the Dowser stands on is 8.4 m wide (the figure is drawn 9 m wide);
+  `src/world/director.ts` `SIGHT_SINK` stands his card 5 % of its height into the rock.
+- **A FAST build is taken as current by the driver**: finish with
+  `node tools/build-assets.mjs --only env_the_lip,env_plenty_street,lm_surface,env_backdrop_day --force` (141 s).

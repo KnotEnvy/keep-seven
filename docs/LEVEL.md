@@ -56,7 +56,7 @@ forced reload, look up, the seventh.
 |---|---|
 | Overhang interior | x 8..20, z 101..110, floor y 14, ceiling y 17 (12 × 9 × 3) |
 | `player_start` / `cp_lip_start` | (16, 14, 107.5), facing north |
-| Stop one (`prop_camp_one`: **no ash, no fire**) | a swept patch of floor, a flat stone and his coffee pot at (11.5, 14, 104.5); `rd_note_lip` under a spent case (12.2, 14.05, 104.9); `pk_rounds_12_camp1` (10.8, 14, 105.4) |
+| Stop one (`prop_camp_one`: **no ash, no fire**) | a swept patch of floor, a flat stone and his coffee pot at **(14.4, 14, 102.9)**, where the overhang's shaft of sun lands, 18 degrees left of the opening view (pass i1; it was (11.5, 14, 104.5), out of the first frame); `rd_note_lip` under a spent case (14.273, 14.085, 102.946); `pk_rounds_12_camp1` (13.7, 14, 103.8) |
 | `trg_glare` (title, `card_i`, exposure ramp L0→L1 over 20 s) | z 95..99, just outside the mouth |
 | Jump ledge with `pk_rounds_6_ledge` | x 21..25, z 94..99, top y 14.5 (0.5 m step: the one optional jump) |
 | Gully | four wedge slopes, z 93→9, y 14→0, 14–20 m wide, six rock spurs alternating sides so each reach hides the next |
@@ -195,7 +195,7 @@ insulator at y 3.5 directly beneath.
 | Shutter | Window centre | Blade lands |
 |---|---|---|
 | `shutter_n` / `ia_latch_n` | (−96, 4.5, −36.3) | the share cloth at (−94.2, 3.87, −34.5); with the cloth down, the **day-cell** at (−92.5, 3.27, −32.8), hung from the tie-beam above the hatch |
-| `shutter_m` / `ia_latch_m` | (−96, 4.5, −30.5) | over the heads of the seated (it grazes one hood at x −87.85), onto the head chair (−85.5, 0.8, −20), then the hearthstone and firebox (−84.1, 0.3, −18.6). Lines: `nar_tally_chair`, `nar_tally_chair_2`, `nar_tally_hearth` |
+| `shutter_m` / `ia_latch_m` | (−96, 4.5, −30.5) | over the heads of the seated (it grazes one hood at x −87.85), onto the head chair (−85.5, 0.8, −20), then the hearthstone and firebox (−84.1, 0.3, −18.6). Lines: `nar_tally_chair`, `nar_tally_chair_2` (pass i1: `nar_tally_hearth` is `enc_tally`'s second clear line, `nar_ask` the third line of `trg_peg_stair`) |
 | `shutter_s` / `ia_latch_s` | (−96, 4.5, −24) | the tally wall at (−87, 1.33, −15): a 1.2 × 0.9 m patch on the south wall, 0.6 m east of the door jamb |
 
 `ia_cloth_cord` is at (−94.2, 4.72, −34.5). Stand spot (−86, 0, −23.5) sees all three
@@ -304,7 +304,7 @@ into fog toward a 9 m ceramic ring.
 | Vignette grate | `sp_hall_vig_bider` (−4.4, −15, −23.8), inside the slam ring |
 | Add grates | `sp_hall_grate_1/2` (12, −24.5 / −3.5) wave B at t = 40 s; `_3/4` (18, −22 / −6) wave C at t = 65 s. Clock only; a wave whose time comes with the Tamper dead is cancelled |
 | Ring + cage | cage interior **6 × 6 × 3.5 m** (x 21..27, z −17..−11, y −15..−11.5), gate on the west: `door_lift_cage` [G5], 6 × 3.5 m; `ia_lift_lever` (26.8, −13.8, −14) on the wall opposite the gate; `lift_depart_hall` (24, −15, −14); ride `ride_lift_hall` → `lift_arrival_bore` |
-| Wall diagram | `prop_hall_diagram` on the east wall at z −21.5, 4 m tall; `trg_hall_diagram` |
+| Wall diagram | `prop_hall_diagram` on the east wall at z −21.5, 4 m tall; `trg_hall_diagram` is the floor before the ring, x 12..20.4, z −24..−11 (pass i1: on the way to the cage; it was 4 × 5 m at the diagram's foot) |
 | After-fight cache | `pk_rounds_12_cage`, `pk_canteen_cage` at (18.8, −15, −9.6 / −8.4) |
 | Secret `sec_cold_bay` | bay x 2..10, z 1..7; shutter `door_cold_bay` x 4.5..7.5 (`pierce`); `knot_cold_bay` (3, −13.4, 1.12) seen through a 0.4 m slot in the south wall in line with rib s3 (x 3); inside `ia_line_locker_secret`, `pk_rounds_12_cold_bay`, `rd_plate_service`, the clean Tamper |
 
@@ -530,3 +530,122 @@ The layout is final (268 markers); what follows is behaviour in `src/world` that
   the afterglow through its opening (sub-mood `L6c` beyond z 111.8). No collider, footprint or marker changed.
 - **Section 5, the lift hall's ring** stands at level 1.0 (1.5) with panel joints round it. The pocket beside
   `lh_ramp_cabinet` is unchanged (known gap).
+
+## 13. Release pass p0 (closer, 2026-10-07): the level as released
+
+No collider, nav node, footprint or marker changed in this pass (`design/layout.json` differs from round 5 only by
+`trg_stone`'s `endAfterSeconds` 40 and the objective `obj_rim_choice`, the fixer's). What a player meets differently:
+
+- **Section 2, the yard.** Three Transits (it was four: the bell vignette's own Transit was handed to the wave a second
+  time). A packet of six lies 1.9 m inside the yard door from the first wave on (made by the director at about
+  (-81.4, 0, -0.3); it should become a `pk_rounds_6` marker when the layout is next opened). The loft bell rings by
+  itself the first time she is within 22 m with no fight on.
+- **Section 4, the file.** The rear pair hurry (7.5 m/s) while more than 18 m off and unseen; the three warnings arrive
+  with their waves. The lift hall's cold-bay door has a faint violet halo at its foot until its secret is found.
+- **Section 5, the lift hall.** `lh_ramp_cabinet` is dressed on all four faces. The pocket beside it is unchanged.
+- **Section 6, the bore.** The antechamber has four beams on pilasters and a corbel over the stair's door (in the bake;
+  no collider). The stair has pale nosings and a third lamp on its lower flight. The asking is paced by its lines.
+- **Section 7, the rim.** The proving lift arrives in a timbered shaft head 0.4 to 0.9 m clear of the cage. RULE for
+  anyone editing `env_far_rim`: no zone face inside the cage envelope x 12..16, z 112..116 below 3.5 m, or within
+  0.25 m outside it. Stepping back from the stone is warned of (`nar_stone_wait`, 10 s before the 40 s run out); the
+  north edge asks once before it takes her. The Windlass's death re-saves `cp_boss_proven`; the end card clears the save.
+- **Section 1, the overhang.** A shaft of sun in the air from the roof's notch to the sun patch (both tiers); the run
+  hint is raised at the glare trigger on the walk down the gully.
+
+## 14. Pass i1 (cross-cutting fixer, 2026-10-07)
+
+Four changes to `design/layout.json`, all through `tools/gen_layout.mjs` (309 solids, 268 markers, 472 nav nodes: the
+counts are unchanged; no solid moved):
+
+| Marker | Was | Now | Why |
+|---|---|---|---|
+| `prop_camp_one`, `rd_note_lip`, `pk_rounds_12_camp1` | (11.5, 14, 104.5) and offsets | (14.4, 14, 102.9) and the same offsets | the first two narrator lines describe the pot and the note; they were out of the opening frame. The camp now lies in the shaft of sun |
+| `shutter_m.lines`, `enc_tally.onClear.lines`, `trg_peg_stair.lines` | four lines on the shutter | two on the shutter; `nar_tally_hearth` after `nar_nine`; `nar_ask` after the pegs' two | at five seconds a shutter the room's lines were dropped or said rooms later |
+| `trg_hall_diagram` | pos (17.5, −15, −21.5), size 4 × 3 × 5 | pos (16.2, −15, −17.5), size 8.4 × 3 × 13 | the only lines that say what the seventh round is were off the critical path |
+| `trg_lamps.lines` | two | + `nar_lamps_hers` (world drops it when nobody was freed) | the lamp count was never tied to the ones she freed |
+
+Every asset was rebuilt after the change (the build hashes the three design files); `env_the_lip` and `lm_surface`
+carry the camp at its new place.
+
+## 15. Pass i1 (closer, 2026-10-07): the level as built by the pass's teams
+
+One change to `design/layout.json` (through `tools/gen_layout.mjs`; counts unchanged, no solid or trigger moved):
+`prop_tally_seated.params.seats[*].rotY` is -85, -97, -87, -94, -82 on the west side and 84, 94, 82, 93 on the east
+(they were all exactly -90 or 90: nine parallel pairs of shoulders).
+
+As built, in code or art, with the layout as it stands:
+
+| Where | Now |
+|---|---|
+| Stop one (`rd_note_lip`) | the spent case over the note glints (0.35 s every 2.5 s) from the line that names it until the note is read or she is 14 m on |
+| The gully and the forecourt | no drawn thing over 0.33 m on the open floor; scree, slabs, scrub, four dead trees, a cart's wreck and a cross-arm at the walls' feet; **nothing with a collider was added** (`collider_terrain` is byte-identical) |
+| The yard latch (`knot_yard_latch`) | described from 16 m (`src/world/interact.ts` `KNOT_SEEN`; a constant, not a layout field) |
+| The sighting (`vista_dowser`) | once the tally door has opened, half a second off him ends it |
+| The Tally House | a dado, a peg rail, the watch slate, shelves and a yoke on the walls; the tally wall's chalk reads across the whole wall |
+| The peg stair (`trg_watcher`) | the lines start on a look at `prop_watcher` (the convention `prop_<name>` is what `trg_<name>` is about); the niche has a pilot lamp and a glint in its mouth |
+| The lift hall (`trg_hall_diagram`) | the lines also start on a look at the drawing from within 26 m once the Tamper is down; a pier of the ring still hides it from the hall's centre line |
+| The bore's catwalk (`vista_windlass`) | a knee rail at 0.5 m between the viewing bay's jambs (x 12.6 to 16.2): the first look at the Windlass is clear |
+| The proving lift | the cage stands inside its shaft |
+| The rim (`trg_lamps`, `trg_stone`) | `nar_rim_1..3` are never dropped; a take before the stone's first line is answered with `nar_stone_short`; the end card keeps the save of `cp_rim` |
+
+Carried as constants or conventions in code, wanted as layout fields by the world team and not done: the knot's sight
+distance, `trg_watcher.subject` / `trg_hall_diagram.subject`, and `exit_rim.armedWhen` still says 25 s where the game
+waits 40.
+
+## 16. Pass i2 (closer, 2026-10-07): the level as built by the pass's teams
+
+Changes to `design/layout.json` (through `tools/gen_layout.mjs`; counts unchanged, no solid, trigger or nav node
+moved): `trg_pz_asking.reaskSeconds` is **50** (quiet seconds; it was 20) and its note names the asking's own hint
+ladder; the notes of `trg_watcher`, `trg_hall_diagram` and `prop_cup_two` say what the game now does.
+`design/story.json`: `nar_tally_cloth` is never stale; `stn_parley_2` and `stn_parley_3` are held 3.5 s.
+
+As built, in code or art, with the layout as it stands (where a row differs from section 15, this one holds):
+
+| Where | Now |
+|---|---|
+| The gully | the Rule leans 6 degrees (9 from the rim) |
+| The third reach of the gully | a length of ceramic main crosses it wall to wall, crown 0.12 m over the floor: **no collider** (`collider_terrain` unchanged) |
+| The forecourt | a broken stock fence on the strip along the east rock's foot, the only strip of the court no nav link crosses |
+| The sighting (`vista_dowser`) | the figure is about 56 px tall at 720p |
+| The Tally House (`prop_cup_two`) | `nar_tally_hearth` is said at the hearth (turned to the cup within 3 m, or on opening `rd_note_hearth`); the fight's end is the fallback |
+| The peg stair (`trg_watcher`) | the lines are said only on a look at the figure (28 degrees, 9 m, a clear line, 0.4 s); crossing without a look says nothing |
+| The lift hall (`trg_hall_diagram`) | the lines start when the drawing has been in view (30 degrees, 26 m) once the Tamper is down; the floor alone says nothing; within 3.5 m of the cage they are said anyway. A ride waits up to 8 s for its own lines |
+| The antechamber (`trg_pz_asking`) | the question is asked again after 50 quiet seconds; hints at 30 / 45 / 210 / 300 s on Normal |
+| The bore's catwalk (`vista_windlass`) | **no rail in the viewing bay**: it is open from 0.08 m to 1.75 m between its jambs and is held by the layout's blocker alone. If that blocker ever moves the bay needs a rail again |
+| The Windlass's asking | the inspection opens 21.5 s after the seal and phase 1 begins at 26.5 s |
+| The rim (`trg_lamps`, `trg_stone`) | once a branch is decided: the lamps' untold lines, the branch's lines, the fire's two; unsaid scenery lines are dropped. `obj_rim_choice` stands on screen inside `trg_stone`. The eased last view rests 7 degrees above the fire on its bearing; the town card's dead pylon stands at game (-7.7, 61) |
+
+Wanted and not done: a nav-free patch in the forecourt's middle (for a scree fan or a wreck) and about 1 500 more
+triangles for `chunk_lip_gate`; hint thresholds for the asking as layout numbers (they are in the trigger's note).
+
+## 17. Pass i3 (cross-cutting fixer, 2026-10-07): what opens the pass
+
+No solid, marker, trigger, nav node or encounter changed: `design/layout.json` is byte-identical to pass i2.
+
+| Where | Ruling |
+|---|---|
+| The gully and the forecourt | `chunk_lip_upper` 8 500, `chunk_lip_mid` 6 000 and `chunk_lip_gate` 6 500 triangles (were 7 000, 4 000, 5 000): section 16's "about 1 500 more for the forecourt" is given, and 3 500 more for the reaches above it. The rule of section 15 stands: no drawn thing over 0.33 m on the open floor, nothing with a collider added |
+| A nav-free patch in the forecourt's middle | **declined**: the forecourt is the jug puzzle's floor and the test player's path. Low things (to 0.33 m) may lie anywhere; taller ones go at the wall feet or on the strip along the east rock |
+| Stop one | his blanket, folded or rolled, may lie on the swept patch (no fire, no ash, no ring of stones) |
+| The yard | `obj_yard` reads "The yard is not empty." (the knot still sets it) |
+| The rim | `chunk_rim_ledge` 16 000 and `rim_town_card` 1 200 triangles (were 14 000 and 600) for the last image |
+
+## 18. Pass i3 (closer, 2026-10-07): the level as built by the pass's teams
+
+No solid, marker position, nav node or encounter changed. `design/layout.json` differs from pass i2 in five places:
+`trg_enc_windlass.params.parley` is five keys (the roll-call is one line, `stn_parley_3` is gone), and four triggers
+carry a note that says where their new behaviour lives (it is constants in `src/world/director.ts`, not layout fields).
+
+| Where | As built |
+|---|---|
+| `trg_peg_stair` | the peg lines also begin on a look down the open hatch at the first flight's coats, or on flight 1 from its second step (`ALSO_AT`: a second volume, bottom centre (-90.25, -4.5, -33), size 6.5 x 4.1 x 2); `nar_pegs_2` is dropped with her more than 2.5 m into the bay (`STAIR_LINES`). The stair's strips put 0.5 on the low pegs and reach 6 m: three pools in a dim slot |
+| `trg_enc_street` | the gate posts show card II and say `nar_plenty`; the fight and `nar_kneeler` start within 24 m of the kneeler when she looks at it, within 20 m anyway, or on a round into it (`HELD_START`). `dbg.checkpoint` and a second attempt start it at the gate as before |
+| `trg_windlass_seen`, `trg_ante_enter` | look gates (`LOOK_GATES`): section 23.17 of the GDD. `dbg.checkpoint('cp_bore_ante')` flags `trg_windlass_seen` as fired |
+| `trg_glare` | `nar_rule` waits for a look at the Rule (`RULE_COS`, 38 degrees) |
+| The interact reach | 3.0 m for the prompt and the key |
+| The gully (`env_the_lip`) | new dressing, none with a collider: a mule's bones and pack saddle (z 87), the Old World's line hanging rim to rim (z 72, insulators 2.3 m over the floor), talus and eight fallen blocks under the walls, a rockfall over the third reach's floor, two Frontier line poles and a third down in the last reach, a fallen shade roof in the forecourt (under 0.3 m). `chunk_lip_upper` 8 471 of 8 500, `chunk_lip_mid` 4 733 of 6 000, `chunk_lip_gate` 6 197 of 6 500 triangles. Stop one is the folded blanket. Three baked patches of sun across the floor of the first three reaches |
+| The sighting | the card stands 5 % of its drawn height into the rim's knob (8.4 m wide) |
+| The bore (`env_the_bore`) | the kerb's arrises are 90 mm rounds, the seam of the bore's light 80 mm in a 220 mm inlay; 39 825 of 40 000 triangles (175 left). No collider or lamp-set name changed |
+| The proving bay | `prop_sighting_loop` is an instrument stand (pedestal, post, forked cradle); the ring and the sight line are where they were |
+| The rim | the eased last view looks 12 degrees over the fire |
+| The peg stair's chunks | `chunk_gl_stair` and `chunk_gl_bay` are 4 000 triangles each again (the fixer had cut them to 3 200), paid by `chunk_lh_hall` 28 500 -> 26 900 (built 25 380). The real game drew 56 280 triangles from `cell_gallery_stair` against a ledger of 55 190: the gallery's instanced dressing is submitted whole from every cell of the zone and the 28 coats are 184 triangles each. The cell's ledger is 57 175; the Low cap is 120 000 |

@@ -175,7 +175,7 @@ test('phase 3a: HAULING is said once in the phase; the charge line repeats every
   } finally { await game.close(); }
 });
 
-test('the Windlass teaching line (polish round 3, R2): it is said once at the first haul of every try, the first included, and only when story.json has the key', async () => {
+test('the Windlass teaching line (polish round 3, R2): it is said once at the first haul of a try begun by a debug jump (release p0: a real retry does not repeat it, tests/enemies/release_p0.test.mjs), the first included, and only when story.json has the key', async () => {
   const game = await openScene('bore');
   try {
     const r = await inPage(game, async (dbg, e, core) => {

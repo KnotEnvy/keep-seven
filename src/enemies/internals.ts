@@ -107,6 +107,8 @@ export class Actor implements HitReceiver {
   resume = 'approach';
   resumeFor = 0;
   hood = 1;
+  /** it runs faster while far from her and outside her view (BIDER.hurryWaves: the rear pair of the file) */
+  hurry = false;
   tint = 0;
   cup: AssetInstance | null = null;
   cause: 'crown' | 'line' | 'kept' = 'crown';
@@ -144,6 +146,12 @@ export class Actor implements HitReceiver {
   chargedAt = -1e9;
   flinch = 0;
   ringX = 0; ringY = 0; ringZ = 0;
+  /** module time before which it starts no attack (release pass p0: the pause after a slam that landed, however the slam's state ends) */
+  quietUntil = -1e9;
+  /** slams that have hurt her since it woke (the ring hint is said on `TAMPER.hintAfterSlams`) */
+  slamsLanded = 0;
+  /** slams in a row that have hurt her (a miss ends the row): the pause grows from the second (`TAMPER.slamAfterRun`) */
+  slamsRun = 0;
 
   constructor(readonly index: number, private readonly shared: Shared) {}
 

@@ -1,4 +1,4 @@
-"""The eight game materials. In this project a material is a NAME: the runtime replaces each by name
+"""The nine game materials. In this project a material is a NAME: the runtime replaces each by name
 (`render.material()`), and GLBs ship no textures (ARCHITECTURE 7.2, 8.1; ART_BIBLE 4.4).
 
     m_frontier  tx_frontier_trim   world shader: vcol x detail x 2 x baked light
@@ -8,7 +8,8 @@
     m_mask      tx_mask            alpha test 0.5 (signage, grilles, cards)
     m_emis      tx_palette_emis    unlit lamp sets: COLOR_0 R = intensity, G = flicker group, B = wrong_fade
     m_prop      tx_palette (+ emis) every dynamic or instanced object: palette x COLOR_0 x runtime light
-    m_gun       tx_gun + matcap    the revolver only
+    m_gun       tx_gun + matcap    the revolver only (+ tx_gun_detail: one channel of height, ruling R14)
+    m_hands     tx_hands           the view-model's hands and forearms only (+ tx_hands_detail; ruling R14)
 
 `game_material(name)` is the only way a mesh should get a material. The node tree it builds is a PREVIEW (vertex
 colour x the shared texture when its raw PNG exists in blender/export/tex/), so Cycles renders and bakes resemble
@@ -46,7 +47,7 @@ def game_material(name, preview=True):
     m.use_backface_culling = True
     nt = m.node_tree; N = nt.nodes; L = nt.links
     b = N["Principled BSDF"]
-    b.inputs["Roughness"].default_value = 0.85 if name != "m_gun" else 0.35
+    b.inputs["Roughness"].default_value = 0.35 if name == "m_gun" else 0.6 if name == "m_hands" else 0.85
     b.inputs["Metallic"].default_value = 0.0                    # metals are painted, never simulated (ART_BIBLE 2.2)
     vc = N.new("ShaderNodeVertexColor"); vc.layer_name = "Color"
     colour = vc.outputs["Color"]

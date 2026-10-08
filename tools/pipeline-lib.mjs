@@ -37,7 +37,7 @@ export function pieceOf(M, id) {
     default: return PIECES[e.owner] ?? 'foundation-pipeline';
   }
 }
-export const GAME_MATERIALS = ['m_frontier', 'm_pellam', 'm_sand', 'm_flat', 'm_mask', 'm_emis', 'm_prop', 'm_gun'];
+export const GAME_MATERIALS = ['m_frontier', 'm_pellam', 'm_sand', 'm_flat', 'm_mask', 'm_emis', 'm_prop', 'm_gun', 'm_hands'];   // m_hands: ruling R14 (the view-model's hands)
 export const FPS = 30;
 
 /** Pull `--manifest <file>` (or KS_MANIFEST_OVERLAY) out of argv. Returns the overlay path or null. */

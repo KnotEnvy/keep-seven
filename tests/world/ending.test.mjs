@@ -2,7 +2,7 @@
 // fail-safes; lamps on the end card = 9 + freed = the windows lit.
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mark, marker, open, server, takeRound } from './lib.mjs';
+import { STORY, mark, marker, open, server, takeRound } from './lib.mjs';
 
 let srv;
 before(async () => { srv = await server(); });
@@ -78,10 +78,17 @@ test('the leave branch: 40 quiet seconds AWAY from the stone after its lines (ro
     const walk = await game.walkTo(EXIT.pos[0] - 6, EXIT.pos[2] + 0.2, { stopRadius: 0.5, maxTicks: 400 });
     void walk;
     await game.run([{ steps: 5 }]);
+    // release pass p0: the edge is not taken as her answer unsaid. The warning is said as she steps onto it, and the
+    // leave begins only once it has been heard to its end with her still on the edge
+    assert.equal((await ending(game, seq))['ending/stone'], undefined, 'stepping onto the edge does not end it on the spot');
+    const warn = (await game.events(seq, 'story/line')).find((x) => x.payload.key === 'nar_stone_wait');
+    assert.ok(warn, 'the warning line is said on the edge');
+    await game.until({ event: 'ending/stone' }, 10 * 60);
     const e = await ending(game, seq);
-    assert.ok(e['ending/stone'] && e['ending/stone'].payload.taken === false, 'walking into the edge strip after the stone ends it');
+    assert.ok(e['ending/stone'] && e['ending/stone'].payload.taken === false, 'staying on the edge through the warning ends it');
+    assert.ok(e['ending/stone'].tick >= warn.tick + Math.round(warn.payload.seconds * 60), 'not before the warning has been heard to its end');
     const stoneT = (await game.events(seq, 'story/line')).find((x) => x.payload.key === 'nar_stone_1').tick;
-    assert.ok(e['ending/stone'].tick - stoneT < 25 * 60, 'before the 25 s');
+    assert.ok(e['ending/stone'].tick - stoneT < 32 * 60, 'the edge is still the short way out (well before the 40 s clock)');
   } finally { await game.close(); }
 });
 
@@ -128,11 +135,22 @@ test('R5: a brisk take keeps the lamps lines (the end card counts lamps); once s
     for (const k of ['nar_lamps', 'nar_lamps_count', 'nar_take_1', 'nar_take_2', 'nar_fire', 'nar_last']) assert.ok(lines.includes(k), `${k} was said (${lines.join(' ')})`);
     // polish round 4: what describes a round she has already pocketed is not said ("And a seventh, unfired" came 25 s after)
     // polish round 5: none of the stone's four ("Six spent cases on a flat stone" came 11 s after the take)
-    for (const k of ['nar_stone_1', 'nar_stone_2', 'nar_stone_3', 'nar_stone_4', 'nar_rim_2', 'nar_rim_3']) assert.ok(!lines.includes(k), `${k} is not said after the round is taken (${lines.join(' ')})`);
-    // round 5 (R12): the take is answered at once; the lamps follow it; the fire waits for the lamps
-    assert.ok(order(lines, 'nar_take_1', 'nar_take_2') && order(lines, 'nar_take_2', 'nar_lamps') && order(lines, 'nar_lamps_count', 'nar_fire'), `take, lamps, fire (${lines.join(' ')})`);
+    for (const k of ['nar_stone_1', 'nar_stone_2', 'nar_stone_3', 'nar_stone_4']) assert.ok(!lines.includes(k), `${k} is not said after the round is taken (${lines.join(' ')})`);
+    // pass i2 (both story reviewers: the Rule's lean and the lamp count were said between "Seven again." and the fire):
+    // the lamps' lines first and unbroken, then the one condensed stone line, the take's two, the fire's two. Nothing
+    // else after the take, and the rim's scenery lines that had not been said are not said
     const tookAt = (await ending(game, seq))['ending/stone'].tick;
-    assert.ok((await game.events(seq, 'story/line')).find((x) => x.payload.key === 'nar_take_1').tick - tookAt <= 1, 'nar_take_1 on the take');
+    const said = await game.events(seq, 'story/line');
+    const after = said.filter((x) => x.tick >= tookAt).map((x) => x.payload.key);
+    // pass i3 (story reviewer b: the take was answered 13 s late, after the lamp count and a description of the stone
+    // she had emptied; story reviewer a: the Rule's lean, the cost of the mending, was never said to a brisk player):
+    // the take's two lines on its tick; then the lamps' lines, unbroken; then the thread and the Rule against it (never
+    // lost); then the fire's two. `nar_stone_short` is not said of a stone she has emptied.
+    assert.deepEqual(after, ['nar_take_1', 'nar_take_2', 'nar_lamps', 'nar_lamps_count', 'nar_rim_2', 'nar_rim_3', 'nar_fire', 'nar_last'], `take, lamps, the Rule, fire and nothing between (${lines.join(' ')})`);
+    assert.ok(said.find((x) => x.payload.key === 'nar_take_1').tick - tookAt <= 1, 'the take is answered on its tick');
+    assert.ok(!lines.includes('nar_stone_short'), 'no description of the stone after it is emptied');
+    const gap = (a, b) => said.find((x) => x.payload.key === b).tick - (said.find((x) => x.payload.key === a).tick + Math.round(STORY.lines[a].seconds * 60));
+    for (const [a, b] of [['nar_take_1', 'nar_take_2'], ['nar_take_2', 'nar_lamps'], ['nar_lamps', 'nar_lamps_count'], ['nar_lamps_count', 'nar_rim_2'], ['nar_rim_2', 'nar_rim_3']]) assert.ok(gap(a, b) <= 20, `${b} straight after ${a} (${gap(a, b)} ticks)`);
     const card = (await game.events(seq, 'ending/card')).at(-1);
     assert.ok((await game.events(seq, 'story/line')).every((x) => x.tick + Math.round(x.payload.seconds * 60) <= card.tick + 1), 'every line is over before the card');
   } finally { await game.close(); }
@@ -142,6 +160,7 @@ test('R5: a brisk take keeps the lamps lines (the end card counts lamps); once s
     await game.run([{ call: ['teleport', STONE.pos[0], STONE.pos[1], STONE.pos[2], 90, 0] }, { steps: 2 }]);
     await game.until({ event: 'story/line_end', where: { key: 'nar_stone_4' } }, 60 * 60);
     await game.run([{ call: ['teleport', EXIT.pos[0] - 6, EXIT.pos[1], EXIT.pos[2] + 0.2, 0, 0] }, { steps: 3 }]);
+    await game.until({ event: 'ending/stone' }, 10 * 60);            // (p0: after the warning line, with her still on the edge)
     assert.equal((await ending(game, seq))['ending/stone'].payload.taken, false, 'the edge: she walks on');
     // back at the stone while the narrator says she left it: no prompt, and E does nothing
     await game.run([{ call: ['teleport', STONE.pos[0], STONE.pos[1], STONE.pos[2], 90, 0] }, { steps: 3 }, { aimAt: ROUND.pos, steps: 3 }]);
@@ -177,7 +196,8 @@ test('R5: the fire kindles in her view: the view is eased to it; with reduce-mot
     await game.dbg('setOption', 'reduceMotion', true);
     const seq = await mark(game);
     await game.run([{ call: ['teleport', STONE.pos[0], STONE.pos[1], STONE.pos[2], 90, 0] }, { steps: 5 }, ...takeRound(ROUND)]);
-    await game.until({ event: 'story/line_end', where: { key: 'nar_take_2' } }, 120 * 60);
+    // (pass i3: the take's lines, the lamps, then the Rule's line; the fire waits for the last of them)
+    await game.until({ event: 'story/line_end', where: { key: 'nar_rim_3' } }, 120 * 60);
     await game.run([{ steps: 8 * 60 }]);
     assert.equal((await ending(game, seq))['ending/fire'], undefined, 'reduce-motion: the view is hers, and the fire waits for it');
     assert.equal((await game.state()).systems.world.ending.turning, false);

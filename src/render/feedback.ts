@@ -22,6 +22,8 @@ export const SHOOTABLE_VFX: Readonly<Partial<Record<EntityKind, VfxId>>> = {
 export const AMBIENT_VFX: readonly (readonly [VfxId, number])[] = [['embers', 0.33], ['steam', 0.66]];
 
 const MAX_PICKUPS = 32;
+/** how far a deflected round's spark is thrown off the plate, metres (the streak itself is LINE_STYLE.ricochet.streak of it) */
+export const RICOCHET_M = 1.6;
 const GLINT_EVERY = 2.5;
 
 export class Feedback {
@@ -68,7 +70,7 @@ export class Feedback {
       const m = this.muzzle;
       if (!this.seen || !this.seen(e, m)) { m.x = e.mx; m.y = e.my; m.z = e.mz; }
       vfx.burst('powder_smoke', m.x, m.y, m.z, e.dx, e.dy, e.dz);
-      if (e.ammo === 'lead_round') vfx.line('tracer', m.x, m.y, m.z, e.endX, e.endY, e.endZ);
+      if (e.ammo === 'lead_round') vfx.lineFromMuzzle('tracer', m.x, m.y, m.z, e.endX, e.endY, e.endZ);
       else if (e.ammo === 'line_round') vfx.line('line_round', m.x, m.y, m.z, e.endX, e.endY, e.endZ);
       // kept_round: nothing more; its flash and the ring come by the direct calls and by boss/proven
     });
@@ -80,7 +82,22 @@ export class Feedback {
           break;
         case 'deflected':
           vfx.burst('plate_spark', e.x, e.y, e.z, e.nx, e.ny, e.nz);
-          vfx.line('ricochet', e.x, e.y, e.z, e.x + e.ricochetX * 6, e.y + e.ricochetY * 6, e.z + e.ricochetZ * 6);
+          {
+            // underground look, pass i1 (visual reviewer: "a one-pixel line from the hit straight up out of the frame: a
+            // glitch, not a ricochet"). It was the mirrored direction drawn 6 m long: a round that meets a plate head-on
+            // comes back along the view, so the line always stood on the crosshair and left the frame. Now a spark's
+            // length (RICOCHET_M), thrown off the plate: the mirror direction leaned toward the surface's normal and to
+            // one side of it (the side is the hit point's own hash: the same shot draws the same streak)
+            let rx = e.ricochetX * 0.55 + e.nx * 0.45, ry = e.ricochetY * 0.55 + e.ny * 0.45, rz = e.ricochetZ * 0.55 + e.nz * 0.45;
+            const hsh = Math.sin(e.x * 12.9898 + e.y * 78.233 + e.z * 37.719) * 43758.5453, side = (hsh - Math.floor(hsh)) < 0.5 ? -1 : 1;
+            // a tangent of the surface: n x up (n x east where the surface is a floor or a ceiling)
+            let tx = -e.nz, ty = 0, tz = e.nx;
+            if (tx * tx + tz * tz < 0.04) { tx = 0; ty = e.nz; tz = -e.ny; }
+            const tl = Math.hypot(tx, ty, tz) || 1;
+            rx += tx / tl * 0.6 * side; ry += ty / tl * 0.6 * side + 0.15; rz += tz / tl * 0.6 * side;
+            const rl = Math.hypot(rx, ry, rz) || 1, len = RICOCHET_M / rl;
+            vfx.line('ricochet', e.x, e.y, e.z, e.x + rx * len, e.y + ry * len, e.z + rz * len);
+          }
           break;
         case 'hit': case 'weak': case 'kill': case 'freed':
           vfx.burst(BODY_VFX[e.entityKind] ?? (surface !== '' ? surface : 'impact_ceramic'), e.x, e.y, e.z, e.nx, e.ny, e.nz);

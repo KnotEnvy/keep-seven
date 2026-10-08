@@ -62,18 +62,26 @@ def build_shell(rng):
 
     PLASTER = tuple(ic.mix("adobe", "board_dark", 0.38))                # four days shut, generations of lantern smoke
     BASE = tuple(ic.mix("adobe_base", "board_dark", 0.35))
+    # look pass i1 (visual reviewer: "the walls are large bare orange planes with little value structure"): a painted
+    # dado, as such halls have: the wall under the chair rail is an ox-blood earth wash, worn back to the plaster in
+    # patches and scuffed pale at chair height. A dark band under a mid wall under a smoked top: three values a wall.
+    DADO = tuple(ic.mix(ic.mix("adobe_base", "rust", 0.35), "board_dark", 0.66))
+    SMOKE = tuple(ic.mix(PLASTER, "board_dark", 0.45))
 
     def adobe_cell(tag):
         def cell(i, j, uc, vc):
             rr = random.Random(f"pl:{tag}:{i}:{j}")
             if vc < 0.4: return {"tint": BASE, "row": 2.0, "vbase": 0.0}
-            if vc < 2.0:                                               # plaster fallen from the lower metre: soft patches of the base colour
+            if vc < 2.0:                                               # the dado to the rail (1.2 m); above it plaster
                 def patch(p):
-                    if p[1] > 1.3: return PLASTER
+                    if p[1] > 1.21: return PLASTER
                     t = random.Random(f"pf:{tag}:{p[0]:.1f}:{p[1]:.1f}:{p[2]:.1f}").random()
-                    return tuple(ic.mix(PLASTER, BASE, 0.85 if t < 0.3 else (0.35 if t < 0.5 else 0.0)))
+                    if p[1] > 1.19: return DADO                        # a clean line under the rail
+                    return tuple(ic.mix(DADO, BASE if t < 0.5 else PLASTER, 0.75 if t < 0.16 else (0.3 if t < 0.36 else 0.0)))
                 return {"tint": patch, "row": 2.0, "vbase": 0.0}
-            return {"row": 3.0, "vbase": 2.0, "vrange": (0.32, 1.0), "tint": PLASTER}
+            def smoke(p):                                              # the top metre and a half is lantern smoke
+                return tuple(ic.mix(PLASTER, SMOKE, min(1.0, max(0.0, (p[1] - 2.6) / 1.8))))
+            return {"row": 3.0, "vbase": 2.0, "vrange": (0.32, 1.0), "tint": smoke}
         return cell
 
     def wall(tag, o, u, v, a, b, normal, extra_u=(), extra_v=(), skip=None, pinned=(), hi_lm=False):
@@ -191,6 +199,7 @@ def build_shell(rng):
             s = 1 if e == 0 else -1
             add(ic.from_faces(f"corbel_{k}_{e}", _corbel(x, y - r0 + 0.01, z, s), "m_frontier", "board_dark", None, away_from=(x + s * 0.2, y - r0 - 0.05, z)))
     build_wall_timber(rng)
+    build_wall_dressing(rng)
     tb = ic.box("tie_beam", (X0 - 0.12, 4.45, -32.925), (X1 + 0.12, 4.70, -32.675), "m_frontier", "board", "plank_a", bevel=0.02, drop="x- x+", tess=1.0)
     add(tb)
     for e, x in enumerate((X0, X1)):                                    # knee braces
@@ -240,6 +249,74 @@ def build_wall_timber(rng):
         f = [[(x + sx * c, ys[i], z), (x, ys[i], z + sz * c), (x, ys[i + 1], z + sz * c), (x + sx * c, ys[i + 1], z)] for i in range(len(ys) - 1)]
         if k == 3: continue                                            # the tally board turns that corner
         add(ic.from_faces(f"corner_{k}", f, "m_frontier", tuple(ic.mix("adobe", "board_dark", 0.38)), "adobe", away_from=(x - sx * 0.1, 2.5, z - sz * 0.1)))
+
+
+def build_wall_dressing(rng):
+    """Look pass i1 (visual reviewer: "three of four headings at the entry and at the hatch are blank wall"): what a
+    water-share hall keeps on its walls. West wall: a peg rail of long dippers and tin measures under the south shutter,
+    and the watch slate (who draws, which day) by the door. East wall: two shelves of stoppered bottles between the
+    barred doors and the hearth. South wall, west of the door: the carrying yoke on its two pegs. All vertex-lit zone
+    geometry on m_frontier, no collider: nothing stands more than 0.26 m off a wall, above the chair rail."""
+    xw, xe = X0, X1
+    # ---- west wall: the peg rail, z -27.3 .. -22.0 at 1.78 m
+    add(ic.box("peg_rail_w", (xw, 1.72, -27.3), (xw + 0.035, 1.84, -22.0), "m_frontier", "board", "plank_b", bevel=0.008, drop="x-", tess=1.0))
+    pegs = [-26.9, -26.1, -25.3, -24.5, -23.7, -22.9, -22.4]
+    for k, z in enumerate(pegs):
+        add(ic.box(f"peg_w_{k}", (xw + 0.03, 1.765, z - 0.016), (xw + 0.15, 1.797, z + 0.016), "m_frontier", "board_dark", None, bevel=0, drop="x-"))
+    def dipper(k, z, L, swing, tint):
+        """A long-handled dipper hung by its handle's eye: the bowl at the bottom."""
+        objs = [ic.box(f"dipper_h_{k}", (-0.016, -L, -0.022), (0.016, 0.0, 0.022), "m_frontier", "board_bleached", None, bevel=0, drop="y+"),
+                ic.cyl(f"dipper_b_{k}", (0.0, -L - 0.19, 0.0), (0.0, -L + 0.01, 0.0), 0.115, 6, "m_frontier", tint, None, radius_b=0.095, cap=True)]
+        ic.transform(objs, Matrix.Translation(B((xw + 0.125, 1.765, z))) @ Matrix.Rotation(math.radians(swing), 4, 'X'))
+        for o in objs: add(o)
+    for k, (i, L, sw, tint) in enumerate(((0, 0.62, 2.0, "tin"), (1, 0.55, -3.0, ic.mix("tin", "rust", 0.35)), (2, 0.66, 1.0, "tin"), (4, 0.58, -2.0, ic.mix("tin", "board_dark", 0.4)))):
+        dipper(k, pegs[i], L, sw, tint)
+    # two tin measures by their handles' loops, and a hank of cord
+    for k, (i, r, h) in enumerate(((5, 0.07, 0.17), (6, 0.05, 0.12))):
+        z = pegs[i]
+        add(ic.cyl(f"measure_{k}", (xw + 0.105, 1.75 - h * 1.3, z), (xw + 0.105, 1.75, z), r * 1.35, 6, "m_frontier", ic.mix("tin", "board_dark", 0.25 * k), "tin", cap=True))
+    # a strain cloth folded over its peg: two leaves of unequal length
+    for j, (dx, y_lo, hw) in enumerate(((0.07, 1.22, 0.17), (0.10, 1.38, 0.15))):
+        add(ic.box(f"peg_cloth_{j}", (xw + dx, y_lo, pegs[3] - hw), (xw + dx + 0.025, 1.80, pegs[3] + hw + 0.02 * j), "m_frontier", tuple(ic.mix("linen", "adobe_base", 0.62 + 0.14 * j)), None, bevel=0.01, drop="x-", tess=0.5))
+    # ---- west wall by the door: the watch slate, 2.2 x 0.95 m, between the posts at z -21.4 and -17.0
+    z0, z1, y0, y1 = -20.5, -18.3, 1.5, 2.45
+    xs_ = xw + 0.03
+    add(ic.box("slate_board", (xw, y0, z0), (xs_, y1, z1), "m_frontier", tuple(lin("board_dark") * 0.8), "plank_b", bevel=0, drop="x-", tess=1.2))
+    add(ic.box("slate_head", (xw, y1 - 0.01, z0 - 0.05), (xs_ + 0.025, y1 + 0.07, z1 + 0.05), "m_frontier", "board", "plank_a", bevel=0.008, drop="x-", tess=1.2))
+    add(ic.box("slate_foot", (xw, y0 - 0.07, z0 - 0.05), (xs_ + 0.06, y0 + 0.01, z1 + 0.05), "m_frontier", "board", "plank_a", bevel=0.008, drop="x-", tess=1.2))
+    items = []
+    xc = xs_ + 0.004
+    for r in range(4):                                                  # four households to a watch: mark, then the days drawn
+        ya, yb = y1 - 0.14 - (r + 1) * 0.19, y1 - 0.14 - r * 0.19 - 0.03
+        zl = z1 - 0.12                                                  # read left (south, +z) to right (north)
+        items.append(([(xc, ya, zl), (xc, ya, zl - 0.16), (xc, yb, zl - 0.16), (xc, yb, zl)], "family_marks", (r * 5 + 3) % 12, tuple(lin("chalk") * 0.85)))
+        for c in range(4 if r < 3 else 2):
+            za = zl - 0.24 - c * 0.42
+            items.append(([(xc, ya, za), (xc, ya, za - 0.36), (xc, yb, za - 0.36), (xc, yb, za)], "tally", 0 if (r + c) % 3 else 2, tuple(lin("chalk") * (0.8 if r < 3 else 0.95))))
+    items.append(([(xc, y1 - 0.13, z1 - 0.1), (xc, y1 - 0.13, z0 + 0.1), (xc, y1 - 0.07, z0 + 0.1), (xc, y1 - 0.07, z1 - 0.1)], "tally", 3, tuple(lin("chalk") * 0.7)))
+    add(ic.decals("slate_chalk", items, "chalk"), dec)
+    # ---- east wall: two shelves between the posts at z -25.65 and -21.4 (the bottles on them are dressing instances)
+    for k, (y, za, zb_) in enumerate(SHELVES):
+        add(ic.box(f"shelf_e_{k}", (xe - 0.24, y - 0.035, za), (xe, y, zb_), "m_frontier", "board", "plank_a", bevel=0.008, drop="x+", tess=1.0))
+        for j, z in enumerate((za + 0.25, zb_ - 0.25)):
+            add(ic.from_faces(f"shelf_br_{k}_{j}", [[(xe, y - 0.035, z - 0.02), (xe - 0.2, y - 0.035, z - 0.02), (xe, y - 0.26, z - 0.02)],
+                                                    [(xe, y - 0.035, z + 0.02), (xe, y - 0.26, z + 0.02), (xe - 0.2, y - 0.035, z + 0.02)],
+                                                    [(xe - 0.2, y - 0.035, z - 0.02), (xe - 0.2, y - 0.035, z + 0.02), (xe, y - 0.26, z + 0.02), (xe, y - 0.26, z - 0.02)]],
+                              "m_frontier", "board_dark", None, away_from=(xe, y - 0.1, z)))
+    # ---- south wall, west of the door: the carrying yoke on two pegs, its two cords hanging
+    ys_ = 1.9; zs_ = Z1
+    for k, x in enumerate((-93.7, -92.3)):
+        add(ic.box(f"peg_s_{k}", (x - 0.018, ys_ - 0.05, zs_ - 0.16), (x + 0.018, ys_ - 0.015, zs_ - 0.02), "m_frontier", "board_dark", None, bevel=0, drop="z+"))
+    yoke = ic.box("yoke", (-94.0, ys_ - 0.015, zs_ - 0.13), (-92.0, ys_ + 0.075, zs_ - 0.05), "m_frontier", "board_bleached", "plank_a", bevel=0.02, tess=0.7)
+    ic.transform([yoke], Matrix.Translation(B((-93.0, ys_, zs_ - 0.09))) @ Matrix.Rotation(math.radians(-1.6), 4, 'Y') @ Matrix.Translation(-B((-93.0, ys_, zs_ - 0.09))))
+    add(yoke)
+    for k, (x, L) in enumerate(((-93.93, 0.52), (-92.07, 0.44))):
+        add(ic.box(f"yoke_cord_{k}", (x - 0.018, ys_ - L, zs_ - 0.108), (x + 0.018, ys_, zs_ - 0.072), "m_frontier", "cord", None, bevel=0, drop="y+"))
+        add(ic.box(f"yoke_hook_{k}", (x - 0.03, ys_ - L - 0.07, zs_ - 0.105), (x + 0.03, ys_ - L, zs_ - 0.07), "m_frontier", "rust", None, bevel=0, drop="y+"))
+
+
+# the east wall's shelves: (top y, north z, south z)
+SHELVES = ((1.72, -25.3, -21.75), (2.28, -24.6, -22.3))
 
 
 def _has(mid):
@@ -479,6 +556,7 @@ def build_cowl():
 
 
 ASSET_NO = "4-031"
+CHALK_AMBIENT = 0.5
 
 
 def plate(number, pos, facing_deg, name="plate"):
@@ -588,6 +666,11 @@ def dressing():
         inst("prop_sack", None, (x, 0.0, z), r)
     for k, (x, y, z) in enumerate(((-88.75, 0.8, -19.7), (-89.3, 0.8, -22.6), (-83.5, 0.3, -17.0), (-95.4, 0.0, -18.0), (-84.9, 0.8, -35.9))):
         inst("prop_bottle", "bottle_a", (x, y, z), 37 * k)
+    # look pass i1: the east wall's shelves (build_wall_dressing)
+    for k, (s_, dz, node) in enumerate(((0, 0.35, "bottle_a"), (0, 0.62, "bottle_a"), (0, 1.5, "bottle_a"), (0, 2.6, "bottle_a"), (0, 2.85, "bottle_a"), (0, 3.1, "bottle_a"),
+                                        (1, 0.3, "bottle_a"), (1, 0.95, "bottle_a"), (1, 1.2, "bottle_a"), (1, 1.9, "bottle_a"))):   # one variant: the allowance is three instanced sets
+        y, za, zb_ = SHELVES[s_]
+        inst("prop_bottle", node, (X1 - 0.12 + 0.02 * ((k * 7) % 3 - 1), y, za + dz), 53 * k)
 
 
 # ====================================================================================================== light
@@ -685,7 +768,18 @@ def main():
     hatch.hide_render = False
     _, t_layer = ic.bake_layer(lm_objs, LAYER, [hatch])
     hatch.hide_render = True
+    # look pass i1: the chalk (decal quads 4 mm off a board) took NO ambient: the occlusion baked at its corners is that
+    # of a vertex lying on the board (0), so every row outside the lantern's reach and the blades was black, and the
+    # tally wall read as a blank dark board from the door. The decals take the room's ambient unoccluded, held to
+    # CHALK_AMBIENT of it (the rows read as rows in the gloom; the blade's patch and the lantern's end stay the bright part).
+    chalk = [o for o in vl_objs if o in dec]
+    chalk_base = {o.name: vcol.get_colors(o, "Color").copy() for o in chalk}
     t_vl = ic.bake_vertex(vl_objs, AMBIENT, ao_distance=2.5)
+    a3 = np.asarray(AMBIENT, dtype=np.float32)[None, :] * CHALK_AMBIENT / vcol.VERTEX_LIGHT_SCALE
+    for o in chalk:
+        c = vcol.get_colors(o, "Color")
+        c[:, :3] = np.clip(c[:, :3] + chalk_base[o.name][:, :3] * a3, 0.0, 1.0)
+        vcol.set_colors(o, c, "Color")
     for o in prelit: o.hide_render = False
     print(f"BAKED {LM} {t_lm:.1f}s, layer {t_layer:.1f}s, vertex light {sum(len(o.data.polygons) for o in vl_objs)} faces {t_vl:.1f}s; open floor ambient reads {AMBIENT.max():.3f} "
           f"({manifest_hex(AMBIENT)} x albedo); build {time.perf_counter() - t0:.1f}s")

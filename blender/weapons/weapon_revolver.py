@@ -36,6 +36,11 @@ ASSET = "weapon_revolver"
 MM = 0.001
 Z2Y = Matrix.Rotation(math.radians(-90.0), 4, 'X')            # a cartridge stands along +Z: lay it along +Y (nose forward)
 HALF_BACK = 0.75                                              # metres a band half sits behind its bone's cartridge
+# Pass i3 (the visual reviewer: "the kept round in its loading close-up is as thick as two gloved fingers, visibly too
+# large for the chamber it goes into"): a round in the left hand is 0.25 m from the eye and the cylinder 0.45 m, so a
+# true 12 mm case drew nearly twice a chamber's width. The rounds the hands hold, the kept round in its loop, its band
+# and the loop are this much of their true girth (their length stands; the world props and pickups are untouched).
+HAND_ROUND_K = R.HAND_ROUND_K
 
 
 def weight_all(ob, bone):
@@ -46,7 +51,7 @@ def band_half(name, sign):
     """Half of the kept round's band (enamel sleeve with the livery hairline), in its own frame: ring axis = X, the
     half bulges toward sign * Z, the centre of the round's axis at the origin. Millimetres -> metres."""
     bm = bmesh.new(); bm.loops.layers.uv.new("UVMap")
-    ro, ri = ammo.HAIR_R + 0.05, ammo.CASE_R + 0.02
+    ro, ri = (ammo.HAIR_R + 0.05) * HAND_ROUND_K, (ammo.CASE_R + 0.02) * HAND_ROUND_K
     xs = [(-4.5, "kept_band"), (-0.55, "livery"), (0.55, "kept_band"), (4.5, None)]
     n = 4; cols = {}
     def pt(x, r, k):
@@ -85,7 +90,7 @@ def half_rest_frame():
 def loop_strap(frame):
     """The leather loop on the cuff that holds the kept round near its head."""
     bm = bmesh.new(); bm.loops.layers.uv.new("UVMap")
-    n = 6; r = ammo.CASE_R + 1.3
+    n = 6; r = ammo.CASE_R * HAND_ROUND_K + 1.3
     rows = []
     for y in (2.5, 10.5):
         row = []
@@ -123,11 +128,12 @@ def build_arms():
     rh, RM = R.right_hand(); lh, LM = R.left_hand()
     parts = rh.build(RM) + lh.build(LM)
     fr = R.round_frames()
+    SLIM = Matrix.Diagonal((HAND_ROUND_K, HAND_ROUND_K, 1.0, 1.0))
     for name, kind, bone in (("lead", "lead", "round_hand_lead"), ("line", "line", "round_hand_line"), ("kept", "lead", "round_hand_kept")):
         ob = ammo.cartridge("h_round_" + name, kind, n=8, rim=True, nose="ogive2")
-        ob.data.transform(fr["pinch"] @ Z2Y); weight_all(ob, bone); parts.append(ob)
+        ob.data.transform(fr["pinch"] @ Z2Y @ SLIM); weight_all(ob, bone); parts.append(ob)
     ob = ammo.cartridge("h_round_loop", "kept", n=8, rim=True, nose="ogive2")
-    ob.data.transform(fr["loop"] @ Z2Y); weight_all(ob, "kept_loop"); parts.append(ob)
+    ob.data.transform(fr["loop"] @ Z2Y @ SLIM); weight_all(ob, "kept_loop"); parts.append(ob)
     parts.append(loop_strap(fr["loop"]))
     hf = half_rest_frame()
     for name, sign, bone in (("a", 1.0, "round_hand_lead"), ("b", -1.0, "round_hand_line")):
@@ -148,6 +154,15 @@ def paint(gun, arms):
         elif part in ("gate",): a[:, :3] = np.maximum(a[:, :3], 0.45)
         elif part == "cylinder": a[:, :3] = np.maximum(a[:, :3], 0.4)
         else: a[:, :3] = np.maximum(a[:, :3], 0.25)
+        if part == "frame":
+            # pass i2 (the visual reviewer: "a constant cyan-white stripe on the lower frame"): the ledge of the cylinder
+            # window lies 1 to 3 mm under the cylinder and faces straight up; its four corner vertices baked half open
+            # (they see out sideways) and the whole face took the sky. It is in the cylinder's shadow: the shader lets a
+            # texel this occluded mirror a fifth of the room (materials.ts GUN_OCC_*)
+            Mi = R.GUN_M.inverted(); R3 = Mi.to_3x3()
+            for poly in o.data.polygons:
+                n = R3 @ poly.normal; c = (Mi @ poly.center) * 1000.0
+                if n.z > 0.8 and -37.0 < c.z < -33.0 and -46.0 < c.y < 1.0: a[list(poly.loop_indices), :3] = 0.10
         vcol.set_colors(o, a, "AO")
     mn, mx = mesh.bounds(gun)
     for o in gun: vcol.compose_vertex_color(o, mode='tint', ao_strength=0.75, gradient=(0.80, 1.0), jitter=0.0, z_range=(mn.z, mx.z))
@@ -155,7 +170,8 @@ def paint(gun, arms):
         # AO is baked in the rest pose, where the fingers are curled on the grip or pinched on a round: clamp it, or the
         # fingers open in a clip as dark brown twigs on a pale glove
         digit = any(o.name.startswith(p) for p in ("h_index", "h_middle", "h_ring", "h_pinky", "h_thumb"))
-        a = vcol.get_colors(o, "AO"); a[:, :3] = np.maximum(a[:, :3], 0.78 if digit else (0.6 if o.name.startswith("h_palm") else 0.35))
+        own = o.data.materials[0].name == "m_hands"                # release pass p0 (R14): tx_hands is the albedo, COLOR_0 only shades it
+        a = vcol.get_colors(o, "AO"); a[:, :3] = np.maximum(a[:, :3], 0.72 if digit else (0.6 if o.name.startswith("h_palm") else (0.55 if own else 0.35)))
         mn_at = o.data.attributes.get("ao_min")
         if mn_at is not None:
             me = o.data
@@ -175,7 +191,7 @@ def paint(gun, arms):
             me.attributes.remove(src)
         vcol.set_colors(o, a, "AO")
         seam = "Seam" in o.data.color_attributes
-        vcol.compose_vertex_color(o, mode='ratio', ao_strength=0.8, gradient=(0.92, 1.04), jitter=0.0, keep=("Seam",) if seam else ())
+        vcol.compose_vertex_color(o, mode='tint' if own else 'ratio', ao_strength=0.8, gradient=(0.92, 1.04) if not own else (0.96, 1.0), jitter=0.0, keep=("Seam",) if seam else ())
         if seam:                                                 # the stitched seam along the back of every finger, darker
             c = vcol.get_colors(o, "Color"); m = vcol.get_colors(o, "Seam")
             c[:, :3] *= m[:, :3]

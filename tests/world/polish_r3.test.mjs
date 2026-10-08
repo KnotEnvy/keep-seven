@@ -89,8 +89,8 @@ test('an empty gun comes before "W A S D to walk": the reload hint takes the pla
     await game.run([{ steps: 250 }]);
     assert.ok((await hints(game, seq)).includes('ui_hint_move:true'), 'standing still: the move hint');
     seq = await mark(game);
-    // she stands where she is and pulls the trigger on an empty cylinder, twice
-    await game.run([{ call: ['emit', 'weapon/dry_fire', { reason: 'empty' }] }, { steps: 1 }, { call: ['emit', 'weapon/dry_fire', { reason: 'empty' }] }, { steps: 2 }]);
+    // she stands where she is with an empty cylinder and no reload running (pass i1: the hint is for a gun at rest)
+    await game.run([{ call: ['setAmmo', 0, 18, 0] }, { steps: 95 }]);
     let h = await hints(game, seq);
     assert.deepEqual(h, ['ui_hint_move:false', 'ui_hint_reload:true'], h.join(' '));
     assert.deepEqual((await game.state()).systems.world.interact.hints, ['ui_hint_reload']);

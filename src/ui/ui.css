@@ -21,7 +21,8 @@
   /* the six-and-one mark's own unit: it follows --u down to a legibility floor (mark.ts MARK_MIN_SCALE) and no further.
      --mki is how many of the mark's units make one screen pixel when that is more than one (set by the script on resize:
      CSS cannot divide two lengths), so the ring kick and the shiver are never under their screen-pixel sizes. */
-  --mk: max(var(--u), 1.08px);
+  /* pass i1: under 600 px of height the floor comes down with the height, to 0.72 px at the least (mark.ts markScale) */
+  --mk: max(var(--u), min(1.08px, max(0.72px, calc(100vh * 0.0018))));
   --mki: 1;
   --outline: -1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink), 1px 1px 0 var(--ink), 0 -1px 0 var(--ink), 0 1px 0 var(--ink), -1px 0 0 var(--ink), 1px 0 0 var(--ink);
   --sub-size: min(2.6vh, 2.25vw);
@@ -116,6 +117,8 @@
 @keyframes k7-kick-b { 0% { transform: translateY(0); } 25% { transform: translateY(calc(-2px * var(--mki))); } 100% { transform: translateY(0); } }
 .k7 .mark .lp { display: none; }
 .k7 .mark .lp.on { display: inline; fill: var(--aqua); stroke: var(--ink); stroke-width: 2; paint-order: stroke; }
+.k7 .mark .ll { font-family: var(--sans); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; fill: var(--aqua); stroke: var(--ink); stroke-width: 2.2; paint-order: stroke; stroke-linejoin: round; opacity: 0; transition: opacity 0.6s linear; }
+.k7 .mark .ll.on { opacity: 1; transition: opacity 0.2s linear; }
 .k7 .mark .rs { font-family: var(--sans); font-weight: 600; font-variant-numeric: tabular-nums; fill: var(--bone); stroke: var(--ink); stroke-width: 2.2; paint-order: stroke; stroke-linejoin: round; }
 
 .k7 .sv .so { fill: none; stroke: var(--bone); stroke-width: var(--s1); stroke-linejoin: round; }
@@ -159,6 +162,36 @@
 @keyframes k7-seg-a { 0% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 calc(var(--u) * 4) var(--pale); } 100% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 1px var(--ink); } }
 @keyframes k7-seg-b { 0% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 calc(var(--u) * 4) var(--pale); } 100% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 1px var(--ink); } }
 
+/* pass i1: low health (hud.ts LOW_HEALTH: the last segment is all she has). The three bars breathe a pale outline and
+   the frame's edge is inked in for as long as it lasts: a standing cue, in ink and bone (no red, no flash). The edge is
+   an inset shadow, not a colour ramp. Reduce flashes or reduce motion: the outline holds still. */
+.k7 .hud::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.6s linear;
+  box-shadow: inset 0 0 calc(var(--u) * 170) calc(var(--u) * 46) rgb(20 17 15 / 0.66); }
+.k7 .hud.low::after { opacity: 1; }
+.k7 .hud.low .seg:not(.fa):not(.fb) { animation: k7-low 1.3s ease-in-out infinite; }
+@keyframes k7-low { 0%, 100% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 1px var(--ink); } 50% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 max(3px, calc(var(--u) * 4)) var(--pale); } }
+.k7.rf .hud.low .seg:not(.fa):not(.fb), .k7.rm .hud.low .seg:not(.fa):not(.fb) { animation: none; box-shadow: 0 0 0 1px var(--ink), 0 0 0 max(2px, calc(var(--u) * 3)) var(--pale); }
+.k7.rm .hud::after { transition: none; }
+/* pass i3 (story reviewer b): the ink edge is nothing where the frame's edges are already dark (the Tally House, the
+   bore: at 5 HP only the emptied bars said so). While she is low a pale hairline stands just inside the frame with a
+   heavier bracket in each corner, breathing with the bars (bone on ink: seen on a dark room and on the glare alike),
+   and the three bars stand at nearly twice their size. It is drawn over the ink edge (z-index), not under it. Still no red, no flash; reduce flashes / motion: it holds still. */
+.k7 .lowf { position: absolute; inset: calc(var(--u) * 20); inset: round(calc(var(--u) * 20), 1px); z-index: 1; pointer-events: none; opacity: 0; transition: opacity 0.6s linear;
+  border: var(--hair) solid rgb(243 230 207 / 0.46); box-shadow: 0 0 0 1px rgb(20 17 15 / 0.45), inset 0 0 0 1px rgb(20 17 15 / 0.45); }
+.k7 .lowf i { position: absolute; width: calc(var(--u) * 104); height: calc(var(--u) * 104); border: 0 solid var(--pale); --w: max(3px, round(calc(var(--u) * 4.5), 1px));
+  filter: drop-shadow(0 0 1px var(--ink)) drop-shadow(0 0 1px var(--ink)); }
+.k7 .lowf .tl { left: calc(var(--hair) * -1); top: calc(var(--hair) * -1); border-left-width: var(--w); border-top-width: var(--w); }
+.k7 .lowf .tr { right: calc(var(--hair) * -1); top: calc(var(--hair) * -1); border-right-width: var(--w); border-top-width: var(--w); }
+.k7 .lowf .bl { left: calc(var(--hair) * -1); bottom: calc(var(--hair) * -1); border-left-width: var(--w); border-bottom-width: var(--w); }
+.k7 .lowf .br { right: calc(var(--hair) * -1); bottom: calc(var(--hair) * -1); border-right-width: var(--w); border-bottom-width: var(--w); }
+.k7 .hud.low .lowf { opacity: 1; animation: k7-lowf 1.3s ease-in-out infinite; }
+@keyframes k7-lowf { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+.k7.rf .hud.low .lowf, .k7.rm .hud.low .lowf { animation: none; opacity: 0.85; }
+.k7.rm .lowf { transition: none; }
+.k7 .health { transform-origin: left bottom; transition: transform 0.3s ease-out; }
+.k7 .hud.low .health { transform: scale(1.8); }
+.k7.rm .health { transition: none; }
+
 /* ---- boss: the name over 26 pips in groups of 10 / 10 / 6 */
 .k7 .boss { position: absolute; top: calc(var(--u) * 44); left: 0; right: 0; display: none; flex-direction: column; align-items: center; gap: calc(var(--u) * 9); }
 .k7 .boss.on { display: flex; }
@@ -174,12 +207,31 @@
 .k7 .txt.on { visibility: visible; }
 .k7 .cp { position: absolute; left: calc(var(--u) * 46); top: calc(var(--u) * 42); font-size: calc(var(--u) * 17); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; font-variant-numeric: tabular-nums; opacity: 0; transition: opacity 0.4s linear; }
 .k7 .cp.on { opacity: 1; transition: opacity 0.2s linear; }
-.k7 .card { position: absolute; left: 0; right: 0; top: 27%; top: round(27vh, 1px); display: flex; flex-direction: column; align-items: center; opacity: 0; transition: opacity 0.8s linear; }
-.k7 .card.on { opacity: 1; transition: opacity 0.6s linear; }
-/* a fight has begun under it (hud.ts CARD_FADE_QUICK) */
-.k7 .card.quick { transition: opacity 0.3s linear; }
-/* closer, polish round 3: the end card is ink at 80 % over the still-drawn dusk, so a title card still fading out under it would show through */
-.k7:has(.scr.end.on) .card, .k7:has(.scr.end.on) .card.on { opacity: 0; transition: none; }
+/* Pass i2: the work at hand, in play: under the checkpoint numeral for five seconds each time it changes (hud.ts
+   OBJECTIVE_SECONDS), in the pause screen's own words and faces (a brass label, the line in the serif), on a soft ink
+   ground like the card's. Not drawn under a sheet or a menu, nor behind the end card. */
+.k7 .obj { position: absolute; left: calc(var(--u) * 46); top: calc(var(--u) * 76); max-width: min(calc(var(--u) * 470), 44vw); opacity: 0; transition: opacity 0.6s linear; isolation: isolate; }
+.k7 .obj.on { opacity: 1; transition: opacity 0.3s linear; }
+.k7 .obj::before { content: ''; position: absolute; inset: calc(var(--u) * -14) calc(var(--u) * -22); z-index: -1; pointer-events: none; background: rgb(20 17 15 / 0.42); filter: blur(calc(var(--u) * 14)); }
+.k7 .obj-label { font-size: max(10px, calc(var(--u) * 13)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; color: var(--brass); }
+.k7 .obj-line { text-wrap: balance; font-family: var(--serif); font-size: max(14px, calc(var(--u) * 22)); line-height: 1.3; margin-top: calc(var(--u) * 5); }
+.k7.modal .obj { visibility: hidden; }
+/* pass i3: the bore door's live question under the work at hand, in the station's own face (aqua capitals) with its
+   count in bone ("IDENTIFY STATION.  1 OF 3"); the pause screen's work at hand carries the same line */
+.k7 .obj-ask { display: none; align-items: baseline; flex-wrap: wrap; gap: 0 1em; margin-top: calc(var(--u) * 9); font-family: var(--sans); font-size: max(11px, calc(var(--u) * 15)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; color: var(--aqua); }
+.k7 .obj-ask.on { display: flex; }
+.k7 .obj-ask .ask-n { color: var(--bone); opacity: 0.88; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.k7 .pause-side .obj-ask.on { margin: calc(var(--u) * -24) 0 calc(var(--u) * 30); font-size: max(11px, calc(var(--u) * 16)); }
+.k7:has(.scr.end.on) .obj, .k7:has(.scr.end.on) .obj.on { opacity: 0; transition: none; }
+/* Release pass p0: the movement card stands in the UPPER THIRD (12 % down; it was 27 %, its numeral on the crosshair's
+   own band: on the Tamper down the aisle, on the windmill of the last vista), on a soft ink ground (a blurred ink ellipse: no colour ramp) with an ink halo round the letters (bone on the peach sky of the rim was a pale outline). Its opacity is written by the script from
+   the card's own tick clock (hud.ts drawCard), not a transition on the wall clock. */
+.k7 .card { position: absolute; left: 0; right: 0; top: 12%; top: round(12vh, 1px); display: flex; flex-direction: column; align-items: center; opacity: 0; isolation: isolate;
+  text-shadow: var(--outline), 0 0 0.16em rgb(20 17 15 / 0.9), 0 0 0.5em rgb(20 17 15 / 0.7); }
+.k7 .card::before { content: ''; position: absolute; left: 50%; top: 50%; width: min(56vh, 62vw); height: 118%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none;
+  border-radius: 50%; background: rgb(20 17 15 / 0.34); filter: blur(min(4.5vh, 4.5vw)); }
+/* closer, polish round 3: the end card is ink over the still-drawn dusk, so a title card still fading out under it would show through */
+.k7:has(.scr.end.on) .card, .k7:has(.scr.end.on) .card.on { opacity: 0 !important; }
 /* nor a checkpoint numeral (R5: nothing stands behind the end card) */
 .k7:has(.scr.end.on) .cp, .k7:has(.scr.end.on) .cp.on { opacity: 0; transition: none; }
 .k7 .card-num { font-family: var(--serif); font-size: min(9vh, 9vw); line-height: 1; height: round(up, 1em, 1px); }
@@ -189,6 +241,9 @@
 .k7 .card.single .card-title { display: none; }
 
 .k7 .talk { position: absolute; left: 0; right: 0; bottom: 8%; display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 10); }
+/* pass i2: at the asking's dial (hud.ts DIAL_VOLUME) the column stands on the frame's bottom margin and the backing thins */
+.k7 .txt.dial .talk { bottom: 1.4%; }
+.k7 .txt.dial .sub { background: rgb(20 17 15 / calc(var(--sub-bg, 0.6) * 0.45)); }
 .k7 .sub { display: none; padding: calc(var(--u) * 12) calc(var(--u) * 20); background: rgb(20 17 15 / var(--sub-bg, 0.6)); font-size: var(--sub-size); line-height: 1.3; text-align: center; white-space: pre; }
 .k7 .sub.on { display: block; }
 .k7.no-sub .sub.on { display: none; }
@@ -213,10 +268,27 @@
    (polish round 5) over the gauges: the health bars stood under "Restore defaults" and the boss pips under the heading */
 .k7.full .txt, .k7.full .hud .xh { display: none; }
 .k7.full .hud.on { visibility: hidden; }
+/* pass i1: the story cards of a first run lie over its first frame alone: no gauges, no checkpoint numeral under them */
+.k7.intro .txt, .k7.intro .hud { display: none; }
 /* the pause screen shows the mark enlarged and named: the HUD's own, now in the pause column's corner, is not drawn under it */
 .k7.veil .hud .mark { visibility: hidden; }
-.k7 .prompt.hint { top: 64%; }
-.k7 .prompt.aqua { color: var(--aqua); }
+/* pass i1: a key hint stands in the lower third, the top of the talk column: just above the caption and the subtitle
+   at every subtitle size, and low in the frame when nothing is being said (it stood at 64 %, 110 px under the
+   crosshair and across the revolver's barrel). It keeps its place in the column when it is not drawn. */
+.k7 .prompt.hint { position: static; margin-bottom: calc(var(--u) * 6); }
+/* pass i3 (story reviewer a): the interact prompt ("E  Read") is the row above the hint, not a line 60 px under the
+   crosshair: it lay on the proving plate's pictogram and the stone's cases and touched the muzzle. It takes no room
+   when it is not drawn (the hint and the subtitle under it never move when it comes). */
+.k7 .prompt.row { position: static; display: none; margin-bottom: calc(var(--u) * 4); }
+.k7 .prompt.row.on { display: block; animation: k7-row 0.2s linear both; }
+.k7.rm .prompt.row.on { animation: none; }
+.k7 .prompt.row.aqua { transform: none; }
+/* pass i2 (story reviewer): "break the band" is the prompt the stage turns on, and thin aqua capitals were lost on the
+   bore's pale aqua floor. It stands in bone on the subtitle's ink backing, its key in a cap FILLED with the proving
+   aqua (ink letters), so it is still the aqua prompt and reads on any floor. */
+.k7 .prompt.aqua { color: var(--bone); left: 50%; right: auto; transform: translateX(-50%); padding: calc(var(--u) * 9) calc(var(--u) * 18) calc(var(--u) * 9) calc(var(--u) * 12); background: rgb(20 17 15 / 0.62); }
+.k7 .prompt.hint.aqua { transform: none; }
+.k7 .prompt.aqua .key { background: var(--aqua); border-color: var(--aqua); color: var(--ink); text-shadow: none; font-weight: 700; box-shadow: 0 0 0 1px var(--ink); }
 .k7 .key { display: inline-block; min-width: 1.9em; padding: 0.22em 0.4em 0.18em 0.58em; margin: 0 0.2em; border: var(--hair) solid currentColor; box-shadow: 0 0 0 1px var(--ink), inset 0 0 0 1px var(--ink); text-align: center; line-height: 1.1; }
 
 /* ============================================================== screens */
@@ -226,6 +298,9 @@
 /* the pause screen stands over the live frame, whatever it is (the boss room's lamp column showed through the enlarged
    mark at 70 %) */
 .k7 .pause.scrim { background: rgb(20 17 15 / 0.78); }
+/* pass i1: the options are a page of small type: the revolver and a lit scene behind it competed with the key table at
+   70 % */
+.k7 .options.scrim { background: rgb(20 17 15 / 0.86); }
 .k7 .menu { display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--u) * 12); }
 .k7 .mi { position: relative; padding-left: calc(var(--u) * 24); font-size: max(13px, calc(var(--u) * 22)); text-transform: uppercase; font-weight: 500; letter-spacing: 0.08em; cursor: pointer; white-space: nowrap; }
 .k7 .mi.off { display: none; }
@@ -237,15 +312,48 @@
 /* from the title the ink comes up over the live doorway shot instead of cutting to it (at boot it is there at once) */
 .k7 .loading.soft { animation: k7-row 0.25s linear both; }
 .k7.rm .loading.soft { animation: none; }
-.k7 .loading { background: var(--ink); flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 18); text-shadow: none; }
-.k7 .load-text { font-size: max(12px, calc(var(--u) * 16)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; padding-left: 0.18em; }
-.k7 .load-line { width: calc(var(--u) * 260); height: var(--hair); background: var(--brass-dim); }
-.k7 .load-line i { display: block; height: 100%; background: var(--brass); transform-origin: left center; transform: scaleX(0); }
+.k7 .loading { background: var(--ink); text-shadow: none; }
+/* pass i3 (R15; story reviewer b): the title frame, out of focus and dim, behind the name (system.ts dressLoading: the
+   share picture, set by the script once it has arrived; index.html's pre-boot page has the same). Its own words are
+   lost in the blur, and its name is above the frame (the box is taller than the frame by a third at the top, so the
+   picture's top fifth, where the share picture prints the name, is never seen). When the load ends in the title, the words of the loading screen go at once and the picture
+   fades off the live shot (`.out`), which core is bringing up from black: the title comes into focus. */
+.k7 .load-bg { position: absolute; inset: -32% -4vh -6% -4vh; background-size: cover; background-position: 50% 50%; filter: blur(1.3vh) brightness(0.42) saturate(0.9); opacity: 0; transition: opacity 0.9s ease-out; }
+.k7 .load-bg.in { opacity: 1; }
+.k7 .load-bg.cut, .k7.rm .load-bg { transition: none; }
+.k7 .loading.out { display: flex; background: transparent; pointer-events: none; animation: k7-load-out 0.7s ease-in both; }
+.k7 .loading.out > :not(.load-bg) { display: none; }
+@keyframes k7-load-out { from { opacity: 1; } to { opacity: 0; visibility: hidden; } }
+/* pass i1 (R15): the load is the title arriving. The name and the mark are the title's own, in the title's place (the
+   rules of `.title-head` below; index.html's pre-boot page draws the same two before any script runs), and the word
+   and the line stand where the menu will. The line is two pixels of dim brass; the brass on it is the share of the
+   files that are in, and a pale glint crosses it while the page works, so a slow line never looks stopped (the glint
+   is a transform: it moves while the script is busy decoding). */
+.k7 .load-foot { position: absolute; left: 7%; bottom: 13%; display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--u) * 14); padding-left: calc(var(--u) * 24); }
+.k7 .load-text { font-size: max(12px, calc(var(--u) * 16)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; opacity: 0.85; }
+.k7 .load-line { position: relative; overflow: hidden; width: max(180px, calc(min(calc(var(--u) * 84), 7vw) * 9.72 - var(--u) * 24)); height: max(2px, calc(var(--u) * 2)); background: var(--brass-dim); }
+.k7 .load-line i { display: block; height: 100%; background: var(--brass); transform-origin: left center; transform: scaleX(0); transition: transform 0.35s ease-out; }
+/* pass i2: the files are in; the line eases on through the build and the warm-up (no event tells of them) */
+.k7 .load-line.tail i { transform: scaleX(0.985); transition: transform 7s cubic-bezier(0.1, 0.6, 0.3, 1); }
+.k7.rm .load-line.tail i { transition: none; }
+/* pass i2: one line in the narrator's voice under the mark, where the title's sub-title will stand */
+.k7 .load-says { font-family: var(--serif); font-style: italic; font-size: max(14px, calc(var(--u) * 24)); line-height: 1.3; opacity: 0.88; white-space: nowrap; }
+.k7 .load-line::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 16%; background: var(--bone); opacity: 0.5; animation: k7-load 1.5s ease-in-out infinite; }
+@keyframes k7-load { from { transform: translateX(-110%); } to { transform: translateX(640%); } }
+.k7.rm .load-line::after { animation: none; display: none; }
+.k7.rm .load-line i { transition: none; }
 
 /* ---- title: the name in the dark upper left, the column in the dark lower left */
+/* release pass p0 (R15): on a first load the picture comes up from black over 0.7 s (core, loop.ts CANVAS_FADE_MS); the
+   title's words come up with it instead of standing on black (only after a load: `rise` is not set when a sheet or
+   the options close). The menu answers from the first frame. */
+/* pass i1: the name and the mark were already there on the loading screen, so they stand; what comes up is the rest */
+.k7 .title.on.rise .title-sub, .k7 .title.on.rise > .menu, .k7 .title.on.rise .title-ask { animation: k7-row 0.7s ease-out both; }
+.k7.rm .title.on.rise .title-sub, .k7.rm .title.on.rise > .menu, .k7.rm .title.on.rise .title-ask { animation: none; }
 .k7 .title-head { position: absolute; left: 7%; top: 11%; }
 .k7 .title-name { font-family: var(--serif); font-weight: normal; font-size: min(calc(var(--u) * 84), 7vw); letter-spacing: 0.3em; line-height: 1; margin: 0; white-space: nowrap; }
-.k7 .pm { height: max(calc(var(--u) * 28), 26px); width: max(calc(var(--u) * 18.2), 16.9px); margin: calc(var(--u) * 26) 0 calc(var(--u) * 12) calc(var(--u) * 4); }
+/* pass i2: the mark at twice its size (it was 17 x 26 px at 720p: too small to read as six and one) */
+.k7 .pm { height: max(calc(var(--u) * 56), 52px); width: max(calc(var(--u) * 36.4), 33.8px); margin: calc(var(--u) * 26) 0 calc(var(--u) * 16) calc(var(--u) * 4); }
 /* the title's glyph stands on the live shot (the glare, at worst): the same 1 px ink outline as every other glyph */
 .k7 .title-head .pm { filter: drop-shadow(1px 0 0 var(--ink)) drop-shadow(-1px 0 0 var(--ink)) drop-shadow(0 1px 0 var(--ink)) drop-shadow(0 -1px 0 var(--ink)); }
 .k7 .pm-stroke { stroke: var(--brass); }
@@ -261,7 +369,22 @@
 .k7 .title-ask .menu { position: static; }
 .k7 .title.asking > .menu { display: none; }
 .k7 .title.asking .title-ask { display: flex; }
-.k7 .ask-head { font-family: var(--serif); font-size: max(17px, calc(var(--u) * 30)); letter-spacing: 0.2em; margin: 0 0 calc(var(--u) * 16) calc(var(--u) * 24); }
+.k7 .ask-head { font-family: var(--serif); font-size: max(17px, calc(var(--u) * 30)); letter-spacing: 0.12em; margin: 0 0 calc(var(--u) * 8) calc(var(--u) * 24); }
+/* what Begin costs, said once under the question (release pass p0: ui_ask_begin_note) */
+.k7 .ask-note { font-family: var(--serif); font-style: italic; font-size: max(13px, calc(var(--u) * 21)); margin: 0 0 calc(var(--u) * 20) calc(var(--u) * 24); opacity: 0.92; }
+
+/* pass i2 (story reviewer): in a frame narrower than 3:2 the title shot's sunlit camp (the pot: the first story object)
+   comes left, under the column: "The story so far" ran onto the lit sand and the pot. There the column, the question
+   and the loading line stand on the frame's dark bottom band, under the camp. */
+@media (max-aspect-ratio: 3/2) {
+  .k7 .title .menu, .k7 .title-ask, .k7 .load-foot { bottom: 5.5%; }
+  .k7 .title .title-ask .menu { bottom: auto; }
+  .k7 .title .menu { gap: calc(var(--u) * 9); }
+  /* pass i3 (story reviewer a): at 4:3 "The story so far" still ended on the edge of the lit sand round the pot. The
+     column and the question stand on the objective's soft ink ground there (a blurred ink box: no colour ramp) */
+  .k7 .title > .menu, .k7 .title-ask { isolation: isolate; }
+  .k7 .title > .menu::before, .k7 .title-ask::before { content: ''; position: absolute; inset: calc(var(--u) * -18) calc(var(--u) * -34) calc(var(--u) * -18) calc(var(--u) * -30); z-index: -1; pointer-events: none; background: rgb(20 17 15 / 0.56); filter: blur(calc(var(--u) * 18)); }
+}
 
 /* ---- pause */
 /* the column never runs under the work at hand (which starts at 57 %): a long item wraps instead (polish round 5: at
@@ -316,12 +439,12 @@
 .k7 .cho.on .cb { background: var(--brass); border-color: var(--brass); }
 .k7 .sw { display: inline-block; width: max(10px, calc(var(--u) * 15)); height: max(10px, calc(var(--u) * 15)); border-radius: 50%; background: var(--c); box-shadow: 0 0 0 1px var(--ink), 0 0 0 calc(1px + var(--hair)) var(--brass-dim); }
 .k7 .cho.on .sw { box-shadow: 0 0 0 1px var(--ink), 0 0 0 calc(2px + var(--hair)) var(--brass); }
-.k7 .desc { grid-column: 2; font-family: var(--serif); font-style: italic; font-size: 0.95em; opacity: 0.9; padding: calc(var(--u) * 2) 0 calc(var(--u) * 6); }
+.k7 .desc { grid-column: 2; font-family: var(--serif); font-style: italic; font-size: max(12px, 0.95em); opacity: 0.9; padding: calc(var(--u) * 2) 0 calc(var(--u) * 6); }
 .k7 .row.head { --rh: max(20px, calc(var(--u) * 34)); margin-top: calc(var(--u) * 8); }
-.k7 .row.head .lab { color: var(--brass); font-weight: 600; letter-spacing: 0.18em; font-size: 0.8em; }
+.k7 .row.head .lab { color: var(--brass); font-weight: 600; letter-spacing: 0.18em; font-size: max(12px, 0.8em); }
 .k7 .binds { display: grid; grid-template-columns: 1fr 1fr; column-gap: calc(var(--u) * 40); }
 .k7 .row.bind { grid-template-columns: calc(var(--u) * 250) 1fr; --rh: max(21px, calc(var(--u) * 35)); }
-.k7 .slot { display: inline-block; min-width: calc(var(--u) * 120); margin-right: calc(var(--u) * 10); padding: calc(var(--u) * 3) calc(var(--u) * 10); border: var(--hair) solid rgb(233 226 208 / 0.45); box-shadow: 0 0 0 1px var(--ink); text-align: center; cursor: pointer; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.85em; white-space: nowrap; }
+.k7 .slot { display: inline-block; min-width: max(calc(var(--u) * 120), 8.4em); margin-right: calc(var(--u) * 10); padding: calc(var(--u) * 3) calc(var(--u) * 10); border: var(--hair) solid rgb(233 226 208 / 0.45); box-shadow: 0 0 0 1px var(--ink); text-align: center; cursor: pointer; text-transform: uppercase; letter-spacing: 0.08em; font-size: max(12px, 0.85em); white-space: nowrap; }
 .k7 .slot.cur { border-color: var(--brass); color: var(--brass); }
 .k7 .slot.capturing { border-color: var(--aqua); color: var(--aqua); }
 /* what the last rebinding moved elsewhere (a swap): drawn dashed until the next change of focus */
@@ -336,6 +459,14 @@
 .k7 .sheet.plate { background: var(--enamel); font-family: var(--sans); font-size: max(13px, calc(var(--u) * 20)); }
 .k7 .sheet.plate .sheet-title, .k7 .sheet.plate .sheet-body { text-transform: uppercase; font-style: normal; font-weight: 600; letter-spacing: 0.18em; }
 .k7 .sheet.plate .sheet-title { font-size: 0.8em; }
+/* pass i3: the credits' own lines under the body: a small ledger (the version, where the source is, where to report) */
+.k7 .sheet-extra { display: none; margin-top: calc(var(--u) * 16); padding-top: calc(var(--u) * 14); border-top: var(--hair) solid rgb(20 17 15 / 0.3); font-family: var(--sans); font-size: max(12px, calc(var(--u) * 17)); line-height: 1.4; }
+.k7 .sheet-extra.on { display: block; }
+.k7 .sheet-body:has(+ .sheet-extra.on) { min-height: 0; }
+.k7 .cr-line { display: flex; align-items: baseline; gap: 1em; padding: calc(var(--u) * 3) 0; }
+.k7 .cr-lab { flex: none; width: 15em; white-space: nowrap; font-size: 0.82em; text-transform: uppercase; font-weight: 600; letter-spacing: 0.16em; opacity: 0.72; }
+.k7 .cr-val, .k7 .cr-link { color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
+.k7 .cr-link { text-decoration: underline; text-underline-offset: 0.2em; cursor: pointer; }
 .k7 .sheet-foot { display: flex; align-items: center; justify-content: space-between; margin-top: calc(var(--u) * 26); font-family: var(--sans); }
 .k7 .dots { display: flex; gap: calc(var(--u) * 7); }
 .k7 .dots i { display: block; width: max(6px, calc(var(--u) * 8)); height: max(6px, calc(var(--u) * 8)); border-radius: 50%; border: var(--hair) solid var(--ink); }
@@ -345,6 +476,8 @@
 .k7 .sheet .mi { color: var(--ink); opacity: 0.6; font-weight: 600; }
 .k7 .sheet .mi.sel { color: var(--ink); opacity: 1; }
 .k7 .sheet .mi.sel::before { background: var(--ink); box-shadow: none; }
+/* pass i1: the key that turns the card and the key that closes the sheet, in the prompt's key cap, in ink on the paper */
+.k7 .sheet .mi .key { margin: 0 0.6em 0 0; font-size: 0.82em; letter-spacing: 0.1em; box-shadow: none; vertical-align: 0.08em; }
 
 /* ---- death: fade to ink, one line.
    Polish round 4: the line is full bone (as a subtitle), comes up WITH the ink (whole at 0.6 s; it waited to 0.9 s) and
@@ -366,14 +499,24 @@
    frame and the lit windows are left of it. The ledger stands in the right third on its own soft ink panel, and the
    scrim over the rest is ink at 35 % (it was 80 % over everything, with the ledger on the fire). */
 .k7 .end { background: rgb(20 17 15 / 0.35); flex-direction: row; align-items: center; justify-content: flex-end; padding-right: 4%; text-shadow: none; }
-.k7 .end-panel { display: flex; flex-direction: column; align-items: center; padding: calc(var(--u) * 34) calc(var(--u) * 36) calc(var(--u) * 30); background: rgb(20 17 15 / 0.8); box-shadow: 0 0 calc(var(--u) * 26) calc(var(--u) * 10) rgb(20 17 15 / 0.8); }
+/* release pass p0: the panel is never taller than the window (it scrolls before it loses its title or its choice), and
+   its ground is ink at 88 % (at 80 % whatever stood behind it was a ghost in the ledger) */
+.k7 .end-panel { display: flex; flex-direction: column; align-items: center; max-height: 100%; overflow-y: auto; scrollbar-width: none; padding: calc(var(--u) * 34) calc(var(--u) * 36) calc(var(--u) * 30); background: rgb(20 17 15 / 0.88); box-shadow: 0 0 calc(var(--u) * 26) calc(var(--u) * 10) rgb(20 17 15 / 0.88); }
+.k7 .end-panel > * { flex: none; }
 .k7 .end-card { font-size: max(15px, calc(var(--u) * 28)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.3em; padding-left: 0.3em; margin-bottom: calc(var(--u) * 12); }
 .k7 .end-rule { width: calc(var(--u) * 120); height: var(--hair); background: var(--brass); margin-bottom: calc(var(--u) * 26); }
-.k7 .ledger { width: min(calc(var(--u) * 600), 31vw); }
+.k7 .ledger { width: max(min(calc(var(--u) * 600), 31vw), min(264px, 84vw)); }
 .k7 .lrow { display: flex; align-items: baseline; justify-content: space-between; padding: calc(var(--u) * 5) 0; animation: k7-row 0.5s linear both; animation-delay: calc(0.9s + var(--i) * 0.38s); }
+.k7 .lrow.off { display: none; }
+/* a feat (pass i1): the row is there only when it was done, its label in brass */
+.k7 .lrow[data-row="clean_six"] .lab { color: var(--brass); opacity: 1; }
 .k7 .lrow .lab { font-size: max(11px, calc(var(--u) * 14)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; opacity: 0.85; }
-/* a narrow frame (800 x 600): the labels are at their 11 px floor and the ledger is 31 vw; the longest label keeps its line */
-@media (max-width: 900px) { .k7 .lrow .lab { letter-spacing: 0.03em; white-space: nowrap; } }
+/* a narrow frame (800 x 600) or a 4:3 one (960 x 720: release pass p0, the longest label is a character longer): the
+   ledger is 31 vw and the longest label keeps its line */
+@media (max-width: 900px), (max-aspect-ratio: 7/5) { .k7 .lrow .lab { letter-spacing: 0.03em; white-space: nowrap; } }
+/* under 900 px wide the ledger is at its 264 px floor (the longest row needs it): the panel's side padding gives the
+   width back, so the panel is where it was (its left edge at 60 % of an 800 x 600 frame, clear of the fire) */
+@media (max-width: 900px) { .k7 .end-panel { padding-left: 12px; padding-right: 12px; } }
 .k7 .lrow .v { font-family: var(--serif); font-size: max(14px, calc(var(--u) * 23)); font-variant-numeric: tabular-nums; }
 .k7 .lrow.lamps { display: block; margin: calc(var(--u) * 16) 0; padding: calc(var(--u) * 14) 0; border-top: var(--hair) solid var(--brass-dim); border-bottom: var(--hair) solid var(--brass-dim); }
 .k7 .lamps-head { display: flex; align-items: baseline; justify-content: space-between; }
@@ -381,14 +524,37 @@
 .k7 .lamp-grid { display: grid; grid-template-columns: repeat(12, max(4px, calc(var(--u) * 6))); gap: calc(var(--u) * 5) calc(var(--u) * 6); justify-content: end; margin-top: calc(var(--u) * 10); }
 .k7 .lamp { display: none; height: max(5px, calc(var(--u) * 8)); background: var(--flame); }
 .k7 .lamp.on { display: block; }
-.k7 .end .menu { flex-direction: row; gap: calc(var(--u) * 44); margin-top: calc(var(--u) * 26); animation: k7-row 0.5s linear both; animation-delay: calc(0.9s + 9.6 * 0.38s); }
+/* pass i1: a window that could have been lit and was not: a dark pane with a brass edge, beside the lit ones */
+.k7 .lamp.dark { display: block; background: transparent; box-shadow: inset 0 0 0 var(--hair) var(--brass-dim); }
+.k7 .lamps-note { margin-top: calc(var(--u) * 10); text-align: right; font-family: var(--serif); font-style: italic; font-size: max(11px, calc(var(--u) * 15)); opacity: 0.85; }
+.k7 .lamps-note:empty { display: none; }
+/* closer, pass i1: three items ("The rim again" between the two): the row takes the ledger's width and never widens the panel */
+.k7 .end .menu { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-self: stretch; width: 0; min-width: 100%; gap: calc(var(--u) * 10) calc(var(--u) * 18); margin-top: calc(var(--u) * 26); animation: k7-row 0.5s linear both; animation-delay: calc(0.9s + 10.6 * 0.38s); }
+/* a very small window (release pass p0: at 480 x 270 the title and the choice were outside the frame, at 400 x 800 a row
+   ran out of the right edge): every size is at a smaller floor, the lamps stand 24 to a row, and the ledger has the
+   width its longest row needs */
+@media (max-height: 420px), (max-width: 560px) {
+  .k7 .end { padding-right: 2%; }
+  .k7 .end-panel { padding: 7px 12px 7px; }
+  .k7 .end-card { font-size: 12px; letter-spacing: 0.24em; padding-left: 0.24em; margin-bottom: 3px; }
+  .k7 .end-rule { margin-bottom: 4px; }
+  .k7 .lrow { padding: 0; line-height: 1.2; }
+  .k7 .lrow .lab { font-size: 9.5px; letter-spacing: 0.03em; white-space: nowrap; }
+  .k7 .lrow .v { font-size: 12px; }
+  .k7 .lrow.lamps { margin: 3px 0; padding: 2px 0 3px; }
+  .k7 .lamp-grid { grid-template-columns: repeat(24, 4px); gap: 2px 3px; margin-top: 2px; }
+  /* pass i1: no room for the lamps' note in a window this small; the row still reads "lit of could" */
+  .k7 .lamps-note { display: none; }
+  .k7 .end .menu { margin-top: 5px; gap: 2px 10px; }
+  .k7 .end .mi { font-size: 11px; padding-left: 12px; letter-spacing: 0.04em; }
+}
 @keyframes k7-row { from { opacity: 0; } to { opacity: 1; } }
 
 /* ============================================================== reduce motion: no kick, no shiver beyond an opacity blink, cuts for fades */
 .k7.rm .rk { animation: none; }
 .k7.rm .svw.shiver { animation: k7-blink 0.3s steps(2, jump-none) both; }
 .k7.rm .sv.pulse .so, .k7.rm .sv.pulse .ink.so, .k7.rm .sv.pulse .sb, .k7.rm .sv.pulse .sr { animation: k7-breathe 2s ease-in-out infinite; }
-.k7.rm .card, .k7.rm .card.on, .k7.rm .card.quick, .k7.rm .cp, .k7.rm .cp.on, .k7.rm .prompt, .k7.rm .hud.on.fade { transition: none; }
+.k7.rm .card, .k7.rm .card.on, .k7.rm .card.quick, .k7.rm .cp, .k7.rm .cp.on, .k7.rm .obj, .k7.rm .obj.on, .k7.rm .mark .ll, .k7.rm .mark .ll.on, .k7.rm .prompt, .k7.rm .hud.on.fade { transition: none; }
 .k7.rm .m-kill .mt { animation: none; transform: scale(1.7); }
 .k7.rm .m-freed .mr { animation: none; }
 .k7.rm .death, .k7.rm .death-text, .k7.rm .lrow, .k7.rm .end .menu { animation: none; }

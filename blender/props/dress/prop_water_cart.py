@@ -43,39 +43,40 @@ def build(args):
         return o
     # ---- the frame: two long rails that run on to become the shafts, four cross bars, the axle
     for s in (-1, 1):
-        board(f"rail{s}", (-1.50, s * 0.50, BED_Z), (1.72, s * 0.36, BED_Z + 0.02), 0.10, (0, 0, 1), "board", segs=4, thick=0.075, snap=(0.0, 0.03 if s > 0 else 0.0))
+        board(f"rail{s}", (-1.50, s * 0.50, BED_Z), (1.72, s * 0.36, BED_Z + 0.02), 0.10, (0, 0, 1), "board", segs=2, thick=0.075, snap=(0.0, 0.03 if s > 0 else 0.0))
     for i, (x, hw) in enumerate(((-1.42, 0.58), (-0.55, 0.60), (0.36, 0.53), (1.50, 0.40))):
         board(f"cross{i}", (x, -hw, BED_Z - 0.01), (x, hw, BED_Z - 0.01 + j(0.006)), 0.08, (0, 0, 1), "board_dark" if i < 3 else "board", segs=1, thick=0.09, shade=1.15, ao=False)
     board("axle", (AXLE_X, -0.72, AXLE_Z), (AXLE_X, 0.72, AXLE_Z), 0.10, (0, 0, 1), "board_dark", segs=2, thick=0.10, shade=1.1, cap=(False, False))
     # ---- two saddles the barrel lies in, and wedges knocked in beside it
     for i, x in enumerate((-1.12, 0.02)):
         board(f"saddle{i}", (x, -0.52, BED_Z + 0.085), (x, 0.52, BED_Z + 0.085), 0.11, (0, 0, 1), "board_bleached", segs=1, thick=0.12, ao=False, shade=0.85)
-        for s in ((-1,) if i == 0 else (1,)):
+        for s in ((-1,) if i == 0 else ()):
             w = dc.box(f"wedge{i}{s}", (0.10, 0.20, 0.13), (x, s * 0.43, BED_Z + 0.20), rot=(s * 0.5, 0, j(0.1)), taper=(1.0, 0.25), drop=("-z",))
             dc.paint(w, "linen", "board", shade=0.9); parts.append(w)
     # ---- the barrel: staved, four iron hoops, sunk heads
-    barrel, hoop_z = dc.staved("barrel", B_LEN, B_END, B_BELLY - 0.016, hoops=(0.31, 0.69), seg=8, head_inset=0.045, hoop_w=0.075, hoop_h=0.016, edge=0.005)
+    barrel, hoop_z = dc.staved("barrel", B_LEN, B_END, B_BELLY - 0.016, hoops=(0.31, 0.69), seg=8, head_inset=0.045, hoop_w=0.075, hoop_h=0.016, edge=0.005, chime=(False, False))
     dc.smooth(barrel, angle=42)
     dc.place(barrel, (B_X0, 0.0, B_Z), (0, math.radians(90), 0))
     dc.paint(barrel, "linen", "board")
     parts.append(barrel)
     # the bung hole on top of the belly (dark), and a spigot low in the rear head
     bx = B_X0 + B_LEN * 0.52
-    hole = dc.poly("bung_hole", [(bx + 0.035 * math.cos(a), 0.035 * math.sin(a) + 0.02, B_Z + B_BELLY - 0.02) for a in [math.radians(60 * k) for k in range(6)]])
+    hole = dc.poly("bung_hole", [(bx + 0.035 * math.cos(a), 0.035 * math.sin(a) + 0.02, B_Z + B_BELLY - 0.02) for a in [math.radians(72 * k) for k in range(5)]])
     dc.paint(hole, "linen", "#16110F", ao=False); parts.append(hole)
-    sp = dc.beam("spigot", (B_X0 + 0.02, 0.0, B_Z - 0.30), (B_X0 - 0.13, 0.0, B_Z - 0.33), 0.045, 0.045, up=(0, 0, 1), cap=(False, True), taper=0.8)
+    sp = dc.beam("spigot", (B_X0 + 0.02, 0.0, B_Z - 0.30), (B_X0 - 0.13, 0.0, B_Z - 0.33), 0.045, 0.045, up=(0, 0, 1), cap=(False, False), taper=0.6)
     dc.paint(sp, "linen", "#3C3A3A"); parts.append(sp)
-    tap = dc.beam("spigot_key", (B_X0 - 0.08, 0.0, B_Z - 0.30), (B_X0 - 0.085, 0.02, B_Z - 0.22), 0.05, 0.014, up=(1, 0, 0), cap=(False, True))
+    tap = dc.beam("spigot_key", (B_X0 - 0.08, 0.0, B_Z - 0.30), (B_X0 - 0.085, 0.02, B_Z - 0.22), 0.05, 0.014, up=(1, 0, 0), cap=(False, False))
     dc.paint(tap, "linen", "#3C3A3A", shade=1.2, ao=False); parts.append(tap)
-    # ---- wheels: 1.3 m, ten spokes, toed out a little on a worn axle
+    # ---- wheels: 1.3 m, ten spokes, toed out a little on a worn axle. Pass i1: an 18-segment felloe with an iron tyre
+    # (it was a decagon); paid for by the rails' and the axle's spare loops, the barrel's chime rings and one wedge
     for s in (-1, 1):
-        parts += dc.wheel(f"wheel{s}", (AXLE_X, s * 0.66, AXLE_Z), (0.03 * s, s, 0.05), rng, R=0.65, spokes=10, rim_segs=10, shade=0.95, inner_cap=False)
+        parts += dc.wheel(f"wheel{s}", (AXLE_X, s * 0.66, AXLE_Z), (0.03 * s, s, 0.05), rng, R=0.65, spokes=10, rim_segs=18, shade=0.95, inner_cap=False, spoke_sides=3)
     # ---- pitch it forward onto the shaft tips
     R = Matrix.Translation((AXLE_X, 0, AXLE_Z)) @ Matrix.Rotation(PITCH, 4, 'Y') @ Matrix.Translation((-AXLE_X, 0, -AXLE_Z))
     for o in parts:
         o.data.transform(R); o.data.update()
     # the bung, in the sand under where it fell; the whole thing has sunk a little
-    bung = dc.lathe("bung", [(0.034, 0.0), (0.04, 0.05)], seg=5, cap_last=True, centre=(bx - 0.25, -0.78, 0.0))
+    bung = dc.lathe("bung", [(0.034, 0.0), (0.04, 0.05)], seg=3, cap_last=True, centre=(bx - 0.25, -0.78, 0.0))
     dc.place(bung, (0, 0, 0.012), (0.9, 0.3, 0))
     dc.paint(bung, "linen", "board_bleached"); parts.append(bung)
     for o in parts:

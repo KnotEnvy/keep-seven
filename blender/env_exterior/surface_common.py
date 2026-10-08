@@ -73,6 +73,8 @@ FILL_COLOUR = (0.33, 0.48, 1.0)          # the valley's light as it comes in und
 FILL_WATTS = float(os.environ.get("KS_EXT_FILL", "340"))
 BOUNCE_WATTS = float(os.environ.get("KS_EXT_BOUNCE", "120"))
 PATCH_WATTS = float(os.environ.get("KS_EXT_PATCH", "40000"))
+SHAFT_WATTS = float(os.environ.get("KS_EXT_SHAFTS", "17000"))   # pass i3: the gully's three sun shafts (0 switches them off)
+SHAFT_RISE = 3.7
 
 
 def area_fill(name, pos, at, size, colour, watts, spread_deg=180.0):
@@ -86,6 +88,36 @@ def area_fill(name, pos, at, size, colour, watts, spread_deg=180.0):
     ob.visible_camera = False              # (the strength was probed WITH this flag: the bake's first hit counts as a camera ray)
     ob.visible_glossy = False              # no sheen in the Cycles previews: the game's surfaces are unlit, the bake is diffuse only
     return ob
+
+
+def notch_gobo(ld, rc, narrow, seed=1.0, ragged=0.7):
+    """The shape of a notch in a rock rim, as a spot light's own shader (no blocker mesh: a card in the air would shade
+    the sky's light under it). In the light's frame (it looks down -Z, +Y is up): u = x / -z, v = y / -z; the light is
+    1 inside an ellipse of half height rc and half width rc x narrow whose edge is pushed in and out by a noise
+    (`ragged`), 0 outside, with a short soft edge. On the floor the low angle draws it out into a long broken streak."""
+    ld.use_nodes = True
+    nt = ld.node_tree; N = nt.nodes; Lk = nt.links
+    em = next(n for n in N if n.type == 'EMISSION')
+    tc = N.new('ShaderNodeTexCoord'); sep = N.new('ShaderNodeSeparateXYZ'); Lk.new(tc.outputs['Normal'], sep.inputs[0])
+
+    def math_(op, a, b=None):
+        n = N.new('ShaderNodeMath'); n.operation = op
+        for i, v in enumerate((a, b)):
+            if v is None: continue
+            if isinstance(v, (int, float)): n.inputs[i].default_value = float(v)
+            else: Lk.new(v, n.inputs[i])
+        return n.outputs[0]
+    nz = math_('MULTIPLY', sep.outputs['Z'], -1.0)
+    u = math_('DIVIDE', sep.outputs['X'], nz); v = math_('DIVIDE', sep.outputs['Y'], nz)
+    comb = N.new('ShaderNodeCombineXYZ'); Lk.new(u, comb.inputs[0]); Lk.new(v, comb.inputs[1]); comb.inputs[2].default_value = seed
+    noise = N.new('ShaderNodeTexNoise'); noise.inputs['Scale'].default_value = 1.9 / rc; noise.inputs['Detail'].default_value = 2.0
+    Lk.new(comb.outputs[0], noise.inputs['Vector'])
+    un = math_('DIVIDE', u, rc * narrow); vn = math_('DIVIDE', v, rc)
+    r = math_('SQRT', math_('ADD', math_('MULTIPLY', un, un), math_('MULTIPLY', vn, vn)))
+    f = math_('ADD', math_('SUBTRACT', 1.0, r), math_('MULTIPLY', math_('SUBTRACT', noise.outputs['Fac'], 0.5), ragged * 2.0))
+    mr = N.new('ShaderNodeMapRange'); mr.interpolation_type = 'SMOOTHSTEP'
+    Lk.new(f, mr.inputs['Value']); mr.inputs['From Min'].default_value = 0.0; mr.inputs['From Max'].default_value = 0.14
+    Lk.new(mr.outputs['Result'], em.inputs['Strength'])
 
 
 def add_fills():
@@ -123,6 +155,25 @@ def add_fills():
         ob2.location = a; ob2.rotation_euler = (b2 - a).to_track_quat('-Z', 'Y').to_euler()
         ob2.visible_camera = False; ob2.visible_glossy = False
         out.append(ob2)
+    # pass i3 (both visual reviewers: the walk down the gully is "a wall left, a wall right and empty floor"; "a second sun
+    # shaft across the path"): the walls stand 12 to 16 m over a floor the 14 degree sun never reaches, so every reach was
+    # one even shade. Three more shafts of the same low sun through notches of the west rim, one a reach, each raking
+    # across the path toward the south-east (lip_dress.SHAFTS: where it lands, where it comes from): the mule's bones,
+    # the open floor of the second reach, the uncovered main. A spot each, standing in the air of the gully 5 m up
+    # (bake only; the rocks, the bones and the pipe throw their own long shadows inside the patch).
+    if SHAFT_WATTS > 0:
+        import lip_dress, lip_fields
+        for k, ((tx, tz), (fx, fz)) in enumerate(lip_dress.SHAFTS):
+            ty = lip_fields.ground(tx, tz)
+            ld = bpy.data.lights.new("sun_shaft%d" % k, 'SPOT'); ld.energy = SHAFT_WATTS * (1.0, 1.0, 0.62)[k]      # (the third lies on pale enamel: at 0.9 the main drew white); ld.color = kit.mix(kit.lin(SUN_COLOUR), (1.0, 1.0, 1.0), 0.22)
+            rc = math.tan(math.radians((8.6, 8.0, 7.4)[k]))                    # the notch's half height as the shaft sees it
+            ld.spot_size = 2.0 * math.atan(rc * 1.7); ld.spot_blend = 0.1; ld.shadow_soft_size = 0.03
+            notch_gobo(ld, rc, 0.58, seed=3.1 + 7.7 * k)
+            ob = bpy.data.objects.new("sun_shaft%d" % k, ld); bpy.context.scene.collection.objects.link(ob)
+            a = Vector(layout.to_blender((fx, ty + SHAFT_RISE, fz))); b = Vector(layout.to_blender((tx, ty, tz)))
+            ob.location = a; ob.rotation_euler = (b - a).to_track_quat('-Z', 'Y').to_euler()
+            ob.visible_camera = False; ob.visible_glossy = False
+            out.append(ob)
     return out
 
 

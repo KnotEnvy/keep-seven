@@ -139,6 +139,11 @@ def make_columns(loop):
     return runs
 
 
+N3 = 8                 # the row at 3 m above the path: the last lightmapped one, shared with the cliff above it
+UNDER_ROWS = (1, 2, 4, 6)   # rows that lie under a lip (darker stone)
+LIP_ROWS = (5, 7)      # the two eye-level lips
+
+
 def column_rows(c):
     """The profile of one column: [(y, inward offset, kind)], the same number of rows in every column.
     kind: 'lm' rows are the lightmapped foot (to 3 m above the path), 'hi' the vertex-lit cliff, 'cap' the rim."""
@@ -150,6 +155,16 @@ def column_rows(c):
     rows.append((lipy, und, "lm"))
     rows.append((lipy + 0.28, -0.16 - 0.1 * vnoise(c.u / 3.0, 1.7, 8), "lm"))
     y3 = c.pg + 3.05
+    # pass i1 (the visual reviewers: "flat-shaded slabs", "the cave walls are flat boxes with drawn wavy lines"): between
+    # the first ledge and 3 m the wall was ONE plane with the bedding drawn on it. Two more beds at eye level now: each a
+    # soft bed that retreats under a hard lip standing a hand to a span proud, their heights wandering along the wall
+    # (the lightmap gives every lip its lit top and the dark under it). Rows N_EYE .. N3 - 1; LEDGE_ROWS says which.
+    j1 = 0.25 * vnoise(c.u / 6.0, 4.4, 91); j2 = 0.30 * vnoise(c.u / 8.0, 6.1, 92)
+    k1 = vnoise(c.u / 3.3, 2.2, 93); k2 = vnoise(c.u / 4.1, 8.8, 94)
+    rows.append((c.pg + 1.55 + j1, 0.08 + 0.14 * k1, "lm"))
+    rows.append((c.pg + 1.63 + j1, -0.12 - 0.10 * k1, "lm"))
+    rows.append((c.pg + 2.35 + j2, 0.12 + 0.12 * k2, "lm"))
+    rows.append((c.pg + 2.43 + j2, -0.05 - 0.12 * k2, "lm"))
     rows.append((y3, 0.06, "lm"))
     # the cliff: hard sandstone beds that overhang the soft beds under them (a dark line under every lip, the light on
     # every lip), the soft beds retreating, the whole battered back about 5 degrees; level along the gully (absolute heights)
@@ -169,6 +184,7 @@ def column_rows(c):
     rows.append((c.top - 0.35, o + 3.2, "cap"))
     out = []
     for (y, o, kind) in rows:
+        if kind == "lm" and c.oh and y > c.pg + 1.4: o -= 0.05                    # under the roof the beds stand a little further in: the room's walls are not the gully's
         if kind != "lm" and not c.oh:
             f = smooth((y - c.pg - 1.2) / 2.5)
             o += 0.3 * fbm(c.u / 4.5, y / 2.6, 21, 2) * f
@@ -193,9 +209,21 @@ def build_curtain(S):
     for run in runs:
         prof = [column_rows(c) for c in run]
         pos = [[(c.x - c.nx * o, y, c.z - c.nz * o) for (y, o, kind) in rows] for c, rows in zip(run, prof)]
+        # a row's point never crosses a chunk plane its column stands beside (the cut left a sliver 14 mm wide there)
+        for i, c in enumerate(run):
+            for plane in (30.0, 54.0):
+                if abs(c.z - plane) < 0.6:
+                    sgn = 1.0 if c.z >= plane else -1.0
+                    pos[i] = [(q[0], q[1], plane + sgn * max(0.04, (q[2] - plane) * sgn)) for q in pos[i]]
         nrow = len(prof[0])
         vl = [[lm.vert(pos[i][r]) if prof[i][r][2] == "lm" else None for r in range(nrow)] for i in range(len(run))]
-        vh = [[hi.vert(pos[i][r]) if (prof[i][r][2] != "lm" or r == 4) else None for r in range(nrow)] for i in range(len(run))]
+        vh = [[hi.vert(pos[i][r]) if (prof[i][r][2] != "lm" or r == N3) else None for r in range(nrow)] for i in range(len(run))]
+        # the chart's second coordinate is the length ALONG the profile (it was the height: a ledge's top had no texels)
+        slen = []
+        for i in range(len(run)):
+            acc = [0.0]
+            for r in range(1, nrow): acc.append(acc[-1] + max(0.02, kit.vlen(kit.vsub(pos[i][r], pos[i][r - 1]))))
+            slen.append(acc)
         u0 = run[0].u; chart = None
         for i in range(len(run) - 1):
             a, b = run[i], run[i + 1]
@@ -207,7 +235,7 @@ def build_curtain(S):
                 # back into the mass), so the block has a side and is not a sail between two heights
                 hc, lc, ih = (a, b, i) if a.top > b.top else (b, a, i + 1)
                 depth = min(max(hc.tmax, 1.2), 3.6)
-                rr = [r for r in range(4, nrow) if prof[ih][r][2] == "hi" and pos[ih][r][1] > lc.top - 0.4]
+                rr = [r for r in range(N3, nrow) if prof[ih][r][2] == "hi" and pos[ih][r][1] > lc.top - 0.4]
                 for r0, r1 in zip(rr[:-1], rr[1:]):
                     A0, A1 = pos[ih][r0], pos[ih][r1]
                     if A1[1] - A0[1] < 0.03: continue
@@ -234,16 +262,17 @@ def build_curtain(S):
                     ci = run[q[t][0]]; y, o, kind = prof[q[t][0]][q[t][1]]
                     pp = P[t]
                     rr = q[t][1]
-                    phase = (rr - 5) % 2 if rr >= 5 else -1                          # 0: the soft bed's top (in the lip's shadow), 1: the lip
-                    dark = 0.75 if ci.oh else (0.45 if rr in (1, 2) else (0.42 if phase == 0 else 0.0))
-                    up = 1.0 if kind == "cap" else (0.4 if phase == 1 else 0.0)
+                    phase = (rr - N3 - 1) % 2 if rr > N3 else -1                     # 0: the soft bed's top (in the lip's shadow), 1: the lip
+                    if ci.oh: dark = 0.56 if rr in LIP_ROWS or rr == 3 else (0.84 if rr in UNDER_ROWS else 0.72)
+                    else: dark = 0.45 if rr in (1, 2) else (0.34 if rr in UNDER_ROWS else (0.42 if phase == 0 else 0.0))
+                    up = 1.0 if kind == "cap" else (0.4 if phase == 1 else (0.3 if rr in LIP_ROWS and not ci.oh else 0.0))
                     cc = rock.rock_colour(y, ci.top, up, dark, 3, pp[0], pp[2])
                     if low:
                         h = y - ci.g
                         cc = mix(cc, lin("sand"), (0.22 if ci.oh else 0.6) * clamp(1.0 - h / 0.7) ** 1.5)            # the dust skirt
                     cols_.append(cc)
                     uvs.append(rock.strata_uv(ci.u, y))
-                    st.append((ci.u, y - ci.pg))
+                    st.append((ci.u, slen[q[t][0]][rr]))
                 part.face([idx[t] for t in keep], "m_frontier", uvs, cols_, chart if low else None, st if low else None, final=True)
     kit.tessellate(hi, 7.0)
     return [lm, hi]
@@ -502,6 +531,8 @@ def build(S):
     parts += build_closure(S)
     parts += build_overhang(S)
     parts += build_boulders(S)
+    import lip_dress
+    parts += lip_dress.build(S)                                   # pass i1: scree, slabs, scrub, drifts, the Old World's litter, the cart
     import lip_built
     parts += lip_built.build(S)
     S.extra["lip"]["post"] = post

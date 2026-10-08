@@ -51,6 +51,7 @@ export function beginBider(S: Shared, e: Actor, request: Readonly<SpawnRequest> 
       e.cup = cup;
     }
   }
+  e.hurry = BIDER.hurryWaves[e.encounter + '/' + e.wave] === true || (marker !== null && marker.params.hurry === true);
   e.laneFollow = e.lane >= 0;
   // a file or a held offset is its own formation: no fan
   if (e.laneFollow || e.lateral !== 0 || e.depth > 0) e.fan = 0;
@@ -234,7 +235,8 @@ function laneAt(S: Shared, e: Actor): Lane | null {
 /** Velocity of the approach, left in (S.v.x, S.v.z). Returns the speed it asked for. */
 function approachVelocity(S: Shared, e: Actor, dist: number): number {
   const v = S.v;
-  const speed = DEF.moveSpeed;
+  // release pass p0: a Bider of a hurrying wave makes up ground while she is far off and not looking at it (defs.ts)
+  const speed = e.hurry && dist > BIDER.hurryBeyond && !S.inViewFlat(e.x, e.z) ? DEF.moveSpeed * BIDER.hurrySpeed : DEF.moveSpeed;
   const dxp = S.px - e.x, dzp = S.pz - e.z;
   // ---- in file, or holding a lateral offset, inside a lane volume
   const formation = e.laneFollow || e.lateral !== 0 || e.depth > 0;
@@ -282,6 +284,9 @@ function approachVelocity(S: Shared, e: Actor, dist: number): number {
     if (dx * dx + dz * dz < 1.5 * 1.5) { e.lkx = S.px; e.lky = S.py; e.lkz = S.pz; }     // nothing there: go on to where she is
   }
   const wp = nextWaypoint(S, e, goal);
+  // closer, pass i1: at the end of the route to a last-known place it cannot stand on (a point behind a shut door is
+  // never within the 1.5 m above): nothing there either, so go on to where she is
+  if (wp < 0 && !known) { e.lkx = S.px; e.lky = S.py; e.lkz = S.pz; }
   let tx = S.px, tz = S.pz;
   if (wp >= 0) {
     tx = S.nav.x[wp] as number; tz = S.nav.z[wp] as number;
@@ -441,6 +446,10 @@ export function tickBider(S: Shared, e: Actor, dt: number): void {
       }
       if (e.t >= e.timer) {
         if (e.vignette === 'vig_tamper') { S.pool.setState(e, 'vig_wait'); S.pool.play(e, 'idle_stoop', 0.15); break; }
+        // closer, pass i1: what woke it is where she is NOW. The last-known place was still the one of the tick it was
+        // put in its seat (pool.ts), for the Tally House's risers a point in the street behind the door the fight shuts:
+        // a riser that could not see her as it stood (she behind the hatch's cowl) ran to that door and stayed there
+        e.lkx = S.px; e.lky = S.py; e.lkz = S.pz;
         S.pool.setState(e, 'approach');
         S.pool.play(e, 'run', 0.1);
       }
@@ -481,7 +490,11 @@ export function tickBider(S: Shared, e: Actor, dt: number): void {
         S.ctx.events.emit('enemy/state', p);
       }
       if (!S.hush && S.pAlive && level && dist <= BIDER.circleRange + 0.8 && e.sees && S.pool.takeToken(e, 'melee')) { startWindup(S, e); break; }
-      if (dist > BIDER.circleRange + 2 || !level) { S.pool.setState(e, 'approach'); S.pool.play(e, 'run', 0.1); break; }
+      // release pass p0: she is walking on and a token is free: it runs at her again. The ring's radial term followed
+      // her at her own speed, 4.5 m off and outside the 3.8 m it attacks from, for as long as she kept walking.
+      if (dist > BIDER.circleRange + 2 || !level || (!S.hush && dist > BIDER.circleRange + 0.8 && S.tokens.available('melee', e.index, S.time))) {
+        S.pool.setState(e, 'approach'); S.pool.play(e, 'run', 0.1); break;
+      }
       // strafe at 3.0 m/s on a 3 m radius, facing her
       const ux = dist > 1e-4 ? dxp / dist : 0, uz = dist > 1e-4 ? dzp / dist : 1;
       const radial = (dist - BIDER.circleRange) * 3;

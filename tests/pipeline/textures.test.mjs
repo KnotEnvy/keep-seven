@@ -173,8 +173,13 @@ test('tx_palette: every colour of ART_BIBLE 2.1 within delta E 2; tx_palette_emi
     assert.ok(dE(emis.at(...centre(c)), hex(h)) <= 2, `${name} emissive colour`);
   }
   let lit = 0;
-  for (let r = 0; r < 16; r++) for (let c = 0; c < 16; c++) { const p = emis.at(c * 16 + 8, r * 16 + 8); if (p[0] + p[1] + p[2] > 6) lit++; }
+  // pass i3 (look team creatures-props): columns 10 to 15 of rows 2 to 5 are no longer cells. They hold the crown knot's
+  // painted glass and cord (blender/tex/knot_atlas.py), in both sheets, and its light is in this one
+  const knot = (r, c) => c >= 10 && r >= 2 && r <= 5;
+  let knotLit = 0;
+  for (let r = 0; r < 16; r++) for (let c = 0; c < 16; c++) { const p = emis.at(c * 16 + 8, r * 16 + 8); if (p[0] + p[1] + p[2] > 6) { if (knot(r, c)) knotLit++; else lit++; } }
   assert.equal(lit, 8, 'exactly eight emissive cells are lit');
+  assert.ok(knotLit >= 4, `the knot's glass is lit in the emissive sheet (${knotLit} of its cell centres)`);
   console.log(`    ${Object.keys(BIBLE).length} palette colours, worst delta E ${worst.toFixed(2)}; 8 emissive cells`);
 });
 

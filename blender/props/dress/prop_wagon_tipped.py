@@ -37,27 +37,11 @@ AX_R, AX_F = -1.20, 1.00      # rear and front axle (x)
 AX_Y = 0.42
 
 
-def wheel(name, centre, normal, rng, R=0.6, parts=None, shade=1.0):
-    """A 1.2 m wagon wheel: twelve fat spokes, a felloe with an iron tyre, a turned hub. Built flat, then turned so
-    its axle lies along `normal`."""
-    out = []
-    n = 12
-    circle = [(math.cos(2 * math.pi * k / n) * (R - 0.04), math.sin(2 * math.pi * k / n) * (R - 0.04), 0.0) for k in range(n)]
-    rim = dc.tube(name + "_rim", circle, r=1.0, sides=4, closed=True, flat=(0.035 / math.cos(math.pi / 4), 0.04 / math.cos(math.pi / 4)), phase=math.pi / 4, up=(0, 0, 1))
-    dc.paint(rim, "linen", "board", shade=0.9 * shade); out.append(rim)
-    for k in range(n):
-        a = 2 * math.pi * (k + 0.5) / n + rng.uniform(-0.02, 0.02)
-        sp = dc.beam(f"{name}_spoke{k}", (math.cos(a) * 0.085, math.sin(a) * 0.085, 0.0), (math.cos(a) * (R - 0.075), math.sin(a) * (R - 0.075), 0.0),
-                     0.062, 0.05, up=(0, 0, 1), cap=(False, False), taper=0.72)
-        dc.paint(sp, "linen", "board_bleached", shade=rng.uniform(0.7, 0.86) * shade, ao=False); out.append(sp)
-    hub = dc.lathe(name + "_hub", [(0.075, -0.12), (0.11, -0.03), (0.11, 0.05), (0.06, 0.15)], seg=6, cap_first=True, cap_last=True)
-    dc.smooth(hub, angle=40); dc.paint(hub, "linen", "board_dark", shade=1.1 * shade); out.append(hub)
-    q = Vector((0, 0, 1)).rotation_difference(Vector(normal).normalized())
-    for o in out:
-        o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = q; o.location = centre
-        mesh.apply_transform(o)
-        o.rotation_mode = 'XYZ'
-    return out
+def wheel(name, centre, normal, rng, R=0.6, parts=None, shade=1.0, hub_seg=8):
+    """A 1.2 m wagon wheel (dress_common.wheel, pass i1): twenty segments of felloe in six sawn pieces, twelve tapered
+    spokes, a turned eight-sided nave with an iron nose. It was a twelve-sided rim with a six-sided block for a hub.
+    The iron tyre is painted on the rim's outer face by `weather` below."""
+    return dc.wheel(name, centre, normal, rng, R=R, spokes=12, rim_segs=20, shade=shade, hub_seg=hub_seg, tyre=None)
 
 
 def build(args):
@@ -118,7 +102,7 @@ def build(args):
         dc.paint(st, "linen", "rust", shade=0.8); parts.append(st)
     # ---- wheels: one in the air on the front axle, canted, free to turn; one half buried at the foot of the rear axle
     top = wheel("wheel_air", (AX_F, AX_Y - 0.02, HGT + 0.20), (-0.12, 0.74, 0.66), rng)
-    low = wheel("wheel_sunk", (AX_R + 0.03, AX_Y - 0.02, -0.06), (0.10, -0.42, 0.90), rng, shade=0.92)
+    low = wheel("wheel_sunk", (AX_R + 0.03, AX_Y - 0.02, -0.06), (0.10, -0.42, 0.90), rng, shade=0.92, hub_seg=6)
     for o in low: dc.drop_faces(o, lambda c, n: c.z < -0.035 or c.y > 0.80)   # what the sand has taken
     gone = [o for o in low if not len(o.data.polygons)]
     low = [o for o in low if len(o.data.polygons)]

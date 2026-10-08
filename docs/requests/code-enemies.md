@@ -396,3 +396,9 @@ levers are `BOSS.p1Rest` (each 0.1 s is about 0.6 s a cycle) and `pipsP1` (with 
 | R3.3 row 2 health to 67 when phase 2 / 3 is entered alive | Open, low priority: the proxy leaves phase 1 at 100 HP and phase 2 at 34 to 100 (Part F) |
 | R3.3 row 3 `stn_parley_4`, `hint_boss_haul` | **Applied**, shortened to fit two subtitle rows of 42: "WILL NOT STAND DOWN. A LIT CHAMBER IS OPEN. ALL SIX OPEN ON THE HAUL." and "The ribs stopped what it threw. Lit meant open. All six opened to haul." |
 | R2: phase 1 lasts 26 to 40 s for the proxy | **Not changed at the close.** Measured again on the final tree: 34 to 43 s (Part F). Named as the round's open gap against R2; levers `BOSS.p1Rest`, `pipsP1` |
+
+## Fixer, release pass p0 (2026-10-07): decisions
+
+| Row | Decision |
+|---|---|
+| "Open, for the producer": does the difficulty's telegraph scale apply to the boss? | **Ruled** (GDD 15, release pass p0): no. The boss's tells are not scaled by the telegraph column; Hard has its own numbers (`BOSS_BY`: phase-1 rest x 0.5, stakes x 1.15, and since this pass the glow before a discharge x 0.85) |

@@ -188,10 +188,12 @@ def build_ledge(S):
                 if sgn < 0: q = q[::-1]
                 lip.poly(q, "m_frontier", [rock.strata_uv(a[2], a[1]) for a in q], [mix(rock.rock_colour(a[1], 18.0, 0.0, 0.2, 23, a[0], a[2]), lin("ash"), 0.25) for a in q], final=True)
     # slabs of the caprock left lying at the edge, tilted: the ledge's outline against the plain (none over 0.42 m)
+    # (pass i1: the first slab lay at x 3.9, in the bottom of the last image as a blurred lump under the fire; nothing
+    # loose lies on the lip between x 0.5 and 6 now: the ending's view from the stone looks over a clean lit edge)
     blocks = Part("rim_edge_blocks", Z, smooth=28)
     rng = random.Random(433)
     cap = mix(mix(lin("rock_cap"), lin("sand_pale"), 0.5), lin("ash"), 0.42)
-    for k, (x, L, hh, D) in enumerate(((3.9, 1.2, 0.26, 0.8), (8.2, 1.7, 0.38, 0.95), (12.6, 0.9, 0.2, 0.7), (17.3, 1.4, 0.32, 0.9), (22.9, 1.8, 0.4, 1.0), (26.4, 1.0, 0.22, 0.75), (-0.6, 1.1, 0.28, 0.8))):
+    for k, (x, L, hh, D) in enumerate(((10.4, 1.2, 0.26, 0.8), (8.2, 1.7, 0.38, 0.95), (12.6, 0.9, 0.2, 0.7), (17.3, 1.4, 0.32, 0.9), (22.9, 1.8, 0.4, 1.0), (26.4, 1.0, 0.22, 0.75), (-0.6, 1.1, 0.28, 0.8))):
         z = edge_z(x) + 0.12 + D / 2
         rock.rock_box(blocks, (x, ledge_y(x, z) + hh / 2 - 0.04, z), (L, hh, D), rot=rng.uniform(-14, 14), seed=440 + k, n=3, bulge=0.05, chamfer=0.09,
                       chart="rim_eb%d" % k, ground=ledge_y, cuts=4, slope=rng.uniform(-0.1, 0.1), cut_depth=(0.18, 0.38))
@@ -254,9 +256,10 @@ OPEN_TOP = [(12.5, 3.0), (13.4, 3.03), (14.3, 3.0), (14.62, 3.1), (15.15, 3.14),
 # and it was painted rock_dark x 0.9 and vertex-lit in a closed box: ink. It is the mesa's own stone now (ROOM_DARK of
 # the way to rock_dark), and the afterglow that comes in through the opening lights it (setup_light: fill_cage).
 ROOM_DARK = 0.40
-JAMB_DARK = (0.5, 0.68)                                    # the reveal: toward the ledge, toward the room (it was 0.9 / 0.96)
+JAMB_DARK = (0.62, 0.86)                                   # the reveal: toward the ledge, toward the room (round 5: 0.5 / 0.68; release pass p0: the shaft's light reaches it now and the opening carries the frame)
+FACE_DARK = 0.88                                           # the face the opening is cut in, seen from the cage (it was ROOM_DARK + 0.15: two maroon panels beside the view)
 CAGE_WATTS = float(os.environ.get("KS_RIM_CAGE", "28"))
-JAMB = [0.0, 0.05, 0.0, 0.09, 0.02, 0.07, 0.0]             # how far each jamb row stands back from the 3 m opening (outward only)
+JAMB = [0.0, 0.16, 0.0, 0.22, 0.05, 0.18, 0.0]             # how far each jamb row stands back from the 3 m opening (outward only). Release pass p0: it was 0 to 0.09 m, two flat panels with the bedding drawn on them; the beds now step back a hand to a span, and the opening's two edges are rock against the sky
 SX0, SX1 = 10.6, 17.4                                      # the opening's surround: the profile is exact here (the cage's jambs and lintel are the layout's)
 ZF = 111.0
 NBED = 3
@@ -332,6 +335,141 @@ def brow_lip(x):
     # lip running through it unbroken (the overhang's mouth has the same kind of bite at its upper left).
     notch = smooth((x - 13.75) / 0.7) * smooth((16.05 - x) / 0.6)
     return proj * (1.0 - 0.22 * notch), y + 0.15 * notch
+
+
+# ---------------------------------------------------------------------------------------- the lift's shaft (release pass p0)
+# The visual critic, final review: "turning round on arrival shows plain maroon walls with a wavy line texture, a flat
+# tiled floor and thin coloured stripes: it reads as blockout next to the layered mesa outside". The cage's panels are
+# single-sided (she looks through them from inside), so what stood round her was a box of four quads the size of the
+# cage. It is the head of a SHAFT now: the mesa's own beds in relief (the cliff's bedding carried round three walls,
+# dipping as one plane), standing 0.4 to 0.9 m clear of the cage; a dark slot round the cage's floor; the shaft going
+# on up 1.9 m over the cage into the dark; and in the gap a frontier timber set (posts, caps, lagging boards, braces)
+# with the hoist's sheave and rope over the cage. Darker than it was, darkest at the back and overhead: the opening
+# carries the frame.
+SHAFT_W, SHAFT_E, SHAFT_S = 11.4, 16.6, 116.6             # the rock's base lines (the cage's envelope is x 12 .. 16, z 112 .. 116)
+SHAFT_TOP = 5.4                                            # above the ledge (the mesa's cap is at 5.9 to 6.2 over the cage)
+SHAFT_PIT = 0.6
+SHAFT_DARK = 0.22                                          # the shaft's rock toward rock_dark at the cage's own height (more at the back, overhead and in the slot)
+SHAFT_WATTS = float(os.environ.get("KS_RIM_SHAFT", "85"))  # the afterglow the cage's floor and the lit back wall give back to the shaft (bake only)
+SHAFT_BEDS = [(-0.6, 0.10), (0.5, 0.16), (0.57, -0.12), (1.62, -0.05), (1.7, 0.14), (2.85, 0.22), (2.93, -0.08), (3.9, 0.0), (3.98, 0.18), (4.7, 0.26), (4.78, 0.02), (5.4, 0.1)]   # (height, how far the face stands BACK from the base line)
+
+
+def shaft_path():
+    """The three walls as one path, west jamb -> back -> east jamb: [(x, z, nx, nz)], n pointing into the rock."""
+    out = []
+    zs = [112.0 + 0.575 * k for k in range(8)]             # 112.0 .. 116.025
+    for z in zs: out.append((SHAFT_W, z, -1.0, 0.0))
+    out.append((SHAFT_W, SHAFT_S, -0.7071, 0.7071))
+    for k in range(1, 9): out.append((SHAFT_W + (SHAFT_E - SHAFT_W) * k / 9.0, SHAFT_S, 0.0, 1.0))
+    out.append((SHAFT_E, SHAFT_S, 0.7071, 0.7071))
+    for z in zs[::-1]: out.append((SHAFT_E, z, 1.0, 0.0))
+    return out
+
+
+def build_shaft(room):
+    path = shaft_path()
+    cols = []
+    for (x, z, nx, nz) in path:
+        s_ = x * 1.3 + z * 0.9                              # a coordinate that runs on round the corners
+        dip = 0.045 * (x - 14.0) + 0.03 * (z - 114.0)       # the beds dip as one plane through all three walls
+        col = []
+        for r, (h, o) in enumerate(SHAFT_BEDS):
+            last = r == len(SHAFT_BEDS) - 1
+            hh = h if r == 0 or last else h + dip + 0.05 * fbm(s_ / 1.9, (r // 2) * 1.3, 71, 2)
+            oo = clamp(o * (1.0 + 0.6 * fbm(s_ / 2.3, r * 1.1, 72, 2)) + 0.07 * fbm(s_ / 1.1, h * 1.7, 73, 2) + 0.05 * fbm(s_ / 4.0, 0.3, 74, 2), -0.22, 0.34)
+            col.append((x + nx * oo, FLOOR + hh, z + nz * oo))
+        cols.append(col)
+    start = len(room.f)
+    for i in range(len(path) - 1):
+        for r in range(len(SHAFT_BEDS) - 1):
+            A, B, C, D = cols[i][r], cols[i][r + 1], cols[i + 1][r + 1], cols[i + 1][r]
+            back = lambda v, w_=path[i]: (v[0] - w_[0]) * w_[2] + (v[2] - w_[1]) * w_[3]        # how far a point stands back
+            do = (back(B) - back(A)); dy = B[1] - A[1]
+            up = 0.7 if (do > 0.1 and dy < 0.2) else 0.0                                          # the top of a hard bed
+            under = do < -0.1 and dy < 0.2                                                        # the underside of its lip
+            q = [A, B, C, D]
+            nq = kit.vcross(kit.vsub(q[1], q[0]), kit.vsub(q[2], q[0]))
+            if nq[0] * path[i][2] + nq[2] * path[i][3] > 0: q = q[::-1]                           # it faces the room, not the rock
+            def tone(v):
+                h = v[1] - FLOOR
+                k = SHAFT_DARK + 0.15 * smooth((v[2] - 112.6) / 3.4) + 0.35 * smooth((h - 2.6) / 2.0) + (0.3 if under else 0.0) + 0.4 * smooth(-h / 0.5)
+                return rock.rock_colour(v[1], None, up * (1.0 - smooth((h - 2.6) / 1.8)), clamp(k, 0.0, 0.97), 36, v[0], v[2])
+            room.poly(q, "m_frontier", [rock.strata_uv(v[0] * 0.8 + v[2], v[1]) for v in q], [tone(v) for v in q], final=True, weld=True)
+    # the cap, and the slot's bottom round the cage's floor (never lit: the shaft goes on down)
+    y = FLOOR + SHAFT_TOP - 0.02
+    q = [(SHAFT_W - 0.4, y, 112.0), (SHAFT_E + 0.4, y, 112.0), (SHAFT_E + 0.4, y, SHAFT_S + 0.4), (SHAFT_W - 0.4, y, SHAFT_S + 0.4)]
+    room.poly(q, "m_frontier", flat_uv("m_frontier"), mul(lin("rock_dark"), 0.3), final=True)
+    y = FLOOR - SHAFT_PIT + 0.02
+    for (x0, x1, z0, z1) in ((SHAFT_W - 0.4, 12.0, 112.0, SHAFT_S + 0.4), (16.0, SHAFT_E + 0.4, 112.0, SHAFT_S + 0.4), (12.0, 16.0, 116.0, SHAFT_S + 0.4)):
+        q = [(x0, y, z0), (x0, y, z1), (x1, y, z1), (x1, y, z0)]
+        room.poly(q, "m_frontier", flat_uv("m_frontier"), mul(lin("rock_dark"), 0.22), final=True)
+    # the edge of the floor the cage stands on, down into the slot
+    for (a, b_) in (((12.0, 112.0), (12.0, 116.0)), ((12.0, 116.0), (16.0, 116.0)), ((16.0, 116.0), (16.0, 112.0))):
+        q = [(a[0], FLOOR - SHAFT_PIT, a[1]), (a[0], FLOOR, a[1]), (b_[0], FLOOR, b_[1]), (b_[0], FLOOR - SHAFT_PIT, b_[1])]
+        room.poly(q[::-1], "m_frontier", flat_uv("m_frontier"), mul(lin("rock_dark"), 0.3), final=True)
+
+
+def build_shoring():
+    """The timber set in the gap between the cage and the rock, and the hoist over the cage. Vertex-lit; every piece has
+    edge loops for the door's light. Nothing stands inside the cage's envelope below its roof (3.5 m)."""
+    sh = Part("rim_shore", Z, smooth=None)
+    rng = random.Random(4117)
+    ROW = (FT, "plank_a"); ROWB = (FT, "plank_b")
+    xw, xe, zn, zs = 11.78, 16.22, 112.26, 116.22
+    T_ = lambda name, k=1.0: mul(lin(name), k)
+    def timber(a, b, w, d, col, segs=3, caps="", up=(0.0, 1.0, 0.0), chamfer=0.02, taper=0.0, row=ROW):
+        kit.add_prism(sh, (a[0], FLOOR + a[1], a[2]), (b[0], FLOOR + b[1], b[2]), w, d, "m_frontier", col, row=row, chamfer=chamfer, taper=taper, up=up, caps=caps, segs=segs, u_shift=rng.uniform(0, 3), final=True)
+    # posts: four corners and one in the middle of each side, none of them plumb
+    for (x, z, tone) in ((xw, zn, 0.8), (xw, 114.28, 0.7), (xw, zs, 0.6), (xe, zs, 0.6), (xe, 114.2, 0.7), (xe, zn, 0.8)):
+        lx = rng.uniform(-0.03, 0.03); lz = rng.uniform(-0.03, 0.03)
+        timber((x, -SHAFT_PIT, z), (x + lx, 3.28, z + lz), 0.2, 0.19, T_("board" if rng.random() < 0.6 else "board_dark", tone), segs=5, up=(1.0, 0.0, 0.0), taper=0.05)
+    # caps along the sides, the three cross timbers over the cage, and the second set up the shaft
+    for x in (xw, xe):
+        timber((x, 3.38, zn - 0.14), (x, 3.38 + rng.uniform(-0.02, 0.02), zs + 0.14), 0.22, 0.22, T_("board", 0.75), segs=5, caps="ab")
+    for (z, k) in ((zn + 0.02, 0.8), (114.24, 0.62), (zs, 0.5)):
+        timber((xw - 0.16, 3.62, z), (xe + 0.16, 3.62 + rng.uniform(-0.03, 0.03), z), 0.2, 0.24, T_("board_dark" if z > 113 else "board", k), segs=5, caps="ab")
+    for x in (xw, xe):
+        timber((x, 3.74, zn + 0.02), (x + rng.uniform(-0.02, 0.02), 4.86, zn + 0.02), 0.17, 0.17, T_("board_dark", 0.7), segs=2, up=(1.0, 0.0, 0.0))
+        timber((x, 3.74, zs), (x, 4.86, zs), 0.17, 0.17, T_("board_dark", 0.5), segs=2, up=(1.0, 0.0, 0.0))
+        timber((x, 4.94, zn - 0.1), (x, 4.94, zs + 0.1), 0.18, 0.18, T_("board_dark", 0.55), segs=4)
+    # braces at the door's two posts (the set racks toward the opening)
+    for x in (xw, xe):
+        timber((x, 2.45, zn + 0.1), (x, 3.27, zn + 0.92), 0.1, 0.12, T_("board", 0.7), segs=2)
+        timber((x, 2.52, zs - 0.1), (x, 3.27, zs - 0.85), 0.1, 0.12, T_("board_dark", 0.6), segs=2)
+    # lagging: boards wedged behind the posts against the rock, no two alike, some gone
+    def board(a, b, h, col, drop=0.0):
+        timber(a, (b[0], b[1] + drop, b[2]), 0.03, h, col, segs=4, caps="", up=(0.0, 1.0, 0.0), chamfer=0.0, row=ROWB if rng.random() < 0.5 else ROW)
+    # (section: 0.03 across the wall, h up it: add_prism's w is along `side` = t x up, so the thin way faces the room)
+    back = [(0.14, 1.0, 0.0), (0.42, 1.0, 0.02), (0.72, 1.0, -0.03), (1.03, 0.52, -0.12), (1.36, 1.0, 0.03), (1.66, 1.0, 0.0), (2.34, 1.0, 0.04), (2.63, 0.7, -0.02)]
+    for (y, span, drop) in back:
+        x0 = xw - 0.05 if span == 1.0 or rng.random() < 0.5 else xe + 0.05 - (xe - xw + 0.1) * span
+        x1 = x0 + (xe - xw + 0.1) * span
+        board((x0, y, zs + 0.125), (x1, y, zs + 0.125), rng.uniform(0.2, 0.26), T_("board_bleached" if rng.random() < 0.35 else "board", rng.uniform(0.5, 0.68)), drop)
+    for (x, sgn) in ((xw - 0.125, -1.0), (xe + 0.125, 1.0)):
+        for (z0, z1, ys) in ((zn - 0.1, 114.3, (0.16, 0.45, 0.76, 1.42, 2.2)), (114.25, zs + 0.1, (0.2, 0.52, 1.12, 1.44))):
+            for y in ys:
+                if rng.random() < 0.15: continue
+                board((x, y, z0), (x, y, z1), rng.uniform(0.2, 0.26), T_("board_bleached" if rng.random() < 0.3 else "board", rng.uniform(0.5, 0.75) * (0.8 if z0 > 114 else 1.0)), rng.uniform(-0.05, 0.05))
+    # the hoist: two sheave timbers along the shaft, the wheel between them, the rope down to the cage's bail
+    for x in (13.78, 14.22):
+        timber((x, 4.72, zn - 0.2), (x, 4.72, zs + 0.2), 0.14, 0.22, T_("board_dark", 0.6), segs=4)
+    n = 12; R = 0.4; cy = FLOOR + 4.72; cz = 113.6
+    ring = [[(xx, cy + R * math.sin(2 * math.pi * k / n), cz + R * math.cos(2 * math.pi * k / n)) for k in range(n)] for xx in (13.93, 14.07)]
+    iron = mul(lin("steel_dark"), 0.9); F0 = flat_uv("m_frontier")
+    ia = [sh.vert(p_) for p_ in ring[0]]; ib = [sh.vert(p_) for p_ in ring[1]]
+    sh.face(tuple(ia), "m_frontier", F0, iron, final=True); sh.face(tuple(reversed(ib)), "m_frontier", F0, iron, final=True)
+    for k in range(n):
+        j = (k + 1) % n
+        sh.face((ia[j], ia[k], ib[k], ib[j]), "m_frontier", F0, mul(lin("tin"), 0.5), final=True)
+    kit.add_prism(sh, (13.7, cy, cz), (14.3, cy, cz), 0.07, 0.07, "m_frontier", iron, final=True)                       # the axle
+    rope = mul(lin("cord"), 0.6)
+    kit.add_prism(sh, (14.0, cy, cz + R), (14.0, FLOOR + 3.98, 114.0), 0.035, 0.035, "m_frontier", rope, row=(FT, "cord"), segs=2, final=True)
+    kit.add_prism(sh, (14.0, cy + R, cz), (14.0, FLOOR + SHAFT_TOP - 0.03, zn + 0.2), 0.035, 0.035, "m_frontier", rope, row=(FT, "cord"), segs=1, final=True)   # the hauling part, away up the shaft
+    # the bail: two straps from the rope's eye down to the cage's top frame, and the crosshead between them
+    for sx in (-1.0, 1.0):
+        kit.add_prism(sh, (14.0, FLOOR + 4.0, 114.0), (14.0 + sx * 1.05, FLOOR + 3.53, 114.0), 0.05, 0.025, "m_frontier", iron, row=(FT, "strap"), segs=1, up=(0.0, 0.0, 1.0), final=True)
+    kit.add_prism(sh, (12.02, FLOOR + 3.53, 114.0), (15.98, FLOOR + 3.53, 114.0), 0.07, 0.06, "m_frontier", iron, row=(FT, "strap"), segs=4, final=True)
+    return sh
 
 
 def build_frame(S):
@@ -446,13 +584,14 @@ def build_frame(S):
         hi.poly(q, "m_frontier", [rock.strata_uv(v[0], v[2]) for v in q], [dark(v, 0.6) for v in q], final=True)
     # the frame's inner face (z = 112, toward the cage): opening outline -> the room's section
     O = [(v[0], v[1]) for v in W] + [(v[0], v[1]) for v in T[1:-1]] + [(v[0], v[1]) for v in E[::-1]]
-    Q = [(12.0, v[1]) for v in W] + [(v[0], FLOOR + 3.5) for v in T[1:-1]] + [(16.0, v[1]) for v in E[::-1]]
+    FW, FE = SHAFT_W - 0.4, SHAFT_E + 0.4                    # the inner face runs on behind the shaft's side walls
+    Q = [(FW, v[1]) for v in W] + [(v[0], FLOOR + 3.5) for v in T[1:-1]] + [(FE, v[1]) for v in E[::-1]]
     nW = len(W); nT = len(T) - 2
     ring = []
     for k in range(len(O)):
         ring.append((O[k], Q[k]))
-        if k == nW - 1: ring.append((O[k], (12.0, FLOOR + 3.5))); ring.append((O[k], (O[k][0], FLOOR + 3.5)))
-        if k == nW + nT - 1: ring.append((O[k + 1], (O[k + 1][0], FLOOR + 3.5))); ring.append((O[k + 1], (16.0, FLOOR + 3.5)))
+        if k == nW - 1: ring.append((O[k], (FW, FLOOR + 3.5))); ring.append((O[k], (O[k][0], FLOOR + 3.5)))
+        if k == nW + nT - 1: ring.append((O[k + 1], (O[k + 1][0], FLOOR + 3.5))); ring.append((O[k + 1], (FE, FLOOR + 3.5)))
     for k in range(len(ring) - 1):
         (o0, q0), (o1, q1) = ring[k], ring[k + 1]
         pts = [(o0[0], o0[1], zi), (o1[0], o1[1], zi), (q1[0], q1[1], zi), (q0[0], q0[1], zi)]
@@ -460,17 +599,19 @@ def build_frame(S):
         if len(pts) < 3: continue
         n = kit.vcross(kit.vsub(pts[1], pts[0]), kit.vsub(pts[2], pts[0]))
         if n[2] < 0: pts = pts[::-1]
-        room.poly(pts, "m_frontier", [rock.strata_uv(v[0], v[1]) for v in pts], [dark(v, ROOM_DARK + 0.15) for v in pts], final=True)
-    room_y = FLOOR + 3.5
-    walls = [((12.0, zi), (12.0, 116.0)), ((12.0, 116.0), (16.0, 116.0)), ((16.0, 116.0), (16.0, zi))]
-    for (a, b_) in walls:
-        q = [(a[0], FLOOR, a[1]), (a[0], room_y, a[1]), (b_[0], room_y, b_[1]), (b_[0], FLOOR, b_[1])]
-        room.poly(q, "m_frontier", [rock.strata_uv(v[0] + v[2], v[1]) for v in q], [dark(v, ROOM_DARK) for v in q], final=True)
-    room.poly([(12.0, room_y, zi), (16.0, room_y, zi), (16.0, room_y, 116.0), (12.0, room_y, 116.0)], "m_frontier", [rock.strata_uv(v[0], v[2] - 90.0) for v in ((12.0, room_y, zi), (16.0, room_y, zi), (16.0, room_y, 116.0), (12.0, room_y, 116.0))], rock.rock_colour(21.5, None, 0.0, ROOM_DARK + 0.2, 38), final=True)
+        room.poly(pts, "m_frontier", [rock.strata_uv(v[0], v[1]) for v in pts], [dark(v, FACE_DARK) for v in pts], final=True)
+    # the face above the opening goes on up the shaft; the shaft's rock, its cap and the slot round the cage's floor
+    q = [(FW, FLOOR + 3.5, zi), (FE, FLOOR + 3.5, zi), (FE, FLOOR + SHAFT_TOP, zi), (FW, FLOOR + SHAFT_TOP, zi)]
+    room.poly(q, "m_frontier", [rock.strata_uv(v[0], v[1]) for v in q], [dark(v, 0.8) for v in q], final=True)
+    for (x0, x1) in ((FW, 12.0), (16.0, FE)):                 # the inner face's foot, down into the slot
+        q = [(x0, FLOOR - SHAFT_PIT, zi), (x1, FLOOR - SHAFT_PIT, zi), (x1, FLOOR, zi), (x0, FLOOR, zi)]
+        room.poly(q, "m_frontier", flat_uv("m_frontier"), mul(lin("rock_dark"), 0.25), final=True)
+    build_shaft(room)
     lmp.poly([(12.0, FLOOR, 111.3), (12.0, FLOOR, 116.0), (16.0, FLOOR, 116.0), (16.0, FLOOR, 111.3)], "m_frontier", flat_uv("m_frontier"),
-             mul(rock.rock_colour(18.0, None, 0.0, 0.6, 39), 0.9), kit.chart("rim_cage_floor", 1.0), [(12.0, 111.3), (12.0, 116.0), (16.0, 116.0), (16.0, 111.3)], final=True)
+             mul(rock.rock_colour(18.0, None, 0.0, 0.6, 39), 0.42), kit.chart("rim_cage_floor", 1.0), [(12.0, 111.3), (12.0, 116.0), (16.0, 116.0), (16.0, 111.3)], final=True)
     kit.tessellate(hi, 1.6)
     kit.tessellate(room, 0.95)                                 # vertex light needs vertices: the door's light falls off along these walls
+    shore = build_shoring()
     # the fallen slab: a bed of the brow that came down. It lies FLAT at the lower LEFT of the opening, one end propped
     # on the block it broke over: angular, struck-off corners, nothing upright (the overhang has its slab lower right)
     slab = Part("rim_slab", Z, smooth=20)
@@ -483,7 +624,7 @@ def build_frame(S):
     rock.rock_box(slab, (10.95, FLOOR + 0.42, 110.5), (1.25, 0.95, 0.62), rot=14.0, seed=304, n=2, bulge=0.035, chamfer=0.06, chart="rim_slab2", ground=ledge_y, cuts=5, cut_depth=(0.22, 0.42), slope=0.22,
                   lean=(0.12, 0.2))
     rock.rock_box(slab, (13.75, FLOOR + 0.09, 108.2), (0.6, 0.22, 0.45), rot=-48.0, seed=305, n=2, bulge=0.03, chamfer=0.05, chart="rim_slab3", ground=ledge_y, cuts=3, cut_depth=(0.08, 0.16))
-    return [lmp, hi, room, brow, slab]
+    return [lmp, hi, room, shore, brow, slab]
 
 
 def build_rocks(S):
@@ -610,7 +751,7 @@ def setup_light():
         from mathutils import Vector
         # (name, at, looking at, size, colour, share of CAGE_WATTS). The second is what the lit back wall gives back to
         # the wall the opening is cut in: cool and weak, so the frame round the view is rock with beds, not a cut-out.
-        for (nm, at, to, size, colour, k) in (("fill_cage", (14.0, FLOOR + 1.75, ZF + 0.05), (14.0, FLOOR + 1.2, 116.0), (2.7, 2.1), (1.0, 0.70, 0.58), 1.0),
+        for (nm, at, to, size, colour, k) in (("fill_cage", (13.1, FLOOR + 1.75, ZF + 0.05), (15.3, FLOOR + 1.2, 115.2), (2.3, 2.1), (1.0, 0.70, 0.58), 0.6),      # release pass p0: it stood square in the opening at the full share and both jambs were the reddest things of the frame; the afterglow is in the north-WEST: it leans east and the west jamb is in its own shade
                                               ("fill_brow", (14.0, FLOOR + 0.25, 109.9), (14.0, FLOOR + 3.0, 109.95), (5.0, 1.4), (0.58, 0.50, 0.92), 0.6),
                                               ("fill_cage_back", (14.0, FLOOR + 1.6, 115.85), (14.0, FLOOR + 2.0, ZF + 1.0), (3.4, 2.4), (0.62, 0.50, 0.95), 1.2)):
             ld = bpy.data.lights.new(nm, 'AREA'); ld.shape = 'RECTANGLE'; ld.size = size[0]; ld.size_y = size[1]
@@ -619,6 +760,17 @@ def setup_light():
             a = Vector(layout.to_blender(at)); b = Vector(layout.to_blender(to))
             ob.location = a; ob.rotation_euler = (b - a).to_track_quat('-Z', 'Y').to_euler()
             ob.visible_camera = False; ob.visible_glossy = False
+    # The shaft round the cage (release pass p0). She sees it through the cage's lattice: a third of each wall at most,
+    # so the rock behind has to be a lit thing with dark timber standing in front of it, or the lattice is a black
+    # sheet. One soft ember light in the middle of the cage, a little under eye height, stands for the afterglow the
+    # floor and the back wall give back: the walls are brightest between knee and head height, the posts throw their
+    # shade on the rock behind them, the shaft overhead and the slot under the floor stay dark.
+    if SHAFT_WATTS > 0:
+        from mathutils import Vector
+        ld = bpy.data.lights.new("fill_shaft", 'POINT'); ld.energy = SHAFT_WATTS; ld.color = (0.86, 0.60, 0.62); ld.shadow_soft_size = 0.45
+        ob = bpy.data.objects.new("fill_shaft", ld); bpy.context.scene.collection.objects.link(ob)
+        ob.location = Vector(layout.to_blender((14.0, FLOOR + 1.35, 114.1)))
+        ob.visible_camera = False; ob.visible_glossy = False
     return world_e
 
 

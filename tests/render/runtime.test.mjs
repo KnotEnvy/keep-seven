@@ -45,6 +45,7 @@ test('tiers: one view on min, Low and High; Low and High differ in under 8 % of 
   const game = await openIndex(server, { tier: 'low', checkpoint: 'cp_street_clear' });
   try {
     const seen = [], programs = {};
+    let settled = -1;
     await game.step(2, true);
     const first = await game.perf();
     for (const tier of ['high', 'min', 'low', 'high', 'low', 'min', 'low']) {
@@ -55,16 +56,20 @@ test('tiers: one view on min, Low and High; Low and High differ in under 8 % of 
       seen.push(`${tier}:${await ext(game, "render", "fullScreenDraws")}fs/${perf.drawCalls}c/${(perf.renderTargetBytes / 1048576).toFixed(1)}MiB/${perf.programs}p/${perf.geometries}g`);
       assert.equal(perf.tier, tier);
       assert.equal(await ext(game, 'render', 'fullScreenDraws'), { min: 0, low: 1, high: 12 }[tier]);
-      // the programs of the tier that was left are released: a tier costs the same however many switches came before it
-      // (before the fix: low 31 -> high 65 -> min 92 -> low 93 -> high 97)
+      // Release pass p0: the programs of the tier that was left are KEPT (a tier is compiled once and coming back to it
+      // links nothing; they used to be released and compiled again on every switch: 38 to 46 links each time). What must
+      // hold: the count stops growing once each tier has been seen once (it was low 31 -> high 65 -> min 92 -> low 93 ->
+      // high 97 when three's per-material cache was left to pile up by tone-map AND light state), and nothing else grows.
       if (programs[tier] !== undefined) {
-        assert.ok(perf.programs <= programs[tier].programs + 1, `${tier}: ${perf.programs} programs, ${programs[tier].programs} the first time`);
         assert.ok(perf.geometries <= programs[tier].geometries + 1, `${tier}: ${perf.geometries} geometries, ${programs[tier].geometries} the first time`);
-      } else programs[tier] = { programs: perf.programs, geometries: perf.geometries };
+        assert.equal(perf.programs, settled, `${tier} again: ${perf.programs} programs, ${settled} once every tier had been seen`);
+      } else {
+        programs[tier] = { programs: perf.programs, geometries: perf.geometries };
+        if (Object.keys(programs).length === 3) settled = perf.programs;
+      }
       if (tier === 'low') {
-        // polish round 3: + the three depth programs of High's shadow pass (plain, skinned, instanced) and its overlay, which
-        // High's warm-up now always builds (they linked in play) and three keeps cached: 36 -> 40, and no further
-        assert.ok(perf.programs <= first.programs + 5, `back on Low: ${perf.programs} programs, ${first.programs} before any switch`);
+        // at most the three tone-map / shadow configurations of the set, and the textures are Low's own again
+        assert.ok(perf.programs <= first.programs * 3 + 8, `back on Low: ${perf.programs} programs, ${first.programs} before any switch`);
         assert.equal(perf.textures, first.textures, 'textures');
       }
     }

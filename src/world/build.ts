@@ -491,7 +491,7 @@ class Build implements BuildApi {
         for (let i = list.length - 1; i >= 0; i--) {
           const p = list[i] as Placed;
           if (p.zone !== zone) continue;
-          if (p.inst) { s.forgetClips(p.inst); p.inst.release(); }
+          if (p.inst) { s.forgetClips(p.inst); this.retire(p.inst); }
           if (p.token >= 0) this.instRemove(p.token);
           list.splice(i, 1);
         }
@@ -499,7 +499,7 @@ class Build implements BuildApi {
       }
       for (let i = this.looseDressing.length - 1; i >= 0; i--) {
         const l = this.looseDressing[i] as Loose;
-        if (l.zone === zone) { l.inst.release(); this.looseDressing.splice(i, 1); }
+        if (l.zone === zone) { this.retire(l.inst); this.looseDressing.splice(i, 1); }
       }
       for (let i = this.dressBoxes.length - 1; i >= 0; i--) {
         const d = this.dressBoxes[i] as { zone: ZoneId; box: ColliderHandle };
@@ -516,7 +516,7 @@ class Build implements BuildApi {
         if (g.zone === zone) { g.group.removeFromParent(); this.groups.splice(i, 1); }
       }
       const inst = this.zoneInstances.get(zone);
-      if (inst) { inst.release(); this.zoneInstances.delete(zone); }
+      if (inst) { this.retire(inst); this.zoneInstances.delete(zone); }
     }
     s.builtZones = s.builtZones.filter((z) => !drop(z));
     if (s.staged && drop(s.staged)) s.staged = null;
@@ -530,7 +530,7 @@ class Build implements BuildApi {
       const def = data.manifest.assets[id];
       if (def && def.placedBy === 'origin' && !def.chunks && data.manifest.visibility.units[id]) want.add(id);
     }
-    for (const [id, inst] of this.worldAssets) if (!want.has(id)) { inst.release(); this.worldAssets.delete(id); }
+    for (const [id, inst] of this.worldAssets) if (!want.has(id)) { this.retire(inst); this.worldAssets.delete(id); }
     for (const id of want) {
       if (this.worldAssets.has(id) || !assets.isActive(id)) continue;
       const inst = assets.instantiate(id);
@@ -730,6 +730,7 @@ class Build implements BuildApi {
     if (!zone) return;
     this.removeZones((z) => z === zone);
     s.ctx.assets.release(s.ctx.data.zone(zone).set);
+    this.sever();
     this.rebuildColliders();
     this.placeMarkers();
     this.hooks.changed();
@@ -750,9 +751,37 @@ class Build implements BuildApi {
     const target = this.zonesOf(set);
     s.residentSet = set;                                // world.zone follows from this tick on
     this.removeZones((z) => !target.includes(z));
-    for (const [id, inst] of this.worldAssets) { inst.release(); this.worldAssets.delete(id); }
+    for (const [id, inst] of this.worldAssets) { this.retire(inst); this.worldAssets.delete(id); }
     if (prev !== set) s.ctx.assets.release(prev);
+    this.sever();
     s.visDirty = true;
+  }
+  /**
+   * Release pass p0 (the performance critic: about 0.8 MB of JS heap stays behind each set-swap cycle). A heap
+   * snapshot names the holder: the renderer's list of emissive meshes (src/render/materials.ts `emitters`, at most 256)
+   * keeps every lamp mesh it has drawn until that mesh has no parent, and a mesh inside a released instance still has
+   * one (its own instance's node). Through `.parent` each kept mesh holds its whole instance, and once the list is full
+   * of them no new lamp is taken in. Until the renderer's rule looks at the scene instead (docs/requests/world.md), the
+   * world takes its own released instances apart: once the set that owned an instance's asset is released (the asset
+   * is no longer active, so its pool is gone and the instance can never be handed out again), every mesh of it is taken
+   * off its parent, and the renderer's rule lets go of it.
+   */
+  private readonly retired = new Set<AssetInstance>();
+  private readonly severed: THREE.Object3D[] = [];
+  private retire(inst: AssetInstance): void { inst.release(); this.retired.add(inst); }
+  /** after a set has been released: the retired instances whose asset went with it are taken apart (not in a per-frame path) */
+  private sever(): void {
+    const { assets } = this.s.ctx;
+    const bag = this.severed;
+    for (const inst of this.retired) {
+      // its pool lives on (a set still resident owns the asset): it may be handed out again, and stays on the list
+      if (assets.isActive(inst.id)) continue;
+      this.retired.delete(inst);
+      bag.length = 0;
+      inst.root.traverse((o) => { if ((o as THREE.Mesh).isMesh) bag.push(o); });
+      for (let k = 0; k < bag.length; k++) (bag[k] as THREE.Object3D).removeFromParent();
+    }
+    bag.length = 0;
   }
   /**
    * Swap the resident set: the new set's files first (a download that fails leaves the old place whole: nothing has

@@ -118,14 +118,32 @@ function zoneAsset(id, a) {
     placedBy: 'origin', pivot: 'world origin', anchor: 'world', placeholderSource: 'layout-solids' });
 }
 
+// Pass i3 (ruling R14: budgets may move between assets while every cell holds 120 000). The reviewers named the walk
+// down the gully and the forecourt (the first minute), the hung coats, the townsfolk at the table, the crown knot and
+// the last image. Plans were cut toward the built meshes where nothing was asked for and given where it was:
+//   chunk_lip_upper 7 000 -> 8 500, chunk_lip_mid 4 000 -> 6 000, chunk_lip_gate 5 000 -> 6 500 (the gully and forecourt)
+//   chunk_st_east 14 000 -> 13 400, chunk_st_west 16 000 -> 15 700, chunk_st_yard 13 000 -> 12 700, chunk_st_works 7 000 -> 6 400,
+//   env_backdrop_day 2 000 -> 1 700 (each still above its built mesh; the zone script holds env_plenty_street to the
+//   sum of its chunks WITH its four drawn nodes: 48 033 built of 48 200)
+//   chunk_rim_ledge 14 000 -> 16 000, rim_town_card 600 -> 1 200 (the last image; cell_rim stands at a third of its cap)
+//   chunk_gl_stair and chunk_gl_bay 4 000 -> 3 200, chunk_lh_hall 30 000 -> 28 500; the gallery's dressing 6 000 -> 8 500
+//   so that prop_coat_hung can be 600 for its three variants (28 coats hang there)
+//   chunk_bo_ante 8 000 -> 6 500, chunk_bo_chamber 32 000 -> 33 500 (the boss room)
+//   bider_table_static 600 -> 900, enemy_bider 2 500 -> 2 600 (the crown knot)
+// Closer, pass i3: chunk_gl_stair and chunk_gl_bay back to 4 000 each, paid by chunk_lh_hall 28 500 -> 26 900 (built 25 380).
+// The real game drew 56 280 triangles from cell_gallery_stair against a ledger of 55 190 (tests/core/budget.test.mjs): the
+// gallery's instanced dressing is submitted whole from every cell of the zone (a hidden instance is a zero-scale one), the
+// 28 coats are 184 triangles each now, and the stair's share of the dressing allowance had been cut with its chunks.
+// The ledger this file prints: worst cells cell_street / cell_yard 119 788, cell_lip_gate 119 507, cell_gallery 118 700.
+// No texture changed: the seam stage is 55.3 of 64 MiB on Low.
 // ---------------------------------------------------------------- env_exterior
 zoneAsset('env_the_lip', {
   owner: 'env_exterior', nodes: ['collider_terrain'], collision: 'mesh', lightmaps: ['lm_surface'], zone: 'the_lip', sets: ['surface'], size: [32, 27, 120],
   chunks: [
     chunk('chunk_lip_rock', 8000, ['m_frontier'], [[0, -1, -9], [32, 26, 111]], 'high'),
-    chunk('chunk_lip_upper', 7000, ['m_sand', 'm_frontier', 'm_mask'], [[0, -1, 54], [32, 26, 111]], 'low'),
-    chunk('chunk_lip_mid', 4000, ['m_sand', 'm_frontier'], [[0, -1, 30], [32, 26, 54]], 'low'),
-    chunk('chunk_lip_gate', 8000, ['m_sand', 'm_frontier', 'm_pellam', 'm_mask'], [[0, -1, -9], [32, 26, 30]], 'low'),
+    chunk('chunk_lip_upper', 8500, ['m_sand', 'm_frontier', 'm_mask'], [[0, -1, 54], [32, 26, 111]], 'low'),
+    chunk('chunk_lip_mid', 6000, ['m_sand', 'm_frontier'], [[0, -1, 30], [32, 26, 54]], 'low'),
+    chunk('chunk_lip_gate', 6500, ['m_sand', 'm_frontier', 'm_pellam', 'm_mask'], [[0, -1, -9], [32, 26, 30]], 'low'),
   ],
   notes: 'Overhang, gully, gate piers, dead pylon. chunk_lip_rock is every rock face more than 3 m above the path, the overhang roof and the pylon mast above 3 m (vertex-lit): it is the skyline seen from the street and the yard. collider_terrain replaces the layout solids of role "terrain" (must stay within 0.25 m of them).',
 });
@@ -133,32 +151,33 @@ zoneAsset('env_plenty_street', {
   owner: 'env_exterior', nodes: ['pump_rotor', 'pump_tail', 'drum_lamp', 'plug_door_tally'], lampSets: { drum_lamp: 1 }, codeDriven: ['pump_rotor', 'pump_tail'], extraMaterials: ['m_emis'], drawnNodes: ['pump_rotor', 'pump_tail', 'drum_lamp', 'plug_door_tally'],
   lightmaps: ['lm_surface'], zone: 'plenty_street', sets: ['surface'], size: [111, 20, 32],
   chunks: [
-    chunk('chunk_st_east', 16000, ['m_sand', 'm_frontier', 'm_pellam', 'm_mask'], [[-37, -1, -16], [0, 16, 16]]),
-    chunk('chunk_st_west', 16000, ['m_sand', 'm_frontier', 'm_mask'], [[-80, -1, -16], [-37, 16, 16]]),
-    chunk('chunk_st_yard', 14000, ['m_sand', 'm_frontier', 'm_mask'], [[-111, -1, -16], [-80, 20, 16]]),
-    chunk('chunk_st_works', 8000, ['m_frontier', 'm_pellam'], [[-111, -1, -16], [-80, 20, 16]], 'high',
+    chunk('chunk_st_east', 13400, ['m_sand', 'm_frontier', 'm_pellam', 'm_mask'], [[-37, -1, -16], [0, 16, 16]]),
+    chunk('chunk_st_west', 15700, ['m_sand', 'm_frontier', 'm_mask'], [[-80, -1, -16], [-37, 16, 16]]),
+    chunk('chunk_st_yard', 12700, ['m_sand', 'm_frontier', 'm_mask'], [[-111, -1, -16], [-80, 20, 16]]),
+    chunk('chunk_st_works', 6400, ['m_frontier', 'm_pellam'], [[-111, -1, -16], [-80, 20, 16]], 'high',
       ['yd_drum', 'yd_pump_tower', 'yd_tank', 'yd_tank_deck', 'yd_tank_boards', 'yd_tank_ramp', 'yd_tank_stilt_1', 'yd_tank_stilt_2', 'yd_tank_stilt_3', 'yd_tank_stilt_4']),
   ],
   notes: 'Front Street (east and west halves split at x = -37, the gate court belongs to the west half) and the pump yard. chunk_st_works is the yard\'s tall machinery: the whole drum, the wind-pump derrick and the tank on its stilts with deck and ramp (the skyline seen down the street and from the jug gate). chunk_st_yard is the yard ground, walls, stubs, shed, cart and the Tally House exterior. pump_rotor is spun by code at 9 deg/s. drum_lamp is the aqua status lamp by the drum door. plug_door_tally is a black panel filling the Tally House doorway just inside the leaf (m_frontier, COLOR_0 black): world shows it while the door is open and the hall interior is not drawn.',
 });
 zoneAsset('env_far_rim', {
   owner: 'env_exterior', lightmaps: ['lm_rim'], zone: 'far_rim', sets: ['coda'], size: [32, 8, 21],
-  chunks: [chunk('chunk_rim_ledge', 14000, ['m_sand', 'm_frontier', 'm_mask'], [[-2, 17, 100], [30, 25, 121]])],
+  chunks: [chunk('chunk_rim_ledge', 16000, ['m_sand', 'm_frontier', 'm_mask'], [[-2, 17, 100], [30, 25, 121]])],
 });
 asset('rim_town_card', {
-  owner: 'env_exterior', category: 'env', priority: 0, triBudget: 600, materials: ['m_flat', 'm_emis'], bake: 'UNLIT',
+  owner: 'env_exterior', category: 'env', priority: 0, triBudget: 1200, materials: ['m_flat', 'm_emis'], bake: 'UNLIT',
   nodes: ['town_windows', 'socket_thread'], lampSets: { town_windows: 48 }, zone: 'far_rim', sets: ['coda'],
   placedBy: 'origin', pivot: 'world origin', anchor: 'world', size: [104, 25, 1],
   notes: 'Authored in world coordinates: the town (about 104 x 25 m) is drawn 12.5 m east of the layout vista_plenty target, 117 to 142 m from the ledge, and one leaning dead line pylon stands as a card 42 m out from the ledge at game (-0.9, 3.2 to 25, 61) (polish round 4; the size field is the town alone). 48 panes and 16 window pools (a second face of the same lamp). town_windows lights the first `lamps` quads (lighting order spreads outward from the Tally House).',
 });
 asset('env_backdrop_day', {
-  owner: 'env_exterior', category: 'env', priority: 0, triBudget: 2500, materials: ['m_flat'], bake: 'UNLIT',
+  owner: 'env_exterior', category: 'env', priority: 0, triBudget: 1700, materials: ['m_flat'], bake: 'UNLIT',
   nodes: ['socket_dowser', 'socket_rule_base'], sets: ['surface'], placedBy: 'origin', pivot: 'world origin', anchor: 'world', size: [1600, 120, 1600],
   notes: 'Mesa cards, pylon line, cloud cards. One mesh, one draw call. Drawn with fog. socket_dowser is on the bearing of layout vista_dowser (due west of the yard).',
 });
 asset('env_backdrop_dusk', {
   owner: 'env_exterior', category: 'env', priority: 0, triBudget: 2000, materials: ['m_flat'], bake: 'UNLIT',
   nodes: ['socket_last_fire'], sets: ['coda'], placedBy: 'origin', pivot: 'world origin', anchor: 'world', size: [1600, 120, 1600],
+  notes: 'Mesa cards, pylon line, the flat and the last fire\'s socket; since polish round 5 it also carries the wings of the rim\'s own cliff (26 m west and 33 m east of the ledge: the zone\'s chunk may not leave its box, this card may) and the rock under the ledge\'s two ends. One mesh, one draw call, unlit.',
 });
 
 // ---------------------------------------------------------------- env_interior
@@ -172,16 +191,16 @@ zoneAsset('env_the_gallery', {
   owner: 'env_interior', nodes: ['strip_flicker', 'violet_hairline'], lampSets: { strip_flicker: 1, violet_hairline: 1 }, drawnNodes: ['strip_flicker', 'violet_hairline'],
   lightmaps: ['lm_gallery'], zone: 'the_gallery', sets: ['underground'], size: [77, 13, 27],
   chunks: [
-    chunk('chunk_gl_stair', 6000, ['m_pellam', 'm_emis'], [[-95, -13, -36], [-83, 0, -18.5]]),
-    chunk('chunk_gl_bay', 6000, ['m_pellam', 'm_mask', 'm_emis'], [[-95, -13, -18.5], [-81, -6, -9]]),
-    chunk('chunk_gl_gallery', 20000, ['m_pellam', 'm_mask', 'm_emis'], [[-81, -13, -19], [-18, -6, -9]]),
+    chunk('chunk_gl_stair', 4000, ['m_pellam', 'm_emis'], [[-95, -13, -36], [-83, 0, -18.5]]),
+    chunk('chunk_gl_bay', 4000, ['m_pellam', 'm_mask', 'm_emis'], [[-95, -13, -18.5], [-81, -6, -9]]),
+    chunk('chunk_gl_gallery', 18000, ['m_pellam', 'm_mask', 'm_emis'], [[-81, -13, -19], [-18, -6, -9]]),
   ],
   notes: 'Peg stair, proving bay, gallery. chunk_gl_stair holds the seam (flight 1, landing 1 and their shaft walls) and is drawn while the surface set is resident once the hatch is powered. The 3.6 m gallery module is baked once and copied by the script (shared lightmap UVs), then merged: no instancing. Stair strips are baked lit.',
 });
 zoneAsset('env_lift_hall', {
   owner: 'env_interior', nodes: ['diagram_lamps'], lampSets: { diagram_lamps: 7 }, drawnNodes: ['diagram_lamps'], lightmaps: ['lm_hall'],
   zone: 'lift_hall', sets: ['underground'], size: [47, 14, 37],
-  chunks: [chunk('chunk_lh_hall', 36000, ['m_pellam', 'm_mask', 'm_emis'], [[-19, -16, -29], [28, -2, 8]])],
+  chunks: [chunk('chunk_lh_hall', 26900, ['m_pellam', 'm_mask', 'm_emis'], [[-19, -16, -29], [28, -2, 8]])],
   notes: 'Includes the ramp-foot switchgear cabinet (layout lh_ramp_cabinet), the cage bay and the cold bay.',
 });
 asset('env_lift_shaft', {
@@ -195,8 +214,8 @@ zoneAsset('env_the_bore', {
   lampSets: { bore_glow: 1, bay_lamps: 6, mark_glows: 6, ante_diagram_lamps: 7 }, drawnNodes: ['bore_glow', 'bay_lamps', 'mark_glows', 'ante_diagram_lamps'],
   lightmaps: ['lm_bore'], lightLayers: ['lm_bore_glow'], zone: 'the_bore', sets: ['underground'], size: [34, 16, 53],
   chunks: [
-    chunk('chunk_bo_ante', 8000, ['m_pellam', 'm_mask', 'm_emis'], [[-3, -45, 64], [31, -29, 80.3]]),
-    chunk('chunk_bo_chamber', 32000, ['m_pellam', 'm_mask', 'm_emis'], [[-3, -51, 80.3], [31, -29, 117]]),
+    chunk('chunk_bo_ante', 6500, ['m_pellam', 'm_mask', 'm_emis'], [[-3, -45, 64], [31, -29, 80.3]]),
+    chunk('chunk_bo_chamber', 33500, ['m_pellam', 'm_mask', 'm_emis'], [[-3, -51, 80.3], [31, -29, 117]]),
   ],
   notes: 'chunk_bo_ante is the antechamber and the stair down to it; chunk_bo_chamber is everything south of the door wall (arrival bay, catwalk, chamber, bore shaft, proving-lift room). The chamber is one 60 degree sector baked once and copied five times about bore_axis by the script (shared lightmap UVs, copied vertex light), then merged into chunk_bo_chamber: no instancing; the triangle budget counts all six. mark_glows = the six proving marks (index = bay - 1). bore_glow participates in wrong_fade. The kerb is 0.6 m high in a 35 degree notch in front of each mark and 1.2 m at the six merlons (layout bo_kerb, bo_kerb_hi_*).',
 });
@@ -300,7 +319,7 @@ M('ia_hatch', {
 });
 
 // gallery and stair
-D('prop_coat_hung', { priority: 0, triBudget: 270, instanced: true, nodes: ['coat_long', 'coat_short', 'coat_shawl'], placedBy: 'dressing', sets: ['underground'], pivot: 'peg (top)', anchor: 'top', size: [0.5, 1.1, 0.15] });
+D('prop_coat_hung', { priority: 0, triBudget: 600, instanced: true, nodes: ['coat_long', 'coat_short', 'coat_shawl'], placedBy: 'dressing', sets: ['underground'], pivot: 'peg (top)', anchor: 'top', size: [0.5, 1.1, 0.15] });
 D('prop_hat_hung', { priority: 1, triBudget: 50, instanced: true, placedBy: 'dressing', sets: ['underground'], pivot: 'peg', anchor: 'top', shape: 'cylinder', size: [0.38, 0.14, 0.38] });
 D('prop_boots_pair', { priority: 1, triBudget: 90, instanced: true, placedBy: 'dressing', sets: ['underground'], size: [0.3, 0.28, 0.25] });
 M('ia_range_plate', { priority: 1, triBudget: 100, rigid: ['plate'], nodes: [], animations: [clip('ring', 0.8)], sets: ['underground'], pivot: 'hook', anchor: 'top', size: [0.7, 0.8, 0.04], hitPoint: [0, -0.45, 0], notes: 'A disc 0.7 m across whose centre hangs 0.45 m below the hook. Collision is the pierce-tagged layout solid ia_range_plate_n_solid.' });
@@ -342,8 +361,15 @@ M('prop_station_plate', { priority: 0, triBudget: 220, materials: ['m_prop', 'm_
 D('prop_rim_stone', { priority: 0, triBudget: 240, bake: 'VL', placedBy: 'zone', sets: ['coda'], size: [0.9, 0.12, 0.5] });
 
 // ---------------------------------------------------------------- weapons
+// Release pass p0, ruling R14: the view-model (the revolver and the hands) is one object on screen every second. It has
+// three times its old triangle budget (18 000, was 6 000), a third draw call (`m_hands`: a glove or skin material of its
+// own; `m_prop`, the palette, stays allowed) and three textures of its own beside tx_gun and tx_matcap_steel:
+// tx_gun_detail, tx_hands, tx_hands_detail (below). The 12 000 triangles were taken from visibility chunks whose built
+// meshes stand far under their plan (the chunk table: chunk_lip_gate, chunk_st_east / yard / works, chunk_gl_stair / bay /
+// gallery, chunk_lh_hall), from env_backdrop_day and from the effects allowance: every cell still holds 120 000 and
+// the seam stage 64 MiB on Low (the ledger this file prints).
 asset('weapon_revolver', {
-  owner: 'weapons', category: 'weapons', priority: 0, triBudget: 6000, materials: ['m_gun', 'm_prop'], skinned: true,
+  owner: 'weapons', category: 'weapons', priority: 0, triBudget: 18000, drawCalls: 3, materials: ['m_gun', 'm_hands', 'm_prop'], skinned: true,
   bones: ['root', 'gun', 'cylinder', 'hammer', 'trigger', 'gate', 'ejector', ...range('round_', 6), 'arm_r', 'hand_r', 'thumb_r_1', 'thumb_r_2',
     'index_r_1', 'index_r_2', 'grip_r', 'arm_l', 'hand_l', 'thumb_l_1', 'thumb_l_2', 'index_l_1', 'index_l_2', 'fingers_l',
     'round_hand_lead', 'round_hand_line', 'round_hand_kept', 'kept_loop'],
@@ -363,7 +389,7 @@ const E = (id, a) => asset(id, { owner: 'enemies', category: 'enemies', placedBy
 const B = (id, a) => asset(id, { owner: 'boss', placedBy: 'code', ...a });
 const sides = (names) => names.flatMap((n) => [`${n}_l`, `${n}_r`]);
 E('enemy_bider', {
-  priority: 0, triBudget: 2500, skinned: true,
+  priority: 0, triBudget: 2600, skinned: true,
   bones: ['root', 'hips', 'spine', 'chest', 'neck', 'head', ...sides(['shoulder', 'upperarm', 'forearm', 'hand', 'thigh', 'shin', 'foot', 'coat_tail'])],
   nodes: ['root', 'head', 'crown', 'hand_socket_r'],
   animations: [
@@ -375,7 +401,7 @@ E('enemy_bider', {
 });
 E('bider_seated_static', { priority: 0, triBudget: 500, instanced: true, shape: 'capsule', size: [0.55, 0.85, 0.7], pivot: 'ground contact' });
 E('bider_felled_static', { priority: 0, triBudget: 450, instanced: true, size: [1.5, 0.35, 0.6], pivot: 'ground contact' });
-E('bider_table_static', { priority: 0, triBudget: 600, instanced: true, shape: 'capsule', size: [0.5, 1.25, 0.6], pivot: 'seat (floor under the chair)', sets: ['surface'], placedBy: 'layout' });
+E('bider_table_static', { priority: 0, triBudget: 900, instanced: true, shape: 'capsule', size: [0.5, 1.25, 0.6], pivot: 'seat (floor under the chair)', sets: ['surface'], placedBy: 'layout' });
 E('enemy_transit', {
   priority: 0, triBudget: 2000, skinned: true, sets: ['surface'],
   bones: ['root', 'head', 'leg_a_upper', 'leg_a_lower', 'leg_b_upper', 'leg_b_lower', 'leg_c_upper', 'leg_c_lower'],
@@ -461,10 +487,17 @@ tex('tx_mask', { owner: 'props_dress', kind: 'mask', size: [1024, 512], format: 
   regions: ['mark_cast', 'mark_brush_a', 'mark_brush_b', 'mark_brush_c', 'strike', 'numerals', 'wordmark', 'station', 'plate_lines', 'picto_daycell', 'picto_line',
     'picto_charge', 'picto_misc', 'tally', 'family_marks', 'grille', 'louvre', 'card_edges', 'card_dowser'],
   notes: 'Alpha-test 0.5 on the red channel. grille and louvre tile; give them their own UV island with repeat handled in geometry.' });
-tex('tx_palette', { owner: 'props_dress', kind: 'palette', size: [256, 256], format: 'rgba8', wrap: 'clamp', usedBy: ['m_flat', 'm_prop'], notes: 'Built for real by the foundation pipeline in phase 2; props_dress owns later revisions.' });
-tex('tx_palette_emis', { owner: 'props_dress', kind: 'emissive', size: [256, 256], format: 'rgba8', wrap: 'clamp', usedBy: ['m_emis', 'm_prop'], notes: 'Built for real by the foundation pipeline in phase 2; props_dress owns later revisions.' });
+tex('tx_palette', { owner: 'props_dress', kind: 'palette', size: [256, 256], format: 'rgba8', wrap: 'clamp', usedBy: ['m_flat', 'm_prop'], notes: 'Built for real by the foundation pipeline in phase 2; props_dress owns later revisions. Pass i2: rows 6 to 15 (y 96..255) are no longer free: they hold the cloth atlas (blender/tex/cloth_atlas.py) with regions hood (0,96,256,80), coat (0,176,160,80), sleeve (160,176,48,80), weave (208,176,48,80); an m_prop UV0 is a cell centre, a point in a cloth region OR a point in a knot region. Pass i3: columns 10 to 15 of rows 2 to 5 (x 160..255, y 32..95) hold the knot atlas (blender/tex/knot_atlas.py): knot (160,32,64,64), knot_dead (224,32,32,32), cord (224,64,32,16), cord_dead (224,80,32,16); never name a cell past column 9 in rows 2 to 5. Append-only, like the cells.' });
+tex('tx_palette_emis', { owner: 'props_dress', kind: 'emissive', size: [256, 256], format: 'rgba8', wrap: 'clamp', usedBy: ['m_emis', 'm_prop'], notes: 'Built for real by the foundation pipeline in phase 2; props_dress owns later revisions. Pass i3: no longer black except eight cells: the knot block (x 160..255, y 32..95) holds the light in the glass of the townspeople\'s knot (blender/tex/knot_atlas.py); the dead regions are black.' });
 tex('tx_gun', { owner: 'weapons', kind: 'albedo', size: [1024, 512], format: 'rgba8', wrap: 'clamp', usedBy: ['m_gun'], notes: 'RGB albedo, A = gloss mask.' });
 tex('tx_matcap_steel', { owner: 'weapons', kind: 'matcap', size: [256, 256], format: 'rgba8', wrap: 'clamp', usedBy: ['m_gun'] });
+// ruling R14 (release pass p0): the view-model's own texture set. 2.33 MiB in all; the seam stage on Low goes 61.0 -> 63.3 of 64.
+tex('tx_gun_detail', { owner: 'weapons', kind: 'detail', size: [1024, 512], format: 'r8', wrap: 'clamp', usedBy: ['m_gun'],
+  notes: 'R14. One channel in tx_gun\'s UV layout: surface detail of the revolver (height: engraving, knurling, screw slots, pitting, edge wear), 0.5 = flat. The shader turns it into a bump and a cavity term.' });
+tex('tx_hands', { owner: 'weapons', kind: 'albedo', size: [512, 512], format: 'rgba8', wrap: 'clamp', usedBy: ['m_hands'],
+  notes: 'R14. RGB albedo of the hands and forearms (a glove or skin, cuff, seams), A = gloss mask. UV0 of the meshes that use m_hands.' });
+tex('tx_hands_detail', { owner: 'weapons', kind: 'detail', size: [512, 512], format: 'r8', wrap: 'clamp', usedBy: ['m_hands'],
+  notes: 'R14. One channel in tx_hands\' UV layout: height (stitching, creases, knuckles, grain), 0.5 = flat.' });
 tex('tx_fx', { owner: 'render', kind: 'fx', size: [1024, 512], format: 'rgba8', wrap: 'clamp', source: 'tools/gen_fx_atlas.mjs', usedBy: ['vfx'],
   regions: ['flash_a', 'flash_b', 'flash_c', 'flash_d', 'smoke_a', 'smoke_b', 'dust_a', 'dust_b', 'spark', 'soft_dot', 'star4', 'shard', 'splinter', 'sand_pour',
     'mote_cluster', 'dec_wood', 'dec_adobe', 'dec_metal', 'dec_ceramic', 'dec_stone'],
@@ -622,13 +655,15 @@ const tiers = {
     userSelectable: true, composer: true, antialias: 'none', bloom: false, sunShadowMap: false,
     maxPixelRatio: 1.0, minPixelRatio: 0.5, maxBufferHeight: 768, maxBufferPixels: px(1366, 768), textureBudgetMB: 64,
     drawCalls: { typical: 100, worst: 150 }, triangles: 120000, fullScreenDraws: 1,
-    targets: [{ name: 'canvas colour + depth', bytesPerPixel: 8 }, { name: 'two RGBA16F scene buffers', bytesPerPixel: 16 }, { name: 'scene depth', bytesPerPixel: 4 }],
+    // release pass p0 (closer): ONE scene buffer. Low's single merged pass draws to the canvas, so the composer's second
+    // buffer is never allocated (render-tech's GL hook, tests/render/release_p0.test.mjs): 20 bytes a pixel, not 28
+    targets: [{ name: 'canvas colour + depth', bytesPerPixel: 8 }, { name: 'one RGBA16F scene buffer', bytesPerPixel: 8 }, { name: 'scene depth', bytesPerPixel: 4 }],
   }),
   high: tierDef({
     userSelectable: true, composer: true, antialias: 'fxaa', bloom: true, sunShadowMap: true,
     maxPixelRatio: 1.5, minPixelRatio: 0.7, maxBufferHeight: 1080, maxBufferPixels: px(1920, 1080), textureBudgetMB: 128,
     drawCalls: { typical: 220, worst: 220 }, triangles: 400000, fullScreenDraws: 12,
-    targets: [{ name: 'canvas colour + depth', bytesPerPixel: 8 }, { name: 'two RGBA16F scene buffers', bytesPerPixel: 16 }, { name: 'scene depth', bytesPerPixel: 4 },
+    targets: [{ name: 'canvas colour + depth', bytesPerPixel: 8 }, { name: 'two RGBA16F scene buffers', bytesPerPixel: 16 }, { name: 'scene depth, one per scene buffer', bytesPerPixel: 8 },
       { name: 'half-resolution RGBA16F luminance', bytesPerPixel: 2 }, { name: 'bloom mip chain, 5 levels down and up', bytesPerPixel: 5.33 }],
     fixed: [{ name: '1024 x 1024 sun shadow map (depth + colour)', bytes: 8 * MB }],
   }),
@@ -655,7 +690,7 @@ const DRESSING = {
   the_lip: { tris: 1000, drawCalls: 2, assets: ['prop_bottle', 'prop_sack'] },
   plenty_street: { tris: 6000, drawCalls: 6, assets: ['prop_lantern', 'prop_bottle', 'prop_crate', 'prop_barrel', 'prop_sack', 'prop_strain_cloth'] },
   tally_house: { tris: 2000, drawCalls: 3, assets: ['prop_lantern', 'prop_bottle', 'prop_sack'] },
-  the_gallery: { tris: 6000, drawCalls: 5, assets: ['prop_coat_hung', 'prop_hat_hung', 'prop_boots_pair', 'prop_crate'] },
+  the_gallery: { tris: 8500, drawCalls: 5, assets: ['prop_coat_hung', 'prop_hat_hung', 'prop_boots_pair', 'prop_crate'] },
   lift_hall: { tris: 2000, drawCalls: 3, assets: ['prop_crate', 'prop_barrel'] },
   the_bore: { tris: 1000, drawCalls: 2, assets: ['prop_crate', 'prop_barrel'] },
   far_rim: { tris: 500, drawCalls: 1, assets: [] },
@@ -731,8 +766,8 @@ const PLUGS = [{ node: 'plug_door_tally', asset: 'env_plenty_street', door: 'doo
 
 // ---------------------------------------------------------------- budgets (model: tools/validate_assets.mjs cellBudget)
 const ALLOW = {
-  gunTris: assets.weapon_revolver.triBudget, gunDrawCalls: 2,
-  fxTris: 2000,                       // ART_BIBLE 9.2 Low column at pool caps: sand streaks 200 quads, decals 48, halos ~50, burst quads ~150, cards, rings, blob shadows: about 1 000 triangles; doubled
+  gunTris: assets.weapon_revolver.triBudget, gunDrawCalls: assets.weapon_revolver.drawCalls,
+  fxTris: 1700,                       // ART_BIBLE 9.2 Low column at pool caps: sand streaks 200 quads, decals 48, halos ~50, burst quads ~150, cards, rings, blob shadows: about 1 000 triangles; x 1.7 (it was doubled: release pass p0, ruling R14)
   fxDrawCalls: { typical: 6, worst: 11 }, // blob shadows, decals, halos (3) + particles additive and blended, lines, rings, cards, dust (<= 8)
   skyDrawCalls: 1,
   staticBodyTris: Math.max(assets.bider_seated_static.triBudget, assets.bider_felled_static.triBudget), staticBodyDrawCalls: 2,

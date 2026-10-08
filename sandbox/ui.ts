@@ -152,7 +152,7 @@ function build(sb: Sandbox): void {
   add('seventh', 'denied (shiver)', () => ev.emit('weapon/kept', { stage: 'denied', mark: '' }));
   for (const o of OUTCOMES) add('marker', o, () => hit(o));
   for (let d = 0; d < 360; d += 45) add('damage arc', String(d), () => arc(d));
-  for (const hp of [100, 80, 50, 20]) add('health', 'hp ' + hp, () => ctx.player.debug.setHealth(hp));
+  for (const hp of [100, 80, 50, 30, 20, 8]) add('health', 'hp ' + hp, () => ctx.player.debug.setHealth(hp));
   add('health', 'regen on', () => { const hp = ctx.player.health; ev.emit('player/health_segment', { segment: hp > 67 ? 2 : hp > 34 ? 1 : 0, regenerating: true }); });
   add('health', 'regen off', () => { for (const segment of [0, 1, 2] as const) ev.emit('player/health_segment', { segment, regenerating: false }); });
   for (const p of ['idle', 'parley', 'p1', 'p2', 'p3a', 'p3b', 'dead'] as const) add('boss', p, () => boss(p));
@@ -175,9 +175,15 @@ function build(sb: Sandbox): void {
   add('hint', 'clear', () => ev.emit('ui/hint', { key: '', show: false }));
   add('checkpoint', 'saved', () => ev.emit('checkpoint/saved', { id: 'cp_tally_hatch', movement: 3, section: 2 }));
   for (const k of CARDS) add('card', k.replace('card_', ''), () => card(k));
+  // pass i2: the work at hand, in play (five seconds under the checkpoint numeral), and the name of the line dot
+  for (const k of Object.keys(ctx.data.story.objectives)) add('objective', k.replace('obj_', ''), () => ev.emit('objective/changed', { key: k, text: ctx.data.story.objectives[k] ?? '' }));
+  add('ring', 'first line round (the dot is named)', () => { setWeapon(cyl(), ctx.player.weapon.reserve, 0); (ctx.ui as unknown as { update(): void }).update(); setWeapon(cyl(), ctx.player.weapon.reserve, 1); });
   add('screen', 'title (save)', () => toTitle(true));
   add('screen', 'title (no save)', () => toTitle(false));
   add('screen', 'title (Begin over a save)', async () => { await toTitle(true); click('play'); });
+  // pass i1: a first Begin shows the story cards (under ?test=1 only when this key holds '0': src/ui/system.ts)
+  // (they open on the run's first tick: the page's own loop, or one stepped tick)
+  add('screen', 'first Begin (story cards)', async () => { await toTitle(false); window.localStorage.setItem('keepseven.ui.story_seen.v1', '0'); click('play'); await flowIdle(); });
   add('card', 'a fight starts (the card gives way)', () => ev.emit('enemy/telegraph', { x: 0, y: 0, z: -6, id: 'sandbox#1', kind: 'tamper', attack: 'charge', seconds: 0.9 }));
   add('screen', 'story', async () => { await toTitle(true); click('story'); });
   add('screen', 'credits', async () => { await toTitle(true); click('credits'); });
@@ -188,6 +194,8 @@ function build(sb: Sandbox): void {
   for (const id of Object.keys(ctx.data.story.readables)) add('readable', id.replace('rd_', ''), () => readable(id));
   add('screen', 'death', async () => { await toPlay(); ctx.player.debug.setHealth(0); });
   add('screen', 'loading', async () => { await toPlay(); ctx.state.request('paused', 'sandbox', 'menu'); ctx.state.request('loading', 'sandbox'); ev.emit('load/progress', { loaded: 5, total: 8, label: 'sandbox' }); });
+  // pass i1: the boot's own two sets, one after the other (the line never goes back)
+  add('screen', 'loading (boot: always, then surface 3 of 8)', async () => { await toPlay(); ctx.state.request('paused', 'sandbox', 'menu'); ctx.state.request('loading', 'sandbox'); ev.emit('load/progress', { loaded: 4, total: 4, label: 'always' }); ev.emit('load/progress', { loaded: 3, total: 8, label: 'surface' }); });
   add('screen', 'end (9 lamps)', () => end(0, false));
   add('screen', 'end (48 lamps, his)', () => end(39, true));
   add('variant', 'reduce motion', () => ctx.options.set('reduceMotion', !ctx.options.value.reduceMotion));

@@ -48,11 +48,19 @@ RESERVE = {"rd_plate": 2.0 / 3.0}
 # sodium practicals stand at the line locker and the ammunition box of the proving bay and on the gauge panel of the
 # two valve stations. Lead ruling R7 outranks ART_BIBLE 3.4's "muzzle pulse ... the only warm light"; request filed.
 def _env(k, d): return float(os.environ.get(k, d))
+# look pass i3 (visual reviewer: "the mint stair walls carry long dark diagonal lines and stretched blurred speckles
+# ... and the stair is far brighter than the rooms it joins"). Measured in the game: the stair's frames stood at a
+# median L* of 32 to 64 with up to 44 % of the frame over L* 70, between a Tally House at 15 to 19 and a gallery at
+# 23. Each of its three strips was set to put 0.9 on the wall ACROSS the stair and to reach 9 m: three overlapping
+# floods, and the gun in them a copper casting. A strip puts STAIR_T on the low pegs now and is gone by STAIR_R: three
+# pools down a dim concrete slot, the bare low pegs still inside the second one.
+STAIR_T, STAIR_R = _env("KS_STAIR_T", 0.5), _env("KS_STAIR_R", 6.0)
 CORE_C = (1.0, _env("KS_CORE_G", 0.88), _env("KS_CORE_B", 0.84))
 WIDE_C = tuple(float(x) for x in (lin("#7CF2E2") * 0.5 + np.array(CORE_C, dtype=np.float32) * 0.5))
 SODIUM = "#FF9A3C"
 WARM_T, GAUGE_T = _env("KS_WARM_T", 0.8), _env("KS_GAUGE_T", 0.9)
 WARM = []
+NICHE_T = 0.55            # look pass i1: the watcher niche's back wall under its pilot lamp
 
 parts, emb, dec, emi = [], [], [], []
 
@@ -138,6 +146,12 @@ def build_stair(rng):
           [(-83.6, ny0, -26), (-83.6, ny0, -24), (-83.6, ny1, -24), (-83.6, ny1, -26)], [(-85, ny1, -26), (-83.6, ny1, -26), (-83.6, ny1, -24), (-85, ny1, -24)]]
     add(ic.from_faces("niche", nf, "m_pellam", CONC, "concrete", toward=(-84.3, -7.2, -25), lm=True, mpr=7.2))
     add(ic.box("niche_lintel", (-85.06, ny1, -26.2), (-84.9, ny1 + 0.24, -23.8), "m_pellam", "steel", "steel", bevel=0.02, drop="x+", tess=0.7, mpr=3.6))
+    # look pass i1 (world team: "the watcher's niche is dark and the figure dim": it had to be pointed at with a star
+    # card). A sodium pilot lamp on the niche's back wall under its ceiling, and its wash down that wall (baked): the
+    # watcher, a dynamic figure in the mood's flat light, sits as a dark shape against a warm lit wall.
+    add(ic.box("niche_lamp_bezel", (-83.69, ny1 - 0.2, -25.36), (-83.6, ny1 - 0.04, -24.64), "m_pellam", "steel_dark", None, bevel=0.01, drop="x+"))
+    emi.append(ic.emis("niche_lamp", [[(-83.695, ny1 - 0.15, -25.3), (-83.695, ny1 - 0.15, -24.7), (-83.695, ny1 - 0.09, -24.7), (-83.695, ny1 - 0.09, -25.3)]], "flame"))
+    if emi[-1].data.polygons[0].normal.dot(ic.Bd((-1, 0, 0))) < 0: emi[-1].data.flip_normals()
 
     # ---- peg rails: a board 0.15 x 0.03 m at 1.6 m above the stair on both walls, pegs every 0.4 m; a LOW rail at 0.9 m,
     #      bare, on both walls of the lower half of flight 2 and on landing 2 (in the pool of the second strip)
@@ -612,12 +626,12 @@ def main():
     stair_l = []
     for k, (p, n) in enumerate(stair_strips):
         q = (p[0] + n[0] * 0.05, p[1], p[2] + n[2] * 0.05)
-        l = ic.area_light(f"stair_strip_{k}", q, (q[0] + n[0] * 2 , q[1] - 2.2, q[2] + n[2] * 2), "#7CF2E2", 1.2, 0.1, energy=40.0, spread_deg=170.0, radius=9.0, power=1.5)
+        l = ic.area_light(f"stair_strip_{k}", q, (q[0] + n[0] * 2 , q[1] - 2.2, q[2] + n[2] * 2), "#7CF2E2", 1.2, 0.1, energy=40.0, spread_deg=170.0, radius=STAIR_R, power=1.5)
         stair_l.append(l)
     # the second strip's pool: the bare low pegs across the stair (west wall of flight 2) must sit in it
-    r = ic.set_reading(stair_l[1], (-86.95, stair_height(2, -29.0) + 0.9, -29.0), (1, 0, 0), 0.9, group=[stair_l[1]])
+    r = ic.set_reading(stair_l[1], (-86.95, stair_height(2, -29.0) + 0.9, -29.0), (1, 0, 0), STAIR_T, group=[stair_l[1]])
     for l in stair_l: l.data.energy = stair_l[1].data.energy
-    print(f"CALIBRATED stair strip 2: the wall at the low pegs reads {r:.2f} (target 0.9)")
+    print(f"CALIBRATED stair strip 2: the wall at the low pegs reads {r:.2f} (target {STAIR_T}); reach {STAIR_R} m")
     bay_l = [ic.area_light(f"bay_strip_l{k}", (bx, CEIL - 0.06, bz), (bx, FLOOR, bz), "#7CF2E2", 1.2, 0.1, energy=40.0, spread_deg=150.0, radius=8.5, power=1.3, euler=(0, 0, 0)) for k, (bx, bz) in enumerate(BAY_STRIPS)]
     r = ic.set_reading(bay_l[0], (BAY_STRIPS[0][0], FLOOR, BAY_STRIPS[0][1]), (0, 1, 0), 0.6, group=[bay_l[0]]); bay_l[1].data.energy = bay_l[0].data.energy
     print(f"CALIBRATED bay strips: the floor under one reads {r:.2f} (target 0.6; the mark's lamp is the brighter)")
@@ -634,6 +648,10 @@ def main():
         r = ic.set_reading(l, probe_at, (0, 1, 0), WARM_T)
         print(f"CALIBRATED sodium practical '{name}': the floor in front of it reads {r:.2f} (target {WARM_T}); reach 5 m")
         warm_l.append(l)
+    # look pass i1: the watcher's niche (its pilot lamp washes the back wall and the floor she sits on)
+    nl = ic.area_light("niche_wash", (-83.78, -6.62, -25.0), (-83.7, -8.0, -25.0), SODIUM, 0.6, 0.08, energy=20.0, spread_deg=170.0, radius=3.0, power=1.4)
+    r = ic.set_reading(nl, (-83.62, -7.3, -25.0), (-1, 0, 0), NICHE_T)
+    print(f"CALIBRATED niche pilot lamp: the back wall 0.7 m under it reads {r:.2f} (target {NICHE_T}); reach 3 m")
     # the valve station's gauge lamp: lights the station's own (vertex-lit) parts only; the module's lightmap is shared
     xv = LIT_SLOT + 1.75
     gauge_l = ic.point_light("gauge_lamp", (xv + 0.75, FLOOR + 1.9, WZ0 + 0.12), SODIUM, 2.6, energy=10.0, size=0.1, power=1.4)
@@ -650,7 +668,16 @@ def main():
     # and 64 lamp samples they came out smudged; this zone bakes both at 160
     _ao = ic._ao_image
     ic._ao_image = lambda objs, tid, dist, spp: _ao(objs, tid, dist, spp if ic.DRAFT else 160)
+    # look pass i3 (the same review: "smeared texels along the rail"): a peg rail is a board 30 mm proud of its wall and
+    # its pegs are 15 mm round. Their shadows and occlusion on the wall are a third of a lightmap texel wide where the
+    # light meets the wall square on, and where a strip grazes its own wall they were a dark band with a saw edge under
+    # every rail and a smear under every peg. Rails and pegs are out of the lightmap's render (they are vertex-lit
+    # themselves, below, with everything back in place); the High tier's contact shade draws their crease.
+    thin = [o for o in everything if o.name.startswith(("rail_", "peg_"))]
+    for o in thin: o.hide_render = True
+    print(f"NOTE peg rails out of the lightmap's render: {len(thin)} objects")
     _, t_lm = ic.bake_lightmap(lm_objs, LM, AMBIENT, ao_distance=3.0, samples=None if ic.DRAFT else 160)
+    for o in thin: o.hide_render = False
     t_vl = ic.bake_vertex(vl_objs, AMBIENT, ao_distance=3.0)
     for o in vparts: o.hide_render = False
     gauge_l.hide_render = False

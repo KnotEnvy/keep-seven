@@ -14,6 +14,11 @@
 // the end card. The narrator sets the pace: each step waits for its last line to have been HEARD (the queue is
 // serial), the lines that were still waiting when the branch begins are dropped (all but the stone's and the lamps':
 // the end card counts lamps), and nothing is said once the card is up.
+// Pass i2 (both story reviewers: a brisk take was followed by "Against it she could see how far the Rule leaned..." and
+// "Nine, by her count..." between "Seven again." and the fire, and "She counted them" stood 23.6 s and four lines from
+// its count): once a branch is decided the order is fixed. The lamps' lines that have not been told come FIRST, in
+// their order and unbroken; then the branch's own lines; then the fire. The rim's scenery lines that have not been
+// said by then are dropped. Nothing but the fire's lines follows `nar_take_2` / `nar_leave`.
 import { FIXED_DT, PLAYER_EYE } from '../core/contracts.ts';
 import type { FxHandle, GameEvents, LayoutMarker, ZoneId } from '../core/contracts.ts';
 import { DEG2RAD, RAD2DEG } from '../core/math.ts';
@@ -21,8 +26,11 @@ import type * as THREE from 'three';
 import { inVolume, lampCount, paramList, paramNumber, paramString } from './internals.ts';
 import type { EndingApi, State } from './internals.ts';
 
-/** ART_BIBLE 3: the Rule leans 1 degree in the opening and 2 on the rim, where the plumb thread stands out of the town */
-const LEAN_OPENING = 1, LEAN_RIM = 2;
+/** the Rule leans 6 degrees in the opening and 9 on the rim, where the plumb thread stands out of the town (pass i2, both
+ * story reviewers: at 2.5 it measured 1.8 to 2.4 degrees on screen in the gully while the narrator said "It leaned", and
+ * the rim's "Further than from the gully" needs a lean that was seen there; it was 1 and 2 before pass i1, 2.5 and 5 after);
+ * src/render/sky.ts holds the same default */
+const LEAN_OPENING = 6, LEAN_RIM = 9;
 /** the windows light one by one over three seconds */
 const WINDOWS_SECONDS = 3;
 const KINDLE_SECONDS = 1.5;
@@ -39,6 +47,45 @@ const CAGE_MARGIN = 0.3;
 export const STONE_NEAR = 4;
 /** R5, round 5: the least time away from the stone, with nothing being said, before walking away is her answer */
 export const LEAVE_MIN = 40;
+/**
+ * Release pass p0 (R5; both the playthrough and the story critic: stepping back from the stone ended the stage
+ * 40 quiet seconds later with nothing said, and the north edge ended it the moment she walked up to the view).
+ * Walking away is never taken as her answer unsaid: `WARN_BEFORE` seconds before the leave clock runs out the narrator
+ * says `WARN_LINE` (story.json; "The round would keep on its stone. She would not pass this way again."), the clock
+ * stands still while it is on screen, and the leave branch cannot begin until it has been heard to its end. The north
+ * edge says the same line the first time she steps onto it and takes her at her word only if she is on it when the
+ * line is over (or steps onto it again afterwards). Coming back to the stone before the line has started takes the
+ * line back (it is said the next time she walks away); taking the round drops it.
+ */
+export const WARN_BEFORE = 10;
+export const WARN_LINE = 'nar_stone_wait';
+/** pass i1: the lamps' third line (trg_lamps), said only when she freed somebody */
+export const LAMPS_HERS = 'nar_lamps_hers';
+/**
+ * Pass i1 (story reviewer: a player who takes the round at once heard none of the stone's four lines, and never the
+ * Rule's lean, which is what his note on the stone points at). A take made before the stone's first line has started
+ * is answered with `STONE_SHORT` (story.json: the six cases and the seventh in one line), a take made after it but
+ * before the last one with the last one itself ("And a seventh, unfired..."), each on the tick of the take with the
+ * take's own two lines behind it. The rim's two scenery lines (the thread of light, the Rule against it) are no longer
+ * dropped by a branch: unsaid, they are told in the branch ahead of the lamps, while her view is eased to the plain.
+ */
+export const STONE_SHORT = 'nar_stone_short';       // (pass i3: no longer said; see RIM_RULE below. The key stays in story.json)
+/**
+ * Pass i3 (story reviewer a: "Against it she could see how far the Rule leaned. Further than from the gully." is the
+ * narrator's only statement that her shot tilted the Rule further, and a player who walks straight to the stone never
+ * heard it; story reviewer b: a quick take was answered 13 s later, after the lamp count and a description of the stone
+ * she had already emptied).
+ *  - `RIM_RULE` is tied to the Rule. It is said when the Rule (`RIM_RULE_VISTA`) and the thread of light over the town
+ *    are both inside VIEW_COS of the middle of her view: in its turn after the line that names the thread, and as the
+ *    very next line (a PRESENT line) once that one has been heard and she turns to the Rule, as his note on the stone
+ *    asks her to. It is never lost: a branch that finds it unsaid says it last of all before the fire, when her view
+ *    has been eased to the plain and the Rule stands in the middle of it.
+ *  - A take is answered on its tick, whatever is on screen or waiting (but the Rule's line itself): `nar_take_1` over the line on screen, then
+ *    `nar_take_2`; the stone's lines that had not started are dropped, all of them, and `STONE_SHORT` is no longer
+ *    said of a stone she has emptied. The lamps' lines still to be told follow the take's, unbroken, then the Rule's
+ *    line if it is owed, then the fire.
+ */
+export const RIM_RULE = 'nar_rim_3', RIM_RULE_VISTA = 'vista_rim_rule';
 /** within this many metres of a stone she has not found yet she is arriving: the 150 s fail-safe waits */
 const FAIL_NEAR = 8;
 /** the fire is seen while it is inside this cone of her view (the Dowser's test, GDD 9.3) */
@@ -57,13 +104,31 @@ const TURN_SLACK_DEG = 0.75;
  * town (drawn 12.5 m further east on its card in the same pass, blender/env_exterior/rim_town_card.py) is still
  * whole on the left. A constant, not a reading of the camera: the simulation never asks the display its shape.
  */
-const TURN_TOWARD_TOWN = 0.15;
+const TURN_TOWARD_TOWN = 0;
+/**
+ * (pass i2: 0.15 -> 0. With the view lifted by TURN_LIFT_DEG the fire stands below the middle of the frame, at the
+ * height of the revolver's muzzle, and 5 degrees right of centre is where the muzzle is: it covered the fire. Dead
+ * ahead, the muzzle points just past it; the town is whole on the left and the panel further from the fire.)
+ */
+/**
+ * how far above the fire the eased view comes to rest, in degrees. Pass i2 (both visual reviewers: "the bottom third is
+ * a dark featureless dune", "about the lower 45 % is soft dune foreground"): aimed AT the fire the horizon stood at 54 %
+ * of the frame's height; lifted, the land's edge is on the lower third and the two lines have the sky to lean in.
+ * Well inside the cone the fire is "seen" in (SEEN_COS, 25 degrees).
+ */
+const TURN_LIFT_DEG = 12;
+// (exterior look, pass i3; the visual reviewer: "the lower 40 % of the final frame is a dark dune; the town, lamps and fire
+// occupy a thin band": 7 -> 12. The revolver is let down from the moment the fire catches, so nothing stands in the lower
+// right any more: the land's edge is at 63 % of the frame's height, the fire at 68 %, the town's lamps under it, and the
+// mesa's dark foot is the last tenth. The sky above carries the two lines, the clouds and the first stars.)
 /** how long she is waited for to look at the fire by herself before it goes on without her (never a dead end) */
 const LOOK_LIMIT = 20;
 
 /** the town is in her view (in frame, not only in the middle of it) inside this cone */
 const VIEW_COS = Math.cos(35 * DEG2RAD);
 
+/** the Rule has been in her view this long (the director's LOOK_DWELL) */
+const RULE_DWELL = 0.4;
 const IDLE = 0, BRANCH = 1, FIRE = 2, WIND = 3, CARD = 4;
 const NO_LINES: readonly string[] = Object.freeze([]);
 
@@ -85,6 +150,16 @@ class Ending implements EndingApi {
   private readonly spareUnseen: string[] = [];
   private readonly spareTaken: string[] = [];
   private readonly lampLines: string[] = [];
+  /** the arrival's scenery lines after the first (the thread of light, the Rule against it): kept through a branch (pass i1) */
+  private readonly sceneLines: string[] = [];
+  private lampsTrigger: LayoutMarker | undefined;
+  /** where the Rule stands (RIM_RULE_VISTA's target); the line that names the thread; seconds both have been in her view */
+  private readonly ruleAt: [number, number, number] | null = null;
+  private readonly threadLine: string = '';
+  private ruleT = 0;
+  /** the scenery lines a branch still owes her (the Rule's, and the thread's in front of it) */
+  private readonly sceneOwed: string[] = [];
+  private readonly ruleKnown: boolean = false;
   private readonly townAt: [number, number, number] | null = null;
   // ---- the fire (phase FIRE)
   private kindled = false;
@@ -104,6 +179,10 @@ class Ending implements EndingApi {
   private arrived = false;
   private sinceArrive = 0;
   private sinceStone = 0;
+  /** WARN_LINE has been asked for and has not started yet (it is taken back if she returns to the stone first) */
+  private warnAsked = false;
+  /** design/story.json holds WARN_LINE (a build without it leaves as before) */
+  private readonly warnKnown: boolean = false;
   private phase = IDLE;
   private phaseT = 0;
   private branchLast = '';
@@ -125,6 +204,7 @@ class Ending implements EndingApi {
     const { data, events } = s.ctx;
     this.cardPayload = { stats: s.stats };
     this.exit = data.layout.markers.find((m) => m.type === 'exit');
+    this.warnKnown = data.story.lines[WARN_LINE] !== undefined;
     if (!this.exit) return;
     this.zone = this.exit.zone;
     this.stone = data.markersOfType('trigger').find((m) => m.params.arms === this.exit?.id);
@@ -138,6 +218,9 @@ class Ending implements EndingApi {
       for (const k of paramList(m, 'lines')) if (s.story.keeps(k) && !this.lampLines.includes(k)) this.lampLines.push(k);
     }
     for (const k of this.lampLines) { this.spareSeen.push(k); this.spareUnseen.push(k); }
+    // pass i1: "Nine had kept their seats. The rest were hers." ties the count to the ones she freed. With nobody freed
+    // the count IS the nine and the line would be false: it is dropped when its turn comes.
+    if (this.lampLines.includes(LAMPS_HERS)) s.story.unless(LAMPS_HERS, () => s.stats.freed <= 0);
     for (const k of lines) this.spareSeen.push(k);
     for (const k of this.lampLines) this.spareTaken.push(k);       // (round 5: none of the stone's own once she has taken the round)
     const town = data.markersInZone(this.zone).find((m) => m.type === 'vista' && m.params.lampsFormula !== undefined);
@@ -161,7 +244,18 @@ class Ending implements EndingApi {
     const arrive = data.markersOfType('trigger').find((m) => m.zone === this.zone && m !== this.stone && paramList(m, 'cards').length > 0);
     const away = (): boolean => this.phase === IDLE && this.stoneFlag !== '' && s.flags.has(this.stoneFlag) && this.townAt !== null
       && s.lookCos(this.townAt[0], this.townAt[1], this.townAt[2]) < VIEW_COS;
-    if (arrive) for (const k of paramList(arrive, 'lines').slice(1)) if (!this.lampLines.includes(k)) s.story.waitWhile(k, away);
+    const ruleTarget = data.layout.markers.find((m) => m.id === RIM_RULE_VISTA)?.params.target as [number, number, number] | undefined;
+    if (ruleTarget) this.ruleAt = [ruleTarget[0], ruleTarget[1], ruleTarget[2]];
+    this.ruleKnown = data.story.lines[RIM_RULE] !== undefined && this.ruleAt !== null;
+    if (arrive) for (const k of paramList(arrive, 'lines').slice(1)) if (!this.lampLines.includes(k)) {
+      this.sceneLines.push(k);
+      if (k !== RIM_RULE || !this.ruleKnown) { s.story.waitWhile(k, away); if (this.threadLine === '') this.threadLine = k; continue; }
+      // (pass i3) the Rule's line waits for the Rule, and for the line that names the thread it is seen against
+      const thread = this.threadLine;
+      s.story.waitWhile(k, () => this.phase === IDLE && (!this.ruleInView() || (thread !== '' && s.story.holds(thread) && s.story.current !== thread)));
+    }
+    // (pass i2: a branch drops the scenery lines it finds unsaid; pass i1 kept them and they were told after the take)
+    this.lampsTrigger = data.markersOfType('trigger').find((m) => m.zone === this.zone && m !== this.stone && paramList(m, 'lines').length > 0 && paramList(m, 'lines').every((k) => this.lampLines.includes(k)));
     events.on('checkpoint/reached', (e) => { if (this.rim && e.id === this.rim.id) this.arrive(); });
     events.on('story/line', (e) => { if (this.phase === FIRE && e.key === this.fireLast) s.cue('wire_resolve', 0, 0, 0, false); });
   }
@@ -230,37 +324,63 @@ class Ending implements EndingApi {
     // the last line follow each other with nothing between
     // (polish round 4: when she has TAKEN the round, the stone's lines that had not started are dropped with the rest,
     // all but the first: "And a seventh, unfired" was said 25 s after she had pocketed it)
-    s.story.flush(unseen ? this.spareUnseen : branch === 'take' ? this.spareTaken : this.spareSeen);
+    // pass i3 (RIM_RULE above): the Rule's line is never dropped by a branch; unsaid, it is said last before the fire,
+    // behind the line that names the thread it is seen against if that one was never told either ("Against it...")
+    const scene = this.sceneOwed;
+    scene.length = 0;
+    if (this.ruleKnown && !s.story.heard(RIM_RULE)) for (const k of this.sceneLines) if (!s.story.heard(k)) scene.push(k);
+    const spare = unseen ? this.spareUnseen : branch === 'take' ? this.spareTaken : this.spareSeen;
+    s.story.flushWhere((key) => scene.includes(key) || spare.includes(key));
+    for (const k of scene) s.story.defer(k);
     if (branch === 'take' && own.length > 0) {
-      // Polish round 5 (R12; story critic: after a quick take the narrator still counted lamps and said "Six spent
-      // cases on a flat stone" 11 s after she had pocketed the round, and "He had not taken hers." came 7 to 16 s
-      // late). Her own act is answered on its tick: the first line of the take is on screen at once, over whatever
-      // is there, and the second follows it. The stone's lines that had not started are dropped, all of them; the
-      // lamps' lines that have not been said come after the take's (the end card counts lamps: they are never
-      // lost), and the fire waits for them (tick, BRANCH).
+      // Polish round 5 (R12): her own act is answered on its tick: the first line of the take is on screen at once,
+      // over whatever is there, and the second follows it. The stone's lines that had not started are dropped, all of
+      // them. Pass i2 put the lamps' lines in front of the take's whenever one was on screen or still to be told, and
+      // `STONE_SHORT` between them: the take was answered 13 s late, after a description of the stone she had emptied.
+      // Pass i3: the take's two lines at once, always; then the lamps' lines that have not been told, in their order
+      // and unbroken (the end card counts lamps: they are never lost); then the Rule's line; then the fire.
+      // (one exception: the Rule's own line, on screen at that moment, is heard out, and the take's first line is the very
+      // next: it is the one line the rim must not lose, and a narrator's line is never said twice)
       for (const key of this.lampLines) s.story.defer(key);
-      s.story.sayOver(own[0] as string);
+      if (this.ruleKnown && s.story.current === RIM_RULE) s.story.sayFront(own[0] as string); else s.story.sayOver(own[0] as string);
       for (let i = 1; i < own.length; i++) s.story.sayFront(own[i] as string);
-      for (const key of this.lampLines) s.story.say(key);
+      s.story.sayFrontAll(this.lampLines);
+      s.story.sayFrontAll(scene);
       return;
     }
     s.story.sayFrontAll(this.lampLines);                 // not yet said (she never stood where the town shows): now
     for (const key of own) s.story.say(key);
+    for (const key of scene) s.story.say(key);
   }
   /** a lamps line is on screen or waiting: the fire is not kindled over the count of the windows */
   private lampsPending(): boolean {
     for (let i = 0; i < this.lampLines.length; i++) if (this.s.story.holds(this.lampLines[i] as string)) return true;
+    for (let i = 0; i < this.sceneOwed.length; i++) if (this.s.story.holds(this.sceneOwed[i] as string)) return true;   // (pass i3: nor over the Rule's line)
     return false;
+  }
+  /** the Rule and the thread of light it is seen against are both in her view */
+  private ruleInView(): boolean {
+    const { s } = this;
+    const r = this.ruleAt, t = this.townAt;
+    if (!r) return true;
+    return s.lookCos(r[0], r[1], r[2]) >= VIEW_COS && (t === null || s.lookCos(t[0], t[1], t[2]) >= VIEW_COS);
   }
   /** the lamps' and the stone's triggers: what she has walked up to is told next, ahead of the arrival's scenery lines */
   front(m: LayoutMarker): boolean {
     if (this.zone === '' || m.zone !== this.zone) return false;
     if (m === this.stone) return true;
-    const lines = paramList(m, 'lines');
-    return lines.length > 0 && lines.every((k) => this.lampLines.includes(k));
+    if (m !== this.lampsTrigger) return false;
+    // pass i1: at the ledge's edge the town is what she has walked up to: the two scenery lines about it that are still
+    // waiting behind other things are told first, then the lamps (they were said only if she happened to look that way
+    // after the stone; the director puts the lamps' lines behind these)
+    for (const key of this.sceneLines) this.s.story.defer(key);
+    this.s.story.sayFrontAll(this.sceneLines);
+    return true;
   }
   /** the choice at the stone is still hers (no branch has begun): the stone's prompt shows only then */
   get open(): boolean { return this.phase === IDLE; }
+  /** the end card is up: this telling is over (a "Go on" from the rim after it is told again from the lift) */
+  get ended(): boolean { return this.phase === CARD; }
   /** squared ground distance from her to the round on the stone */
   private stoneD2(): number {
     const m = this.round;
@@ -287,7 +407,7 @@ class Ending implements EndingApi {
     }
     this.yaw0 = pl.yaw * RAD2DEG; this.pitch0 = pl.pitch * RAD2DEG;
     this.yaw1 = this.yaw0 + ((((want - this.yaw0) % 360) + 540) % 360 - 180);
-    this.pitch1 = Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * RAD2DEG;
+    this.pitch1 = Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * RAD2DEG + TURN_LIFT_DEG;
     this.setYaw = this.yaw0; this.setPitch = this.pitch0;
     this.turn = 0;
   }
@@ -325,6 +445,11 @@ class Ending implements EndingApi {
     }
     if (this.phase === IDLE) {
       if (!s.playing) return;
+      // (pass i3, RIM_RULE) once the thread has been named, a look at the Rule against it is told next
+      if (this.ruleKnown && !s.story.heard(RIM_RULE) && s.story.holds(RIM_RULE) && (this.threadLine === '' || s.story.finished(this.threadLine))) {
+        this.ruleT = this.ruleInView() ? this.ruleT + dt : 0;
+        if (this.ruleT >= RULE_DWELL) { this.ruleT = 0; s.story.defer(RIM_RULE); s.story.sayPresent(RIM_RULE, false); }
+      } else this.ruleT = 0;
       const stoneFound = this.stoneFlag !== '' && s.flags.has(this.stoneFlag);
       if (stoneFound) {
         // R5: the choice is hers while she stands at the stone and until she has heard what lies on it. The leave
@@ -335,12 +460,23 @@ class Ending implements EndingApi {
         // her to, and 25 s later the leave ending had been taken for her while the rim's own lines were on screen):
         // the clock stands still while any line is on screen (she is being told something: she is still deciding), and
         // it runs LEAVE_MIN seconds at least, whatever the marker says (its 25 cannot change: the design data is final).
-        if (!(told && away)) this.sinceStone = 0;
-        else if (s.story.current === '') this.sinceStone += dt;
-        if (this.stone && this.sinceStone >= Math.max(LEAVE_MIN, paramNumber(this.stone, 'endAfterSeconds', 25))) { this.begin(paramString(this.stone, 'endBranch') === 'take' ? 'take' : 'leave'); return; }
-        // the north edge, once the stone has been found and its lines are over: she walks on
         const p = s.ctx.player.position;
-        if (told && this.exit && inVolume(this.exit, p.x, p.y, p.z)) this.begin('leave');
+        const onEdge = told && this.exit !== undefined && inVolume(this.exit, p.x, p.y, p.z);
+        if (!(told && away)) {
+          this.sinceStone = 0;
+          // back at the stone before the warning had started: it is taken back, and said when she next walks away
+          if (this.warnAsked && !s.story.heard(WARN_LINE)) { s.story.defer(WARN_LINE); this.warnAsked = false; }
+        } else if (s.story.current === '') this.sinceStone += dt;
+        const limit = this.stone ? Math.max(LEAVE_MIN, paramNumber(this.stone, 'endAfterSeconds', 25)) : LEAVE_MIN;
+        // p0: the warning, WARN_BEFORE seconds before the clock runs out, or as she first steps onto the north edge
+        if (this.warnKnown && !this.warnAsked && !s.story.heard(WARN_LINE) && told && away && (onEdge || this.sinceStone >= limit - WARN_BEFORE)) {
+          this.warnAsked = true;
+          s.story.sayFront(WARN_LINE);
+        }
+        const warned = !this.warnKnown || s.story.finished(WARN_LINE);
+        if (this.stone && warned && this.sinceStone >= limit) { this.begin(paramString(this.stone, 'endBranch') === 'take' ? 'take' : 'leave'); return; }
+        // the north edge, once the stone has been found, its lines are over and the warning has been heard: she walks on
+        if (onEdge && warned) this.begin('leave');
         return;
       }
       // the fail-safes count from her first step onto the rim, not from the lift's arrival
@@ -404,6 +540,13 @@ class Ending implements EndingApi {
     } else if (this.phase === WIND) {
       if (this.phaseT < WIND_SECONDS) return;
       this.phase = CARD;
+      // Pass i1 (both story reviewers; the fixer's ruling in docs/requests/world.md: "walking the rim again after the
+      // end is wanted"): the other ending is two minutes from the rim and cost a whole replay, because release pass p0
+      // let the save go here. The save she holds is the rim's own, taken as the lift opened: the stone untouched, no
+      // branch begun, the run's tallies as they stood. It is KEPT: the title offers "Go on VII . 1" and "Begin" asks
+      // first, as over any save. Only a save that is not the rim's (a debug path) is let go as before.
+      const held = s.ctx.save.current;
+      if (!held || !this.rim || held.checkpoint !== this.rim.id) s.ctx.save.clear();
       s.story.silence();                                   // no line ever starts behind the end card
       this.cardPayload.stats = s.stats;
       s.ctx.events.emit('ending/card', this.cardPayload);
@@ -413,9 +556,9 @@ class Ending implements EndingApi {
   }
 
   reset(): void {
-    this.arrived = false; this.sinceArrive = 0; this.sinceStone = 0; this.phase = IDLE; this.phaseT = 0; this.lit = -1; this.lampsSaid = false;
+    this.arrived = false; this.sinceArrive = 0; this.sinceStone = 0; this.warnAsked = false; this.phase = IDLE; this.phaseT = 0; this.lit = -1; this.lampsSaid = false;
     this.boosted = false; this.glintT = 0; this.branchLast = ''; this.fireLast = ''; this.out = false; this.sinceOut = 0;
-    this.kindled = false; this.kindleT = 0; this.seenT = 0; this.lookWait = 0; this.turn = -1; this.lampTurned = false;
+    this.kindled = false; this.kindleT = 0; this.seenT = 0; this.lookWait = 0; this.turn = -1; this.lampTurned = false; this.ruleT = 0; this.sceneOwed.length = 0;
     if (this.fire) { this.fire.release(); this.fire = null; }
     if (this.windows) this.s.ctx.render.lamps.setCount(this.windows, 0);
   }
@@ -423,7 +566,7 @@ class Ending implements EndingApi {
     return {
       arrived: this.arrived, phase: this.phase, lit: Math.max(0, this.lit), boosted: this.boosted, out: this.out,
       fireCos: Math.round(this.s.lookCos(this.fireAt[0], this.fireAt[1], this.fireAt[2]) * 1e4) / 1e4,
-      sinceStone: Math.round(this.sinceStone * 100) / 100, kindled: this.kindled, fireSeen: Math.round(this.seenT * 100) / 100, turning: this.turn >= 0,
+      sinceStone: Math.round(this.sinceStone * 100) / 100, warned: this.warnKnown && this.s.story.heard(WARN_LINE), kindled: this.kindled, fireSeen: Math.round(this.seenT * 100) / 100, turning: this.turn >= 0,
     };
   }
 }

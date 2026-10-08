@@ -43,9 +43,12 @@ test('enc_street: A rises after its scoop (3 s), B (four) when A is down, C when
   try {
     await game.dbg('god', true);
     const seq = await mark(game);
-    await game.run([{ call: ['teleport', -3, 0, 0, 90, 0] }, { steps: 1 }]);
+    // pass i3: at the gate posts the kneeler is 41 m off; the fight (and its line) waits until she has come near it
+    await game.run([{ call: ['teleport', -3, 0, 0, 90, 0] }, { steps: 6 * 60 }]);     // (the town's line is over)
+    assert.equal((await game.events(seq, 'encounter/started')).length, 0, 'not at the gate posts');
+    await game.run([{ call: ['teleport', -21.5, 0, -1.9, 90, 0] }, { steps: 2 }]);
     const started = (await game.events(seq, 'encounter/started')).find((e) => e.payload.id === 'enc_street');
-    assert.ok(started, 'trg_enc_street started it');
+    assert.ok(started, 'within 24 m of the kneeler and turned to it: trg_enc_street\'s fight starts');
     await game.run([{ steps: 240 }]);
     let w = await waveTicks(game, 'enc_street', seq);
     assert.ok(Math.abs(w.A - started.tick - 180) <= 1, `A after 3 s (${(w.A - started.tick) / 60})`);

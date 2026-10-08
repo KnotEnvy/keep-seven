@@ -19,6 +19,8 @@ const QUALITY_HOLD_FRAMES = 30;
 
 interface MemoryPerformance { memory?: { usedJSHeapSize: number } }
 
+/** the canvas's fade from black when the loop first runs (the title's backdrop coming up) */
+export const CANVAS_FADE_MS = 700;
 export class Loop {
   running = false;
   private last = 0;
@@ -76,8 +78,26 @@ export class Loop {
     }
   }
 
+  private faded = false;
+  /**
+   * The picture comes up out of black over CANVAS_FADE_MS, once, when the loop first runs (never in test mode: a stepped
+   * page has no loop and its screenshots are not waited for). It is the first thing a player sees (ruling R15), and the
+   * quality manager's opening look at the minimum ratio (quality.ts) is drawn underneath it.
+   */
+  private fadeIn(): void {
+    if (this.faded) return;
+    this.faded = true;
+    const canvas = this.core.canvas as HTMLCanvasElement | undefined;
+    if (this.ctx.flags.test || !canvas || !canvas.style) return;
+    canvas.style.transition = 'none';
+    canvas.style.opacity = '0';
+    void canvas.offsetWidth;                                   // the black is laid out before the fade is asked for
+    canvas.style.transition = `opacity ${CANVAS_FADE_MS}ms ease-in`;
+    canvas.style.opacity = '1';
+  }
   start(): void {
     if (this.running || typeof requestAnimationFrame !== 'function') return;
+    this.fadeIn();
     this.running = true;
     this.last = performance.now();
     this.acc = 0;

@@ -174,7 +174,14 @@ function slamDamage(S: Shared, e: Actor): boolean {
   d.kind = 'slam'; d.source = 'tamper'; d.sourceId = e.id;
   d.ox = e.ringX; d.oy = e.ringY + 0.5; d.oz = e.ringZ;
   S.hurt((DEF.attacks[0] as { damage: number }).damage);
-  e.count = 1;                                    // it landed (the pause before its next attack: the `slam` state's end)
+  e.count = 1;                                    // it landed
+  // Release pass p0: the pause after a slam that landed is a time on the body, set here. It used to be set where the
+  // `slam` state ends, and a round into the open chest vent in those 0.3 s (a stagger) skipped it: the next ring was
+  // down 1.8 s after this one. No stagger or flinch shortens it now (defs.ts `slamAfterHit`).
+  e.slamsLanded++; e.slamsRun++;
+  const pause = e.slamsRun >= 2 ? Math.max(TAMPER.slamAfterHit, TAMPER.slamAfterRun[S.difficultyId]) : TAMPER.slamAfterHit;
+  e.quietUntil = S.time + (TAMPER.slam - e.t) + TAMPER.slamRecoverBy[S.difficultyId] + pause;
+  if (e.slamsLanded === TAMPER.hintAfterSlams && S.ctx.data.story.lines[TAMPER.hintKey] !== undefined) S.say(TAMPER.hintKey);
   return true;
 }
 
@@ -207,7 +214,9 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
       if (think) {
         const r = S.sight(e.x, e.y + 1.2, e.z, S.px, S.py + 1.2, S.pz);
         if (r >= 0) e.sees = r === 1;
-        if (S.pAlive && level && dist <= TAMPER.slamRange) {
+        if (S.time < e.quietUntil) {
+          // a slam has just hurt her: it walks, and starts nothing (defs.ts `slamAfterHit`)
+        } else if (S.pAlive && level && dist <= TAMPER.slamRange) {
           // the arm comes down in front of it: it turns to her first
           let facing = (want - e.yaw) % (Math.PI * 2);
           if (facing > Math.PI) facing -= Math.PI * 2; else if (facing < -Math.PI) facing += Math.PI * 2;
@@ -267,11 +276,12 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
       e.ventChest = true;
       if (!e.struck) e.struck = slamDamage(S, e);
       if (e.t >= TAMPER.slam) {
+        if (e.count === 0) e.slamsRun = 0;            // it missed her: the row of slams that landed is over
         endAttack(S, e);
         // polish round 4 (fairness): a slam that landed is not followed by another attack until `slamAfterHit` after its
         // recover. It now reaches a player in a corner (it used to stun itself on the way), and three slams 2.8 s apart
-        // were 114 of her 100 before she had got out of the first ring.
-        if (e.count === 1) S.tokens.delay(e.index, S.time + TAMPER.slamRecover + TAMPER.slamAfterHit);
+        // were 114 of her 100 before she had got out of the first ring. (Release pass p0: the pause itself is
+        // `e.quietUntil`, set where the slam hurts her in slamDamage; it holds through a stagger too.)
         S.pool.setState(e, 'slam_recover');
         S.pool.play(e, 'slam_recover', 0.05);
       }
@@ -279,7 +289,7 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
     }
     case 'slam_recover': {
       e.ventChest = e.t < TAMPER.slamVentOpen;
-      if (e.t >= TAMPER.slamRecover) { S.pool.setState(e, 'advance'); S.pool.play(e, 'walk', 0.2, TAMPER_WALK_RATE); }
+      if (e.t >= TAMPER.slamRecoverBy[S.difficultyId]) { S.pool.setState(e, 'advance'); S.pool.play(e, 'walk', 0.2, TAMPER_WALK_RATE); }
       break;
     }
     case 'charge_windup': {

@@ -25,7 +25,7 @@ def build(args):
     assert p["id"] == "ride_proving_lift"
     w, h, d = p["cageInterior"]
     gw, gh = layout.marker("door_proving_lift")["size"][:2]
-    mech_cage.build_cage(ASSET, args, w, d, gate_w=gw, gate_h=gh, control=(0.0, 1.8, 1.2), number="4-141")
+    mech_cage.build_cage(ASSET, args, w, d, gate_w=gw, gate_h=gh, control=(0.0, 1.8, 1.2), number="4-141", tight=True)
     export.marker("control", (0.0, 1.8, 1.2))
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import { Arm, bayOfBearing, bearingDeg, bearingOfBay, canisterBearing, clampToAr
 import { chooseGrate, p2Wave } from '../../src/enemies/boss/adds.ts';
 import { patternOf, patternSeconds, slotSeconds } from '../../src/enemies/boss/attacks.ts';
 import { countHits, pipsFor } from '../../src/enemies/boss/index.ts';
-import { PARLEY_LINES } from '../../src/enemies/boss/parley.ts';
+import { PARLEY_LINES, parleyPlan } from '../../src/enemies/boss/parley.ts';
 import layout from '../../design/layout.json';
 import story from '../../design/story.json';
 
@@ -46,7 +46,9 @@ describe('defs: the GDD numbers', () => {
   it('by difficulty (polish round 4): the chest vent opens for the whole wind-up on Easy only; a Transit rests 0.3 s longer on Easy and Normal; Hard shortens the Windlass rest and speeds its stakes', () => {
     expect(TAMPER.slamVentLateBy).toEqual({ easy: TAMPER.slamWindup, normal: TAMPER.slamVentLate, hard: 0.6 });
     expect(TRANSIT.cooldownBy).toEqual({ easy: 1.5, normal: 1.5, hard: TRANSIT.cooldown });
-    expect(BOSS_BY).toEqual({ easy: { p1RestScale: 1, stakeSpeedScale: 1 }, normal: { p1RestScale: 1, stakeSpeedScale: 1 }, hard: { p1RestScale: 0.5, stakeSpeedScale: 1.15 } });
+    // release pass p0 (the cross-cutting fixer): on Hard the glow before a discharge is 15 % shorter and the Tamper stands 1.275 s over a slam
+    expect(BOSS_BY).toEqual({ easy: { p1RestScale: 1, stakeSpeedScale: 1, glowScale: 1 }, normal: { p1RestScale: 1, stakeSpeedScale: 1, glowScale: 1 }, hard: { p1RestScale: 0.5, stakeSpeedScale: 1.15, glowScale: 0.85 } });
+    expect(TAMPER.slamRecoverBy).toEqual({ easy: TAMPER.slamRecover, normal: TAMPER.slamRecover, hard: 1.275 });
   });
   it('no hit over 38 (GDD 8.3)', () => {
     const all = [...Object.values(ENEMIES).flatMap((e) => e.attacks.map((a) => a.damage)), BOSS.stakeDamage, BOSS.canisterDamage, BOSS.lanceDamage, BOSS.fanDamage];
@@ -150,11 +152,33 @@ describe('the Windlass: patterns, pips, the arm, the adds (GDD 8)', () => {
     expect(countHits(8, 10, 3)).toBe(2);
     expect(countHits(10, 10, 3)).toBe(0);
   });
-  it('the parley timeline (GDD 8.1): 28 s, the inspection from 23 to 27', () => {
-    expect(PARLEY_LINES.map((l) => l[0])).toEqual([0, 5.5, 10, 14.5, 19, 23]);
-    expect(PARLEY_LINES.map((l) => l[1])).toEqual(['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_3', 'stn_parley_4']);
+  it('the parley timeline (GDD 8.1; closing of pass i3: one roll-call line of 4.5 s): 21 s, the inspection from 16 to 20', () => {
+    expect(PARLEY_LINES.map((l) => l[0])).toEqual([0, 3.5, 7.5, 11.5, 16]);
+    expect(PARLEY_LINES.map((l) => l[1])).toEqual(['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_4']);
     expect(BOSS.parley.windowEnd - BOSS.parley.line4).toBe(4);
-    expect(BOSS.parley.phase1).toBe(28);
+    expect(BOSS.parley.phase1).toBe(21);
+  });
+  it('pass i3: the asking is as long as its lines are held in the story data; a line the data does not carry is not asked for', () => {
+    const keys: string[] = [], holds: number[] = [];
+    const lines = story.lines as Record<string, { seconds?: number }>;
+    // today's data (closing of pass i3: the roll-call is one line): five lines, and the written clock falls out of their seconds
+    expect(parleyPlan(lines, keys, holds)).toBe(PARLEY_LINES.length);
+    expect(keys).toEqual(PARLEY_LINES.map((l) => l[1]));
+    expect(holds.slice(0, -1)).toEqual([3.5, 4, 4, 4.5]);
+    expect(holds.slice(0, -1).reduce((a, b) => a + b, 0)).toBe(BOSS.parley.line4);
+    // other text: longer spoken lines. No code changes.
+    const merged: Record<string, { seconds?: number }> = { ...lines, nar_parley: { seconds: 4.5 }, rv_ask: { seconds: 4.5 } };
+    expect(parleyPlan(merged, keys, holds)).toBe(5);
+    expect(keys).toEqual(['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_4']);
+    expect(holds.slice(0, -1)).toEqual([3.5, 4.5, 4.5, 4.5]);
+    expect(holds.slice(0, -1).reduce((a, b) => a + b, 0)).toBe(17);
+    // a stub's data (no seconds, or no lines at all): the written times, and the inspection is always a stage
+    expect(parleyPlan({}, keys, holds)).toBe(1);
+    expect(keys).toEqual(['stn_parley_4']);
+    parleyPlan({ stn_parley_1: {}, nar_parley: {}, rv_ask: {}, stn_parley_2: {}, stn_parley_3: {}, stn_parley_4: {} }, keys, holds);
+    expect(keys).not.toContain('stn_parley_3');
+    expect(holds).toEqual([3.5, 4, 4, 4.5, 4]);
+    expect([BOSS.rollTickGain, BOSS.rollTickPitch]).toEqual([0.7, 0.75]);
   });
   it('bays: bay k is centred on 60 (k - 1) degrees; bearings are compass bearings from the axis', () => {
     const ax = 14, az = 96;
@@ -290,5 +314,20 @@ describe('polish round 2', () => {
     expect(BOSS.parleyGift).toBeLessThan(BOSS.pipsP1 - 4);            // at least one whole cycle of phase 1 is left after the gift
     expect(3 * BOSS.haulFollowStep).toBeLessThan(BOSS.p1Haul);        // the farthest bay is reached inside the shortest haul
     expect(BOSS.mercyDeaths).toBe(1);
+  });
+  it('release pass p0: the numbers this module added for the final reviewers\' open issues', () => {
+    // the Tamper: the pause after a slam that hurt her (3 s with the recover), 4.5 s from the second in a row on Normal and Easy; the ring hint
+    expect([TAMPER.slamAfterHit, TAMPER.hintAfterSlams, TAMPER.hintKey, TAMPER.hintAfterRespawn]).toEqual([1.5, 2, 'hint_tamper_ring', 1.0]);
+    expect(TAMPER.slamAfterRun).toEqual({ easy: 4.5, normal: 4.5, hard: 1.5 });
+    // the next ring after the hint's slam is laid as the 6 s line ends: recover + pause against the line's seconds
+    expect(TAMPER.slamRecoverBy.normal + TAMPER.slamAfterRun.normal).toBeGreaterThanOrEqual(6);
+    // the file's rear pair hurry while far off and unwatched; nobody else does
+    expect(BIDER.hurryWaves).toEqual({ 'enc_file/R': true });
+    expect([BIDER.hurrySpeed, BIDER.hurryBeyond]).toEqual([1.3, 18]);
+    expect(ENEMIES.bider.moveSpeed * BIDER.hurrySpeed).toBeGreaterThan(6.75);        // faster than her sprint only where she is not looking
+    // the Windlass: the asking follows its lines; a late retry
+    expect([BOSS.parleyLineWait, BOSS.parleyKeptLead]).toEqual([14, 4.5]);
+    expect([BOSS.retryLead, BOSS.moveDeaths, BOSS.retryLeadLate, BOSS.moveKey, BOSS.moveHintAt, BOSS.moveHintAgain, BOSS.moveRead, BOSS.retryLeadMax]).toEqual([4.0, 2, 6.5, 'hint_boss_move', 0.5, 3.0, 4.0, 11]);
+    expect(BOSS.retryLeadLate).toBeGreaterThan(BOSS.retryLead);
   });
 });

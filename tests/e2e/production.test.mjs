@@ -45,6 +45,13 @@ test('the production bundle boots with no debug hook and no synthesised asset; t
   await page.waitForFunction(() => document.pointerLockElement === document.getElementById('game'), null, { timeout: 120000 });
   await page.waitForFunction(() => document.querySelector('[data-item="play"]')?.offsetParent === null, null, { timeout: 120000 });   // the title menu is gone: she has control
   const playAt = Date.now() - t0;
+  // Pass i1 (UI team): a first Begin in a browser that has not played lays the four cards of "The story so far" over
+  // the run's first frame, the game held as for a note and the pointer kept; Enter (its "Begin") hands her the game.
+  await page.waitForSelector('.k7 .reader.on [data-item="close"]', { state: 'visible', timeout: 120000 });
+  assert.equal(await page.evaluate(() => document.pointerLockElement === document.getElementById('game')), true, 'the story cards keep the pointer');
+  await page.screenshot({ path: path.join(ROOT, 'shots', PIECE, 'production_first_begin_story.png') });
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.querySelector('.k7 .reader.on') === null, null, { timeout: 120000 });
   await page.waitForTimeout(1500);                             // a second and a half of the real loop
   await page.screenshot({ path: path.join(ROOT, 'shots', PIECE, 'production_first_seconds.png') });
   assert.deepEqual(errors, [], 'no console error');
@@ -61,6 +68,9 @@ test('the production bundle boots with no debug hook and no synthesised asset; t
   // mouse event as the pointer lock engages is not a look)
   await dbgPage.setViewportSize({ width: 960, height: 540 });
   await dbgPage.click('[data-item="play"]');
+  // (pass i1: a page of its own has storage of its own, so the story cards come again: Enter closes them)
+  await dbgPage.waitForFunction(() => document.pointerLockElement !== null && (window.__dbg.state().game === 'playing' || document.querySelector('.k7 .reader.on') !== null), null, { timeout: 120000 });
+  if (await dbgPage.evaluate(() => document.querySelector('.k7 .reader.on') !== null)) await dbgPage.keyboard.press('Enter');
   await dbgPage.waitForFunction(() => document.pointerLockElement !== null && window.__dbg.state().game === 'playing', null, { timeout: 120000 });
   await dbgPage.waitForTimeout(1000);
   const view = await dbgPage.evaluate(() => { const p = window.__dbg.player(); return { yaw: p.yawDeg, pitch: p.pitchDeg, zone: p.zone, alive: p.alive }; });
@@ -89,6 +99,48 @@ test('the production bundle boots with no debug hook and no synthesised asset; t
     + `to the title ${beforePlay} requests / ${(out.toTitle.bytes / MiB).toFixed(2)} MiB, to control ${requests.length} requests / ${(fetched / MiB).toFixed(2)} MiB; assets from files ${report.assetsFromFiles} + textures ${report.texturesFromFiles}, synthesised 0`);
   assert.ok(total <= 20 * MiB, `the build is ${(total / MiB).toFixed(2)} MiB (cap 20)`);
   assert.equal(js.length, 1, 'one script file');
+  // ---- release pass p0: the design data is not in the script; the script + style share (work orders, section 6: 1.75 MiB)
+  const data = dist.filter(([f]) => /^js[\\/](layout|assets|story)-[\w-]+\.json$/.test(f));
+  assert.equal(data.length, 3, `the three design files are built beside the script: ${data.map(([f]) => f).join(', ')}`);
+  const script = fs.readFileSync(path.join(prod.outDir, js[0][0]), 'utf8');
+  const storyData = JSON.parse(fs.readFileSync(path.join(ROOT, 'design/story.json'), 'utf8'));
+  assert.ok(!script.includes(storyData.ui.ui_end_clean_six) && !script.includes('"solids":') && !script.includes('solids:['), 'no story text and no layout data inside the script');
+  const preloads = fs.readFileSync(path.join(prod.outDir, 'index.html'), 'utf8').match(/<link rel="preload" as="fetch"[^>]+>/g) ?? [];
+  assert.equal(preloads.length, 3, 'index.html preloads the three data files');
+  // ---- pass i1 (R15): the built page names itself before any script runs, and its share picture is in the build
+  const builtHtml = fs.readFileSync(path.join(prod.outDir, 'index.html'), 'utf8');
+  assert.equal(/<title>([^<]*)<\/title>/.exec(builtHtml)?.[1], storyData.ui.ui_title, 'the built page has its title in the HTML');
+  assert.ok(builtHtml.includes(`<meta name="description" content="${storyData.system.page_description}">`), 'and a description');
+  assert.ok(/<meta property="og:image" content="\.\/share\.jpg">/.test(builtHtml), 'and a share picture addressed relative to the page');
+  assert.ok(fs.existsSync(path.join(prod.outDir, 'share.jpg')), 'share.jpg is in the build');
+  for (const [f] of data) assert.ok(requests.slice(0, beforePlay).some((r) => r.path.endsWith('/' + path.basename(f)) && r.status === 200), `${f} was fetched before the title`);
+  const share = out.jsBytes + out.cssBytes;
+  console.log(`production: script ${out.jsBytes} B + style ${out.cssBytes} B = ${(share / MiB).toFixed(3)} MiB (share 1.75); design data ${sum(data)} B in 3 files`);
+  assert.ok(share <= 1.75 * MiB, `script + style are ${(share / MiB).toFixed(3)} MiB (share 1.75 MiB)`);
+  assert.ok(sum(data) <= 0.35 * MiB, `design data is ${(sum(data) / MiB).toFixed(3)} MiB (share 0.35 MiB)`);
+});
+
+test('a design data file that will not come: asked four times, then one plain line on the page, not a black screen', async () => {
+  const page = await browser.newPage({ viewport: { width: 640, height: 360 }, deviceScaleFactor: 1 });
+  try {
+    let asked = 0;
+    await page.route(/\/js\/layout-[\w-]+\.json$/, (route) => { asked++; return route.abort('failed'); });
+    await page.goto(prod.url);
+    await page.waitForFunction(() => document.getElementById('boot-failure') !== null, null, { timeout: 60000 });
+    const line = await page.evaluate(() => document.getElementById('boot-failure').textContent);
+    const story = JSON.parse(fs.readFileSync(path.join(ROOT, 'design/story.json'), 'utf8'));
+    assert.equal(line, [story.system.boot_failed, story.system.boot_connection, story.system.boot_retry].join(' '));
+    assert.ok(asked >= 4, `the file was asked for ${asked} times`);
+    assert.equal(await page.evaluate(() => document.title), story.ui.ui_title);
+    // and when the first try fails but the second comes, the game starts
+    await page.unroute(/\/js\/layout-[\w-]+\.json$/);
+    let once = 0;
+    await page.route(/\/js\/story-[\w-]+\.json$/, (route) => (once++ === 0 ? route.abort('failed') : route.continue()));
+    await page.goto(prod.url);
+    await page.waitForFunction(() => document.title !== '' && document.querySelector('[data-item="play"]') !== null, null, { timeout: 120000 });
+    assert.equal(await page.evaluate(() => document.getElementById('boot-failure')), null);
+    assert.ok(once >= 2, 'the story file was asked for again');
+  } finally { await page.close(); }
 });
 
 // ---- polish round 2 (robustness): the public page -------------------------------------------------------------------

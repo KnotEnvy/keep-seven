@@ -41,7 +41,8 @@ test('every AudioCue and every other sound renders non-silent (peak > 0.01) and 
 
 test('the sound board: a real click unlocks; every button runs with a live context; every cap_* key is raised with its sound', async () => {
   const story = JSON.parse(fs.readFileSync(path.join(ROOT, 'design', 'story.json'), 'utf8'));
-  const keys = Object.keys(story.lines).filter((k) => k.startsWith('cap_')).sort();
+  // (release pass p0: cap_loft_bell is raised by the world with its cue, not by audio: src/audio/captions.ts)
+  const keys = Object.keys(story.lines).filter((k) => k.startsWith('cap_') && k !== 'cap_loft_bell').sort();
   assert.equal(keys.length, 23);
   const game = await openBoard(server, { viewport: { width: 1400, height: 1000 } });
   try {

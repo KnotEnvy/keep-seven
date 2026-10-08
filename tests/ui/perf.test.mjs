@@ -1,6 +1,7 @@
 // Pillar 5 for the UI (docs/workorders/code-ui.md 4.4, 6): DOM writes only on change, no per-frame allocation, 0.2 ms of
 // JS; then the sweeps over every sandbox state: no red, no text that is not story.json's; the production build.
 import { after, before, test } from 'node:test';
+import { launchBrowser } from '../../tools/browser.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -188,11 +189,20 @@ test('every sandbox state: no red anywhere, and every word on screen is story.js
     const numeric = /^[\d\s:./×°%·IVX-]+$/;                                                 // counts, clocks, percentages, roman numerals
     const sizes = /^(?:S|M|L|XL)$/;                                                                         // Options.subtitleSize values
     const counted = new RegExp(`^\\d+ ${STORY.ui.ui_end_of ?? '/'} \\d+$`);                              // the end card's "71 of 96": the word is story.json's ui_end_of (polish round 3)
+    // pass i3: the credits' four strings story.json does not have yet (src/ui/text.ts CREDITS_FALLBACK, held to exactly
+    // these by tests/ui/text.spec.ts; asked for in docs/requests/ui.md) and the repository's address
+    const CREDITS = ['Made with three.js and Blender.', 'Version', 'Source', 'Report a problem'].filter((c, i) => !(['ui_credits_made', 'ui_credits_version', 'ui_credits_source', 'ui_credits_report'][i] in STORY.ui));
+    const repository = /^github\.com\/[\w.-]+\/[\w.-]+(?:\/issues)?$/;
     const explained = (t) => {
       const flat = t.replace(/\s+/g, ' ').trim();
+      if (CREDITS.includes(flat) || repository.test(flat)) return true;
+      // the credits' body: story.json's words, then the made-with line on a line of its own
+      if (t.includes('\n') && t.split('\n').every((line) => line.trim() === '' || explained(line))) return true;
       if (corpus.has(flat) || keyNames.test(flat) || numeric.test(flat) || sizes.test(flat) || counted.test(flat)) return true;
       // polish round 5: the title's question is story.json's own "Begin" with a question mark (no new string could be added)
       if (flat === STORY.ui.ui_menu_play + '?') return true;
+      // pass i2: the loading screen's line is whole sentences of "The story so far" until story.json has ui_loading_line
+      if (/^[A-Z].*\.$/.test(flat) && STORY.readables.rd_backstory.body.includes(flat)) return true;
       // a wrapped subtitle, or a card of a readable, is a line of story.json with its line breaks moved
       for (const c of corpus) if (c.replace(/\s+/g, ' ') === flat) return true;
       return false;
@@ -284,6 +294,27 @@ test('the production build carries the UI and its stylesheet: the title screen, 
       assert.match(t.family, /Iowan Old Style/);
       assert.ok(t.items >= 4);
     } finally { await game.close(); }
+    // pass i1: on the page a player gets (no parameter at all) a first Begin lays the four story cards over the run's
+    // first frame; Enter hands her the game; the browser remembers, so the next Begin is not stopped
+    const browser = await launchBrowser();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(String(e)));
+      await page.goto(build.url);
+      await page.waitForSelector('.k7 .title.on [data-item="play"]', { state: 'visible', timeout: 120000 });
+      assert.equal(await page.evaluate(() => [typeof window.__dbg, document.getElementById('preload')].join()), 'undefined,', 'no hook, and the pre-boot page is gone');
+      await page.click('.k7 .title.on [data-item="play"]');
+      await page.waitForSelector('.k7 .reader.on [data-item="close"]', { state: 'visible', timeout: 60000 });
+      const story = await page.evaluate(() => {
+        const s = document.querySelector('.k7 .reader.on .sheet');
+        return { title: s.querySelector('.sheet-title').textContent, body: s.querySelector('.sheet-body').textContent, close: s.querySelector('[data-item="close"]').textContent, seen: localStorage.getItem('keepseven.ui.story_seen.v1'), hud: getComputedStyle(document.querySelector('.k7 .hud')).display };
+      });
+      assert.deepEqual(story, { title: STORY.readables.rd_backstory.title, body: STORY.readables.rd_backstory.body.split('\n\n')[0], close: 'Enter' + STORY.ui.ui_menu_play, seen: '1', hud: 'none' });
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => document.querySelector('.k7 .reader.on') === null && getComputedStyle(document.querySelector('.k7 .hud')).display !== 'none', null, { timeout: 60000 });
+      assert.deepEqual(errors, []);
+    } finally { await browser.close(); }
     const dir = path.join(build.outDir, 'js');
     const files = fs.readdirSync(dir).map((f) => [f, fs.statSync(path.join(dir, f)).size]);
     const css = files.filter(([f]) => f.endsWith('.css'));

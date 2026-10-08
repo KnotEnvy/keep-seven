@@ -99,3 +99,34 @@ rebuild).
   (the offset is computed from `ia_stone_round`, `rd_note_stone` and the `rim_stone` solid in `design/layout.json`).
 - `card_dowser`: COLOR_0 is a near-black coat (`#15121A`), not `dowser_pale` (lead ruling R4).
 - Evidence: `shots/r3-fix-art-props/` (`after_*` are the real game at 1280 x 720, Low).
+- Release pass p0 (look team creatures-props), `prop_coat_hung`, 3 looks in the real game (the reviewer: "faceted olive
+  blobs at arm's length"; `shots/p0-team-creatures-props/pairs_low.png`): the coats became thin smooth sheets with two
+  notched lapels, a dark neck and a lapped front -> the shawl became two gathered ends with slanted striped hems (it
+  was one square fall 0.45 m wide: the blob) -> folds painted into COLOR_0 (`FOLD`, `FOLD_SHAWL`: the stair lights
+  every upright face alike), the long coat a shade paler. The fringe yarn is warmer (`#DCC7A0`) so both edges of the
+  border are hard colour steps (`hoops.test.mjs`: 24 points). The coats sway now (the shader's wind weight was zero
+  below a pivot: `src/render/materials.ts`).
+
+
+## Pass i1 (look team creatures-props, 2026-10-07)
+
+`dress_common.wheel` is new: `rim_segs` (18 to 20 reads round), six sawn felloes as separate parts, `tyre` (the outer
+face's colour; `None` = the caller paints it, as the wagon's `weather` does), `spoke_sides` (3 = six triangles a spoke,
+for a wheel seen from outside), `hub_seg`. `prop_water_cart` and `prop_wagon_tipped` are embedded in
+`env_plenty_street`: the zone must be rebuilt to show a change. `prop_coat_hung`: keep folds under about 2 cm deep at
+this spacing, or `smooth(80)` leaves them as hard facets.
+
+## Pass i2 (look team creatures-props)
+
+- `blender/tex/cloth_atlas.py` (new, imported by `tx_palette.py`): four painted cloths in the palette's rows 6 to 15.
+  `cloth_atlas.map_by_position(ob, uv, fn)` lays a part on one of them from its corners' positions (`prop_coat_hung._cloth`).
+  A part mapped this way must have its `Cell` layer set to `cloth_atlas.BASE[region]` and its tint no lighter than it.
+- `prop_hat_hung`: the underside is closed (a pole under the crown); eight sides; 48 / 50.
+- `prop_coat_hung`: coats on the `coat` cloth, the shawl on `weave`, AO 0.6.
+
+## Pass i3 (look team creatures-props)
+
+`prop_coat_hung.py`: `slab(name, nu, nv, fn, nb, back, top)` makes a hanging cloth with a far side (front sheet as
+`dc.sheet(..., flip=True)` + back + flanks + hem + top, one welded shell); the coats have a collar roll (`dc.tube`), six-sided
+sleeves and their back on the BACK of the coat cloth (`_as_coat_back`). 184 / 184 / 180 triangles; keep each variant at or
+under 200 (the gallery's dressing allowance counts `triBudget / variants`).

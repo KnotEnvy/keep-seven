@@ -47,7 +47,8 @@ test('title with a save: Go on is chosen and names its count; Begin asks first, 
     await game.page.keyboard.press('Enter');
     assert.equal((await ui(game)).asking, true, 'Begin over a save asks');
     assert.deepEqual(await items(game), [U.ui_menu_continue + 'VI · 2*', U.ui_menu_play, U.ui_opt_back], 'the question: go on (chosen), begin, back');
-    assert.equal(await game.page.evaluate(() => document.querySelector('.k7 .title .ask-head').textContent), U.ui_menu_play + '?');
+    assert.equal(await game.page.evaluate(() => document.querySelector('.k7 .title .ask-head').textContent), U.ui_ask_begin);
+    assert.equal(await game.page.evaluate(() => document.querySelector('.k7 .title .ask-note').textContent), U.ui_ask_begin_note);
     assert.deepEqual([(await actions(game)).length, await stored(game), (await game.state()).game], [before0, 'cp_boss_p1', 'title'], 'nothing was started and the save is whole');
     await r5shot(game, 'title_begin_asks');
     // the question does not lie over the title's own column, and it is inside the frame
@@ -110,7 +111,8 @@ test('a movement card is shown once a run, gives way to a fight after a second, 
     assert.deepEqual(await look(), { text: STORY.lines.card_v.text, on: false, quick: true }, 'fading from 1.0 s');
     await frame(game, 18);
     assert.equal((await look()).text, '', 'gone 1.3 s after it came (it was 3.5 s, over the Tamper\'s first charge)');
-    assert.equal(await game.page.evaluate(() => getComputedStyle(document.querySelector('.k7 .card')).transitionDuration), '0.3s');
+    // (release pass p0: the fade itself is counted in ticks: tests/ui/release_p0.test.mjs)
+    assert.equal(await game.page.evaluate(() => getComputedStyle(document.querySelector('.k7 .card')).opacity), '0');
     // ---- once a run: the restore of a checkpoint (a death, "back to the last count") does not show it again
     await emit(game, 'player/respawned', { checkpoint: 'cp_hall_gantry' });
     await card('card_v');
@@ -167,7 +169,7 @@ test('the mark stands lower left over the health bars at every shape of frame: c
       assert.ok(g.sv.b < g.health.t - 6, `${at}: the seventh ends ${(g.health.t - g.sv.b).toFixed(1)} px above the health bars`);
       assert.equal(overlap(g.mark, g.sub) || overlap(g.mark, g.capt), false, `${at}: clear of the longest subtitle at XL and of the caption`);
       // the revolver's corner: nothing of the gauges is in the right half below the middle any more
-      const right = await game.page.evaluate(() => [...document.querySelectorAll('.k7 .hud > *')].filter((n) => { if (n.classList.contains('xh')) return false; const b = n.getBoundingClientRect(); return b.width > 0 && b.right > innerWidth * 0.5 && b.bottom > innerHeight * 0.5 && getComputedStyle(n).display !== 'none'; }).map((n) => n.getAttribute('class')));
+      const right = await game.page.evaluate(() => [...document.querySelectorAll('.k7 .hud > *')].filter((n) => { if (n.classList.contains('xh') || n.classList.contains('lowf')) return false;   /* pass i3: .lowf is the low-health line round the whole frame, not a gauge */ const b = n.getBoundingClientRect(); return b.width > 0 && b.right > innerWidth * 0.5 && b.bottom > innerHeight * 0.5 && getComputedStyle(n).display !== 'none'; }).map((n) => n.getAttribute('class')));
       assert.deepEqual(right, [], `${at}: no gauge in the lower right`);
       // sizes (story-ux): 15 x 36 px and 13 px at 720p before
       assert.ok(g.sv.w >= 19 && g.sv.h >= 47, `${at}: the seventh ${g.sv.w.toFixed(1)} x ${g.sv.h.toFixed(1)} px`);
@@ -234,7 +236,7 @@ test('end card at 4:3 and 16:9: every row is one line, label left of its value (
       const at = `${viewport.width}x${viewport.height}`;
       const six = rows.find((r) => r.id === 'clean_six');
       assert.equal(six.label, STORY.ui.ui_end_clean_six);
-      assert.ok([STORY.ui.ui_end_yes, STORY.ui.ui_end_no].includes(six.value));
+      assert.equal(six.value, STORY.ui.ui_end_yes);                 // pass i1: the row is there only when the feat was done
       for (const r of rows) {
         assert.ok(r.labH < r.font * 1.9, `${at}: '${r.label}' is one line (${r.labH.toFixed(1)} px tall at ${r.font} px)`);
         assert.ok(r.gap >= 6 && r.sameLine, `${at}: '${r.label}' ends ${r.gap.toFixed(1)} px left of '${r.value}'`);

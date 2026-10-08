@@ -4,7 +4,7 @@ import { createGameData } from '../../src/core/data.ts';
 import { EventBusImpl } from '../../src/core/events.ts';
 import { MemoryStorage, OptionsStoreImpl } from '../../src/core/options.ts';
 import { PerfMonitorImpl } from '../../src/core/perf.ts';
-import { QualityManagerImpl, TIER_KEY, classifyRenderer, featuresOf, tierFromBenchmark } from '../../src/core/quality.ts';
+import { OPEN_FRAMES, OPEN_SETTLE, QualityManagerImpl, TIER_KEY, classifyRenderer, featuresOf, tierFromBenchmark } from '../../src/core/quality.ts';
 import { parseRunFlags, parseUrlExtras } from '../../src/core/context.ts';
 
 const data = createGameData({ strict: true });
@@ -22,6 +22,15 @@ function make(search: string, stored: Record<string, string> = {}, dpr = 1): { q
   return { q, changes, storage, options };
 }
 const feed = (q: QualityManagerImpl, ms: number, frames: number): void => { for (let i = 0; i < frames; i++) q.onFrameTime(ms); };
+/**
+ * Release pass p0: every session opens with OPEN_SETTLE + OPEN_FRAMES frames at the minimum ratio (drawn under the
+ * canvas's fade from black) and then returns to the full ratio. The two events of that look, checked and taken off.
+ */
+function afterOpening<T>(changes: readonly T[], ratioOf: (c: T) => number, min = 0.5, max = 1): T[] {
+  if (changes.length < 2) throw new Error(`the opening look made ${changes.length} changes, not 2`);
+  expect([ratioOf(changes[0] as T), ratioOf(changes[1] as T)]).toEqual([min, max]);
+  return changes.slice(2);
+}
 
 describe('URL parameters (11.1)', () => {
   it('parse into RunFlags and the extras', () => {
@@ -244,7 +253,7 @@ describe('QualityManager: the display\'s own frame interval is the target (8.5 s
     for (let s = 0; s < 12; s++) { feed(q, 16.67, 599); q.onFrameTime(50); }
     for (let s = 0; s < 6; s++) { feed(q, 16.67, 598); q.onFrameTime(50); q.onFrameTime(48); }
     expect(q.pixelRatio).toBe(1);
-    expect(changes).toEqual([]);
+    expect(afterOpening(changes, (c) => c.pixelRatio)).toEqual([]);
   });
   it('a 60 Hz display under load at the title is not mistaken for a 30 Hz display', () => {
     const { q } = make('?tier=low');
@@ -446,8 +455,9 @@ describe('QualityManager: the penalty does not outlast the cause (polish round 3
   });
   it('T: three 120 ms frames in a row (program links at a set swap): one step at most, back within 20 s (it was 30 s at 0.9)', () => {
     const r = model({ gpu: 8, seconds: 120, spike: (t) => (t > 60 && t < 60.3 ? 110 : 0) });
-    expect(Math.min(1, ...r.changes.map((c) => c.ratio))).toBeGreaterThanOrEqual(0.9 - 1e-9);
-    expect(r.changes.length === 0 || backAt(r.changes) < 60.3 + 20).toBe(true);
+    const later = afterOpening(r.changes, (c) => c.ratio);
+    expect(Math.min(1, ...later.map((c) => c.ratio))).toBeGreaterThanOrEqual(0.9 - 1e-9);
+    expect(later.length === 0 || backAt(later) < 60.3 + 20).toBe(true);
     expect(r.q.pixelRatio).toBe(1);
   });
   it('a failed probe upward still earns the long back-off: real load is not probed every five seconds', () => {
@@ -479,8 +489,77 @@ describe('QualityManager: the penalty does not outlast the cause (polish round 3
   it('held frames (not playing; a set or a staged zone just built) never reach the controller', () => {
     // a ten-second loading screen at +40 ms a frame in the middle of play: nothing changes
     const r = model({ gpu: 8, seconds: 120, spike: (t) => (t > 60 && t < 70 ? 40 : 0), held: (t) => t > 59.9 && t < 70.1 });
-    expect(r.changes).toEqual([]);
+    expect(afterOpening(r.changes, (c) => c.ratio)).toEqual([]);
     expect(r.q.pixelRatio).toBe(1);
+  });
+});
+
+describe('QualityManager: the opening look (release pass p0)', () => {
+  const OPEN = OPEN_SETTLE + OPEN_FRAMES;
+  /** a vsync display of `hz`, the frame cpu + gpu x ratio^2 rounded up to whole refresh intervals; -> every change with its time */
+  function open(o: { hz: number; cpu: number; gpu: number; seconds: number }): { q: QualityManagerImpl; changes: { t: number; ratio: number; frame: number }[] } {
+    const m = make('');
+    m.q.detect('ANGLE (Intel, Intel(R) HD Graphics 620 Direct3D11 vs_5_0 ps_5_0)');
+    m.q.setViewport(1280, 720);
+    const iv = 1000 / o.hz, changes: { t: number; ratio: number; frame: number }[] = [];
+    let t = 0, seen = m.changes.length, frame = 0;
+    while (t < o.seconds) {
+      const work = o.cpu + o.gpu * m.q.pixelRatio * m.q.pixelRatio;
+      const ms = Math.max(1, Math.ceil(work / iv - 1e-9)) * iv;
+      m.q.onFrameTime(ms);
+      t += ms / 1000; frame++;
+      for (; seen < m.changes.length; seen++) changes.push({ t, ratio: (m.changes[seen] as GameEvents['quality/changed']).pixelRatio, frame });
+    }
+    return { q: m.q, changes };
+  }
+  it('nothing moves before the first frame; the first frames are at the minimum ratio, then the full ratio is back', () => {
+    const m = make('');
+    m.q.setViewport(1280, 720);
+    expect(m.q.pixelRatio).toBe(1);
+    expect(m.changes).toEqual([]);
+    m.q.onFrameTime(16.67);
+    expect(m.q.pixelRatio).toBe(0.5);
+    m.q.setViewport(1920, 1080);                                // a resize inside the look does not end it
+    expect(m.q.pixelRatio).toBeLessThanOrEqual(0.5);
+    m.q.setViewport(1280, 720);
+    feed(m.q, 16.67, OPEN - 1);
+    expect(m.q.pixelRatio).toBe(0.5);
+    m.q.onFrameTime(16.67);
+    expect(m.q.pixelRatio).toBe(1);
+  });
+  it('test mode has no opening look', () => {
+    const m = make('?test=1');
+    feed(m.q, 16.67, 200);
+    expect(m.changes).toEqual([]);
+  });
+  for (const [name, hz, cpu, gpu] of [['a 30 Hz cap on an idle GPU', 30, 2, 5], ['CPU-bound at 22 ms on a 60 Hz display', 60, 22, 2], ['a 50 Hz display', 50, 2, 5]] as const) {
+    it(`${name}: the picture is at full resolution from frame ${OPEN + 1} on and never leaves it (it went to half for 50 frames two seconds in)`, () => {
+      const r = open({ hz, cpu, gpu, seconds: 120 });
+      expect(afterOpening(r.changes, (c) => c.ratio)).toEqual([]);
+      expect((r.changes[1] as { frame: number }).frame).toBe(OPEN + 1);
+      expect(r.q.pixelRatio).toBe(1);
+      expect(r.q.targetMs).toBeGreaterThan(19);                 // the display's own interval is the budget
+    });
+  }
+  it('fill-bound (3 + 17 ms: 1.0 misses vsync, 0.8 holds): down from the top to 0.8 within 3 s, never below it (it went to 0.5 and climbed for 15 s)', () => {
+    const r = open({ hz: 60, cpu: 3, gpu: 17, seconds: 12 });
+    const later = afterOpening(r.changes, (c) => c.ratio);
+    expect(later.length).toBeGreaterThan(0);
+    expect(Math.min(...later.map((c) => c.ratio))).toBeGreaterThanOrEqual(0.8 - 1e-9);
+    expect((later[0] as { t: number }).t).toBeLessThan(3);
+    expect(r.q.targetMs).toBeCloseTo(16.7, 1);
+    expect(r.q.pixelRatio).toBeCloseTo(0.8, 6);
+  });
+  it('a janky opening (no cadence at the minimum ratio) falls back to the look after the first second', () => {
+    const m = make('?tier=low');
+    m.q.setViewport(1280, 720);
+    for (let i = 0; i <= OPEN; i++) m.q.onFrameTime(i % 2 ? 41 : 23);
+    expect(m.q.pixelRatio).toBe(1);
+    feed(m.q, 33.33, 60);                                       // steady and slow at the full ratio: looked at once at the minimum
+    expect(m.q.pixelRatio).toBe(0.5);
+    feed(m.q, 33.33, 50);
+    expect(m.q.pixelRatio).toBe(1);
+    expect(m.q.targetMs).toBeCloseTo(33.3, 1);
   });
 });
 

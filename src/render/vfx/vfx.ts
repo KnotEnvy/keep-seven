@@ -115,6 +115,10 @@ const TOKEN_OVER = 1.15;
 const SHOW_GRACE = 0.25;
 /** the depth the last fire is drawn at when it is farther away than this (see fillCards) */
 const FIRE_DEPTH = 60;
+/** the last fire's flame is never drawn under this many pixels tall. Pass i2 (both story reviewers; the line is "Out on
+ * the flat, one small fire. It was not moving."): 30 (a flame of about 18 px in its card), a point of light with a bloom and a hairline of smoke, where pass
+ * i1's 92 px flame with its heavy column stood as tall as the line pylon and read as a bonfire at the edge of town */
+const FIRE_PX = 38;      // exterior look, pass i3: 30 -> 38 (the visual reviewer: "its fire is small"; still "one small fire", a twentieth of the frame's height)
 /** a Transit's aim (GDD: 0.9 s): its thread brightens and thickens over this long */
 const THREAD_AIM_SECONDS = 0.9;
 /**
@@ -125,6 +129,39 @@ const THREAD_AIM_SECONDS = 0.9;
  * it is the constant 4 px line of ART_BIBLE 9.3 for the rest of the stage. Two additive quads, as that section budgets.
  */
 const STAND_FLARE = 2.4, STAND_FLARE_TAU = 0.5;
+/**
+ * Underground look, pass i2 (visual reviewer: "the seventh shot is mostly a colour change ... short of a spectacle").
+ * Inside the standing line's flare the bore ANSWERS: PROVE_RINGS ticked rings of aqua light leave the pit one after
+ * another and climb the line to the vault (each PROVE_RING_LIFE seconds, PROVE_RING_GAP apart, easing out as it rises),
+ * and PROVE_THREADS threads of light are drawn up the shaft's wall, one after another round the kerb, each with a bright
+ * head. All of it is over at 2.35 s, inside STAND_FLARE: the four seconds of nothing that follow are untouched, no
+ * particle is spawned, and Reduce Flashes shows none of it (standT0 is never set there). 16 additive quads at most.
+ */
+const PROVE_RINGS = 3, PROVE_RING_GAP = 0.3, PROVE_RING_LIFE = 1.5, PROVE_RING_R = 2.9;
+const PROVE_THREADS = 8, PROVE_THREAD_GAP = 0.06, PROVE_THREAD_RISE = 1.0, PROVE_THREAD_LIFE = 1.8, PROVE_THREAD_R = 2.86;
+/**
+ * Underground look, pass i3 (visual reviewer: "from the kerb the spectacle is a flash, one thin ring, a few hairline
+ * beams and the room swapping from violet to teal ... it reads as a lighting change"). The same budget (at most 18
+ * additive quads for STAND_FLARE seconds, counted in fillProving's comment), spent on things that MOVE THROUGH THE ROOM:
+ *   - the column HOLDS its white peak for PROVE_HOLD seconds before it falls (it was past half in a fifth of a second),
+ *     and is half as thick again at the peak;
+ *   - a SHOCK leaves the kerb across the floor, riding the shader's own front (ringRadius) to the walls: a bright
+ *     ticked ring with a faint lit disc behind it, and a second, fainter, PROVE_SHOCK_GAP behind;
+ *   - the kerb's ring of seams goes white for the hold (a crown of light on the notches, PROVE_CROWN_R) before it
+ *     settles to the aqua the lamp set turns to;
+ *   - the vault answers where the column meets the head: a soft bloom of light up there that falls with the flare;
+ *   - three rising rings (four) and eight threads (twelve), each thread half as thick again.
+ * The shader's front is PROVE_FRONT_WIDE metres wide while it crosses the kerb (1 m: four frames) and narrows to the
+ * travelling edge of round 3 by the time it is on the open floor. The camera takes one knock (the render system's
+ * trauma, PROVEN_TRAUMA; none under Reduce Motion). Nothing here spawns a particle or outlives STAND_FLARE.
+ */
+const PROVE_HOLD = 0.28, PROVE_SHOCK_GAP = 0.16, PROVE_SHOCK_FROM = 3.7, PROVE_SHOCK_TO = 15.2, PROVE_CROWN_R = 3.3, PROVE_FRONT_WIDE = 2.0;
+/** the standing line's flare, 0..1, `age` seconds after the seventh: whole for PROVE_HOLD, then falling as round 3 set it */
+function standFlare(age: number): number {
+  if (age < PROVE_HOLD) return 1;
+  const a = age - PROVE_HOLD;
+  return Math.exp(-a / STAND_FLARE_TAU) * Math.max(0, 1 - a / (STAND_FLARE - PROVE_HOLD));
+}
 
 /** the ids, for tests and the sandbox grid */
 export const VFX_IDS = Object.keys(RECIPES) as VfxId[];
@@ -133,7 +170,8 @@ export const VFX_IDS = Object.keys(RECIPES) as VfxId[];
 interface LineStyle { pool: number; color: THREE.Color; core: number; total: number; halo: number; white: number; dash: number; head: number; life: number; hold: number; fade: number; streak: number }
 const LINE_STYLE: Readonly<Record<LineKind, LineStyle>> = {
   tracer: { pool: 4, color: HUE.flameCore, core: 2, total: 7, halo: 0.35, white: 0.5, dash: 0, head: 0, life: 2 / 60, hold: 2 / 60, fade: 0, streak: 3 },
-  ricochet: { pool: 4, color: HUE.flameCore, core: 2, total: 7, halo: 0.35, white: 0.5, dash: 0, head: 0, life: 2 / 60, hold: 2 / 60, fade: 0, streak: 6 },
+  // underground look, pass i1: streak 6 -> 0.7 (a 6 m line stood from the hit to the top of the frame; feedback.ts RICOCHET_M)
+  ricochet: { pool: 4, color: HUE.flameCore, core: 2, total: 9, halo: 0.45, white: 0.5, dash: 0, head: 0, life: 2 / 60, hold: 2 / 60, fade: 0, streak: 0.7 },
   line_round: { pool: 4, color: HUE.aqua, core: 3, total: 13, halo: 0.35, white: 0.6, dash: 0, head: 0, life: 1.5, hold: 1.2, fade: 0.3, streak: 0 },
   // polish round 3 (combat critic: "at 18 m the 0.9 s aim tell is a faint dotted line a pixel or two wide"): a solid beam
   // with a white heart, 3 px growing to 5 over the aim (THREAD_AIM_SECONDS from the moment it is taken), a halo along it,
@@ -164,6 +202,11 @@ class Slot {
   gen = 0;
   /** written into the quad batch since it was taken / shown by a drawn frame since it was taken */
   written = false; shown = false;
+  /**
+   * Release pass p0: a streak that leaves the gun (lineFromMuzzle). While it lives its start follows the muzzle AS DRAWN
+   * (rideLines); `qo` is where the fill wrote it into the quad batch this frame (-1: not written), `f` its age over its life.
+   */
+  rides = false; qo = -1; f = 0;
   readonly handles: [FxHandle, FxHandle];
   constructor(readonly kind: string, onRelease: (s: Slot) => void) {
     const make = (parity: number): FxHandle => ({
@@ -181,6 +224,7 @@ class Slot {
     this.active = true; this.persistent = persistent; this.visible = true;
     this.level = 1; this.levelSet = false; this.t0 = now;
     this.written = false; this.shown = false;
+    this.rides = false; this.qo = -1; this.f = 0;
     return this.handles[this.gen & 1] as FxHandle;
   }
 }
@@ -205,7 +249,7 @@ void main() {
 export interface VfxHost {
   /** the mood's pulse scale (35 % outdoors by day) */
   pulseScale(): number;
-  /** wrong_fade reached 1 behind the ring: the mood becomes L5p over `seconds` */
+  /** wrong_fade reached 1 behind the ring: the mood becomes L5p over `seconds` (pass i3: and the camera takes one knock) */
   proven(seconds: number): void;
   /** particle counts: the High column of ART_BIBLE 9.2 (features.particleScale at 1), else the Low one */
   high(): boolean;
@@ -244,6 +288,8 @@ export class Vfx implements VfxApi {
   private ringT0 = -1;
   private ringReduced = false;
   private ringY = 0;
+  /** the chamber's floor under the seventh's centre (the event carries the kerb's top, 1.2 m up: see provingRing) */
+  private proveFloor = 0;
   private standing: FxHandle | null = null;
   /** when the standing line was born by the seventh (never for a restored proven bore, or under Reduce Flashes) */
   private standT0 = -1e9;
@@ -253,7 +299,7 @@ export class Vfx implements VfxApi {
   additiveLoad = 0;
   smokeLoad = 0;
   /** bursts asked for / drawn / refused by the quiet, since boot */
-  readonly counts = { bursts: 0, quiet: 0, capped: 0, dropped: 0, lines: 0, rings: 0, flashes: 0, flashRides: 0, pulses: 0, decals: 0, provingRings: 0, provingIgnored: 0 };
+  readonly counts = { bursts: 0, quiet: 0, capped: 0, dropped: 0, lines: 0, rings: 0, flashes: 0, flashRides: 0, lineRides: 0, pulses: 0, decals: 0, provingRings: 0, provingIgnored: 0 };
   reduceFlashes = false;
   private readonly rng;
   private readonly cam = new THREE.Vector3();
@@ -367,7 +413,20 @@ export class Vfx implements VfxApi {
     slot.take(this.now(), false);
     slot.ax = ax; slot.ay = ay; slot.az = az; slot.bx = bx; slot.by = by; slot.bz = bz;
     slot.life = style.life; slot.hold = style.hold; slot.fade = style.fade;
+    this.lastLine = slot;
   }
+  /**
+   * A one-shot streak whose start is the revolver's muzzle (the tracer of a lead round). As `line`, and while it lives
+   * its start is moved each drawn frame to the muzzle as that frame draws it (rideLines): the shot's own point is the
+   * muzzle before the kick, 70 px under the risen barrel on the first drawn frame at 540p.
+   */
+  lineFromMuzzle(kind: LineKind, ax: number, ay: number, az: number, bx: number, by: number, bz: number): void {
+    this.lastLine = null;
+    this.line(kind, ax, ay, az, bx, by, bz);
+    const slot = this.lastLine as Slot | null;
+    if (slot && LINE_STYLE[kind].streak > 0) slot.rides = true;
+  }
+  private lastLine: Slot | null = null;
   acquireLine(kind: LineKind): FxHandle | null {
     const pool = this.lines[kind];
     if (!pool) return null;
@@ -468,6 +527,10 @@ export class Vfx implements VfxApi {
     this.ringT0 = now;
     this.ringReduced = this.reduceFlashes;
     this.ringY = y;
+    // pass i3: the shock and the crown lie on the floor and on the notches. The boss sends the layout's `bore_opening`
+    // (the centre of the kerb's TOP disc, 1.2 m over the floor); anything else is taken as the floor itself.
+    const top = this.ctx.data.layout.markers.find((m) => m.id === 'bore_opening');
+    this.proveFloor = top && Math.abs((top.pos[1] as number) - y) < 0.05 ? y - 1.2 : y;
     this.shared.uWrongCentre.value.set(x, y, z);
     // after the ring: four seconds in which no particle spawns
     this.quietUntil = now + 1.6 + 4.0;
@@ -536,7 +599,8 @@ export class Vfx implements VfxApi {
         (shared.uPulsePos.value[1] as THREE.Vector4).set(c.x, c.y, c.z, radius);
         // look-dev, polish round 3: white x 0.6 over a 1.5 m falloff bleached the whole kerb she looks at for a third of
         // a second (a banded pale wash). An aqua-white front 1 m wide, brighter at its crest: an edge that is seen to travel.
-        (shared.uPulseCol.value[1] as THREE.Vector4).set(0.40, 0.58, 0.55, 1.0);
+        // pass i3: the front is PROVE_FRONT_WIDE across while it is on the kerb (the white peak is held), 1 m beyond 6 m
+        (shared.uPulseCol.value[1] as THREE.Vector4).set(0.40, 0.58, 0.55, 1.0 + (PROVE_FRONT_WIDE - 1.0) * clamp01(1 - (radius - 2.5) / 3.5));
         shared.uPulseAdd.value[1] = 0.5;
       }
     }
@@ -575,10 +639,12 @@ export class Vfx implements VfxApi {
     this.fillRings(this.rings.canister, now);
     this.fillRings(this.rings.slam, now);
     this.fillCards(now, cam);
+    this.fillProving(now);
     for (let k = 0; k < LINE_KINDS.length; k++) {
       const kind = LINE_KINDS[k] as LineKind, style = LINE_STYLE[kind], pool = this.lines[kind];
       for (let i = 0; i < pool.length; i++) {
         const s = pool[i] as Slot;
+        s.qo = -1;
         if (!s.active) continue;
         let alpha = 1, level = s.level;
         let ax = s.ax, ay = s.ay, az = s.az, bx = s.bx, by = s.by, bz = s.bz;
@@ -594,6 +660,7 @@ export class Vfx implements VfxApi {
           if (style.streak > 0) {
             // a streak of fixed length travelling from a toward b over its two frames
             const dx = bx - ax, dy = by - ay, dz = bz - az, len = Math.hypot(dx, dy, dz);
+            s.f = age / s.life;
             if (len > 1e-3) {
               const head = Math.min(len, style.streak + Math.max(0, len - style.streak) * (age / s.life) * 0.6);
               const tail = Math.max(0, head - style.streak);
@@ -622,8 +689,8 @@ export class Vfx implements VfxApi {
         if (kind === 'standing_line') {
           const age = now - this.standT0;
           if (age >= 0 && age < STAND_FLARE) {
-            const flare = Math.exp(-age / STAND_FLARE_TAU) * (1 - age / STAND_FLARE);
-            core += style.core * 4 * flare; total += style.total * 8 * flare; halo += 0.5 * flare;
+            const flare = standFlare(age);
+            core += style.core * 8 * flare; total += style.total * 6 * flare; halo += 0.3 * flare;
             // the white heart at the bore's mouth (the line runs from 12 m under the floor)
             if ((o = q.next()) < 0) return;
             const hc = HUE.aquaCore, size = 1.2 + 6.5 * flare;
@@ -636,6 +703,7 @@ export class Vfx implements VfxApi {
         }
         if ((o = q.next()) < 0) return;
         s.written = true;
+        s.qo = o;
         const c = style.color;
         d[o] = ax; d[o + 1] = ay; d[o + 2] = az; d[o + 3] = MODE_BEAM;
         d[o + 4] = bx; d[o + 5] = by; d[o + 6] = bz; d[o + 7] = total;
@@ -643,6 +711,76 @@ export class Vfx implements VfxApi {
         d[o + 12] = core; d[o + 13] = halo; d[o + 14] = style.white; d[o + 15] = style.head;
         d[o + 16] = SHAPE_LINE; d[o + 17] = level; d[o + 18] = style.dash; d[o + 19] = FLAG_ADD | FLAG_PX;
       }
+    }
+  }
+  /**
+   * The bore's answer to the seventh (see PROVE_RINGS and the pass i3 note): the shock across the floor (2 quads), the
+   * crown on the kerb (1), the vault's bloom (1), rings climbing the standing line (3), threads drawn up the shaft (8).
+   * With the standing line and its heart (fillQuads) that is 17 of the 18 additive quads ART_BIBLE 9.3 allows.
+   */
+  private fillProving(now: number): void {
+    const age = now - this.standT0;
+    if (age < 0 || age >= STAND_FLARE) return;
+    const q = this.quads, d = q.data, c = this.shared.uWrongCentre.value, hue = HUE.aqua, core = HUE.aquaCore;
+    const flare = standFlare(age);
+    let o = 0;
+    // the shock: on the floor, at the radius of the shader's front, from the kerb's foot to the wall
+    for (let k = 0; k < 2; k++) {
+      const a = age - k * PROVE_SHOCK_GAP;
+      if (a <= 0) continue;
+      const r = ringRadius(a / 1.6);
+      if (r < PROVE_SHOCK_FROM || r > PROVE_SHOCK_TO) continue;
+      if ((o = q.next()) < 0) return;
+      const u = (r - PROVE_SHOCK_FROM) / (PROVE_SHOCK_TO - PROVE_SHOCK_FROM), size = r * 2 / 0.95;
+      d[o] = c.x; d[o + 1] = this.proveFloor + 0.06; d[o + 2] = c.z; d[o + 3] = MODE_PLANE;
+      d[o + 4] = 0; d[o + 5] = 1; d[o + 6] = 0; d[o + 7] = size;
+      d[o + 8] = hue.r; d[o + 9] = hue.g; d[o + 10] = hue.b; d[o + 11] = (k === 0 ? 1.9 : 0.8) * Math.min(1, u * 8) * (1 - u * u * 0.75);
+      d[o + 12] = 1; d[o + 13] = k === 0 ? 0.22 : 0.08; d[o + 14] = 0; d[o + 15] = 0;
+      d[o + 16] = SHAPE_RING; d[o + 17] = 0; d[o + 18] = size; d[o + 19] = FLAG_ADD;
+    }
+    // the crown: the kerb's seams at white for the hold, falling with the flare
+    if (flare > 0.04) {
+      if ((o = q.next()) < 0) return;
+      const size = PROVE_CROWN_R * 2 / 0.95;
+      d[o] = c.x; d[o + 1] = this.proveFloor + 0.612; d[o + 2] = c.z; d[o + 3] = MODE_PLANE;
+      d[o + 4] = 0; d[o + 5] = 1; d[o + 6] = 0; d[o + 7] = size;
+      d[o + 8] = core.r; d[o + 9] = core.g; d[o + 10] = core.b; d[o + 11] = 2.2 * flare;
+      d[o + 12] = 1; d[o + 13] = 0.05; d[o + 14] = 0; d[o + 15] = 0;
+      d[o + 16] = SHAPE_RING; d[o + 17] = 0; d[o + 18] = size; d[o + 19] = FLAG_ADD;
+      // the vault: where the column meets the head
+      if ((o = q.next()) < 0) return;
+      const vs = 4 + 7 * flare;
+      d[o] = c.x; d[o + 1] = this.proveFloor + 13.3; d[o + 2] = c.z; d[o + 3] = MODE_BILLBOARD;
+      d[o + 4] = 0; d[o + 5] = 0; d[o + 6] = 0.02; d[o + 7] = vs;
+      d[o + 8] = hue.r; d[o + 9] = hue.g; d[o + 10] = hue.b; d[o + 11] = Math.min(1, 1.3 * flare);
+      d[o + 12] = 0.8; d[o + 13] = 0; d[o + 14] = 0; d[o + 15] = 0;
+      d[o + 16] = SHAPE_SOFT; d[o + 17] = 0; d[o + 18] = vs; d[o + 19] = FLAG_ADD;
+    }
+    for (let k = 0; k < PROVE_RINGS; k++) {
+      const u = (age - k * PROVE_RING_GAP) / PROVE_RING_LIFE;
+      if (u <= 0 || u >= 1) continue;
+      if ((o = q.next()) < 0) return;
+      const rise = 1 - (1 - u) * (1 - u), size = (PROVE_RING_R - 0.7 * rise) * 2 / 0.95;
+      d[o] = c.x; d[o + 1] = c.y - 5 + 18.5 * rise; d[o + 2] = c.z; d[o + 3] = MODE_PLANE;
+      d[o + 4] = 0; d[o + 5] = 1; d[o + 6] = 0; d[o + 7] = size;
+      d[o + 8] = hue.r; d[o + 9] = hue.g; d[o + 10] = hue.b; d[o + 11] = 1.8 * Math.min(1, u * 10) * (1 - u);
+      d[o + 12] = 0; d[o + 13] = 0; d[o + 14] = 0; d[o + 15] = 0;
+      d[o + 16] = SHAPE_RING; d[o + 17] = 0; d[o + 18] = size; d[o + 19] = FLAG_ADD;
+    }
+    for (let k = 0; k < PROVE_THREADS; k++) {
+      const a = age - k * PROVE_THREAD_GAP;
+      if (a <= 0 || a >= PROVE_THREAD_LIFE) continue;
+      if ((o = q.next()) < 0) return;
+      // every other thread stands in a notch, the rest behind a merlon: bearings 0, 45, 90 ... taken three apart, so the
+      // order runs round the kerb as a star, not as a sweep
+      const b = ((k * 3) % PROVE_THREADS) * (Math.PI * 2 / PROVE_THREADS);
+      const x = c.x + Math.sin(b) * PROVE_THREAD_R, z = c.z - Math.cos(b) * PROVE_THREAD_R;
+      const head = Math.min(1, a / PROVE_THREAD_RISE), fade = a < PROVE_THREAD_RISE ? 1 : 1 - (a - PROVE_THREAD_RISE) / (PROVE_THREAD_LIFE - PROVE_THREAD_RISE);
+      d[o] = x; d[o + 1] = c.y - 7; d[o + 2] = z; d[o + 3] = MODE_BEAM;
+      d[o + 4] = x; d[o + 5] = c.y + 13.6; d[o + 6] = z; d[o + 7] = 14;
+      d[o + 8] = hue.r; d[o + 9] = hue.g; d[o + 10] = hue.b; d[o + 11] = 0.95 * fade;
+      d[o + 12] = 3; d[o + 13] = 0.35; d[o + 14] = 0.6; d[o + 15] = 1;
+      d[o + 16] = SHAPE_LINE; d[o + 17] = 1 - (1 - head) * (1 - head); d[o + 18] = 0; d[o + 19] = FLAG_ADD | FLAG_PX;
     }
   }
   private fillRings(pool: Slot[], now: number): void {
@@ -664,6 +802,14 @@ export class Vfx implements VfxApi {
   }
   // the size, alpha and level of the next card: fields, not arguments (a double passed to a call is boxed)
   private cw = 0; private ch = 0; private ca = 0; private cl = 0;
+  /**
+   * Exterior look, pass i3 (R9: the gully on High): the three sun shafts the bake lays across the gully's floor
+   * (blender/env_exterior/lip_dress.py SHAFTS), drawn in the dusty air as blade cards. Seven numbers each: where it
+   * comes from, where it lands, its level (0: not drawn). The render system writes them every frame (system.ts
+   * updateGullyShafts); they are not pooled cards, so the ambient points keep the wind's sand.
+   */
+  readonly gullyShafts = new Float32Array(3 * 7);
+  private readonly gullySlot = new Slot('gully_shaft', () => { /* never released: a scratch slot */ });
   /** depth pull of the next billboard (see quads.ts), and the white share of a soft dot's heart; both go back to their defaults after one card */
   private cb = 0; private cwhite = 0.6;
   /** One instance of a card kind (mode 0 billboard, 1 beam, 3 crossed card) with this.cw / ch / ca / cl. */
@@ -690,6 +836,15 @@ export class Vfx implements VfxApi {
       a[i * 4] = s.ax; a[i * 4 + 1] = s.ay; a[i * 4 + 2] = s.az; a[i * 4 + 3] = level;
       b[i * 3] = s.bx; b[i * 3 + 1] = s.by; b[i * 3 + 2] = s.bz;
       for (let c = 0; c < n; c++) { this.cw = 1.15; this.ch = c * Math.PI / n; this.ca = 0.22 * level; this.cl = 0; this.card(MODE_CARD, s, HUE.blade, SHAPE_BLADE, 0, -1, FLAG_ADD); }
+    }
+    // exterior look, pass i3: the gully's sun shafts (gullyShafts): the same crossed cards, wider and dimmer, no motes of their own
+    const gs = this.gullyShafts, gsl = this.gullySlot;
+    for (let i = 0; i < 3; i++) {
+      const lv = gs[i * 7 + 6] as number;
+      if (lv <= 0.004) continue;
+      gsl.ax = gs[i * 7] as number; gsl.ay = gs[i * 7 + 1] as number; gsl.az = gs[i * 7 + 2] as number;
+      gsl.bx = gs[i * 7 + 3] as number; gsl.by = gs[i * 7 + 4] as number; gsl.bz = gs[i * 7 + 5] as number;
+      for (let c = 0; c < n; c++) { this.cw = 1.7; this.ch = c * Math.PI / n; this.ca = 0.15 * clamp01(lv); this.cl = 0; this.card(MODE_CARD, gsl, HUE.blade, SHAPE_BLADE, 0, -1, FLAG_ADD); }
     }
     const patches = cards.sun_patch;
     for (let i = 0; i < patches.length; i++) {
@@ -733,7 +888,8 @@ export class Vfx implements VfxApi {
       if (!s.active || !s.visible) continue;
       // kindling from nothing over 1.5 s; a flicker between 5 and 8 Hz; never under 4 px however far it is
       const kindle = Math.min(1, Math.max(0, now - s.t0) / 1.5) * (s.levelSet ? clamp01(s.level) : 1);
-      const flicker = 0.70 + 0.20 * Math.sin(now * 6.2831853 * 5.3) + 0.10 * Math.sin(now * 6.2831853 * 7.7 + 1.3);
+      // pass i2: a far fire is steady ("It was not moving"): it breathes by a tenth, it does not gutter
+      const flicker = 0.90 + 0.06 * Math.sin(now * 6.2831853 * 2.3) + 0.04 * Math.sin(now * 6.2831853 * 3.7 + 1.3);
       const size = Math.max(0.5, Math.hypot(s.ax - cam.x, s.ay - cam.y, s.az - cam.z) * 0.004);
       // polish round 2: the fire stands ON the plain 520 m out, so the lower half of its sprite was under the plain's
       // own surface, and from the ledge a dusk mesa of the backdrop stands in front of the place: "one small fire" was
@@ -746,42 +902,78 @@ export class Vfx implements VfxApi {
       // cast, no smoke and no flicker presence). Back to front: the smoke (a thin column that crosses the horizon's
       // glow, three slow puffs that lean with the wind), a wide low glow on the ground round it, the halo, the flame
       // itself: at least 46 px tall, its heart white.
-      const lean = 0.10 + 0.04 * Math.sin(now * 0.7);
-      // the flame's smallest size on screen is 46 px: the smoke is laid out in the flame's ON-SCREEN metres (`sk`), along
+      const lean = 0.07 + 0.015 * Math.sin(now * 0.4);
+      // the flame's smallest size on screen is FIRE_PX: the smoke is laid out in the flame's ON-SCREEN metres (`sk`), along
       // the camera's right (rx, rz) for its lean
       const camera = this.ctx.scene.camera;
       const pxPerM = this.quads.viewport.value.y * (camera.projectionMatrix.elements[5] as number) * 0.5 / Math.max(far, 1);
-      const sk = size * Math.max(1, 46 / Math.max(size * 3.4 * pxPerM, 1e-3));
+      const sk = size * Math.max(1, FIRE_PX / Math.max(size * 3.4 * pxPerM, 1e-3));
       const rx = camera.matrixWorld.elements[0] as number, rz = camera.matrixWorld.elements[2] as number;
-      for (let k = 0; k < 4; k++) {
+      // pass i1 (both visual reviewers: "a small pale pill", "no flame shape, no light on the ground"): the smoke is a
+      // taller column of six puffs, lit warm from below by the fire and rose-grey where it climbs into the afterglow
+      for (let k = 0; k < 6; k++) {
         const o = this.quads.next();
         if (o < 0) break;
         const d = this.quads.data;
         // the puffs rise and are born again: a height of 0..1 that climbs with time
-        const rise = (now * 0.05 + k / 4) % 1;
-        const h = sk * (3.5 + 3 * rise), w = sk * (0.7 + 1.5 * rise);
-        d[o] = s.ax + rx * lean * sk * 10 * rise; d[o + 1] = s.ay + sk * (2.2 + 7.5 * rise); d[o + 2] = s.az + rz * lean * sk * 10 * rise; d[o + 3] = MODE_BILLBOARD;
+        // pass i2: a hairline, not a column: a thread a fifth of the flame wide at its foot that stands eight flames
+        // tall in still air and only opens and leans where it thins out
+        const rise = (now * 0.02 + k / 6) % 1;
+        // pass i3 (the visual reviewer: "a thin dashed dark streak stands above it like an artifact"): six thin puffs 3.8
+        // flame-metres apart drew as dashes. Each is twice as tall and wider as it climbs, at half the strength: one soft
+        // column that opens and leans, with no gap in it
+        const h = sk * (9.5 + 5.0 * rise), w = sk * (0.5 + 1.9 * rise * Math.sqrt(rise));
+        const warm = Math.max(0, 1 - rise * 3.2) * (0.6 + 0.4 * flicker);
+        d[o] = s.ax + rx * lean * sk * 30 * rise * rise; d[o + 1] = s.ay + sk * (4.2 + 23 * rise); d[o + 2] = s.az + rz * lean * sk * 30 * rise * rise; d[o + 3] = MODE_BILLBOARD;
         d[o + 4] = -lean; d[o + 5] = 0; d[o + 6] = pull; d[o + 7] = w;
-        d[o + 8] = 0.045; d[o + 9] = 0.040; d[o + 10] = 0.052; d[o + 11] = 0.6 * kindle * Math.sin(Math.PI * Math.sqrt(rise));
+        d[o + 8] = 0.085 + 0.30 * warm; d[o + 9] = 0.062 + 0.12 * warm; d[o + 10] = 0.090 + 0.02 * warm; d[o + 11] = 0.36 * kindle * Math.sin(Math.PI * Math.sqrt(rise));
         d[o + 12] = 0; d[o + 13] = 0; d[o + 14] = 0; d[o + 15] = 0;
         d[o + 16] = SHAPE_SOFT; d[o + 17] = 0; d[o + 18] = h; d[o + 19] = 0;
       }
-      {
-        // the light it casts: a flat warm pool on the plain
+      // the light it casts: two flat warm pools on the plain, a wide dim one that reaches the pylon's foot and the
+      // nearest fronts, and a tight bright one under the flame; both breathe with the flicker
+      for (let k = 0; k < 2; k++) {
         const o = this.quads.next();
-        if (o >= 0) {
-          const d = this.quads.data, c = HUE.flame;
-          d[o] = s.ax; d[o + 1] = s.ay - size * 0.2; d[o + 2] = s.az; d[o + 3] = MODE_BILLBOARD;
-          d[o + 4] = 0; d[o + 5] = 26; d[o + 6] = pull; d[o + 7] = size * 26;
-          d[o + 8] = c.r; d[o + 9] = c.g; d[o + 10] = c.b; d[o + 11] = 0.5 * kindle * (0.7 + 0.3 * flicker);
-          d[o + 12] = 0.1; d[o + 13] = 0; d[o + 14] = 0; d[o + 15] = 0;
-          d[o + 16] = SHAPE_SOFT; d[o + 17] = 0; d[o + 18] = size * 3.6; d[o + 19] = FLAG_ADD;
-        }
+        if (o < 0) break;
+        const d = this.quads.data, c = HUE.flame;
+        // pass i2: the light lies ON the flat: a long thin pool (26 flame-widths by a flame's height) and a short bright one
+        const w = k === 0 ? 34 : 11, hh = k === 0 ? 3.0 : 1.9;
+        d[o] = s.ax; d[o + 1] = s.ay - sk * 0.5; d[o + 2] = s.az; d[o + 3] = MODE_BILLBOARD;
+        d[o + 4] = 0; d[o + 5] = hh * FIRE_PX / 3.4; d[o + 6] = pull; d[o + 7] = size * w;
+        d[o + 8] = c.r; d[o + 9] = c.g * (k === 0 ? 0.78 : 1); d[o + 10] = c.b * (k === 0 ? 0.6 : 1); d[o + 11] = (k === 0 ? 0.30 : 0.62) * kindle * (0.72 + 0.28 * flicker);
+        d[o + 12] = 0.1; d[o + 13] = 0; d[o + 14] = 0; d[o + 15] = 0;
+        d[o + 16] = SHAPE_SOFT; d[o + 17] = 0; d[o + 18] = size * hh; d[o + 19] = FLAG_ADD;
       }
-      this.cw = size * 11; this.ch = size * 11; this.ca = 0.8 * kindle * (0.55 + 0.45 * flicker); this.cl = 0; this.cb = pull; this.cwhite = 0.2;
-      this.card(MODE_BILLBOARD, s, HUE.flame, SHAPE_SOFT, 120, -1, FLAG_ADD);
-      this.cw = size * 2.4; this.ch = size * 3.4; this.ca = 2.6 * kindle * (0.75 + 0.35 * flicker); this.cl = 0; this.cb = pull;
-      this.card(MODE_BILLBOARD, s, HUE.flame, SHAPE_FIRE, 46, -1, FLAG_ADD);
+      // release pass p0 (closer; the UI team's row): the glow about 1.5 times wider (the halo 11 -> 16.5 sizes and at least
+      // 180 px): with the gun let down under the end card the fire is the frame's only warm point. Pass i1: the halo is
+      // dimmer (it washed the flame to white) and the flame is larger and coloured (quads.ts SHAPE_FIRE).
+      // pass i2: the bloom of a small far light: a wide dim one (130 px) and a tight one round the flame (52 px)
+      this.cw = size * 16.5; this.ch = size * 16.5; this.ca = 0.26 * kindle * (0.55 + 0.45 * flicker); this.cl = 0; this.cb = pull; this.cwhite = 0.1;
+      this.card(MODE_BILLBOARD, s, HUE.flame, SHAPE_SOFT, 150, -1, FLAG_ADD);      // pass i3: 130 -> 150 px (at 170 px and 0.30 it lifted the afterglow over the fire to the flame's own level: tests/render/polish3 counts 64 hot rows)
+      this.cw = size * 6; this.ch = size * 6; this.ca = 0.80 * kindle * (0.55 + 0.45 * flicker); this.cl = 0; this.cb = pull; this.cwhite = 0.25;
+      s.ay += sk * 0.9;
+      this.card(MODE_BILLBOARD, s, HUE.flame, SHAPE_SOFT, 60, -1, FLAG_ADD);
+      s.ay -= sk * 0.9;
+      // the flame stands with its heart on the fire's own point (its foot 0.8 of a flame-metre under it, as the old 46 px flame's was)
+      this.cw = size * 3.0; this.ch = size * 3.4; this.ca = 2.0 * kindle * (0.80 + 0.25 * flicker); this.cl = 0; this.cb = pull;
+      s.ay += sk * 0.9;
+      this.card(MODE_BILLBOARD, s, HUE.flame, SHAPE_FIRE, FIRE_PX, -1, FLAG_ADD);
+      s.ay -= sk * 0.9;
+      // sparks: five motes that leave the flame's tip, drift with the smoke and go out
+      // (pass i2: none, where there were five: a spark that climbs three flames over a fire half a kilometre off is a second light)
+      for (let k = 0; k < 0; k++) {
+        const o = this.quads.next();
+        if (o < 0) break;
+        const d = this.quads.data, c = HUE.flame;
+        const t = (now * (0.21 + 0.035 * k) + k * 0.37) % 1;
+        const sx = Math.sin(k * 2.4 + now * 1.3) * 0.5 + lean * 14 * t * t;
+        const sp = sk * 0.22 * (1 - 0.5 * t);
+        d[o] = s.ax + rx * sk * sx; d[o + 1] = s.ay + sk * (1.5 + 7.5 * t); d[o + 2] = s.az + rz * sk * sx; d[o + 3] = MODE_BILLBOARD;
+        d[o + 4] = 0; d[o + 5] = 2.5; d[o + 6] = pull; d[o + 7] = sp;
+        d[o + 8] = c.r; d[o + 9] = c.g; d[o + 10] = c.b; d[o + 11] = 1.6 * kindle * (1 - t) * (1 - t);
+        d[o + 12] = 0.5; d[o + 13] = 1; d[o + 14] = 0; d[o + 15] = 0;
+        d[o + 16] = SHAPE_SOFT; d[o + 17] = 0; d[o + 18] = sp; d[o + 19] = FLAG_ADD;
+      }
     }
     const glint = cards.dowser_glint;
     for (let i = 0; i < glint.length; i++) {
@@ -826,6 +1018,49 @@ export class Vfx implements VfxApi {
     this.flashMesh.position.set(ex + dx * k, ey + dy * k, ez + dz * k);
     this.counts.flashRides++;
   }
+
+  /**
+   * Release pass p0 (combat critic: "the tracer starts below the muzzle on the first frame of a shot"). The streaks that
+   * left the gun (lineFromMuzzle) are re-anchored in the quad batch the fill has just written: their start becomes the
+   * muzzle AS THIS FRAME DRAWS IT, seen through the WORLD camera (the view-model pass has its own narrower projection:
+   * the point is moved across the view so both projections put it on the same pixel, at the same depth). `muzzle` and
+   * `eye` as in rideMuzzle; `viewProj` / `worldProj` are the two cameras' projection matrices. Called by the system
+   * between the fill and the draw; writes 6 floats per live streak, allocates nothing.
+   */
+  rideLines(muzzle: THREE.Object3D | null, eye: THREE.Matrix4, viewProj: THREE.Matrix4, worldProj: THREE.Matrix4): void {
+    if (!muzzle) return;
+    const pool = this.lines.tracer;
+    let any = false;
+    for (let i = 0; i < pool.length; i++) { const s = pool[i] as Slot; if (s.active && s.rides && s.qo >= 0) { any = true; break; } }
+    if (!any) return;
+    const m = muzzle.matrixWorld.elements, e = eye.elements, vp = viewProj.elements, wp = worldProj.elements;
+    const w0 = wp[0] as number, w5 = wp[5] as number;
+    if (!(w0 > 1e-6) || !(w5 > 1e-6)) return;
+    // the camera's axes (columns of its world matrix: right, up, back) and the muzzle in camera space
+    const rx = e[0] as number, ry = e[1] as number, rz = e[2] as number;
+    const ux = e[4] as number, uy = e[5] as number, uz = e[6] as number;
+    const kx = e[8] as number, ky = e[9] as number, kz = e[10] as number;
+    const ex = e[12] as number, ey = e[13] as number, ez = e[14] as number;
+    const px = (m[12] as number) - ex, py = (m[13] as number) - ey, pz = (m[14] as number) - ez;
+    const cx = px * rx + py * ry + pz * rz, cy = px * ux + py * uy + pz * uz, depth = -(px * kx + py * ky + pz * kz);
+    if (!(depth > 1e-3)) return;
+    const x = cx * (vp[0] as number) / w0 - (vp[8] as number) * depth / w0, y = cy * (vp[5] as number) / w5;
+    const ax = ex + rx * x + ux * y - kx * depth, ay = ey + ry * x + uy * y - ky * depth, az = ez + rz * x + uz * y - kz * depth;
+    const d = this.quads.data, streak = LINE_STYLE.tracer.streak;
+    for (let i = 0; i < pool.length; i++) {
+      const s = pool[i] as Slot;
+      if (!s.active || !s.rides || s.qo < 0) continue;
+      const dx = s.bx - ax, dy = s.by - ay, dz = s.bz - az, len = Math.hypot(dx, dy, dz);
+      if (!(len > 1e-3)) continue;
+      const head = Math.min(len, streak + Math.max(0, len - streak) * s.f * 0.6), tail = Math.max(0, head - streak), o = s.qo;
+      d[o] = ax + dx * tail / len; d[o + 1] = ay + dy * tail / len; d[o + 2] = az + dz * tail / len;
+      d[o + 4] = ax + dx * head / len; d[o + 5] = ay + dy * head / len; d[o + 6] = az + dz * head / len;
+      this.counts.lineRides++;
+      this.lineStart.set(ax, ay, az);
+    }
+  }
+  /** where the last riding streak was anchored (world): tests and `__dbg.ext.render.muzzle()` */
+  readonly lineStart = new THREE.Vector3(0, -1e4, 0);
 
   /** A frame was drawn (not the hidden warm-up one): the flash and the streaks it showed may now end on time. */
   frameDrawn(): void {

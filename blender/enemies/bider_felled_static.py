@@ -22,7 +22,8 @@ ASSET = "bider_felled_static"
 def main():
     args = scene.asset_args(os.path.basename(__file__))
     scene.reset_scene()
-    bider_build.build_static(ASSET, args, clip="die_back", frame=-1, budget=450, emissive=False, lo=3)
+    bider_build.build_static(ASSET, args, clip="die_back", frame=-1, budget=450, emissive=False, lo=3,
+                              opts={"hood": 0, "legs_least": True, "sash": False})   # pass i1: no decimation any more (it tore the skirt into shards)
     export.export_asset(ASSET, args.out, blend=args.blend)
     if args.preview: export.preview(ASSET, args.out)
 

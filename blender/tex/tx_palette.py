@@ -6,8 +6,11 @@
 Also writes the name -> cell table blender/lib/palette.json, read by `manifest.palette_uv(name)`, `manifest.palette_rgb(name)`
 and by blender/tex/tx_palette_emis.py (same layout).
 
-APPEND-ONLY: a shipped cell never moves and never changes colour. Add new colours in free cells at the END of a row
-(or in rows 6+). Rows by family: 0 ground, 1 frontier, 2 pellam, 3 gun / Reeve, 4 emissive (the albedo UNDER each
+APPEND-ONLY: a shipped cell never moves and never changes colour. Add new colours in free cells at the END of a row.
+Columns 10-15 of rows 2-5 (x 160..255, y 32..95) are NOT free either: pass i3 put the crown knot there
+(blender/tex/knot_atlas.py), in this sheet and in tx_palette_emis: never append a cell past column 9 in rows 2-5.
+Rows 6-15 (y 96..255) are NOT free: pass i2 put the cloth atlas there (blender/tex/cloth_atlas.py, its REGIONS:
+the painted hood, coat, sleeve and plain weave that m_prop cloth points its UV0 into). Rows by family: 0 ground, 1 frontier, 2 pellam, 3 gun / Reeve, 4 emissive (the albedo UNDER each
 emissive cell), 5 UI-in-world and specials.
 """
 import sys, os
@@ -19,6 +22,9 @@ while not (os.path.isfile(os.path.join(_d, "lib", "__init__.py")) or os.path.isf
 sys.path.insert(0, _d if os.path.isfile(os.path.join(_d, "lib", "__init__.py")) else os.path.join(_d, "blender"))
 import numpy as np
 from lib import texdraw as td, manifest
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import cloth_atlas
+import knot_atlas
 
 SIZE = 256; CELL = 16
 UNUSED = "#3C3836"       # free cells: a dull warm grey (never sampled)
@@ -69,6 +75,12 @@ def draw(emissive=False):
         if hx is None: continue
         y, x = c["row"] * CELL, c["col"] * CELL
         img[y:y + CELL, x:x + CELL, :3] = td.hex_rgb(hx)
+    # pass i2 (creatures-props): the free rows 6-15 (y 96..255) hold the painted cloth of the townspeople: a hood, a
+    # coat, a sleeve and a plain weave (blender/tex/cloth_atlas.py). The emissive sheet stays black there
+    if not emissive: cloth_atlas.paint(img)
+    # pass i3 (creatures-props): the cells of columns 10-15, rows 2-5 (x 160..255, y 32..95; never named) hold the crown
+    # knot: bound glass seen from above and a length of its cord (blender/tex/knot_atlas.py), in BOTH sheets
+    knot_atlas.paint(img, emissive)
     return img
 
 

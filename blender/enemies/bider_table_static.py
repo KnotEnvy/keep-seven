@@ -22,8 +22,10 @@ ASSET = "bider_table_static"
 def main():
     args = scene.asset_args(os.path.basename(__file__))
     scene.reset_scene()
-    bider_build.build_static(ASSET, args, clip="sit_table", frame=0, budget=600, emissive=True, knot_radius=0.075, breath=True, lo=2, coat_lo=1,
-                              seat=(-0.24, -0.235, 0.24, 0.27, 0.450, 0.212))
+    bider_build.build_static(ASSET, args, clip="sit_table", frame=0, budget=900, emissive=True, knot_radius=0.075, breath=True, lo=2, coat_lo=2,
+                              seat=(-0.24, -0.235, 0.24, 0.27, 0.450, 0.212),
+                              # pass i1: the triangles go where she looks (the hood, the sleeves and hands on the table), not under the table
+                              opts={"hood": 2, "arm_sides": 6, "thumb": True, "legs_least": "no_shaft", "sash": False, "nod": True, "knot": 1})   # pass i3: 900 triangles (R14); the lashings of the knot are geometry here
     export.export_asset(ASSET, args.out, blend=args.blend)
     if args.preview: export.preview(ASSET, args.out)
 

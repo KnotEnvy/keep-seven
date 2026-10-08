@@ -11,7 +11,7 @@ import { beginBider, falterBider, fellBider, freeBider, hitBider, tickBider, wak
 import { Boss } from './boss/index.ts';
 import { createEnemiesDebug, createExt } from './debug.ts';
 import type { DebugHost } from './debug.ts';
-import { BIDER, CAPS, ENEMIES } from './defs.ts';
+import { BIDER, CAPS, ENEMIES, TAMPER } from './defs.ts';
 import type { Actor } from './internals.ts';
 import { MAX_ACTORS, Shared } from './internals.ts';
 import { Nav, moveBody } from './nav.ts';
@@ -39,6 +39,9 @@ class Enemies implements EnemySystem, DebugHost {
   private sightUsedPeak = 0;
   private deathsPhase: BossPhase = 'idle';
   private started = false;
+  /** her last death was to the Tamper's slam; and the unscaled module time at which `TAMPER.hintKey` is owed (-1 none) */
+  private slamDeath = false;
+  private ringHintAt = -1;
 
   constructor(private readonly ctx: GameContext) {
     const S = new Shared(ctx);
@@ -90,12 +93,19 @@ class Enemies implements EnemySystem, DebugHost {
     this.off.push(on.on('options/changed', (e) => { if (e.key === 'difficulty') S.setDifficulty(ctx.options.value.difficulty); }));
     this.off.push(on.on('game/new_run', (e) => S.setDifficulty(e.difficulty)));
     this.off.push(on.on('encounter/reset', (e) => this.clearEncounter(e.id)));
-    this.off.push(on.on('player/died', () => { this.deathsPhase = this.bossImpl.save().bossPhase; this.bossImpl.onDied(); }));
+    this.off.push(on.on('player/died', (e) => {
+      this.deathsPhase = this.bossImpl.save().bossPhase; this.bossImpl.onDied();
+      if (e.kind === 'slam' && e.source === 'tamper') this.slamDeath = true;
+    }));
     this.off.push(on.on('vignette/state', (e) => this.vignettes.onVignetteState(e)));
     // polish round 5: the Windlass says phase 3b's lines only into a free line box, and fills her health on a retry
-    this.off.push(on.on('story/line', () => this.bossImpl.onLine(true)));
+    this.off.push(on.on('story/line', (e) => this.bossImpl.onLine(true, e.key, e.seconds)));
     this.off.push(on.on('story/line_end', () => this.bossImpl.onLine(false)));
-    this.off.push(on.on('player/respawned', () => this.bossImpl.onRespawned()));
+    this.off.push(on.on('player/respawned', () => {
+      this.bossImpl.onRespawned();
+      // release pass p0: she died under the Tamper's arm: the ring is named a second after she has control again
+      if (this.slamDeath) { this.slamDeath = false; this.ringHintAt = S.utime + TAMPER.hintAfterRespawn; }
+    }));
     ctx.debug.register('enemies', createExt(S, this));
   }
 
@@ -150,6 +160,10 @@ class Enemies implements EnemySystem, DebugHost {
     S.dt = dt; S.time += dt; S.utime += FIXED_DT; S.tick++;
     S.readPlayer();
     S.sightLeft = CAPS.sightRaysPerTick;
+    if (this.ringHintAt >= 0 && S.utime >= this.ringHintAt) {
+      this.ringHintAt = -1;
+      if (this.ctx.data.story.lines[TAMPER.hintKey] !== undefined) S.say(TAMPER.hintKey);
+    }
     // round robin: a different body gets the first of the four sight rays each tick
     const first = S.tick % MAX_ACTORS;
     for (let k = 0; k < MAX_ACTORS; k++) {
@@ -357,7 +371,9 @@ class Enemies implements EnemySystem, DebugHost {
     this.bossImpl.reset();
     this.bossImpl.parleyHeard = false;
     this.bossImpl.deaths = 0;
+    this.bossImpl.retryOf = ''; this.bossImpl.teachSaidIn = '';
     this.deathsPhase = 'idle';
+    this.slamDeath = false; this.ringHintAt = -1;
   }
   private wipe(): void {
     const S = this.S;
@@ -405,7 +421,7 @@ class Enemies implements EnemySystem, DebugHost {
   setAiEnabled(on: boolean): void { this.S.ai = on; }
 
   // ---- DebugHost ----------------------------------------------------------------------------------------
-  setBossPhase(phase: BossPhase): void { this.bossImpl.startPhase(phase); }
+  setBossPhase(phase: BossPhase): void { this.bossImpl.teachSaidIn = ''; this.bossImpl.startPhase(phase); }   // a debug jump is a fresh timeline: its first haul teaches
   killAll(freed: boolean): number {
     const S = this.S;
     let n = 0;
@@ -421,6 +437,8 @@ class Enemies implements EnemySystem, DebugHost {
   }
   bossState(): Record<string, unknown> { return this.bossImpl.debugState(); }
   setBossDeaths(n: number): void { this.bossImpl.deaths = n; }
+  /** tests (pass i3): has an asking been heard in this page (a shot in the next one skips instead of refusing)? */
+  setBossAsked(v: boolean): void { this.bossImpl.askedBefore = v; }
   lobCanister(x: number, y: number, z: number): boolean {
     const v = this.S.v2;
     this.bossImpl.canisterPos(v);

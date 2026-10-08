@@ -154,9 +154,14 @@ zone('far_rim', 'The Far Rim', 'exterior', 'coda', [-2, 17, 100], [30, 25, 121],
   mk('player_start', Z, 'player_start', [16, 14, 107.5], { note: 'inside the black overhang, looking north down the gully (the doorway shot)' }, FACE.n);
   cp('cp_lip_start', Z, [16, 14, 107.5], FACE.n, { when: 'start' });
   trig('trg_open', Z, [14, 14, 101], [12, 3, 9], { lines: ['nar_open_1', 'nar_open_2'], objective: 'obj_lip_camp', once: true, note: 'whole overhang; fires on first control (obj_lip_camp is the start objective)' });
-  mk('prop_camp_one', Z, 'prop', [11.5, 14, 104.5], { prop: 'cold_camp', camp: 1, stop: 1, fire: false, contents: ['a swept patch of floor (no ash, no fire)', 'flat stone', 'coffee pot, the coffee gone to tar', 'spent case'], note: 'stop one: GDD 9.2 revision 2. No ash here; the only fire he leaves is stop three' });
-  mk('rd_note_lip', Z, 'readable', [11.373, 14.085, 104.546], { readable: 'rd_note_lip', under: 'a spent case on the flat stone' });
-  pickup('pk_rounds_12_camp1', Z, 'pk_rounds_12', [10.8, 14, 105.4], { line: 'nar_tin', dowsers: true });
+  // Pass i1 (both story reviewers): the first two lines are about his pot and his note, and the camp stood 56 degrees
+  // left of the opening view, out of the frame. It now lies where the overhang's shaft of sun lands (the main beam
+  // meets the floor near x 14.5, z 102.8: src/render/system.ts LIP_BEAM_*), 18 degrees left of the start view and
+  // 4.9 m ahead: the pot stands in the one lit patch of the first image. The note and the tin keep their offsets.
+  const CAMP1 = [14.4, 14, 102.9];
+  mk('prop_camp_one', Z, 'prop', CAMP1, { prop: 'cold_camp', camp: 1, stop: 1, fire: false, contents: ['a swept patch of floor (no ash, no fire)', 'flat stone', 'coffee pot, the coffee gone to tar', 'spent case'], note: 'stop one: GDD 9.2 revision 2. No ash here; the only fire he leaves is stop three' });
+  mk('rd_note_lip', Z, 'readable', [r2(CAMP1[0] - 0.127), 14.085, r2(CAMP1[2] + 0.046)], { readable: 'rd_note_lip', under: 'a spent case on the flat stone' });
+  pickup('pk_rounds_12_camp1', Z, 'pk_rounds_12', [r2(CAMP1[0] - 0.7), 14, r2(CAMP1[2] + 0.9)], { line: 'nar_tin', dowsers: true });
   trig('trg_glare', Z, [14, 14, 97], [14, 3, 4], { lines: ['nar_seven', 'nar_rule'], cards: ['card_title', 'card_i'], exposureRamp: { from: 'L0', to: 'L1', seconds: 20 }, once: true });
   mk('vista_rule', Z, 'vista', [14, 14, 100], { subject: 'the Rule and the pylon line', bearingDeg: 0, target: V(14, 60, -900), note: 'due north over the low forecourt wall; nothing taller than 3 m may stand north of z = -7 between x 0 and 26' }, FACE.n);
   pickup('pk_rounds_6_ledge', Z, 'pk_rounds_6', [23, 14.5, 96.5]);
@@ -239,7 +244,7 @@ const STREET = { x0: -73, x1: 0, zHalf: 7, facadeDepth: 5, alleyOuter: 15 };
   box('yd_shed', Z, 'wall', 'adobe', -110, -106, 0, 3, 10, 14, { prop: 'tank_shed', note: 'T3 emerges from its east door' });
 
   // --- markers: street
-  trig('trg_enc_street', Z, [-3, 0, 0], [3, 3, 6], { encounter: 'enc_street', cards: ['card_ii'], lines: ['nar_kneeler', 'nar_plenty'], note: 'passing the jug gate posts. Polish round 5: the kneeler line first (behind nar_plenty it was said after the kneeler was down). Wave A stays at 3 s: a trial of 6 s, so the line would begin while it kneels, took the cost out of the fight (scratch/r5-fixer/proxy/a_street_*: plain 0 / 0 / 0, careless 0 / 0 / 54)' });
+  trig('trg_enc_street', Z, [-3, 0, 0], [3, 3, 6], { encounter: 'enc_street', cards: ['card_ii'], lines: ['nar_kneeler', 'nar_plenty'], note: 'passing the jug gate posts. Pass i3: the posts show the card and say nar_plenty only; the fight and nar_kneeler begin when she is within 24 m of the kneeler with it inside 20 degrees of the middle of her view and no line on screen, or within 20 m whatever she faces, or on a round into it (src/world/director.ts HELD_START). Wave A stays at 3 s: a trial of 6 s, so the line would begin while it kneels, took the cost out of the fight (scratch/r5-fixer/proxy/a_street_*: plain 0 / 0 / 0, careless 0 / 0 / 54)' });
   mk('vista_kneeler', Z, 'vista', [-2, 0, 0], { subject: 'the kneeler at the dry trough, 43 m down the street centre', target: V(-44.5, 0.8, -1.9) }, FACE.w);
   trig('lane_street', Z, [-37, 0, 0], [58, 3, 3], { kind: 'lane', note: 'Biders follow in file here (wave C)' });
   spawn('sp_street_kneeler', Z, 'bider', [-44.5, 0, -1.9], FACE.n, { dormant: 'scoop_kneel', rise: 'kneel_to_stand', wave: 'A', prop: 'cup', vignette: { id: 'vig_kneeler' } });
@@ -342,7 +347,7 @@ const KNOT = { x: -92.6, y: 0.9, z: -34.35 };
   const at = (zw, d) => V(T.x0 + d, WIN.yc - dropPerX * d, zw + zPerX * d);
   const shutters = {
     s: { zw: -24, lands: 'tally wall (south wall, east of the door)', line: ['nar_tally_wall'], hits: [{ what: 'tally_wall', d: (T.z1 - -24) / zPerX }] },
-    m: { zw: -30.5, lands: 'the head chair, then the hearthstone and firebox', line: ['nar_tally_chair', 'nar_tally_chair_2', 'nar_ask', 'nar_tally_hearth'], hits: [{ what: 'head_chair', d: 10.5 }, { what: 'hearthstone', d: (WIN.yc - 0.3) / dropPerX }] },
+    m: { zw: -30.5, lands: 'the head chair, then the hearthstone and firebox', line: ['nar_tally_chair', 'nar_tally_chair_2'], hits: [{ what: 'head_chair', d: 10.5 }, { what: 'hearthstone', d: (WIN.yc - 0.3) / dropPerX }] },
     n: { zw: -36.3, lands: 'the share cloth; once the cloth is down, the day-cell hung above the hatch', line: ['nar_tally_cloth'], hits: [{ what: 'share_cloth', d: 1.8 }, { what: 'day_cell', d: 3.5 }] },
   };
   const land = {};
@@ -358,7 +363,7 @@ const KNOT = { x: -92.6, y: 0.9, z: -34.35 };
   mk('prop_tally_wall', Z, 'prop', [land.tally_wall[0], land.tally_wall[1], T.z1 - 0.02], { prop: 'tally_wall', extent: { x: [-88.0, -82.0], y: [0.4, 3.2] }, wrapsOnto: 'east wall, z -16.6..-15', sunPatch: { centre: land.tally_wall, size: [WIN.w, WIN.h] }, note: 'the last four days of chalk are written where the blade lands' }, FACE.n);
   mk('prop_head_chair', Z, 'prop', [-85.5, 0, -20], { prop: 'head_chair', sunAt: land.head_chair }, 45);
   mk('prop_camp_two', Z, 'prop', [-83.9, 0.3, -18.4], { prop: 'cold_camp', camp: 2, stop: 2, fire: false, contents: ['the firebox holds the town\'s own ash, four days cold (dressing; nobody narrates it)', 'his cup on the hearthstone: see prop_cup_two'], sunAt: land.hearthstone, note: 'stop two is a chair and a cup, not a fire (GDD 9.4 revision 2)' });
-  mk('prop_cup_two', Z, 'prop', [-83.8, 0.3, -18.2], { prop: 'cup', stop: 2, line: 'nar_tally_hearth is spoken by shutter_m; this is its subject', note: 'his cup, the dregs dried to a ring' });
+  mk('prop_cup_two', Z, 'prop', [-83.8, 0.3, -18.2], { prop: 'cup', stop: 2, line: 'nar_tally_hearth is spoken AT THE HEARTH (pass i2): turned to this cup from within 3 m for 0.4 s out of a fight, or on opening rd_note_hearth; the end of enc_tally still names it as the fallback of a player who never came near', note: 'his cup, the dregs dried to a ring' });
   mk('rd_note_hearth', Z, 'readable', [-84.0, 0.32, -18.9], { readable: 'rd_note_hearth' });
   pickup('pk_rounds_12_camp2', Z, 'pk_rounds_12', [-84.2, 0.3, -17.3], { dowsers: true });
   pickup('pk_canteen_hearth', Z, 'pk_canteen', [-83.7, 0.3, -19.5]);
@@ -373,7 +378,7 @@ const KNOT = { x: -92.6, y: 0.9, z: -34.35 };
   const seatsW = [-19.6, -21.4, -23.2, -25.0, -26.8, -28.6].map((z) => V(-90.15, 0, z));
   const seatsE = [-20.5, -22.3, -24.1, -25.9, -27.7].map((z) => V(-87.85, 0, z));
   const RISERS = [seatsW[0], seatsE[0]];
-  mk('prop_tally_seated', Z, 'prop', [-89, 0, -24], { prop: 'bider_table_static', instanced: true, count: 9, seats: [...seatsW.slice(1).map((p) => ({ pos: p, rotY: FACE.e })), ...seatsE.slice(1).map((p) => ({ pos: p, rotY: FACE.w }))], lampsBase: 9 });
+  mk('prop_tally_seated', Z, 'prop', [-89, 0, -24], { prop: 'bider_table_static', instanced: true, count: 9, seats: [...seatsW.slice(1).map((p, i) => ({ pos: p, rotY: FACE.e + [5, -7, 3, -4, 8][i] })), ...seatsE.slice(1).map((p, i) => ({ pos: p, rotY: FACE.w + [-6, 4, -8, 3][i] }))], lampsBase: 9 });
   spawn('sp_tally_riser_w', Z, 'bider', seatsW[0], FACE.e, { dormant: 'sit_table', rise: 'rise_from_seat', cue: 'cap_chairs', cueLead: 0.8 });
   spawn('sp_tally_riser_e', Z, 'bider', seatsE[0], FACE.w, { dormant: 'sit_table', rise: 'rise_from_seat', cue: 'cap_chairs', cueLead: 0.8 });
   // hatch
@@ -437,10 +442,10 @@ const GAL = { floor: -12, ceil: -7, x0: -81, x1: -19, axisZ: -14, baffleX: -59 }
   // --- markers: stair
   trig('trg_hatch_close', Z, [-86, -4, -33], [2, 3, 2], { closes: 'ia_hatch', requires: 'enc_tally clear', when: 'the player is fully below y -3.5 (feet on the first landing)', ...SEAM, note: 'first landing. The hatch shuts overhead; if the player walks back up, the stair is still there and the hatch stays shut' });
   trig('trg_set_swap', Z, [-86, -6.4, -29.5], [2, 3.3, 2], { requires: 'enc_tally clear', after: 'trg_hatch_close', residentSet: { unload: 'surface', load: 'underground' }, keeps: 'everything flagged seam', note: 'on flight 2, past the first turn: the hatch is shut and out of line of sight (validator: sightlines)' });
-  trig('trg_peg_stair', Z, [-86, -6.5, -29], [2, 3, 6], { cards: ['card_iv'], lines: ['nar_pegs_1', 'nar_pegs_2'], once: true });
+  trig('trg_peg_stair', Z, [-86, -6.5, -29], [2, 3, 6], { cards: ['card_iv'], lines: ['nar_pegs_1', 'nar_pegs_2', 'nar_ask'], once: true, note: 'pass i3: the peg lines also begin on a look down the open hatch at the first flight\'s coats (30 degrees, 7 m, 0.4 s) or on flight 1 from its second step (src/world/director.ts ALSO_AT: a second volume, bottom centre [-90.25, -4.5, -33], size [6.5, 4.1, 2]); nar_pegs_2 is dropped when its turn comes with her more than 2.5 m into the bay (STAIR_LINES)' });
   mk('prop_peg_rows', Z, 'prop', [-86, -6, -29], { prop: 'peg_rows', flights: ['gl_flight_1', 'gl_flight_2', 'gl_flight_3'], emptyRatio: 0.2, lowRowBare: true, oneCoatStill: true });
   mk('prop_watcher', Z, 'prop', [-84.2, -8, -25], { prop: 'bider_watcher', clip: 'sit_breathe', headYawClampDeg: 60, noHitVolume: true }, FACE.w);
-  trig('trg_watcher', Z, [-86, -8, -25], [2, 3, 2], { lines: ['nar_watcher_1', 'nar_watcher_2'], vignette: { id: 'vig_watcher' }, once: true });
+  trig('trg_watcher', Z, [-86, -8, -25], [2, 3, 2], { lines: ['nar_watcher_1', 'nar_watcher_2'], vignette: { id: 'vig_watcher' }, once: true, note: 'pass i2: the two lines are said on a LOOK at the figure only (inside 28 degrees, within 9 m, a clear line, 0.4 s), before, on or after the trigger; crossing it without a look plays the figure\'s motion and says nothing' });
   ['gl_flight_1', 'gl_flight_2', 'gl_flight_3'].forEach((f, i) => mk(`light_stair_${i + 1}`, Z, 'light', [[-90, -86, -86][i], [-0.9, -3.5, -7.5][i], [-33, -29, -21][i]], { kind: 'strip', hue: 'aqua', switchedBy: 'cell_lit', flight: f, ...(i === 0 ? SEAM : {}) }));
   // --- markers: bay
   cp('cp_gallery_bay', Z, [-86, F, -16.8], FACE.s, { when: 'foot of the stair', objective: 'obj_gallery' });
@@ -524,7 +529,11 @@ const CAGE = { w: 6, d: 6, h: 3.5, hall: V(24, -15, -14), bore: V(2, -36, 83) };
   [[12, -24.5], [12, -3.5], [18, -22], [18, -6]].forEach(([x, z], i) => spawn(`sp_hall_grate_${i + 1}`, Z, 'bider', [x, F, z], FACE.w, { entrance: 'climb_out', wave: i < 2 ? 'B' : 'C' }));
   mk('prop_hall_ring', Z, 'prop', [20, F, -14], { prop: 'ring_lift_portal', landmark: true, diameter: 9, note: 'a portal built for loads; frames the 6 x 3.5 m cage gate' }, FACE.w);
   mk('prop_hall_diagram', Z, 'prop', [19.95, F + 1, -21.5], { prop: 'wall_diagram_lift_head', height: 4, geometry: true }, FACE.w);
-  trig('trg_hall_diagram', Z, [17.5, F, -21.5], [4, 3, 5], { requires: 'enc_matador clear', lines: ['nar_mark_1', 'nar_mark_2', 'nar_mark_3'], once: true });
+  // Pass i1 (story reviewer): the three lines that say what the seventh round is were on a 4 x 5 m patch at the foot of
+  // the diagram, 5 m north of the way to the cage; the playthrough never crossed it. The patch is now the whole floor
+  // before the ring (x 12..20.4, z -24..-11): nobody reaches the cage gate without crossing it, and the diagram (4 m
+  // tall on the east wall, north of the gate) is in the frame of anyone walking east.
+  trig('trg_hall_diagram', Z, [16.2, F, -17.5], [8.4, 3, 13], { requires: 'enc_matador clear', lines: ['nar_mark_1', 'nar_mark_2', 'nar_mark_3'], once: true, note: 'the floor before the ring (pass i1). Pass i2: the lines start when the DRAWING has been in her view (inside 30 degrees, within 26 m, a clear line, 0.4 s) once the Tamper is down; the floor says nothing by itself; within 3.5 m of the cage they are said anyway' });
   pickup('pk_rounds_12_cage', Z, 'pk_rounds_12', [18.8, F, -9.6], { availableAfter: 'enc_matador' });
   pickup('pk_canteen_cage', Z, 'pk_canteen', [18.8, F, -8.4], { availableAfter: 'enc_matador' });
   cp('cp_hall_clear', Z, [16, F, -14], FACE.e, { when: 'enc_matador clear' });
@@ -623,12 +632,12 @@ const polar = (bearingDeg, r) => [BORE.cx + r * Math.sin(rad(bearingDeg)), BORE.
   // --- markers: arrival, catwalk
   mk('lift_arrival_bore', Z, 'prop', CAGE.bore, { prop: 'cage_lift', portalFrom: 'lift_depart_hall', interior: [CAGE.w, CAGE.h, CAGE.d], gateSide: 'east', gate: 'the instance\'s own gate node opens on arrival; no door marker' }, FACE.e);
   trig('trg_bore_arrive', Z, [6, cy, 83], [2, 2.6, 2], { cards: ['card_vi'], once: true });
-  trig('trg_windlass_seen', Z, [14, cy, 83], [6, 2.6, 2], { lines: ['nar_windlass_seen'], bossLooksAtPlayer: true, once: true });
+  trig('trg_windlass_seen', Z, [14, cy, 83], [6, 2.6, 2], { lines: ['nar_windlass_seen'], bossLooksAtPlayer: true, once: true, note: 'pass i3: the line is said on a LOOK at vista_windlass (30 degrees for 0.4 s, a clear line, on the gantry level, within 30 m); crossing without the look plays the ratchet cue with cap_ratchet, and the line is said anyway 8.5 m on or off the gantry level (src/world/director.ts LOOK_GATES). bossLooksAtPlayer is read by nothing' });
   mk('vista_windlass', Z, 'vista', [14, cy, 83], { subject: 'the Windlass over the violet bore, from above through the grille', target: V(14, F + 4, 94) }, FACE.s);
   mk('light_bore_violet', Z, 'light', [B.cx, F - 0.5, B.cz], { kind: 'bore_glow', hue: 'violet', becomes: 'aqua after the seventh, bottom up', sixFold: true });
   // --- markers: antechamber
   cp('cp_bore_ante', Z, [17.5, F, 75], FACE.w, { when: 'entering the antechamber', objective: 'obj_ante' });
-  trig('trg_ante_enter', Z, [17.5, F, 75], [3, 3, 2], { lines: ['nar_embers_1', 'nar_embers_2'], once: true });
+  trig('trg_ante_enter', Z, [17.5, F, 75], [3, 3, 2], { lines: ['nar_embers_1', 'nar_embers_2'], once: true, note: 'pass i3: the lines wait for a look at prop_camp_three (35 degrees, within 8 m, 0.4 s); else 6 s after the trigger once the camp is inside 50 degrees, and at 20 s whatever she faces; dropped once the Windlass fight has begun (src/world/director.ts LOOK_GATES)' });
   mk('prop_camp_three', Z, 'prop', [11.5, F, 70], { prop: 'cold_camp', camp: 3, stop: 3, fire: true, contents: ['embers, still orange', 'kettle, still warm'], note: 'the only fire he leaves' });
   mk('light_ante_embers', Z, 'light', [11.5, F + 0.15, 70], { kind: 'practical', hue: 'flame', radius: 3, note: 'the first warm light below ground, and it is his' });
   pickup('pk_rounds_12_camp3', Z, 'pk_rounds_12', [10.6, F, 71.2], { dowsers: true });
@@ -642,10 +651,10 @@ const polar = (bearingDeg, r) => [BORE.cx + r * Math.sin(rad(bearingDeg)), BORE.
   const portC = [14, F + 1.5, 79.98]; // 2 cm proud of the disc face (z 80.0)
   for (let k = 1; k <= 8; k++) { const a = rad((k - 1) * 45); mk(`ia_ask_port_${k}`, Z, 'puzzle_element', [portC[0] - 1.0 * Math.sin(a), portC[1] + 1.0 * Math.cos(a), portC[2]], { puzzle: 'the_asking', role: 'port', number: k, interactable: `ia_ask_port_${k}`, hitRadius: 0.2, note: 'clockwise from the top as seen from the antechamber' }, FACE.n); }
   mk('pz_listening_lamps', Z, 'puzzle_element', portC, { puzzle: 'the_asking', role: 'listening_lamps', count: 12, ringRadius: 1.42, fillSecondsEach: 0.75, darkOnQuestions: [1, 2], fillsOnlyInside: 'trg_pz_asking', startsAfter: 'the stn_ask_3 subtitle', cradleLampSteps: true, caption: 'cap_listening' }, FACE.n);
-  trig('trg_pz_asking', Z, [14, F, 76], [10, 5, 8], { puzzle: 'the_asking', role: 'volume', reaskSeconds: 20, note: 'the antechamber within 8 m of the door: the listening ring fills only in here', lines: { q1: 'stn_ask_1', q2: 'stn_ask_2', q3: 'stn_ask_3', wrong: 'stn_ask_wrong', done: 'stn_ask_done' }, answers: [4, 6, 'hold fire'], hints: { T2: 'hint_ask_2', T3: 'hint_ask_3', T3num: 'hint_ask_3_num' }, standSpot: V(14, F, 74) });
+  trig('trg_pz_asking', Z, [14, F, 76], [10, 5, 8], { puzzle: 'the_asking', role: 'volume', reaskSeconds: 50, note: 'the antechamber within 8 m of the door: the listening ring fills only in here. reaskSeconds are QUIET seconds (pass i2): counted only while no line is on screen or waiting and she is not turned to the cradle. The asking has its own hint ladder: 30 / 45 / 210 / 300 s on Normal, 15 / 25 / 120 / 180 on Fast (src/world/puzzles/the_asking.ts)', lines: { q1: 'stn_ask_1', q2: 'stn_ask_2', q3: 'stn_ask_3', wrong: 'stn_ask_wrong', done: 'stn_ask_done' }, answers: [4, 6, 'hold fire'], hints: { T2: 'hint_ask_2', T3: 'hint_ask_3', T3num: 'hint_ask_3_num' }, standSpot: V(14, F, 74) });
   door('door_bore', Z, [14, F, 80.125], 0, 3, 3, { gate: 'G6', kind: 'disc', opensOn: 'the_asking solved', closesBehind: true, ports: 8, note: 'disc 0.25 m thick, its antechamber face at z 80.0, flush with the wall' }, 0.25);
   // --- markers: chamber
-  trig('trg_enc_windlass', Z, [14, F, 83.5], [3, 3, 2], { encounter: 'enc_windlass', objective: 'obj_boss', seals: 'door_bore', parley: ['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_3', 'stn_parley_4'], refused: 'stn_parley_refused', kept: 'nar_parley_kept' });
+  trig('trg_enc_windlass', Z, [14, F, 83.5], [3, 3, 2], { encounter: 'enc_windlass', objective: 'obj_boss', seals: 'door_bore', parley: ['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_4'], refused: 'stn_parley_refused', kept: 'nar_parley_kept' });
   spawn('sp_windlass', Z, 'windlass', [B.cx, F, B.cz], FACE.n, { boss: true, armPivot: V(B.cx, F, B.cz), drumCentreOut: 2.0, drumCentreHeight: 4.0, drumDiameter: 5.0, armIndexBearings: [0, 60, 120, 180, 240, 300], arcDeg: 35, pawlHeight: 6, pawlSpacing: 3.2 });
   mk('bore_opening', Z, 'puzzle_element', [B.cx, F + B.kerbH, B.cz], { role: 'bore_opening', keptRoundTarget: true,
     volume: { shape: 'cylinder', radius: B.boreR, top: r2(F + B.kerbH), bottom: r2(F - 6), axis: V(B.cx, 0, B.cz) },
@@ -697,14 +706,14 @@ const polar = (bearingDeg, r) => [BORE.cx + r * Math.sin(rad(bearingDeg)), BORE.
   trig('trg_rim_arrive', Z, [14, 18, 110.5], [4, 3, 2], { cards: ['card_vii'], lines: ['nar_rim_1', 'nar_rim_2', 'nar_rim_3'], once: true });
   mk('vista_rim_rule', Z, 'vista', [14, 18, 110], { subject: 'the Rule, leaning two degrees now', bearingDeg: 0, target: V(14, 60, -900) }, FACE.n);
   mk('vista_plenty', Z, 'vista', [6, 18, 104], { subject: 'Plenty as a silhouette card with flame-lit windows and the plumb aqua thread', target: V(-60, 4, 0), windowQuads: 48, lampsFormula: '9 + freed, skipping 19 (ten freed gives 20)' }, 35);
-  trig('trg_lamps', Z, [5, 18, 104.5], [10, 3, 6], { lines: ['nar_lamps', 'nar_lamps_count'], once: true, note: 'the north-west part of the ledge (x 0..10, z 101.5..107.5): the town view and the stone share a frame from here' });
+  trig('trg_lamps', Z, [5, 18, 104.5], [10, 3, 6], { lines: ['nar_lamps', 'nar_lamps_count', 'nar_lamps_hers'], once: true, note: 'nar_lamps_hers is said only when she freed somebody (world: story.unless). The north-west part of the ledge (x 0..10, z 101.5..107.5): the town view and the stone share a frame from here' });
   mk('light_rim_stone_glint', Z, 'light', [1.6, 18.4, 102.4], { kind: 'glint', sprite: 'aim_star', everySeconds: 2.5, hue: 'brass', note: 'the six case mouths: the only brass glint on the ledge; doubles at the 60 s fail-safe' });
   mk('ia_stone_round', Z, 'interactable', [1.6, 18.356, 102.4], { interactable: 'ia_stone_round', prompt: 'ui_prompt_take', clip: 'take_round', lines: { taken: ['nar_take_1', 'nar_take_2'], left: 'nar_leave' }, sixSpentCases: true, arms: 'exit_rim' });
   mk('rd_note_stone', Z, 'readable', [1.2, 18.362, 102.5], { readable: 'rd_note_stone', under: 'the first spent case' });
-  trig('trg_stone', Z, [2.5, 18, 103], [5, 3, 4], { lines: ['nar_stone_1', 'nar_stone_2', 'nar_stone_3', 'nar_stone_4'], arms: 'exit_rim', endAfterSeconds: 25, endBranch: 'leave', once: true, note: 'the ONLY thing that arms the ending (GDD 9.8). Lead ruling R5: the 25 s count only while she is more than 4 m from the stone after nar_stone_4 has been heard; coming back starts them again' });
+  trig('trg_stone', Z, [2.5, 18, 103], [5, 3, 4], { lines: ['nar_stone_1', 'nar_stone_2', 'nar_stone_3', 'nar_stone_4'], objective: 'obj_rim_choice', arms: 'exit_rim', endAfterSeconds: 40, endBranch: 'leave', once: true, note: 'the ONLY thing that arms the ending (GDD 9.8). Lead ruling R5: the 40 s (25 before polish round 5) count only while she is more than 4 m from the stone after nar_stone_4 has been heard; coming back starts them again. Release pass p0: reaching the stone sets obj_rim_choice (the choice is named), and nar_stone_wait is the warning line world says before the leave branch begins' });
   mk('vista_fire', Z, 'vista', [10, 18, 102], { subject: 'one small fire on the plain along the pylon line', target: V(40, -10, -420), minPixels: 4, kindles: 'when the ending starts', caption: 'cap_fire_kindles' }, FACE.n);
   mk('exit_rim', Z, 'exit', [18, 18, 101.2], { ends: 'stage', card: 'card_end', requires: 'trg_stone', armedWhen: 'trg_stone has fired AND its four lines have finished (or 25 s, whichever is first)',
-    endsWhen: ['ia_stone_round taken (take branch)', 'trg_stone + 25 s (leave branch)', 'this strip entered AFTER trg_stone has fired (leave branch)', 'cp_rim + 150 s (leave branch, fail-safe)'],
+    endsWhen: ['ia_stone_round taken (take branch)', 'trg_stone + 40 s spent more than 4 m from the stone (leave branch)', 'this strip entered AFTER trg_stone has fired (leave branch)', 'cp_rim + 150 s (leave branch, fail-safe)'],
     lines: ['nar_fire', 'nar_last'], note: 'before trg_stone has fired the north edge is only a view: walking into this strip does nothing' }, 0, [20, 3, 1.6]);
 }
 
@@ -726,7 +735,7 @@ encounters.push(
     ], onClear: { checkpoint: 'cp_yard_clear', objective: 'obj_tally', then: 'trg_dowser', door: 'door_tally stays shut until the sighting is over (trg_dowser.doorOpensWhen)' } },
   { id: 'enc_tally', zone: 'tally_house', trigger: 'knot_hatch_latch', maxAlive: 2, composition: { bider: 2 }, locksDoors: ['door_tally', 'ia_hatch'],
     waves: [{ id: 'A', spawns: ['sp_tally_riser_w', 'sp_tally_riser_e'], delay: 0.8, when: 'the knot bursts: the hatch parts to ajar (impassable); cap_chairs plays 0.8 s before movement' }],
-    onClear: { checkpoint: 'cp_tally_hatch', lines: ['nar_nine'], opens: 'ia_hatch', opensWithinSeconds: 1.5 } },
+    onClear: { checkpoint: 'cp_tally_hatch', lines: ['nar_nine', 'nar_tally_hearth'], opens: 'ia_hatch', opensWithinSeconds: 1.5 } },
   { id: 'enc_file', zone: 'the_gallery', trigger: 'ia_baffle', maxAlive: 6, composition: { bider: 12 }, locksDoors: ['door_gallery_far'],
     waves: [
       { id: 'A', spawns: ['sp_file_1', 'sp_file_2', 'sp_file_3', 'sp_file_4', 'sp_file_5', 'sp_file_6'], delay: 3, when: 'the baffle grinds open over 3 s; turn_about 1.5 s', lane: 'lane_gallery' },

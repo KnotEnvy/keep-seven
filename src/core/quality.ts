@@ -16,7 +16,18 @@ const SLOW_CADENCES: readonly number[] = [1000 / 50, 1000 / 48, 1000 / 30];
 const WINDOW = 60;
 const VERIFY_SETTLE = 10;
 const VERIFY_FRAMES = 40;
-const enum Mode { Measure, Verify, Run }
+/**
+ * Release pass p0: the opening look. The session's first frames (the title's backdrop coming up out of black: the loop
+ * fades the canvas in over them) are drawn at the tier's MINIMUM ratio and their cadence is taken; the first second at
+ * the full ratio is then compared with it. The same slow cadence at both ratios is the display's own (a 50 / 30 Hz
+ * panel, a battery cap) or the CPU's, and it is adopted with the picture untouched; a faster cadence at the minimum is
+ * load, and the controller steps down from the full ratio (at most two steps a decision) instead of from the bottom up.
+ * Before, a steady slow first second sent the picture to half resolution for 50 frames two seconds in (1.6 s at 30 Hz),
+ * and a fill-bound machine then spent 15 s climbing back from 0.5 to the 0.8 it could hold.
+ */
+export const OPEN_SETTLE = 3;
+export const OPEN_FRAMES = 14;
+const enum Mode { Fresh, Open, Measure, Verify, Run }
 const STEP = 0.1;
 /** At the minimum ratio and over budget this long before a tier is given up (was 5 s: one stall of the machine did it). */
 export const STARVE_SECONDS = 15;
@@ -105,7 +116,9 @@ export class QualityManagerImpl implements QualityManager {
   private starvedSeconds = 0;
   // ---- the display's own frame interval (8.5 step 4): what "on budget" means on this screen
   private target = BASE_MS;
-  private mode: Mode = Mode.Measure;
+  private mode: Mode = Mode.Fresh;
+  /** the cadence the opening look saw at the minimum ratio (0: none, or no opening look) */
+  private openCadence = 0;
   private modeFrames = 0;
   private readonly win = new Float32Array(WINDOW);
   private readonly sorted = new Float32Array(WINDOW);
@@ -196,6 +209,7 @@ export class QualityManagerImpl implements QualityManager {
     this.ceiling = max; this.allowance = max; this.ceilingFrames = 0; this.cooldown = 30; this.ema = 0; this.goodStreak = 0; this.probing = false;
     this.starvedSeconds = 0; this.starved = false; this.fastRun = 0;
     if (this.mode === Mode.Verify) { this.mode = Mode.Run; this.target = this.verifyCadence; }   // the look at the minimum ratio was cut short
+    if (this.mode === Mode.Open) { this.mode = Mode.Measure; this.modeFrames = 0; this.openCadence = 0; }   // so was the opening look
     if (reason !== 'demote') { this.demotedFrom = null; this.storePending = false; this.promoteTo = null; this.trial = 0; }
     this.promoteGood = 0; this.minGood = 0; this.mildFrames = 0;
     this.pixelRatio = ratio;
@@ -251,7 +265,7 @@ export class QualityManagerImpl implements QualityManager {
       // the controller is not holding the ratio down: the allowance may grow again (fullscreen left, the window shrunk,
       // the resolution slider raised). A ratio that sat at the old allowance follows the new one; a ratio the controller
       // had lowered stays, and probes upward against the new allowance.
-      if (this.mode !== Mode.Verify && this.pixelRatio >= this.allowance - 1e-3) want = max;
+      if (this.mode !== Mode.Verify && this.mode !== Mode.Open && this.pixelRatio >= this.allowance - 1e-3) want = max;
       this.ceiling = max;
     } else this.ceiling = Math.min(this.ceiling, max);       // a real back-off survives a resize
     this.allowance = max;
@@ -315,11 +329,32 @@ export class QualityManagerImpl implements QualityManager {
     if (slower) this.setRatio(this.maxRatio());                // the drops were made against a budget the display cannot meet
   }
   /** The first second of frames (the title screen): which cadence does this display present at? */
+  /** The opening look is over: keep what the minimum ratio showed and draw the first second at the full ratio. */
+  private finishOpen(): void {
+    this.openCadence = this.cadence(OPEN_FRAMES);
+    this.mode = Mode.Measure; this.modeFrames = 0;
+    this.setRatio(this.maxRatio());
+  }
   private finishMeasure(): void {
     const c = this.cadence(WINDOW);
+    const low = this.openCadence;
+    this.openCadence = 0;
     this.mode = Mode.Run; this.cooldown = 0;
-    if (c === 0) return;                                       // no cadence: keep 16.7 ms; a slow display is recognised later
+    // no cadence at the full ratio: keep 16.7 ms. A slow display is recognised later; a steady slow cadence at the
+    // minimum ratio alone proves nothing (a GPU too weak for this tier shows the same, and the tier below is its cure)
+    if (c === 0) return;
     if (c === BASE_MS) { this.fastestSeen = BASE_MS; return; }
+    if (low > 0) {
+      // the opening look already saw the minimum ratio: no second look, no half-resolution frames in the first image
+      if (low < c * 0.9) {
+        // faster down there: load. Hold the faster cadence and let the controller step down from where it stands.
+        this.target = low; this.fastestSeen = low;
+        this.resetController(); this.cooldown = 0;
+        return;
+      }
+      this.adoptTarget(c);                                     // the same at both: the display (or a cap, or the CPU)
+      return;
+    }
     // slower than 60 Hz and steady: a 50 / 48 / 30 Hz display, or a 60 Hz one missing every other vsync under load.
     // A display's cadence does not answer to resolution; load does. Look once at the minimum ratio.
     if (this.pixelRatio > this.minRatio() + 1e-3) {
@@ -352,6 +387,13 @@ export class QualityManagerImpl implements QualityManager {
     if (frameMs > 250) return;                               // a tab switch or a hitch
     this.win[this.winAt] = frameMs; this.winAt = (this.winAt + 1) % WINDOW;
     if (this.winCount < WINDOW) this.winCount++;
+    if (this.mode === Mode.Fresh) {
+      // the first frame of the session: its interval is the time since the loop started, not a frame
+      const min = this.minRatio();
+      if (this.pixelRatio > min + 1e-3) { this.mode = Mode.Open; this.modeFrames = 0; this.winCount = 0; this.winAt = 0; this.setRatio(min); return; }
+      this.mode = Mode.Measure; this.modeFrames = 0;
+    }
+    if (this.mode === Mode.Open) { if (++this.modeFrames >= OPEN_SETTLE + OPEN_FRAMES) this.finishOpen(); return; }
     if (this.mode === Mode.Measure) { if (++this.modeFrames >= WINDOW) this.finishMeasure(); return; }
     if (this.mode === Mode.Verify) { if (++this.modeFrames >= VERIFY_SETTLE + VERIFY_FRAMES) this.finishVerify(); return; }
     if (this.held > 0) { this.held--; return; }

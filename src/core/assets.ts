@@ -191,8 +191,8 @@ class AssetInstanceImpl implements AssetInstance {
 
 /** UV0 detail sheets of the world materials (ARCHITECTURE 7.6: `vcol x detail(UV0).r x 2 x light`). */
 const FALLBACK_DETAIL: Readonly<Record<string, TextureId>> = { m_frontier: 'tx_frontier_trim', m_pellam: 'tx_pellam_trim', m_sand: 'tx_sand' };
-/** UV0 colour textures: the palette under COLOR_0 for `m_prop`, the gun's albedo for `m_gun`. */
-const FALLBACK_ALBEDO: Readonly<Record<string, TextureId>> = { m_prop: 'tx_palette', m_gun: 'tx_gun' };
+/** UV0 colour textures: the palette under COLOR_0 for `m_prop`, the gun's albedo for `m_gun`, the hands' for `m_hands` (ruling R14). */
+const FALLBACK_ALBEDO: Readonly<Record<string, TextureId>> = { m_prop: 'tx_palette', m_gun: 'tx_gun', m_hands: 'tx_hands' };
 
 /** True for a mesh of a placeholder file (or a synthesised stand-in): its UVs are schematic. */
 function inPlaceholder(mesh: THREE.Object3D): boolean {

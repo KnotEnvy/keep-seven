@@ -7,7 +7,7 @@ The region rectangles are written to blender/lib/mask_regions.json (`manifest.ma
 `uv.map_to_mask`). Text is limited to strings that exist in design/story.json.
 
 APPEND-ONLY: a shipped region never moves. Free space: x 640..896, y 192..384 except where noted in LAYOUT; x 896..1024,
-y 480..512; the strip under `louvre`. Region pixels are [x, y, w, h] from the TOP-LEFT of the image.
+y 480..512; the strip under `louvre`. (Pass i1: `rivets` took x 640..896, y 192..208.) Region pixels are [x, y, w, h] from the TOP-LEFT of the image.
 """
 import sys, os, math
 sys.dont_write_bytecode = True
@@ -44,6 +44,7 @@ LAYOUT = {
     "family_marks": (0, 464, 576, 48, 12, 1),
     "card_edges": (640, 384, 256, 128, 3, 1),
     "card_dowser": (896, 192, 128, 288, 1, 1),
+    "rivets": (640, 192, 256, 16, 1, 1),        # pass i1 (the lift cages' riveted panels): sixteen rivet heads in a row
 }
 PLATE_LINES = ["LINE CHARGE. FOR SIGHTING.", "PROVING CHARGE. BANDED.", "DO NOT KEEP.", "TAMPING UNIT."]
 
@@ -317,6 +318,14 @@ def grille(w, h):
     return td.downsample(td.cover(np.minimum(dx, dy), 1.0 / SS), SS)
 
 
+def rivets(w, h, n=16, r=2.5):
+    """A row of `n` round rivet heads along a strip (a panel's riveted edge): lay it 16 times as long as it is high."""
+    X, Y = td.grid(w, h, SS)
+    p = w / float(n)
+    d = np.hypot(((X % p) - p / 2.0), Y - h / 2.0) - r
+    return td.downsample(td.cover(d, 1.0 / SS), SS)
+
+
 def louvre(w, h):
     """Vent slats, tiling in U and V: four slats per tile, opaque slat 11 px, gap 5 px."""
     X, Y = td.grid(w, h, SS)
@@ -429,6 +438,7 @@ def build():
     for i in range(4): put("tally", tally(i, 128, 64, 500), i)
     for i in range(12): put("family_marks", family_mark(i, 48, 48), i)
     put("grille", grille(128, 128)); put("louvre", louvre(128, 64))
+    put("rivets", rivets(256, 16))
     for i in range(3):
         cw = cells_of("card_edges")[i][2]
         put("card_edges", card_edge(i, cw, 128, 700), i)

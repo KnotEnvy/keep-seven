@@ -26,6 +26,10 @@ def main():
     device = bake.use_cycles(os.environ.get("KS_EXT_DEVICE", "CUDA"), samples=64)
     img, dt = bake.bake_lightmap(objs, surface_common.LM, samples=16 if surface_common.FAST else 64, margin_px=4)
     print(f"BAKED {surface_common.LM} on {device}: {len(objs)} objects, {sum(len(o.data.polygons) for o in objs)} faces, {dt:.1f}s")
+    import ground_paint
+    ground_paint.apply(S, img)                                        # pass i1: ruts, boot prints, the trodden line, wind streaks (no triangles)
+    import wall_paint
+    wall_paint.apply(S, img)                                          # pass i2: the walls' weather, courses, cracks; the rock's beds; the drum's plates and rust
     bake.save_lightmap(img, surface_common.LM)
 
 

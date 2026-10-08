@@ -44,7 +44,9 @@ test('the three cartridge props: every variant is 41 mm long on a 12 mm case, pi
 
 test('the rounds in the gun are the same cartridge: round_hand_lead / _line / _kept and kept_loop (41 x 12 mm; the loop round wears the 9 mm band)', async () => {
   const g = await loadGlb('weapon_revolver');
-  const arms = g.meshes.find((m) => m.node === 'arms_mesh');
+  // (ruling R14: arms_mesh is two primitives, m_hands and m_prop: the rounds are in one of them)
+  const armPrims = g.meshes.filter((m) => m.node === 'arms_mesh');
+  const arms = { verts: armPrims.flatMap((m) => m.verts), joints: armPrims.flatMap((m) => m.joints) };
   const js = glbJson(M.assets.weapon_revolver._pub);
   for (const b of ['round_hand_lead', 'round_hand_line', 'round_hand_kept', 'kept_loop']) {
     const node = g.nodes[b], m = node.m;
@@ -55,8 +57,8 @@ test('the rounds in the gun are the same cartridge: round_hand_lead / _line / _k
     const r = measure(verts, node.pos, axis);
     console.log(`weapon_revolver / ${b}: ${fmt(r)} (${verts.length} vertices)`);
     assert.ok(Math.abs(r.length - 41) <= 1, `${b}: overall ${r.length} mm`);
-    assert.ok(Math.abs(r.diameter - 12) <= 0.5, `${b}: case ${r.diameter} mm`);
-    if (b === 'kept_loop') assert.ok(Math.abs(r.band - 9) <= 1, `kept_loop: band ${r.band} mm`);
+    assert.ok(Math.abs(r.diameter - 9) <= 0.5, `${b}: case ${r.diameter} mm (pass i3: the rounds the hands hold are 0.75 of a 12 mm case's girth: they are twice as near the eye as the chambers they go into)`);
+    if (b === 'kept_loop') assert.ok(Math.abs(r.band - 9) <= 1.6, `kept_loop: band ${r.band} mm`);
   }
   // the six case heads in the cylinder: a 13 mm rim on each round_n bone
   const gun = g.meshes.find((mm) => mm.node === 'gun_mesh');

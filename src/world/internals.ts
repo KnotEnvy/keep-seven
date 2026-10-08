@@ -4,6 +4,7 @@
 import type * as THREE from 'three';
 import { FIXED_DT, Layer, PLAYER_EYE } from '../core/contracts.ts';
 import type {
+  BossPhase,
   AssetBinding, AssetInstance, AudioCue, CheckpointId, DamageInfo, DoorState, EncounterId, EncounterView, EntityKind, EntityRef, FxHandle,
   GameContext, GameEvents, HintTier, HitReceiver, HitResponse, HitResult, LayoutMarker, MarkerId, MoodId, PickupKind, PuzzleId,
   PuzzleSave, PuzzleView, ResidentSet, Rng, RunStats, SaveData, StoryKey, SurfaceType, VignetteId, VolumeHandle, WorldSave, ZoneId,
@@ -248,7 +249,7 @@ export interface DoorsApi {
 
 export interface StoryApi {
   /** queue a line, card or caption by key (the same path as the `story/say` event); `zone`: the place it is about, when not where she stands */
-  say(key: StoryKey, zone?: string): void;
+  say(key: StoryKey, zone?: string, alsoZone?: string): void;
   /** next in line, ahead of what is waiting (critical-path lines tied to a moment) */
   sayFront(key: StoryKey): void;
   /** several lines tied to one moment (a wave, a clear): next in line, in their order */
@@ -263,10 +264,30 @@ export interface StoryApi {
   drop(key: StoryKey): void;
   /** `key` leaves the line if it is only waiting, unheard and untold: it may be asked for again at a better moment */
   defer(key: StoryKey): void;
+  /**
+   * `key` is about this second (a wave released, her own first line shot): on screen at once, over a line that may be
+   * cut (not one the story stands on, not another urgent one, not one in its last second); else the very next line
+   */
+  sayUrgent(key: StoryKey, read?: number): void;
+  /**
+   * pass i3: `key` is about what she is looking at this second: the very next line (ahead of everything that waits,
+   * with `part` the continuation of the line on screen too), on screen at once over a station line or a hint that has
+   * been read. Give it an `unless` rule: it is dropped when its subject is behind her by its turn
+   */
+  sayPresent(key: StoryKey, part?: boolean, alsoZone?: string): void;
+  /** pass i3: for `seconds`, a `story/say` for `key` from another system is ignored (the world has just said it) */
+  mute(key: StoryKey, seconds: number): void;
   /** `key` keeps its place in line while `away()` is true (its subject is out of her view); the lines behind it go ahead */
   waitWhile(key: StoryKey, away: () => boolean): void;
   /** the world says `key` at its own moment: a `story/say` for it from another system is ignored */
   take(key: StoryKey): void;
+  /** pass i2: `key` is held on screen `seconds` instead of story.json's time (the Windlass's roll-call) */
+  hold(key: StoryKey, seconds: number): void;
+  /**
+   * pass i2: `key` opens a scene another system runs (the Windlass's first parley line): when that system asks for it,
+   * every line that is only waiting and that the story does not stand on is dropped, and it is said like `sayNow`
+   */
+  opening(key: StoryKey): void;
   /** the end card is up: no line starts after it */
   silence(): void;
   /** a station line that answers the player's act: replaces a station or hint line on screen, else plays next */
@@ -276,6 +297,8 @@ export interface StoryApi {
   readonly current: StoryKey;
   /** nothing on screen and nothing waiting */
   readonly idle: boolean;
+  /** a title card is on screen or about to be (pass i1: no key hint is raised over a movement card) */
+  readonly cardUp: boolean;
   played(key: StoryKey): boolean;
   /** true once the line's hold is over (this run) */
   finished(key: StoryKey): boolean;
@@ -352,6 +375,8 @@ export interface InteractApi {
 export interface CheckpointsApi {
   /** commit a checkpoint (never backwards, each once); a place checkpoint waits while an encounter is live */
   reach(id: CheckpointId, force?: boolean): void;
+  /** write the save she holds again with the world as it stands now and this boss phase; no event (p0: the Windlass's death) */
+  again(bossPhase: BossPhase): void;
   tick(): void;
   reset(): void;
   beginRun(fromSave: SaveData | null): Promise<void>;
@@ -376,6 +401,8 @@ export interface RidesApi {
 }
 
 export interface EndingApi {
+  /** the end card is up (pass i1: going on from the rim after it tells the rim again) */
+  readonly ended: boolean;
   tick(dt: number): void;
   attach(zone: ZoneId): void;
   detach(zone: ZoneId): void;

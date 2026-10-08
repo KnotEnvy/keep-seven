@@ -20,6 +20,15 @@ const SAY_AFTER_DEATHS = 2;
  * first relight) still starts the hint ladder and the HUD pulse, and repeats the line (docs/requests/world.md).
  */
 const ASK_AFTER = 1.5;
+/**
+ * Pass i3 (story reviewer a: in phase 3 a player who remembers the key from the opening and presses it away from the
+ * brass mark got no answer at all, and the key's prompt for a player off the mark came 59 s in). A press off the mark
+ * in phase 3a is answered at once with the ladder's plainest line (`hint_kept_2`: "The brass mark at the kerb. The
+ * seventh round. Down the bore."), the nearest mark is outlined, and the line is not said again for `DENIED_AGAIN`
+ * seconds however often she presses. The key's prompt comes with the ladder's second tier (30 s after the station
+ * first asks; it was the third, 45 s).
+ */
+export const DENIED_AGAIN = 12;
 /** the two lines of the ask (the enemies module says them by these keys: src/enemies/boss/attacks.ts tickUnproven) */
 const LINE_ASK = 'stn_boss_charge_required', LINE_ONE_LEFT = 'nar_one_left';
 /** the station's line for the dry head (said by the Windlass as phase 3b begins; the world takes it: see `dry`) */
@@ -51,6 +60,8 @@ class Kept implements KeptApi {
   /** the lines that follow the proof (HEAD DRY, the narrator's two) have been put in line for this proof */
   private drySaid = true;
   private flare = 0;
+  /** seconds until a press off the mark is answered in words again (DENIED_AGAIN) */
+  private deniedRest = 0;
   private readonly hintPayload: GameEvents['ui/hint'] = { key: 'ui_prompt_kept', show: false };
   private readonly lineDown: string; private readonly lineDenied: string; private readonly lineSeal: string; private readonly lineOffice: string;
   private readonly lineKept: string; private readonly lineProven: string; private readonly lineHint1: string; private readonly lineHint2: string;
@@ -166,6 +177,14 @@ class Kept implements KeptApi {
         // during phase 3a the game never tells her that her correct idea is wrong: the nearest mark's halo flares, no line
         const node = this.glows();
         if (node) { s.ctx.render.lamps.setBoost(node, 2.5); this.flare = FLARE_SECONDS; }
+        // (pass i3, DENIED_AGAIN) and it is told where: her idea is right, the place is not
+        if (this.active && this.deniedRest <= 0 && s.ctx.data.story.lines[this.lineHint2] !== undefined) {
+          this.deniedRest = DENIED_AGAIN;
+          s.story.drop(this.lineHint1);
+          s.story.sayNow(this.lineHint2);
+          const m = this.nearest();
+          if (m) { s.ctx.render.setOutline(s.build.anchor(m.marker.id)); this.outlined = true; }
+        }
         return;
       }
       s.story.say(this.lineDenied);                         // once, by the nar_* rule
@@ -229,6 +248,7 @@ class Kept implements KeptApi {
         s.story.sayFront(LINE_ONE_LEFT);
       }
     }
+    if (this.deniedRest > 0) this.deniedRest -= FIXED_DT;
     if (this.flare > 0) { this.flare -= FIXED_DT; if (this.flare <= 0) { const node = this.glows(); if (node) s.ctx.render.lamps.setBoost(node, 1); } }
     if (this.silence >= 0) {
       this.silence -= FIXED_DT;
@@ -263,12 +283,13 @@ class Kept implements KeptApi {
     if (!this.laddering) return;
     const tier = this.clock.tick(FIXED_DT, true, s.ctx.options.value.hints);
     // a restore inside the ladder: what tier 3 put on screen is put back (a restore took it down)
-    if (tier === 0) { if (this.clock.tier >= 3 && !this.hintShown && s.hintsOn()) this.showPrompt(); return; }
+    if (tier === 0) { if (this.clock.tier >= 2 && !this.hintShown && s.hintsOn()) this.showPrompt(); return; }
     s.hint('kept', tier);
     // (round 5: tier 1 has a line of its own, `hint_kept_1`; it said `nar_office`, the line that pays off the shot)
     if (tier === 1) s.story.say(this.lineHint1);
-    else if (tier === 2) { s.story.drop(this.lineHint1); s.story.say(this.lineHint2); }   // (the plainer line replaces the first)
-    else if (tier === 3) this.showPrompt();
+    // (the plainer line replaces the first; pass i3: and the key's prompt comes with it, not a tier later)
+    else if (tier === 2) { s.story.drop(this.lineHint1); s.story.say(this.lineHint2); this.showPrompt(); }
+    else if (tier === 3 && !this.hintShown) this.showPrompt();
   }
   private floor = 0;
   /** the tier-2 line is due at once (two deaths in the phase): the clock is put on its threshold */
@@ -295,7 +316,7 @@ class Kept implements KeptApi {
   /** everything but the ladder's clock (a restore keeps what she has waited) */
   private clear(): void {
     this.active = false; this.phase3a = false; this.laddering = false; this.silence = -1; this.waterAfter = ''; this.flare = 0;
-    this.askIn = -1; this.drySaid = true;
+    this.askIn = -1; this.drySaid = true; this.deniedRest = 0;
     if (this.hintShown) { this.hintShown = false; this.hintPayload.show = false; this.s.ctx.events.emit('ui/hint', this.hintPayload); }
     this.outlined = false;
     if (this.current) this.setContext(null);

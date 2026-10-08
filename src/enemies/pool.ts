@@ -73,7 +73,7 @@ export class ActorPool implements PoolApi {
     e.hood = 1; e.tint = 0; e.cup = null; e.cause = 'crown'; e.down = 0;
     e.point = -1; e.wantPoint = -1; e.namedPoint = -1; e.shots = 0; e.fresh = true; e.miss = false; e.thread = null; e.star = null;
     e.crosshair = 0; e.sidestepAt = -1e9; e.heard = false; e.bell = false; e.badPoints = 0; e.blind = 0; e.stood = 0; e.chooseAt = 0; e.seekNode = -1; e.seekBest = Infinity; e.pass = false;
-    e.ventChest = false; e.ventBack = false; e.chargedAt = -1e9; e.flinch = 0;
+    e.ventChest = false; e.ventBack = false; e.chargedAt = -1e9; e.flinch = 0; e.quietUntil = -1e9; e.slamsLanded = 0; e.slamsRun = 0;
 
     inst.root.position.set(x, y, z);
     inst.root.rotation.set(0, yaw + Math.PI, 0);          // assets face +Z, yaw 0 faces -Z

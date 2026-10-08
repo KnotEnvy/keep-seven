@@ -26,6 +26,8 @@ class InstanceRef {
 }
 
 const INITIAL_CAPACITY = 32;
+/** metres (world): an instanced thing of the Tally House's zone below this hangs in the peg stair (see `add`) */
+const INST_STAIR_Y = -0.3;
 
 export class Instances implements InstanceApi {
   private readonly sets = new Map<string, InstancedSet>();
@@ -120,7 +122,12 @@ export class Instances implements InstanceApi {
     const r = this.refs[h] as InstanceRef;
     r.set = set; r.slot = slot; r.visible = true; r.x = x; r.y = y; r.z = z; r.rot = rotYRad; r.scale = scale; r.matrix = false;
     // the zone's ambient and half its key, baked into the instance colour
-    const mood = MOODS[this.moodOf(x, y, z)];
+    // Look team creatures-props, pass i3 (the reviewer's frames of the peg stair: red-brown coats on a mint wall): the
+    // first flight under the hatch lies in the Tally House's zone while the surface is resident (layout `seam`), so what
+    // hung there took the lamp-orange of the room above when she walked down, and the gallery's teal after a restore.
+    // A thing under the hall's floor is lit by the stair it hangs in, as the view-model is (materials.ts VM_STAIR_Y).
+    const key = this.moodOf(x, y, z);
+    const mood = MOODS[key === 'L2' && y < INST_STAIR_Y ? 'L3' : key];
     r.lr = (mood[M_AMBIENT] as number) + 0.5 * (mood[M_KEY] as number);
     r.lg = (mood[M_AMBIENT + 1] as number) + 0.5 * (mood[M_KEY + 1] as number);
     r.lb = (mood[M_AMBIENT + 2] as number) + 0.5 * (mood[M_KEY + 2] as number);

@@ -310,7 +310,7 @@ function main() {
   const SHAPES = new Set(M.meta?.enums?.placeholderShape ?? []);
   const ANCHORS = new Set(Object.keys(M.meta?.enums?.placeholderAnchor ?? {}));
   const SETS = new Set(['surface', 'underground', 'coda']);
-  const MATERIALS = new Set(['m_frontier', 'm_pellam', 'm_sand', 'm_flat', 'm_mask', 'm_emis', 'm_prop', 'm_gun']);
+  const MATERIALS = new Set(['m_frontier', 'm_pellam', 'm_sand', 'm_flat', 'm_mask', 'm_emis', 'm_prop', 'm_gun', 'm_hands']);
   const CHUNK_MATERIALS = new Set(['m_sand', 'm_frontier', 'm_pellam', 'm_mask', 'm_emis']);   // m_flat and m_prop are folded into these (ARCHITECTURE 7.5)
   const NAME_RE = /^[a-z][a-z0-9_]*$/;            // snake_case, no dots or spaces (GLTFLoader would rename them)
   const zoneIds = new Set(L.zones.map((z) => z.id));

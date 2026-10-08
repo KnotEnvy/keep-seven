@@ -35,11 +35,23 @@ test('R6: at idle the revolver alone covers 8 % of the frame or more, the hands 
   for (const cp of ['cp_street_clear', 'cp_boss_p1']) {
     await settle(cp);
     const p = await parts();
-    assert.deepEqual(p.names.slice().sort(), ['arms_mesh', 'gun_mesh'], 'the view-model is one gun mesh and one arms mesh');
+    // release pass p0 (ruling R14; edited by look team gun, the player team not being active): the arms are two primitives
+    // (m_hands and m_prop), which the loader draws as me_arms_mesh / me_arms_mesh_1 under the node arms_mesh
+    assert.deepEqual([...new Set(p.names.map((n) => n.replace(/^me_/, '').replace(/_\d+$/, '')))].sort(), ['arms_mesh', 'gun_mesh'], 'the view-model is one gun mesh and one arms mesh');
     assert.equal(p.clip, 'idle');
     const say = `${cp}: gun seen ${p.gunSeen.toFixed(2)} %, gun alone ${p.gunAlone.toFixed(2)} %, hands ${p.hand.toFixed(2)} %, all ${p.all.toFixed(2)} %, minX ${p.minX.toFixed(3)}`;
-    assert.ok(p.gunSeen >= 8.3, `the gun no hand covers is 8 % of the frame with a margin (${say})`);
-    assert.ok(p.hand <= p.gunSeen / 2, `the hands are less than half of what the gun shows (${say})`);
+    // release pass p0 (lead ruling R13: "gun plus hand roughly 8 to 14 % of a 16:9 frame at idle", and a hand that reads
+    // as a hand): round 4's bounds (the gun alone 8.3 % or more, the hands under half of it) kept the hand out of the
+    // frame: "two brown lumps". The gun stands 2.6 cm farther: 6.7 % of the frame, the whole view-model 12 %.
+    // pass i3 (edited by look team gun, the player team not being active; both visual reviewers: "the idle hand is a thumb,
+    // a knob and a stub"): the hand is seated on the grip as a hand is (three fingers wrapped on to the left panel, the
+    // thumb across it, the back of the thumb's root in the frame) and the view-model stands 3.4 cm farther. The hands drawn
+    // ALONE (with what the gun hides of them) are now more than the gun that shows; the gun with the hands hidden is the
+    // measure of its size. Was: gun seen 6.3 % or more, hands <= gun seen.
+    assert.ok(p.gunSeen >= 4.3, `the gun no hand covers is 4.3 % of the frame or more (${say})`);
+    assert.ok(p.gunAlone >= 7.0, `the gun with the hands hidden is 7 % of the frame or more (${say})`);
+    assert.ok(p.hand <= 2 * p.gunSeen, `the hands (drawn alone) are less than twice what the gun shows (${say})`);
+    assert.ok(p.all >= 8 && p.all <= 14, `R13: the view-model is 8 to 14 % of the frame (${say})`);
     assert.ok(p.all <= 18, `ART_BIBLE 12 item 26: at most 18 % of the frame (${say})`);
     assert.ok(p.minX >= 0.5 && p.top >= 0.45, `nothing left of the centre line or above the crosshair's row (${say})`);
     assert.equal(p.weight, 1);
@@ -53,7 +65,7 @@ test('R6: with reduced motion the gun stands in the same place', async () => {
   await step(4);
   const reduced = await parts();
   await bot.page.evaluate(() => window.__dbg.ext.core.ctx().options.set('reduceMotion', false));
-  assert.ok(Math.abs(reduced.gunSeen - before.gunSeen) < 0.4 && reduced.gunSeen >= 8.3, `gun seen ${reduced.gunSeen.toFixed(2)} % with reduced motion, ${before.gunSeen.toFixed(2)} % without`);
+  assert.ok(Math.abs(reduced.gunSeen - before.gunSeen) < 0.4 && reduced.gunSeen >= 4.3, `gun seen ${reduced.gunSeen.toFixed(2)} % with reduced motion, ${before.gunSeen.toFixed(2)} % without`);
 });
 
 test('the placement leaves for the reload (the clip is shown at the handling placement) and is back when the gun is', async () => {
@@ -70,7 +82,7 @@ test('the placement leaves for the reload (the clip is shown at the handling pla
   await step(12);
   const back = await parts();
   assert.equal(back.clip, 'idle');
-  assert.ok(back.gunSeen >= 8.3, `idle again after the reload: gun seen ${back.gunSeen.toFixed(2)} %`);
+  assert.ok(back.gunSeen >= 4.3, `idle again after the reload: gun seen ${back.gunSeen.toFixed(2)} %`);
 });
 
 test('the kick of a shot never carries the gun across the centre line', async () => {

@@ -52,8 +52,15 @@ def _env(k, d): return float(os.environ.get(k, d))
 # yellow nor violet), and the warmth is the embers' own light, larger (reach 4 -> 6.5 m, the floor beside them 0.8 -> 1.3)
 # and carried to the door wall by their bounce.
 AMB_AN = np.array([_env("KS_AN_R", 0.70), _env("KS_AN_G", 0.82), _env("KS_AN_B", 1.0)], dtype=np.float32) * _env("KS_AN_AMB", 0.085)
-EMBER_FAR = _env("KS_EMBER_FAR", 0.24)                               # what the cradle's wall (10 m off) reads from the embers' bounce
-EMBER_T, EMBER_R = _env("KS_EMBER_T", 1.3), _env("KS_EMBER_R", 6.5)
+# release pass p0 (visual reviewer: the station plate washed out on High, "a yellow-green glow over the wall"): at 1.3 the
+# west wall behind the fire stood at display white in the red channel, and an orange that clips in red is a mustard.
+# The pool reads 0.8 beside the fire and is gone by 5.5 m (the wall keeps its orange and its fall-off), the bounce 0.17.
+EMBER_FAR = _env("KS_EMBER_FAR", 0.17)                               # what the cradle's wall (10 m off) reads from the embers' bounce
+# The light stands 0.8 m over the fire (it was 0.25). These lights have no inverse-square term (interior_common
+# _falloff_nodes: cosine x a bump that ends at the reach), so from 0.25 m the floor took it at a graze and the wall
+# square on: a pool of 1.3 on the floor put 3 on the wall behind the fire and 6 on the floor at the fire's edge, and a
+# lightmap stores 2. From 0.8 m: 0.8 at 1.5 m, about 1.9 at the fire's edge, about 1.4 on the wall: nothing clips.
+EMBER_T, EMBER_R, EMBER_H = _env("KS_EMBER_T", 0.8), _env("KS_EMBER_R", 5.5), _env("KS_EMBER_H", 0.8)
 # look-dev, polish round 3: the chamber's walls took the fill and a bounce only (from the flank and from behind, 89 to 93 %
 # of a boss frame under L* 35 and the Windlass a dark mass on dark walls). Each bay lamp also throws a scallop down its
 # own wall: the lining reads WALL_WASH_T at 2.4 m and is gone by the kick plate and above the lamp, so the lower wall
@@ -70,6 +77,10 @@ CAT_LAMP_T, BAY_WASH_T, BAY_LAMP_T, LIFT_LAMP_T, LIFT_WASH_T = _env("KS_CAT_T", 
 # pool under the lamp to dark at the far corners; the bulkhead she faces keeps its two washers.
 CAT_LAMPS, BAY_WASH = [], []
 DECK_T = tuple(ic.mix("steel", "concrete", 0.5))
+# release pass p0: the antechamber's frame (build_ante) and its station plate
+AN_BAYS = (68.8, 71.6, 74.4, 77.2)
+AN_FRAME_T = tuple(ic.mix("concrete", "steel_dark", 0.30))
+PLATE_T = tuple(ic.mix("enamel_stain", "concrete", 0.30))
 RESERVE_ANTE = {"prop_camp_ash": 0.5, "prop_kettle": 1.0, "rd_note": 0.25}
 RESERVE_CH = {"ia_proving_mark": 6.0}
 ROWS = cuts(FL, CE, 1.2, [FL + 0.3, FL + 3.0, -36.3, -33.4, -32.0])
@@ -81,7 +92,10 @@ WALL_LOW = tuple(ic.mix("enamel_stain", "steel", 0.42))
 WALL_HIGH = tuple(ic.mix("enamel_stain", "steel", 0.62))
 RIB_T = tuple(ic.mix("enamel_stain", "steel", 0.38))
 
-sector, extra_ch, ante, emb, dec, emi, ante_dec = [], [], [], [], [], [], []      # the clipped sector / chamber parts on top / antechamber + stair
+sector, extra_ch, ante, emb, dec, emi, ante_dec = [], [], [], [], [], [], []
+KERB_SEAM_LEVEL = _env("KS_SEAM", 0.6)
+KERB_FEATHER = []                                                    # look pass i3: the seams' soft edges (as KERB_SEAMS; a face's corner within 1 mm of a seam's radius keeps the level, the others are dark)
+KERB_SEAMS = []                                                      # look pass i2: the kerb's seams of the bore's light (GAME polygons of ONE sector; main() copies them six times into `bore_glow`)      # the clipped sector / chamber parts on top / antechamber + stair
 
 
 def P(r, b, y):
@@ -211,26 +225,82 @@ def build_sector():
     add(polar("floor_joint", [R_KERB1, R_KERB1 + 0.15], frange(B0, B1, 7.5), FL + 0.004, "steel", "steel", lm=False, row=0.6))
     # the bore shaft lining (panel courses down to the chunk's floor) and the kerb, notch and merlons
     add(ring_wall("shaft", R_KERB0, frange(B0, B1, 7.5), [SHAFT_LOW, -49.6, -48.4, -47.2, -46.0, -44.8, FL], True, "panel", tuple(ic.mix("enamel", "steel", 0.25)), lm=True, vbase=SHAFT_LOW))
-    kb = [B0 - 12.5, B0 - 6.25, B0, B0 + 6.25, B0 + 12.5, 48.33, 54.17, 60.0, 65.83, 71.67, B1 - 12.5, B1 - 6.25, B1, B1 + 6.25, B1 + 12.5]
+    # look pass i2 (visual reviewer, on the game's signature moment: "the kerb round the bore from a metre or two away:
+    # large flat-shaded blocks with visibly faceted curved segments and no machined detail"). The kerb was fourteen
+    # 6-degree blocks with square arrises. It is a cast and machined ring now: 2.5-degree segments (a 0.16 m chord,
+    # smooth-shaded), a 50 mm chamfer on both arrises of the notch and of the merlons, a dark steel inlay let into the
+    # top with a SEAM OF THE BORE'S OWN LIGHT in it (faces of the lamp set `bore_glow`: violet while the bore is wrong,
+    # aqua behind the seventh's ring, and it turns from the notch up to the merlons as the bore's light does), the same
+    # seam down each merlon's end, a bolt circle on the steel band, an inspection plate on each merlon. Nothing stands
+    # higher than before: the notch's 0.6 m is the kept shot's sight line.
+    # look pass i3 (visual reviewer, on the seventh's frame, where the camera looks straight at the kerb: "its segments
+    # are large flat blocks and the violet slots show stair-stepped edges"). Two causes. (1) A 50 mm chamfer is one
+    # pixel at 3 m: the casting's arrises drew as knife edges, so every block read as a box. Both top arrises are a
+    # 90 mm ROUND now (three 30-degree steps, smooth-shaded into the top and the faces: a soft lit edge on every block).
+    # (2) The seam was 44 mm of light between two 28 mm strips of dark inlay: at the grazing angle of that frame each
+    # was under a pixel tall and broke into dashes. The seam is 80 mm, its inlay 180 mm, and the seam has a FEATHER: a
+    # 16 mm strip on both sides whose level falls from the seam's to nothing (vertex colour of the lamp set), so its
+    # edge is a soft fall into the dark steel instead of a one-pixel step.
+    KS, CH, G0, G1, S0, S1, SF = 2.5, 0.09, 3.19, 3.41, 3.26, 3.34, 0.016
+    def arris(rc, yc, a0, a1, n=3):
+        return [(rc + CH * math.cos(math.radians(a0 + (a1 - a0) * i / n)), yc + CH * math.sin(math.radians(a0 + (a1 - a0) * i / n))) for i in range(n + 1)]
+    kb = frange(B0 - 12.5, B1 + 12.5, KS)
+    TN, TM = FL + 0.6, FL + 1.2
     def top(b):
         d = min(abs(b - B0), abs(b - B1))
-        return FL + 1.2 if d <= 12.5 + 1e-6 else FL + 0.6
-    f = []
+        return TM if d <= 12.5 + 1e-6 else TN
+    def grooved(b):
+        d = min(abs(b - B0), abs(b - B1))
+        return d < 10.0 if d <= 12.5 + 1e-6 else d > 15.0             # the inlay stops one segment short of every merlon end
+    def radial(b): return Vector((math.sin(math.radians(b)), 0.0, -math.cos(math.radians(b))))
+    def tangent(b): return Vector((math.cos(math.radians(b)), 0.0, math.sin(math.radians(b))))
+    def wound(poly, n):
+        a, b_, c = Vector(poly[0]), Vector(poly[1]), Vector(poly[2])
+        return poly if (b_ - a).cross(c - a).dot(Vector(n)) > 0 else poly[::-1]
+    body, inlay = [], []
     for j in range(len(kb) - 1):
-        ba, bb = kb[j], kb[j + 1]; mid = (ba + bb) / 2; t = top(mid)
-        for r, inward in ((R_KERB0, True), (R_KERB1, False)):
-            q = [P(r, ba, FL), P(r, bb, FL), P(r, bb, t), P(r, ba, t)]
-            f.append(q if inward else q[::-1])
-        f.append([P(R_KERB0, ba, t), P(R_KERB0, bb, t), P(R_KERB1, bb, t), P(R_KERB1, ba, t)][::-1])
-    for b in (B0 - 12.5, B0 + 12.5, B1 - 12.5, B1 + 12.5):                # merlon ends
-        f.append([P(R_KERB0, b, FL + 0.6), P(R_KERB1, b, FL + 0.6), P(R_KERB1, b, FL + 1.2), P(R_KERB0, b, FL + 1.2)])
-    kerb = ic.from_faces("kerb", f, "m_pellam", "enamel_stain", None, bevel=0.0, lm=True, smooth=20)
-    _orient_kerb(kerb)
-    mesh.finish(kerb, bevel=0.02, smooth_angle=20)
-    add(kerb)
+        ba, bb = kb[j], kb[j + 1]; mid = (ba + bb) / 2; t = top(mid); g = grooved(mid)
+        pr = [(R_KERB0, FL)] + ([(R_KERB0, TN - CH)] if t > TN else []) + arris(R_KERB0 + CH, t - CH, 180.0, 90.0)
+        pr += [(G0, t), None, (G1, t)] if g else []
+        pr += arris(R_KERB1 - CH, t - CH, 90.0, 0.0) + ([(R_KERB1, TN - CH)] if t > TN else []) + [(R_KERB1, FL + 0.15)]
+        for a, b_ in zip(pr[:-1], pr[1:]):
+            if a is None or b_ is None: continue
+            dr, dy = b_[0] - a[0], b_[1] - a[1]; L = math.hypot(dr, dy)
+            n = radial(mid) * (-dy / L) + Vector((0, dr / L, 0))
+            body.append(([P(a[0], ba, a[1]), P(a[0], bb, a[1]), P(b_[0], bb, b_[1]), P(b_[0], ba, b_[1])], tuple(n)))
+        if g:
+            for ra, rb_ in ((G0, S0 - SF), (S1 + SF, G1)):
+                inlay.append(([P(ra, ba, t - 0.003), P(ra, bb, t - 0.003), P(rb_, bb, t - 0.003), P(rb_, ba, t - 0.003)], (0, 1, 0)))
+            if B0 - 1e-6 <= ba and bb <= B1 + 1e-6:
+                KERB_SEAMS.append(wound([P(S0, ba, t - 0.003), P(S0, bb, t - 0.003), P(S1, bb, t - 0.003), P(S1, ba, t - 0.003)], (0, 1, 0)))
+                for ri, ro in ((S0, S0 - SF), (S1, S1 + SF)):          # the feather: (inner edge at the seam's level, outer edge dark)
+                    KERB_FEATHER.append(wound([P(ri, ba, t - 0.003), P(ri, bb, t - 0.003), P(ro, bb, t - 0.003), P(ro, ba, t - 0.003)], (0, 1, 0)))
+    for b, sgn in ((B0 + 12.5, 1.0), (B1 - 12.5, -1.0)):                # the two merlon ends that look into this sector's notch
+        n = tuple(tangent(b) * sgn)
+        # the end face lies between the merlon's outline and the notch's (both with their rounds). It is built as a fan
+        # of quads from the notch's outline up to the merlon's, point for point (a single polygon would be concave)
+        up_ = [(R_KERB0, TM - CH)] + arris(R_KERB0 + CH, TM - CH, 180.0, 90.0)[1:] + arris(R_KERB1 - CH, TM - CH, 90.0, 0.0)
+        lo_ = [(R_KERB0, TN - CH)] + arris(R_KERB0 + CH, TN - CH, 180.0, 90.0)[1:] + arris(R_KERB1 - CH, TN - CH, 90.0, 0.0)
+        for (a0_, a1_, c0_, c1_) in zip(lo_[:-1], lo_[1:], up_[:-1], up_[1:]):
+            body.append(([P(a0_[0], b, a0_[1]), P(c0_[0], b, c0_[1]), P(c1_[0], b, c1_[1]), P(a1_[0], b, a1_[1])], n))
+        off = tangent(b) * sgn
+        def E(r, y, d): v = Vector(P(r, b, y)) + off * d; return (v.x, v.y, v.z)
+        inlay.append(([E(G0, TN + 0.07, 0.0015), E(G1, TN + 0.07, 0.0015), E(G1, TM - 0.07, 0.0015), E(G0, TM - 0.07, 0.0015)], n))
+        KERB_SEAMS.append(wound([E(S0, TN + 0.14, 0.004), E(S1, TN + 0.14, 0.004), E(S1, TM - 0.14, 0.004), E(S0, TM - 0.14, 0.004)], n))
+        for ri, ro in ((S0, S0 - SF), (S1, S1 + SF)):
+            KERB_FEATHER.append(wound([E(ri, TN + 0.14, 0.004), E(ro, TN + 0.14, 0.004), E(ro, TM - 0.14, 0.004), E(ri, TM - 0.14, 0.004)], n))
+    add(ic.oriented("kerb", body, "m_pellam", "enamel_stain", None, lm=True, smooth=35))
+    inl = add(ic.oriented("kerb_inlay", inlay, "m_pellam", "steel_dark", None, lm=False, smooth=20))
+    # look pass i3: the inlay's OUTER edges are let into the casting, not cut out of it: its corners on the groove's two
+    # radii take most of the kerb's own colour, so the dark steel comes up out of the pale top over 50 mm instead of at
+    # a one-pixel black-on-pale step (the "stair-stepped edges" of the review were that step, undrawn by any filter)
+    tn = vcol.get_colors(inl, "Tint"); pp = vcol.corner_positions(inl); ab_ = B(AX)
+    rr_ = np.hypot(pp[:, 0] - ab_.x, pp[:, 1] - ab_.y)
+    on_groove = (np.abs(rr_ - G0) < 0.002) | (np.abs(rr_ - G1) < 0.002)
+    tn[on_groove, :3] = np.asarray(ic.mix("steel_dark", "enamel_stain", 0.75), dtype=np.float32)[:3]
+    vcol.set_colors(inl, tn, "Tint")
     # pass 2: the kerb is a cast ring, not a drum: a dark steel foot (0.12 m, 30 mm proud) and a steel band under its
-    # top edge on the outer face, a joint strip down each merlon end's corner; nothing is added on top (the notch's
-    # 0.6 m is the kept shot's sight line)
+    # top edge on the outer face; nothing is added on top (the notch's 0.6 m is the kept shot's sight line)
     tf = []
     for j in range(len(kb) - 1):
         ba, bb = kb[j], kb[j + 1]; t = top((ba + bb) / 2)
@@ -238,9 +308,36 @@ def build_sector():
         tf.append(("foot", [P(r1, bb, FL), P(r1, ba, FL), P(r1, ba, FL + 0.12), P(r1, bb, FL + 0.12)]))
         tf.append(("foot", [P(r1, bb, FL + 0.12), P(r1, ba, FL + 0.12), P(R_KERB1, ba, FL + 0.15), P(R_KERB1, bb, FL + 0.15)]))
         r2 = R_KERB1 + 0.012
-        tf.append(("band", [P(r2, bb, t - 0.2), P(r2, ba, t - 0.2), P(r2, ba, t - 0.08), P(r2, bb, t - 0.08)]))
+        tf.append(("band", [P(r2, bb, t - 0.22), P(r2, ba, t - 0.22), P(r2, ba, t - 0.1), P(r2, bb, t - 0.1)]))
     add(ic.from_faces("kerb_foot", [q for k, q in tf if k == "foot"], "m_pellam", "steel_dark", None, away_from=(AX[0], FL, AX[2]), lm=False, smooth=20))
-    add(ic.from_faces("kerb_band", [q for k, q in tf if k == "band"], "m_pellam", "steel", "steel", away_from=(AX[0], FL + 0.5, AX[2]), lm=False, smooth=20, mpr=3.6))
+    # (look pass i2: the band and the plates are lightmapped with the kerb. Vertex-lit, they took the bay lamps' teal and
+    #  none of the bore's light: teal patches on a violet-lit casting)
+    add(ic.from_faces("kerb_band", [q for k, q in tf if k == "band"], "m_pellam", "steel_dark", "steel", away_from=(AX[0], FL + 0.5, AX[2]), lm=True, smooth=20, mpr=3.6))
+    def stud(items, b, y, r0, r1, hw, hh):
+        """a square-headed bolt standing radially from r0 to r1 at bearing b, height y"""
+        c = Vector(P(0.0, b, y)); ra, tg, up = radial(b), tangent(b), Vector((0, 1, 0))
+        q = lambda r, dt, dyy: tuple(c + ra * r + tg * dt + up * dyy)
+        items.append(([q(r1, -hw, -hh), q(r1, hw, -hh), q(r1, hw, hh), q(r1, -hw, hh)], tuple(ra)))
+        for (t0, y0_, t1, y1_, nn) in ((-hw, -hh, hw, -hh, -up), (hw, -hh, hw, hh, tg), (hw, hh, -hw, hh, up), (-hw, hh, -hw, -hh, -tg)):
+            items.append(([q(r0, t0, y0_), q(r0, t1, y1_), q(r1, t1, y1_), q(r1, t0, y0_)], tuple(nn)))
+    studs = []
+    for b in [B0 + 2.5, B0 + 7.5, B1 - 7.5, B1 - 2.5] + [47.5 + 5.0 * k for k in range(6)]:
+        stud(studs, b, top(b) - 0.16, R_KERB1 + 0.012, R_KERB1 + 0.034, 0.024, 0.024)
+    add(ic.oriented("kerb_studs", studs, "m_pellam", "steel", None, lm=False))        # pale heads on the dark band: a bolt circle that reads
+    # an inspection plate on each half of a merlon's outer face (none straddles the sector's edge: a plate cut by the clip
+    # showed its two halves in two tones)
+    plate, pstuds = [], []
+    for pb in (B0 + 6.25, B1 - 6.25):
+        c = Vector(P(0.0, pb, FL + 0.6)); ra, tg, up = radial(pb), tangent(pb), Vector((0, 1, 0))
+        q = lambda r, dt, dyy: tuple(c + ra * r + tg * dt + up * dyy)
+        r0_, r1_, hw, hh = R_KERB1 - 0.01, R_KERB1 + 0.02, 0.17, 0.2
+        plate.append(([q(r1_, -hw, -hh), q(r1_, hw, -hh), q(r1_, hw, hh), q(r1_, -hw, hh)], tuple(ra)))
+        for (t0, y0_, t1, y1_, nn) in ((-hw, -hh, hw, -hh, -up), (hw, -hh, hw, hh, tg), (hw, hh, -hw, hh, up), (-hw, hh, -hw, -hh, -tg)):
+            plate.append(([q(r0_, t0, y0_), q(r0_, t1, y1_), q(r1_, t1, y1_), q(r1_, t0, y0_)], tuple(nn)))
+        for (dt, dyy) in ((-0.125, -0.155), (0.125, -0.155), (0.125, 0.155), (-0.125, 0.155)):
+            stud(pstuds, pb + math.degrees(dt / R_KERB1), FL + 0.6 + dyy, r1_, r1_ + 0.014, 0.018, 0.018)
+    add(ic.oriented("kerb_plates", plate, "m_pellam", tuple(ic.mix("enamel_stain", "steel", 0.55)), None, lm=True))
+    add(ic.oriented("kerb_plate_studs", pstuds, "m_pellam", "steel_dark", None, lm=False))
     # the shaft's courses: a steel ring at every 1.2 m joint of the lining (dark against the lit lining, receding down)
     sb = frange(B0, B1, 7.5); rf = []
     for y in (-45.2, -46.4, -47.6, -48.8, -50.0):
@@ -252,7 +349,7 @@ def build_sector():
     add(ic.from_faces("shaft_rings", rf, "m_pellam", "steel_dark", None, recalc=True, lm=False, smooth=20))
     # a broad ochre hazard diagonal across each merlon's top
     for rb in (B0, B1):
-        poly = ic.diagonal_band(-0.8, R_KERB0 + 0.02, 0.8, R_KERB1 - 0.02, 0.3)
+        poly = ic.diagonal_band(-0.8, R_KERB0 + 0.1, 0.8, R_KERB1 - 0.1, 0.3)      # look pass i3: inside the rounds of the arrises
         add(ic.from_faces(f"merlon_hazard_{int(rb)}", [[P(sr, rb + math.degrees(t / 3.3), FL + 1.204) for t, sr in poly]], "m_pellam", "hazard", None, away_from=(AX[0], FL - 3, AX[2]), lm=False))
     # walls: 24 facets tangent at r 15, panel courses, kick plate, livery band; columns at +-1.5 m (door / gate widths)
     for fb in (B0, 45.0, 60.0, 75.0, B1):
@@ -589,7 +686,17 @@ def build_catwalk():
     add(ic.box("top_rail_n", (x0, top - 0.06, z0), (x1, top, z0 + 0.06), "m_pellam", "steel", "steel", bevel=0.0, tess=1.2, mpr=3.6))
     add(ic.box("top_rail_s", (x0, top - 0.06, z1 - 0.06), (x1, top, z1), "m_pellam", "steel", "steel", bevel=0.0, tess=1.2, mpr=3.6))
     add(ic.box("hand_rail_n", (x0, deck + 1.0, z0 + 0.04), (x1, deck + 1.06, z0 + 0.1), "m_pellam", "steel", "steel", bevel=0.0, tess=1.2, mpr=3.6))
-    add(ic.box("hand_rail_s", (x0, deck + 1.0, z1 - 0.1), (x1, deck + 1.06, z1 - 0.04), "m_pellam", "steel", "steel", bevel=0.0, tess=1.2, mpr=3.6))
+    # look pass i1 (world team: "the mid rail of the south grille crosses the Windlass in the first look"): from the eye
+    # the hand rail at 1.0 m lies 33 degrees under the horizon, and the Windlass's face 27: the bar cut the drum in two
+    # in the frame the room is first seen in. Between the viewing bay's jambs (xs[6]..xs[9]) the rail is a knee rail at
+    # 0.5 m (52 degrees down: under the drum and the pit); the hand rail runs to each jamb. No collider is drawn from it.
+    for tag, (ra, rb) in (("w", (x0, xs[6])), ("e", (xs[9], x1))):
+        add(ic.box(f"hand_rail_s_{tag}", (ra, deck + 1.0, z1 - 0.1), (rb, deck + 1.06, z1 - 0.04), "m_pellam", "steel", "steel", bevel=0.0, tess=1.2, mpr=3.6))
+    # look pass i2 (visual reviewer: "the first look at the Windlass from the lift is still crossed by the gantry rail":
+    # from the vista stop the knee rail lay 51 degrees under the horizon, in front of the plinth and the violet floor,
+    # and the kick plate drew a second bar along the frame's bottom edge). The frame is 62 degrees tall and aimed 27
+    # down: anything under 58 degrees is in it. The viewing bay has NO rail now; it is closed by a kerb 80 mm high (59
+    # degrees down from the stop: out of the frame) and by the layout's blocker, between the two heavy jambs.
     T = 0.48
     def tiles(a0, a1, b0, b1):
         out_ = []
@@ -639,7 +746,7 @@ def build_catwalk():
     emi.append(ic.emis("cat_lamp_land", [[(xc - 0.5, top - 0.095, z1 - 0.26), (xc + 0.5, top - 0.095, z1 - 0.26), (xc + 0.5, top - 0.095, z1 - 0.12), (xc - 0.5, top - 0.095, z1 - 0.12)]], "aqua_core"))
     if emi[-1].data.polygons[0].normal.dot(ic.Bd((0, -1, 0))) < 0: emi[-1].data.flip_normals()
     CAT_LAMPS.append((xc, top - 0.13, z1 - 0.19))
-    add(ic.box("view_kick", (va, deck - 0.01, z1 - 0.03), (vb, deck + 0.14, z1 - 0.01), "m_pellam", "steel_dark", None, bevel=0.0, tess=1.2))
+    add(ic.box("view_kick", (va, deck - 0.01, z1 - 0.05), (vb, deck + 0.08, z1 - 0.01), "m_pellam", "steel_dark", None, bevel=0.0, tess=1.2))
     for k, x in enumerate((va, vb)):                                    # the bay's jambs: a heavier post each side, a hazard diagonal on it
         add(ic.box(f"view_jamb_{k}", (x - 0.07, deck, z1 - 0.1), (x + 0.07, vy + 0.04, z1 + 0.02), "m_pellam", "steel", None, bevel=0.012, tess=0.7))
     for (a0, a1, b0, b1) in tiles(x0, x1, z0 + 0.06, z1 - 0.06):          # the roof of the tube
@@ -700,6 +807,9 @@ def build_catwalk():
     return out
 
 
+NOSINGS = []
+
+
 def stair_flight(name, top_pt, d, w, y_top, N=12):
     """Cast steps over a 33.7 degree ramp: risers on the nosing line (see env_the_gallery)."""
     rise = 4.0 / N; run = 6.0 / N; nb = 0.02
@@ -713,6 +823,11 @@ def stair_flight(name, top_pt, d, w, y_top, N=12):
         d1 = d0 + run - (nb if i < N - 1 else 0.0)
         f.append([Pp(d0, yb, 0), Pp(d1, yb, 0), Pp(d1, yb, 1), Pp(d0, yb, 1)])
     ref = o + w - d * 3.0
+    # release pass p0 (closer; the reviewer's "two dark planes and a run of treads"): a worn pale nosing on every tread,
+    # so the flight reads as steps from its head and its foot
+    nose = [[Pp(run * i + run - 0.07, y_top - rise * (i + 1) + 0.004, 0.02), Pp(run * i + run - 0.005, y_top - rise * (i + 1) + 0.004, 0.02),
+             Pp(run * i + run - 0.005, y_top - rise * (i + 1) + 0.004, 0.98), Pp(run * i + run - 0.07, y_top - rise * (i + 1) + 0.004, 0.98)] for i in range(N - 1)]
+    NOSINGS.append(ic.from_faces(name + "_nosing", nose, "m_pellam", tuple(ic.mix("concrete", "chalk", 0.7)), None, away_from=(ref.x, y_top - 12.0, ref.z)))
     return ic.from_faces(name, f, "m_pellam", "concrete", "concrete", lm=True, away_from=(ref.x, y_top - 12.0, ref.z), mpr=7.2)
 
 
@@ -751,6 +866,10 @@ def build_stair():
     lp = (27.96, -37.4, 75.0)
     add(ic.box("st_lamp_bezel", (27.84, -37.55, 74.4), (28.0, -37.25, 75.6), "m_pellam", "steel_dark", None, bevel=0.02, drop="x+"))
     emi.append(ic.emis("st_lamp", [[(27.83, -37.48, 74.48), (27.83, -37.48, 75.52), (27.83, -37.32, 75.52), (27.83, -37.32, 74.48)][::-1]], "aqua"))
+    # release pass p0 (closer): a third lamp, half way down flight 2 on its north wall (the lower flight had no light of its own)
+    add(ic.box("st_lamp3_bezel", (22.4, -39.95, 74.0), (23.6, -39.65, 74.16), "m_pellam", "steel_dark", None, bevel=0.02, drop="z-"))
+    emi.append(ic.emis("st_lamp3", [[(22.48, -39.88, 74.17), (23.52, -39.88, 74.17), (23.52, -39.72, 74.17), (22.48, -39.72, 74.17)][::-1]], "aqua"))
+    for q in NOSINGS: add(q)
     add(ic.box("st_lamp2_bezel", (27.84, -34.45, 82.4), (28.0, -34.15, 83.6), "m_pellam", "steel_dark", None, bevel=0.02, drop="x+"))
     emi.append(ic.emis("st_lamp2", [[(27.83, -34.38, 82.48), (27.83, -34.38, 83.52), (27.83, -34.22, 83.52), (27.83, -34.22, 82.48)][::-1]], "aqua"))
     return out
@@ -810,8 +929,25 @@ def build_ante():
     dec.append(ic.decals("an_station", [([(cx + 1.3, ys, zf - 0.004), (cx - 1.3, ys, zf - 0.004), (cx - 1.3, ys + 0.32, zf - 0.004), (cx + 1.3, ys + 0.32, zf - 0.004)], "station", None, "steel_dark"),
                                         ([(cx + 2.35, FL + 1.45, Z1 - 0.004), (cx + 2.05, FL + 1.45, Z1 - 0.004), (cx + 2.05, FL + 1.75, Z1 - 0.004), (cx + 2.35, FL + 1.75, Z1 - 0.004)], "picto_misc", 2, "steel_dark")]))
     ante_dec.append(dec[-1])
+    # release pass p0 (lead ruling R7: "nothing a player walks up to may read as a primitive shape or a blockout"): the
+    # vault's frame. The room was four flat walls and a flat lid, 10 x 14 x 5 m, and one low fire lit all of it evenly:
+    # a box. Four concrete beams cross the lid and stand on pilasters 0.22 m proud of the long walls (none under the
+    # beam over the stair's door: a corbel). They are in the bake: each takes the embers on the side it turns to the
+    # fire and throws its shade along the wall away from it, so the room has bays and the light has a direction.
+    # No collider is touched (the pilasters stand inside the capsule's 0.35 m from the wall).
+    for k, z in enumerate(AN_BAYS):
+        add(ic.box(f"an_beam_{k}", (X0, top - 0.34, z - 0.18), (X1, top, z + 0.18), "m_pellam", AN_FRAME_T, "concrete", bevel=0.02, drop="y+ x- x+", tess=0.7, mpr=2.4))
+        add(ic.box(f"an_pil_w_{k}", (X0, FL, z - 0.22), (X0 + 0.22, top - 0.34, z + 0.22), "m_pellam", AN_FRAME_T, "concrete", bevel=0.02, drop="x- y- y+", tess=0.6, mpr=2.4))
+        add(ic.box(f"an_foot_w_{k}", (X0, FL, z - 0.25), (X0 + 0.25, FL + 0.3, z + 0.25), "m_pellam", "steel", "steel", bevel=0.01, drop="x- y-", tess=0.6, mpr=3.6))
+        if 73.6 < z < 76.4:
+            add(ic.box(f"an_corbel_e_{k}", (X1 - 0.22, top - 0.80, z - 0.22), (X1, top - 0.34, z + 0.22), "m_pellam", AN_FRAME_T, "concrete", bevel=0.02, drop="x+ y+", tess=0.6, mpr=2.4))
+        else:
+            add(ic.box(f"an_pil_e_{k}", (X1 - 0.22, FL, z - 0.22), (X1, top - 0.34, z + 0.22), "m_pellam", AN_FRAME_T, "concrete", bevel=0.02, drop="x+ y- y+", tess=0.6, mpr=2.4))
+            add(ic.box(f"an_foot_e_{k}", (X1 - 0.25, FL, z - 0.25), (X1, FL + 0.3, z + 0.25), "m_pellam", "steel", "steel", bevel=0.01, drop="x+ y-", tess=0.6, mpr=3.6))
     # station identity on the west wall, facing the stair's door and lit by the embers: a 0.5 m geometry "4" on a ceramic plate
-    add(ic.box("an_station_plate", (X0, FL + 1.55, 69.9), (X0 + 0.04, FL + 2.75, 71.3), "m_pellam", "enamel", None, bevel=0.02, drop="x-", tess=0.6))
+    # (release pass p0: the plate is the stained glaze, not white enamel: 2.5 m from the fire the white plate stood over
+    #  display white and the High tier's bloom took the numeral)
+    add(ic.box("an_station_plate", (X0, FL + 1.55, 69.9), (X0 + 0.04, FL + 2.75, 71.3), "m_pellam", PLATE_T, None, bevel=0.02, drop="x-", tess=0.6))
     add(ic.numeral("4", 0.5, (X0 + 0.042, FL + 1.95, 70.6), -90.0, depth=0.012, name="an_numeral_4"))
     # the cradle's place: a clean steel surround on the dusty wall (the cradle itself is a prop)
     cr = layout.marker("ia_cradle")["pos"]
@@ -822,15 +958,13 @@ def build_ante():
     m = layout.marker("prop_ante_diagram"); H = m["params"]["height"]; dx = m["pos"][0]; y0 = m["pos"][1]
     U = H / brand.MARK_H; ring_y = y0 + H / 2.0 + brand.mark_centre_offset(U); zd = Z1 - 0.05
     add(ic.box("an_diagram_panel", (dx - 1.0, y0 - 0.15, zd), (dx + 1.0, y0 + H + 0.15, Z1), "m_pellam", "enamel", None, bevel=0.02, drop="z+", lm=True))
-    mk = brand.pellam_mark(U, relief=0.02, segments=12, name="an_mark", colour="steel_dark", mat="m_prop")
+    mk = brand.pellam_mark(U, relief=0.02, segments=20, name="an_mark", colour="steel_dark", mat="m_prop")
     mk.matrix_world = Matrix.Translation(B((dx, ring_y, zd))) @ Matrix.Rotation(math.pi, 4, 'Z')
     mesh.apply_transform(mk); zone.fold_flat(mk, "m_pellam"); vcol.tint(mk, "steel_dark"); mk["lm"] = False
     add(mk)
-    lamps = []
-    for k, (u, v) in enumerate(brand.mark_disc_centres(U)):
-        s = 0.07 if k < 6 else 0.1
-        zl = zd - 0.023; xc = dx - u; yc = ring_y + v                   # facing -z (north): the mark's right (+u) is toward -x
-        lamps.append([B((xc + s, yc - s, zl)), B((xc - s, yc - s, zl)), B((xc - s, yc + s, zl)), B((xc + s, yc + s, zl))])
+    # look pass i2: as the hall's (ic.diagram_dress); facing -z (north): the mark's right (+u) is toward -x
+    objs, lamps = ic.diagram_dress("an_diagram", (dx, ring_y, zd - 0.02), (-1, 0, 0), (0, 0, -1), U)
+    for o in objs: add(o)
     # embedded: the embers and the kettle (the only fire he leaves), the note under the cradle
     def put(asset, node, loc_game, rot):
         obs = zone.embed_prop(asset, node=node, location=layout.to_blender(loc_game), rot_z=math.radians(rot) + math.pi, material_name="m_pellam", lightmap=LM)
@@ -963,7 +1097,7 @@ def main():
     for l in wall_l: l.data.energy = w2.data.energy
     print(f"CALIBRATED bay wall scallops: the lining 2.4 m up under a bay lamp reads {rw_:.2f} (target {WALL_WASH_T})")
     print(f"CALIBRATED bay lamps: the pool on the floor 3.6 m in from the wall reads {r:.2f} (target 1.3)")
-    emb_l = ic.point_light("embers", (camp[0], FL + 0.25, camp[2]), "#FF9433", EMBER_R, size=0.25, power=1.6)
+    emb_l = ic.point_light("embers", (camp[0], FL + EMBER_H, camp[2]), "#FF9433", EMBER_R, size=0.25, power=1.6)
     r = ic.set_reading(emb_l, (camp[0] + 1.5, FL, camp[2]), (0, 1, 0), EMBER_T)
     print(f"CALIBRATED embers: the floor 1.5 m from the fire reads {r:.2f} (target {EMBER_T}); reach {EMBER_R} m")
     emb_far = ic.point_light("embers_far", (camp[0], FL + 0.7, camp[2]), "#FFB36B", 14.0, size=0.6, power=1.0)       # flame off dusty concrete: paler than the flame
@@ -975,7 +1109,8 @@ def main():
     # the stair's two wall lamps (fill): the landing wall across each reads 0.55; the proving-lift room's lamp
     st_l = [ic.area_light("st_lamp_l", (27.78, -37.4, 75.0), (25.0, -39.5, 75.0), "#7CF2E2", 1.0, 0.16, energy=30.0, spread_deg=170.0, radius=9.0, power=1.4),
             ic.area_light("st_lamp2_l", (27.78, -34.3, 83.0), (25.0, -36.0, 83.0), "#7CF2E2", 1.0, 0.16, energy=30.0, spread_deg=170.0, radius=9.0, power=1.4)]
-    r = ic.set_reading(st_l[0], (26.0, -39.5, 75.0), (1, 0, 0), 0.55, group=[st_l[0]]); st_l[1].data.energy = st_l[0].data.energy
+    st_l.append(ic.area_light("st_lamp3_l", (23.0, -39.8, 74.22), (23.0, -41.8, 76.0), "#7CF2E2", 1.0, 0.16, energy=30.0, spread_deg=170.0, radius=9.0, power=1.4))
+    r = ic.set_reading(st_l[0], (26.0, -39.5, 75.0), (1, 0, 0), 0.55, group=[st_l[0]]); st_l[1].data.energy = st_l[0].data.energy; st_l[2].data.energy = st_l[0].data.energy
     print(f"CALIBRATED stair lamps: the wall across the landing reads {r:.2f} (target 0.55)")
     arr_l = ic.area_light("bay_arrival_l", (4.82, -33.1, 83.0), (2.0, -36.0, 83.0), "#7CF2E2", 1.2, 0.14, energy=30.0, spread_deg=170.0, radius=5.5, power=1.4)
     r = ic.set_reading(arr_l, (2.0, -36.0, 83.0), (0, 1, 0), BAY_LAMP_T)      # polish round 2: 0.45 -> 0.7 (the cage's own floor and roof are dark; the walls carry the bay); round 3: 0.9
@@ -1043,7 +1178,15 @@ def main():
     # polish round 4: 1024 / 512 for the sector (see _soften), and its ribs and kerb smoothed in their islands
     Q1 = dict(samples=None if ic.DRAFT else 1024, ao_samples=512); Q2 = dict(samples=None if ic.DRAFT else 128, ao_samples=96)
     GQ = None if ic.DRAFT else 1024
-    a = ic.lm_pass(sec_lm, LM, AMB_CH, ao_distance=3.0, hide=hide_for_sector, **Q1)
+    # look pass i3 (visual reviewer, major: "a black soft rectangle on the boss-room wall beside the locker"). The
+    # access panels (35 mm proud of facets 45 and 75) stood in the sector's bake, so the lining BEHIND them baked
+    # black; and on facet 165 the panel is taken away for the line locker's seat (build_on_top), which bared that
+    # black patch, softened to a blur by _soften. The panels and their bolts are out of every lightmap pass of the
+    # sector: the lining is lit behind them as beside them (they are vertex-lit themselves, in their own bake below).
+    panels = [o for o in base + dummies if o.name.startswith("access_")]
+    hide_lm = hide_for_sector + panels
+    print(f"NOTE access panels out of the sector's lightmap passes: {len(panels)} objects")
+    a = ic.lm_pass(sec_lm, LM, AMB_CH, ao_distance=3.0, hide=hide_lm, **Q1)
     res = manifest.texture(LM)["size"][0]
     # polish round 5: the lining's facets as well (at arm's length their fill still showed a faint mottle on High)
     soft_objs = [o for o in sec_lm if o.name == "kerb" or o.name.startswith(("rib_", "wall_"))]
@@ -1087,7 +1230,7 @@ def main():
     ceil_objs = [o for o in sec_lm if o.name.startswith(("ceiling", "girder_bot", "beam_"))]
     shaft_objs = [o for o in sec_lm if o.name == "shaft"]
     rest_objs = [o for o in sec_lm if o not in ceil_objs and o not in shaft_objs]
-    ga = _soften(ic.layer_pass(rest_objs, GLOW, glow, hide=hide_for_sector, samples=GQ), soft, cover)
+    ga = _soften(ic.layer_pass(rest_objs, GLOW, glow, hide=hide_lm, samples=GQ), soft, cover)
     ga = ga + ic.layer_pass(ceil_objs, GLOW, glow, hide=hide_for_sector) * ceil_k
     gs = ic.layer_pass(shaft_objs, GLOW, glow, hide=hide_for_sector)
     lit = gs[:, :, 0][gs[:, :, 0] > 0.02]
@@ -1152,9 +1295,14 @@ def main():
             q = [(AX[0] + 2.99 * math.cos(a0), ys[j], AX[2] - 2.99 * math.sin(a0)), (AX[0] + 2.99 * math.cos(a0), ys[j + 1], AX[2] - 2.99 * math.sin(a0)),
                  (AX[0] + 2.99 * math.cos(a1), ys[j + 1], AX[2] - 2.99 * math.sin(a1)), (AX[0] + 2.99 * math.cos(a1), ys[j], AX[2] - 2.99 * math.sin(a1))]
             col.append([B(p) for p in q])
-    bg = zone.lamp_set("bore_glow", [[disc] + col], colour="violet_band", intensity=1.0, wrong_fade=1.0, origin=B(AX))
+    seams = [_rot(q, 60.0 * k) for k in range(6) for q in KERB_SEAMS]      # look pass i2: the kerb's inlaid seams are the bore's own light
+    n_seam = len(seams)
+    seams += [_rot(q, 60.0 * k) for k in range(6) for q in KERB_FEATHER]   # look pass i3: their soft edges
+    bg = zone.lamp_set("bore_glow", [[disc] + col + seams], colour="violet_band", intensity=1.0, wrong_fade=1.0, origin=B(AX))
+    n_keep = len(bg.data.polygons) - len(seams)                       # (the seams are wound by construction: they keep their facing)
     me = bg.data; bmx = bmesh.new(); bmx.from_mesh(me)
     for f in bmx.faces:                                                # everything faces the axis (the column) or up (the disc)
+        if f.index >= n_keep: continue
         cc = f.calc_center_median()
         if abs(f.normal.z) > 0.9:
             if f.normal.z < 0: f.normal_flip()
@@ -1164,11 +1312,19 @@ def main():
     bmx.to_mesh(me); bmx.free()
     cc_ = vcol.get_colors(bg, "Color"); pos = vcol.corner_positions(bg)
     cc_[:, 0] = np.clip(0.35 + 0.65 * (SHAFT_LOW - pos[:, 2]) / (SHAFT_LOW - deep), 0.35, 1.0)
+    cc_[pos[:, 2] > FL - 0.2, 0] = KERB_SEAM_LEVEL                     # the kerb's seams (the column ends at the chunk's floor, 7 m below)
+    # look pass i3: a feather's corners on the seam's edge keep the seam's level, its outer corners are dark
+    rad_ = np.hypot(pos[:, 0] - axis_b.x, pos[:, 1] - axis_b.y)
+    on_edge = (np.abs(rad_ - 3.26) < 0.002) | (np.abs(rad_ - 3.34) < 0.002)
+    first_f = bg.data.polygons[n_keep + n_seam].loop_start if len(seams) > n_seam else len(cc_)
+    feather = np.arange(len(cc_)) >= first_f
+    cc_[feather & ~on_edge, 0] = 0.0
+    print(f"NOTE kerb seams: {n_seam} faces + {len(seams) - n_seam} feather faces; {int((feather & on_edge).sum())} feather corners lit, {int((feather & ~on_edge).sum())} dark")
     vcol.set_colors(bg, cc_, "Color")
     bl = zone.lamp_set("bay_lamps", [[_rot(bay_lamp, 60.0 * k - 60.0)] for k in range(6)], colour="aqua", intensity=1.0)
     mg = zone.lamp_set("mark_glows", [[_rot(mark_disc, 60.0 * k - 60.0)] for k in range(6)], colour="aqua", intensity=1.0, flicker_group=1.0)
     ad = zone.lamp_set("ante_diagram_lamps", [[q] for q in an_lamps], colour=["aqua"] * 6 + ["aqua_core"], intensity=1.0)
-    c_ = vcol.get_colors(ad, "Color"); c_[:24, 0] = 0.55; vcol.set_colors(ad, c_, "Color")
+    c_ = vcol.get_colors(ad, "Color"); c_[:72, 0] = 0.55; vcol.set_colors(ad, c_, "Color")
     for o in (bg, bl, mg, ad): o["emit_strength"] = 0.0
     _face(bl, lambda c: Vector((AX[0], -AX[2], 0)) - Vector((c.x, c.y, 0)))          # bay lamps look at the axis
     _face(mg, lambda c: Vector((0, 0, 1)))                                           # mark glows look up

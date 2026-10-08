@@ -36,7 +36,8 @@ for (const [width, height, tier] of [[640, 360, 'low'], [1920, 1080, 'high']]) {
       assert.deepEqual(size, [width, height], 'the drawing buffer is the window (pixel ratio 1)');
       await ext(game, 'render', 'setMoodKey', 'L1', 0);
       await ext(game, 'render', 'override', { grain: 0, vignette: 0, identity: true, exposure: 1 });
-      // the Rule: north, 25 degrees up
+      // the Rule: north, 25 degrees up (pass i2: the sky draws clouds now; this measures the Rule on the bare sky)
+      await game.page.evaluate(() => { const R = window.__dbg.ext.render.system?.(); if (R && R.sky) R.sky.cloudCover = 0; });
       await game.dbg('setAim', 0, 25);
       await game.step(1, true);
       let png = await frame(game);

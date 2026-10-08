@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { PLAYER_EYE } from './contracts.ts';
 import type {
-  CheckpointId, DebugRegistry, GameSystem, MutableGameContext, GameContext, RenderTier, RunFlags, SceneRoots, SystemId,
+  CheckpointId, DebugRegistry, GameSystem, MutableGameContext, RenderTier, RunFlags, SceneRoots, SystemId,
 } from './contracts.ts';
 import { AssetStoreImpl } from './assets.ts';
 import { GameClockImpl } from './clock.ts';
@@ -76,12 +76,9 @@ export interface CoreInternals {
   flow: Flow | null;
 }
 
-const INTERNALS = new WeakMap<object, CoreInternals>();
-export function coreOf(ctx: GameContext): CoreInternals {
-  const c = INTERNALS.get(ctx);
-  if (!c) throw new Error('not a context made by createContext()');
-  return c;
-}
+// the internals live in a leaf module (coreOf.ts explains why); re-exported so importers need not change
+export { coreOf } from './coreOf.ts';
+import { setCoreOf } from './coreOf.ts';
 
 const TIERS: readonly string[] = ['min', 'low', 'high'];
 
@@ -175,7 +172,7 @@ export function createContext(options: CreateContextOptions): MutableGameContext
     stubs: {} as Record<SystemId, GameSystem>, frameHooks: [], control: { enabled: null, reason: '' }, error: null, loop: null, flow: null,
   };
   if (recording) events.on('player/control', (e) => { core.control.enabled = e.enabled; core.control.reason = e.reason; });
-  INTERNALS.set(ctx, core);
+  setCoreOf(ctx, core);
 
   const player = createDummyPlayer(ctx);
   const enemies = createNullEnemies(ctx);

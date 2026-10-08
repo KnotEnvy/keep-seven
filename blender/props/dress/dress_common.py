@@ -328,21 +328,57 @@ def tris(ob):
     return sum(len(p.vertices) - 2 for p in ob.data.polygons)
 
 
-def wheel(name, centre, normal, rng, R=0.6, spokes=12, shade=1.0, rim_segs=12, wood=("board", "board_bleached", "board_dark"), inner_cap=True):
-    """A wagon wheel as a LIST of parts (join them with the rest after the AO bake): `spokes` fat spokes, a felloe, a
-    turned hub. Built flat, then turned so its axle lies along `normal` at `centre`. The spokes take no AO (their only
-    vertices are in the hub and in the rim)."""
+IRON_TYRE = "#43271C"        # a rusted iron tyre / nave band: dark brown, not orange
+
+
+def wheel(name, centre, normal, rng, R=0.6, spokes=12, shade=1.0, rim_segs=12, wood=("board", "board_bleached", "board_dark"), inner_cap=True,
+          tyre=IRON_TYRE, spoke_sides=4, hub_seg=6, felloes=6):
+    """A wagon wheel as a LIST of parts (join them with the rest after the AO bake). Pass i1 (the visual reviewer: "the
+    wheel rims are ten straight segments and the hub a plain block"): the rim is `rim_segs` segments (18 to 20 reads as
+    a circle from a pace away) made of `felloes` sawn felloes, each its own part (its own value under `compose`'s part
+    jitter), shod with an iron tyre (the rim's outer face, colour `tyre`; None = bare wood: the caller paints it);
+    `spokes` spokes that taper from the nave to the rim (spoke_sides 3 = a flat face outward and a ridge behind: six
+    triangles a spoke, for a wheel seen from its outside); the hub is a turned nave with an iron-banded nose. Built
+    flat, then turned so its axle lies along `normal` at `centre` (local +Z = the wheel's outside). The spokes take no
+    AO (their only vertices are in the hub and in the rim)."""
     out = []
-    circle = [(math.cos(2 * math.pi * k / rim_segs) * (R - 0.04), math.sin(2 * math.pi * k / rim_segs) * (R - 0.04), 0.0) for k in range(rim_segs)]
-    rim = tube(name + "_rim", circle, r=1.0, sides=4, closed=True, flat=(0.035 / math.cos(math.pi / 4), 0.04 / math.cos(math.pi / 4)), phase=math.pi / 4, up=(0, 0, 1))
-    paint(rim, "linen", wood[0], shade=0.9 * shade); out.append(rim)
+    N = rim_segs; ro, ri, hw = R, R - 0.085, 0.036
+    bm = mesh.new_bmesh(); rings = []
+    for k in range(N):
+        a = 2 * math.pi * k / N; c, s_ = math.cos(a), math.sin(a)
+        rings.append([bm.verts.new((c * r, s_ * r, z)) for r, z in ((ro, hw), (ro, -hw), (ri, -hw), (ri, hw))])    # outer front, outer back, inner back, inner front
+    f_tyre = []; f_fel = [[] for _ in range(felloes)]; fi = 0
+    for k in range(N):
+        a, b = rings[k], rings[(k + 1) % N]
+        for j in range(4):
+            j2 = (j + 1) % 4
+            bm.faces.new((a[j], a[j2], b[j2], b[j]))
+            (f_tyre if j == 0 else f_fel[(k * felloes) // N]).append(fi); fi += 1
+    rim = _obj(name + "_rim", bm); _outward(rim)
+    if tyre is None: f_fel[0] += f_tyre
+    else: paint(rim, "linen", tyre, faces=f_tyre, shade=shade)
+    for g in f_fel:
+        if g: paint(rim, "linen", wood[0], faces=g, shade=0.9 * shade * rng.uniform(0.86, 1.06))
+    out.append(rim)
+    r0, r1 = 0.085, ri + 0.012
     for k in range(spokes):
         a = 2 * math.pi * (k + 0.5) / spokes + rng.uniform(-0.02, 0.02)
-        sp = beam(f"{name}_spoke{k}", (math.cos(a) * 0.085, math.sin(a) * 0.085, 0.0), (math.cos(a) * (R - 0.075), math.sin(a) * (R - 0.075), 0.0),
-                  0.062, 0.05, up=(0, 0, 1), cap=(False, False), taper=0.72)
+        d = Vector((math.cos(a), math.sin(a), 0.0)); t = Vector((-d.y, d.x, 0.0))
+        if spoke_sides == 3:
+            bm = mesh.new_bmesh(); secs = []
+            for r, k_ in ((r0, 1.0), (r1, 0.70)):
+                c = d * r
+                secs.append([bm.verts.new(c + t * (0.034 * k_) + Vector((0, 0, 0.022 * k_))), bm.verts.new(c - t * (0.034 * k_) + Vector((0, 0, 0.022 * k_))),
+                             bm.verts.new(c + Vector((0, 0, -0.030 * k_)))])
+            for j in range(3): bm.faces.new((secs[0][j], secs[0][(j + 1) % 3], secs[1][(j + 1) % 3], secs[1][j]))
+            sp = _obj(f"{name}_spoke{k}", bm); _outward(sp)
+        else:
+            sp = beam(f"{name}_spoke{k}", tuple(d * r0), tuple(d * r1), 0.066, 0.052, up=(0, 0, 1), cap=(False, False), taper=0.68)
         paint(sp, "linen", wood[1], shade=rng.uniform(0.7, 0.86) * shade, ao=False); out.append(sp)
-    hub = lathe(name + "_hub", [(0.075, -0.12), (0.11, -0.03), (0.11, 0.05), (0.06, 0.15)], seg=6, cap_first=inner_cap, cap_last=True)
-    smooth(hub, angle=40); paint(hub, "linen", wood[2], shade=1.1 * shade); out.append(hub)
+    nave = lathe(name + "_hub", [(0.080, -0.12), (0.118, -0.035), (0.118, 0.045)] if hub_seg >= 8 else [(0.086, -0.12), (0.118, 0.045)], seg=hub_seg, cap_first=inner_cap, cap_last=False)
+    smooth(nave, angle=40); paint(nave, "linen", wood[2], shade=1.1 * shade); out.append(nave)
+    nose = lathe(name + "_nose", [(0.104, 0.045), (0.090, 0.115), (0.050, 0.150)], seg=hub_seg, cap_first=False, cap_last=True)
+    smooth(nose, angle=40); paint(nose, "linen", tyre or IRON_TYRE, shade=1.25 * shade); out.append(nose)
     q = Vector((0, 0, 1)).rotation_difference(Vector(normal).normalized())
     for o in out:
         o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = q; o.location = centre

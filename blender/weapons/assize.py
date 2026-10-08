@@ -217,7 +217,7 @@ def barrel():
     # turned round front with a shoulder ring, a recessed crown and a dark bore 14 mm deep
     bm = _new()
     prof = [(109.6, 9.3), (111.4, 9.3), (112.3, 8.85), (187.6, 8.85), (189.4, 7.9), (190.0, 7.0), (188.7, 5.7), (176.0, 5.7), (176.0, 0.0)]
-    lathe(bm, prof, 24)
+    lathe(bm, prof, 32)                                                     # release pass p0 (R14): 24 -> 32
     out.append(_finish(bm, "g_barrel_round", "gun", "barrel_round", chart="cyl", dens=1.1, cyl=(0.0, 0.0), seam=180.0, sym=4))
     # blade front sight, 7 mm high, 2.5 mm thick
     bm = _new()
@@ -230,9 +230,19 @@ def barrel():
 def ejector():
     out = []
     bm = _new()
-    lathe(bm, [(17.0, 5.2), (160.0, 5.2), (164.2, 4.5), (165.6, 3.0), (165.6, 0.0)], 12, cx=EJ_C[0], cz=EJ_C[1], a0=15.0, a1=375.0)
-    # the housing's foot: a small lug where it is screwed to the barrel
+    lathe(bm, [(17.0, 5.2), (160.0, 5.2), (164.2, 4.5), (165.6, 3.0), (165.6, 0.0)], 16, cx=EJ_C[0], cz=EJ_C[1], a0=15.0, a1=375.0)
     out.append(_finish(bm, "g_ejector_housing", "gun", "ejector_housing", chart="cyl", dens=1.0, cyl=EJ_C, seam=315.0, sym=3))
+    # pass i2: the one screw that holds the housing to the barrel, a low domed head on its outer flank near the breech
+    bm = _new()
+    ax = Vector((0.80, 0.0, -0.60)); c0 = Vector((EJ_C[0], 31.0, EJ_C[1])) + ax * 5.0
+    u = Vector((0.0, 1.0, 0.0)); w = ax.cross(u)
+    rs = []
+    for (h, r) in ((0.0, 2.5), (0.75, 2.5), (1.25, 1.7)):
+        rs.append([bm.verts.new(c0 + ax * h + u * (r * math.cos(2 * math.pi * k / 10)) + w * (r * math.sin(2 * math.pi * k / 10))) for k in range(10)])
+    for A, B in zip(rs[:-1], rs[1:]):
+        for k in range(10): _face(bm, (A[k], A[(k + 1) % 10], B[(k + 1) % 10], B[k]))
+    _face(bm, rs[-1])
+    out.append(_finish(bm, "g_ejector_screw", "gun", "screws", dens=2.0, recalc=True, smooth=50.0))
     # the crescent head of the rod: a curved thumb-piece wrapped round the outside of the housing near its front
     bm = _new()
     a0, a1, n = 65.0, 205.0, 6
@@ -259,7 +269,8 @@ def ejector():
 
 FLUTE_HALF = 16.5
 FLUTE_DEPTH = 3.1
-CYL_ANGLES = [60.0 * s + a for s in range(6) for a in (0.0, 13.5, 22.0, 30.0, 38.0, 46.5)]
+# release pass p0 (R14): ten stations a sector (it was six: a flute was three flat facets), four along the flute's run-in
+CYL_ANGLES = [60.0 * s + a for s in range(6) for a in (0.0, 7.0, 13.5, 16.5, 20.5, 25.0, 30.0, 35.0, 39.5, 43.5, 46.5, 53.0)]
 
 
 def _flute(a):
@@ -273,23 +284,29 @@ def _flute(a):
 def cylinder():
     bm = _new()
     #        y            r           flute depth factor
-    body = [(CYL_Y0, CYL_R - 0.9, 0.0), (CYL_Y0 + 0.8, CYL_R, 0.0), (-27.5, CYL_R, 0.0), (-25.2, CYL_R, 0.55), (-22.4, CYL_R, 1.0),
-            (CYL_Y1, CYL_R, 1.0)]
+    body = [(CYL_Y0, CYL_R - 0.9, 0.0), (CYL_Y0 + 0.8, CYL_R, 0.0), (-27.5, CYL_R, 0.0), (-26.6, CYL_R, 0.22), (-25.2, CYL_R, 0.55), (-23.7, CYL_R, 0.84), (-22.0, CYL_R, 1.0),
+            (CYL_Y1 - 0.7, CYL_R, 1.0), (CYL_Y1, CYL_R - 0.6, 1.0)]
     depth = {i: b[2] for i, b in enumerate(body)}
     rings = lathe(bm, [(b[0], b[1]) for b in body], 36, cz=CYL_Z, angles=CYL_ANGLES,
                   rfun=lambda i, a, r: r - FLUTE_DEPTH * depth[i] * _flute(a))
     _face(bm, list(reversed(rings[0])))                                     # rear face (chambers are drawn; case heads sit on it)
     _face(bm, rings[-1])                                                    # front face
-    lathe(bm, [(CYL_Y0 - 2.0, 0.0), (CYL_Y0 - 2.0, 4.6), (CYL_Y0 + 0.2, 5.4)], 12, cz=CYL_Z)       # ratchet hub
+    lathe(bm, [(CYL_Y0 - 2.0, 0.0), (CYL_Y0 - 2.0, 4.6), (CYL_Y0 + 0.2, 5.4)], 16, cz=CYL_Z)       # ratchet hub
     lathe(bm, [(CYL_Y1 - 0.2, 4.6), (CYL_Y1 + 0.9, 4.2), (CYL_Y1 + 0.9, 0.0)], 12, cz=CYL_Z)       # front bushing
     return [_finish(bm, "g_cylinder", "cylinder", "cylinder", chart="cyl", dens=1.3, cyl=(0.0, CYL_Z), seam=0.0, smooth=30.0, sym=3)]
 
 
 FRAME_HW = 9.5
+# (y, r) about the cylinder's axis, rear -> rim: the recoil shield's rear face and chamfer (pass i1)
+SHIELD_FLARE = [(-51.8, 8.6), (-51.8, 19.3), (-50.6, 20.9), (-49.0, SHIELD_R)]
 # Polish round 4 (both critics: "an open wrench jaw"): the frame's rear is a high rounded hump (the ears either side of the
 # hammer slot) instead of a slope that fell away under the cocked hammer; the hammer nests in its notch.
-FRAME_OUT = [(20.0, 15.5), (-50.0, 15.5), (-57.0, 15.2), (-64.5, 14.0), (-72.5, 11.8), (-81.0, 8.6), (-89.0, 4.6), (-95.5, -0.4), (-100.6, -6.8),
-             (-103.8, -15.0), (-104.6, -24.0), (-102.6, -32.0), (-99.0, -36.5), (-74.0, -47.0), (-50.0, -43.4), (-2.0, -42.0),
+# Pass i1 (both visual reviewers: "a domed back", "closer to a ray gun than a classic revolver"): that hump carried the top
+# strap's line 45 mm behind the cylinder and hid all but 4 mm of the cocked hammer: seen from behind-left the rear of the
+# gun was one helmet. The frame now falls away behind the window as a single action's does (the standing breech, then the
+# ears sloping to the back strap), and the slim hammer of round 4 stands 10 to 18 mm proud of it: the spur is a spur.
+FRAME_OUT = [(20.0, 15.5), (-47.6, 15.5), (-52.6, 14.4), (-57.6, 11.2), (-63.5, 7.0), (-71.0, 3.2), (-79.0, 0.0), (-87.0, -3.2), (-94.0, -7.0),
+             (-99.6, -12.0), (-103.6, -19.0), (-102.6, -32.0), (-99.0, -36.5), (-74.0, -47.0), (-50.0, -43.4), (-2.0, -42.0),
              (5.0, -41.0), (11.0, -37.4), (16.0, -31.0), (19.0, -23.5), (20.0, -15.0)]
 WINDOW = [(-1.2, 8.6), (0.0, 7.4), (0.0, -33.8), (-1.2, -35.0), (-43.4, -35.0), (-44.6, -33.8), (-44.6, 7.4), (-43.4, 8.6)]
 
@@ -297,7 +314,9 @@ WINDOW = [(-1.2, 8.6), (0.0, 7.4), (0.0, -33.8), (-1.2, -35.0), (-43.4, -35.0), 
 def frame():
     out = []
     bm = _new()
-    prism(bm, FRAME_OUT, FRAME_HW, chamfer=2.4, holes=[WINDOW])     # polish round 4: 1.5 -> 2.4, the top strap reads rounded, not as a flat plate
+    # release pass p0 (R14): the hump and the tail are rounded once more (their facets showed along the skyline)
+    outline = FRAME_OUT[:1] + chaikin(FRAME_OUT[1:15], 1) + FRAME_OUT[15:]
+    prism(bm, outline, FRAME_HW, chamfer=2.4, holes=[WINDOW])     # polish round 4: 1.5 -> 2.4, the top strap reads rounded, not as a flat plate
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     bmesh.ops.scale(bm, vec=(MM, MM, MM), verts=bm.verts[:])
     ob = mesh.new_mesh_object("g_frame", bm)
@@ -313,8 +332,12 @@ def frame():
     out.append(ob)
     # recoil shield: the left lobe (the right lobe is the loading gate over its web)
     bm = _new()
-    sp = [(-56.6, 9.0), (-56.6, 16.6), (-55.4, 19.6), (-52.4, SHIELD_R), (-45.5, SHIELD_R), (-44.6, SHIELD_R - 0.8), (-44.6, 9.0)]
-    lathe(bm, sp, 8, cz=CYL_Z, a0=198.0, a1=342.0)
+    # pass i1 (both visual reviewers: "a large smooth dome", "a domed back"): the left lobe was a 12 mm pill with a round
+    # shoulder, as fat as the cylinder: seen from behind-left it was the biggest form of the gun. It is now what a single
+    # action's recoil shield is: a turned disc 7 mm thick with a flat rear face and a crisp chamfer (the face carries the
+    # turning rings of tx_gun_detail), so the eye reads a machined flange, not a casting, and the cylinder stands proud of it.
+    sp = SHIELD_FLARE + [(-45.5, SHIELD_R), (-44.6, SHIELD_R - 0.8), (-44.6, 9.0)]
+    lathe(bm, sp, 20, cz=CYL_Z, a0=198.0, a1=342.0)                         # release pass p0: 8 -> 20 steps
     out.append(_finish(bm, "g_shield_l", "gun", "shield", chart="box", dens=1.2, smooth=40.0))
     # the web under the gate: a flat face at WEB_Y with a bite where the chamber shows; it carries the stamp
     bm = _new()
@@ -342,10 +365,10 @@ def frame():
 def gate():
     """The loading gate: the right lobe of the recoil shield, hinged at its lower edge, with a thumb lip."""
     bm = _new()
-    sp = [(WEB_Y - 0.3, 9.4), (WEB_Y - 0.3, SHIELD_R - 0.7), (WEB_Y - 1.0, SHIELD_R), (-52.4, SHIELD_R), (-55.4, 19.6), (-56.6, 16.6), (-56.6, 9.4)]
-    rings = lathe(bm, sp, 10, cz=CYL_Z, a0=GATE_A0, a1=GATE_A1)
+    sp = [(WEB_Y - 0.3, 9.4), (WEB_Y - 0.3, SHIELD_R - 0.7), (WEB_Y - 1.0, SHIELD_R), (-52.4, SHIELD_R), (-54.1, 20.8), (-55.4, 19.6), (-56.2, 17.8), (-56.6, 16.0), (-56.6, 9.4)]
+    rings = lathe(bm, sp, 18, cz=CYL_Z, a0=GATE_A0, a1=GATE_A1)
     _face(bm, [r[0] for r in rings]); _face(bm, [r[-1] for r in reversed(rings)])      # the two radial ends
-    for k in range(10): _face(bm, (rings[-1][k], rings[-1][k + 1], rings[0][k + 1], rings[0][k]))   # the inner (frame-side) wall
+    for k in range(18): _face(bm, (rings[-1][k], rings[-1][k + 1], rings[0][k + 1], rings[0][k]))   # the inner (frame-side) wall
     # thumb lip: a small raised nail-catch on the outer edge, high on the gate
     a = math.radians(52.0)
     c = Vector((SHIELD_R * math.sin(a), -50.6, CYL_Z + SHIELD_R * math.cos(a)))
@@ -373,7 +396,7 @@ def screws():
 GUARD_PATH = [(-21.0, -41.0), (-23.0, -51.5), (-27.5, -61.5), (-34.5, -69.0), (-43.5, -73.2), (-53.0, -73.0), (-61.5, -68.5), (-67.5, -61.0), (-71.0, -52.0), (-72.5, -44.5)]
 FRONT_STRAP = [(-71.5, -45.0), (-74.3, -57.0), (-78.3, -71.0), (-83.8, -87.0), (-90.5, -103.0), (-97.5, -117.5), (-103.5, -129.0)]
 BUTT = [(-103.5, -129.0), (-119.0, -126.8), (-136.0, -121.2), (-151.0, -113.0)]
-BACK_STRAP = [(-151.0, -113.0), (-144.5, -106.0), (-134.0, -93.5), (-124.5, -78.5), (-116.5, -62.0), (-111.0, -46.0), (-108.0, -32.0), (-106.2, -20.0), (-101.6, -7.5)]
+BACK_STRAP = [(-151.0, -113.0), (-144.5, -106.0), (-134.0, -93.5), (-124.5, -78.5), (-116.5, -62.0), (-111.0, -46.0), (-108.0, -32.0), (-106.0, -22.0), (-103.2, -15.0)]
 
 
 def strap(bm, path, hw, t, ch=0.8, inner=True, x0=0.0):
@@ -398,12 +421,15 @@ def strap(bm, path, hw, t, ch=0.8, inner=True, x0=0.0):
 def guard_and_straps():
     out = []
     bm = _new()
-    strap(bm, list(reversed(GUARD_PATH)), 6.2, 3.0, ch=0.9)
+    strap(bm, list(reversed(chaikin(GUARD_PATH, 1))), 6.2, 3.0, ch=0.9)       # release pass p0: the bow is rounded once more
     out.append(_finish(bm, "g_guard", "gun", "guard", dens=0.9, smooth=40.0, mirror=1))
     bm = _new()
-    strap(bm, list(reversed(FRONT_STRAP + BUTT[1:] + BACK_STRAP[1:])), 5.7, 3.2, ch=0.9, inner=False)
+    strap(bm, list(reversed(chaikin(FRONT_STRAP, 1) + BUTT[1:] + chaikin(BACK_STRAP, 1)[1:])), 5.7, 3.2, ch=0.9, inner=False)
     out.append(_finish(bm, "g_straps", "gun", "straps", dens=0.8, smooth=40.0, mirror=1))
     return out
+
+
+GRIP_ROWS = 12       # release pass p0 (R14): 8 -> 12 stations down the grip, 7 -> 9 across each panel
 
 
 def _grip_sections():
@@ -418,15 +444,16 @@ def _grip_sections():
             t = (s - L[i]) / max(L[i + 1] - L[i], 1e-9)
             out.append((path[i][0] + (path[i + 1][0] - path[i][0]) * t, path[i][1] + (path[i + 1][1] - path[i][1]) * t))
         return out
-    return list(zip(along(fs, 8), along(bs, 8)))
+    return list(zip(along(fs, GRIP_ROWS), along(bs, GRIP_ROWS)))
 
 
 def grip():
     """One-piece walnut between the straps: two swelling panels, a flat butt, proud of the steel by a hair."""
     out = []
     secs = _grip_sections()
-    half = [8.8, 12.4, 14.2, 15.0, 15.0, 14.6, 14.0, 13.2]               # half thickness down the grip (the palm swell)
-    us = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
+    half8 = [8.8, 12.4, 14.2, 15.0, 15.0, 14.6, 14.0, 13.2]              # half thickness down the grip (the palm swell)
+    half = [float(np.interp(i * 7.0 / (GRIP_ROWS - 1), range(8), half8)) for i in range(GRIP_ROWS)]
+    us = [0.0, 0.06, 0.16, 0.32, 0.5, 0.68, 0.84, 0.94, 1.0]
     bm = _new()
     for side in (1.0, -1.0):
         rows = []
@@ -474,8 +501,11 @@ def bmesh_clean(ob):
 # Polish round 4: a slim neck and a low spur. At full cock the old hammer was a 15 mm thick wedge whose spur stood 20 mm
 # above and 18 mm behind the frame (the upper prong of the "wrench"); this one lies back along the frame's hump, its
 # crest 4 mm and its spur 2 to 3 mm above the steel. HAMMER[7] stays the top of the spur (revolver_anim reads it).
-HAMMER = [(-48.8, -8.0), (-48.8, 7.0), (-50.2, 10.6), (-53.4, 13.2), (-58.0, 15.0), (-63.5, 16.8), (-69.5, 18.8), (-75.0, 20.4), (-79.6, 21.0),
-          (-81.4, 19.6), (-80.6, 17.6), (-75.0, 16.0), (-69.0, 13.8), (-64.0, 10.8), (-61.2, 6.0), (-61.0, 0.0), (-65.0, -10.0), (-76.0, -19.0), (-77.0, -29.0), (-66.0, -30.0), (-57.5, -20.0)]
+# Pass i1: with the frame's hump gone the cocked hammer is in the skyline. Its face is cut down (the nose lies inside the
+# slot; at full cock it leaves the frame at the standing breech) and its top is one arc from the nose to the spur, the
+# spur thickening into the body: a horn, not the two prongs the tall face and the thin spur bar made.
+HAMMER = [(-48.8, -8.0), (-48.8, 0.5), (-50.6, 4.6), (-54.2, 8.8), (-58.8, 12.6), (-64.0, 16.0), (-69.5, 18.8), (-75.0, 20.4), (-79.6, 21.0),
+          (-81.4, 19.6), (-80.4, 17.6), (-75.0, 15.2), (-70.0, 11.8), (-66.6, 7.4), (-65.0, 2.4), (-65.0, -3.0), (-67.0, -10.0), (-76.0, -19.0), (-77.0, -29.0), (-66.0, -30.0), (-57.5, -20.0)]
 HAMMER_HW = 2.9            # 5.8 mm in a 6.6 mm slot (it was 9 in 9.6: the slot split the frame's rear into two thin prongs)
 
 
@@ -483,14 +513,20 @@ def hammer():
     """Built DOWN (against the frame), then turned back to full cock about its screw: the rest pose is the idle pose."""
     bm = _new()
     prism(bm, HAMMER, HAMMER_HW, chamfer=0.7)
-    # three raised bars across the spur (the chequering is geometry, not a texture): wider than the neck, so the spur
-    # reads as a thumb-piece from behind
-    a = Vector((-70.6, 19.15)); b = Vector((-79.6, 21.0)); d = (b - a).normalized(); nrm = Vector((-d.y, d.x)) * -1.0
-    if nrm.y < 0: nrm = -nrm
-    for s in (1.4, 4.2, 7.0):
-        c = a + d * s
-        pts = [c - d * 0.75 - nrm * 0.5, c + d * 0.75 - nrm * 0.5, c + d * 0.5 + nrm * 0.75, c - d * 0.5 + nrm * 0.75]
-        prism(bm, [(p.x, p.y) for p in pts], 4.9)
+    # the thumb-piece. Pass i2 (the visual reviewer: "the hammer spur ends in a comb of long teeth ... reads as a saw"):
+    # round 1's three bars and pass i1's five ribs were geometry, and at 3 px a rib they drew a comb on the skyline of the
+    # frame every second. The spur is now what a single action's is: one low pad, 8.6 mm wide over the 5.8 mm neck, that
+    # follows the spur's curve and rolls up a little at its end; its chequering is cut in tx_gun_detail (gun_tex.py), fine
+    # and shallow, and shows as a matt patch, never as teeth.
+    top = HAMMER[5:9]                                                        # the spur's top line, body -> tip (HAMMER[7] is its crest)
+    path = [(top[0][0] * 0.35 + top[1][0] * 0.65, top[0][1] * 0.35 + top[1][1] * 0.65), top[1], ((top[1][0] + top[2][0]) * 0.5, (top[1][1] + top[2][1]) * 0.5 + 0.1), top[2], top[3], (top[3][0] - 1.5, top[3][1] + 0.55)]
+    up = []; dn = []
+    for i, q in enumerate(path):
+        a = Vector(path[max(i - 1, 0)]); b = Vector(path[min(i + 1, len(path) - 1)]); d = (b - a).normalized(); nrm = Vector((-d.y, d.x))
+        if nrm.y < 0: nrm = -nrm
+        k = 0.55 if i in (0, len(path) - 1) else 1.0                        # the pad thins at both ends
+        up.append(Vector(q) + nrm * 0.38 * k); dn.append(Vector(q) - nrm * 0.75)
+    prism(bm, [(v.x, v.y) for v in up] + [(v.x, v.y) for v in reversed(dn)], 4.3, chamfer=0.7)
     # the fixed firing pin on the face
     lathe(bm, [(-48.9, 1.5), (-46.6, 0.7), (-46.6, 0.0)], 6, cx=0.0, cz=0.6)
     ob = _finish(bm, "g_hammer", "hammer", "hammer", dens=1.5, bevel=0.0, recalc=True, smooth=40.0, mirror=1)
@@ -520,9 +556,9 @@ def case_heads():
     for i in range(6):
         cx, cz = chamber_centre(i)
         bm = _new()
-        lathe(bm, [(CYL_Y0 + 0.1, 6.5), (CYL_Y0 - 1.6, 6.3), (CYL_Y0 - 1.6, 0.0)], 8, cx=cx, cz=cz, a0=22.5, a1=382.5)
+        lathe(bm, [(CYL_Y0 + 0.1, 6.5), (CYL_Y0 - 1.3, 6.5), (CYL_Y0 - 1.6, 6.1), (CYL_Y0 - 1.6, 0.0)], 12, cx=cx, cz=cz, a0=15.0, a1=375.0)
         bmesh.ops.reverse_faces(bm, faces=bm.faces[:])
-        out.append(_finish(bm, f"g_case_head_{i + 1}", f"round_{i + 1}", "case_head", role=BRASS, dens=1.6, smooth=50.0, chart="cyl", cyl=(cx, cz), seam=22.5, sym=8, share="case_head"))
+        out.append(_finish(bm, f"g_case_head_{i + 1}", f"round_{i + 1}", "case_head", role=BRASS, dens=1.6, smooth=50.0, chart="cyl", cyl=(cx, cz), seam=15.0, sym=12, share="case_head"))
     return out
 
 

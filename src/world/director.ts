@@ -4,10 +4,13 @@
 // WaveScheduler and decideDrop are pure (tests/world/director.spec.ts).
 import type {
   BossPhase, CheckpointId, DamageInfo, Difficulty, EncounterData, EncounterId, EncounterState, EncounterView, EntityId, GameEvents,
-  LayoutMarker, MarkerId, MoodId, PickupKind, PuzzleId, SaveData, SpawnRequest, StoryKey, VignetteId, WorldSave, ZoneId,
+  LayoutMarker, MarkerId, MoodId, PickupKind, PuzzleId, SaveData, SpawnRequest, StoryKey, VignetteId, WorldSave, ZoneId, FxHandle,
 } from '../core/contracts.ts';
 import * as THREE from 'three';
 import { DEG2RAD } from '../core/math.ts';
+import { ColFlag, PLAYER_EYE } from '../core/contracts.ts';
+import type { AudioCue } from '../core/contracts.ts';
+import { HINT_ECHO, URGENT_READ } from './story.ts';
 import { ENCOUNTERS, PUZZLES, inVolume, lampNode, namedLine, paramList, paramNumber, paramString } from './internals.ts';
 import type { DirectorApi, State } from './internals.ts';
 
@@ -145,16 +148,32 @@ export const FILE_BURST = 1;
 export const FILE_NEAR_REAR = 16;
 /** polish round 5: seconds between the rear pair starting (60 m behind her) and the bang on the far door */
 export const FILE_REAR = 4;
+/**
+ * Release pass p0 (the combat critic: the yard killed proxies more often than the Windlass did, stakes 83 to 214, and
+ * several ended it dry). The cause was a fourth Transit the layout does not have (`start()`, the vignette's actor).
+ * With three, as designed, a packet of six also lies `ENTRY_PACKET_IN` metres inside the door the latch knot lets go,
+ * on her way in, from the fight's first wave on (on every attempt): the tin by the cart and the box on the wall are
+ * both off that line. Holding the third Transit back while two stood was tried and measured worse (the late one
+ * overlapped the alley's Biders: scratch/p0-team-world/NOTES.md), so the waves are as the layout says.
+ */
+export const ENTRY_PACKET_IN = 1.9;
 /** polish round 5: a latch knot's line said on the burst starts within this many seconds of it, or is dropped */
 export const KNOT_LINE_LATE = 1.5;
 /** polish round 5: a vignette trigger's first line is about the place while she is within this many metres of it; its later lines within VIGNETTE_GONE */
 export const VIGNETTE_NEAR = 10, VIGNETTE_GONE = 13;
-const WAVE_RULES: Readonly<Record<string, { left?: number; timeout?: number; hitTimeout?: number; afterSpawnOf?: string; afterDownOf?: string; aliveAtMost?: number; near?: number; nearOf?: string; nearTimeout?: number; delay?: number; burst?: number }>> = {
+interface WaveRule {
+  left?: number; timeout?: number; hitTimeout?: number; afterSpawnOf?: string; afterDownOf?: string; aliveAtMost?: number; near?: number; nearOf?: string;
+  nearTimeout?: number; delay?: number; burst?: number;
+  /** p0: a packet of six on the way in when the fight starts (ENTRY_PACKET_IN) */
+  entryPacket?: boolean;
+}
+const WAVE_RULES: Readonly<Record<string, WaveRule>> = {
   // polish round 3 (R3): B and C come sooner, so two groups are on the street at once (it cost a plain player nothing)
   'enc_street/B': { left: 0, hitTimeout: 3, timeout: 8 },
   // polish round 4 (R3): C two seconds after B (it was six), so the file of two is on the street with the alleys
   'enc_street/C': { left: 2, timeout: 2 },
   'enc_street/D': { left: 0 },
+  'enc_yard/A': { entryPacket: true },
   'enc_yard/B': { left: 0, timeout: 14 },                 // polish round 3: was 40 s
   'enc_yard/B2': { afterSpawnOf: 'B' },
   'enc_yard/B3': { afterSpawnOf: 'B', aliveAtMost: 3 },
@@ -170,6 +189,11 @@ const WAVE_RULES: Readonly<Record<string, { left?: number; timeout?: number; hit
   // bang on the far door, and `FILE_BURST` after that it bursts on the three (wave B). The two ends reach her within
   // about two seconds of each other; whichever way she has turned, something is at her back.
   'enc_file/R': { afterDownOf: 'A', left: 1, delay: 0, near: FILE_NEAR_REAR, nearOf: 'door_gallery_far', nearTimeout: 25 },
+  // Release pass p0 (the playthrough critic: "still free for a player who looks both ways", plain 0 / 0 / 0). Five
+  // timings were played by three plain and three careless proxies (scratch/p0-team-world/NOTES.md, f1 to f5: the door
+  // gated on the pair closing on her, the pair's gate at 10, 13 and 16 m, the door before and after the pair). None
+  // touched the plain proxy more than once in three (18 HP), and every one of them cost the careless proxy 72 to 88
+  // or a death, where this timing costs it 54 / 54 / 0. R3's player is the careless one: the timing stands.
   'enc_file/B': { afterSpawnOf: 'R', delay: FILE_REAR, burst: FILE_BURST },
 };
 const ENEMY_KINDS = ['bider', 'transit', 'tamper', 'windlass'] as const;
@@ -282,7 +306,19 @@ interface Enc {
   burstDoor: MarkerId;
   burstIn: number;
 }
-interface Trig { marker: LayoutMarker; flag: string; inside: boolean; requires: EncounterId | ''; once: boolean; kill: boolean; generic: boolean }
+interface Trig {
+  marker: LayoutMarker; flag: string; inside: boolean; requires: EncounterId | ''; once: boolean; kill: boolean; generic: boolean; subject: LayoutMarker | null; figure: boolean; sx: number; sy: number; sz: number; range2: number;
+  /** seconds the subject has been in her view without a break (LOOK_DWELL) */
+  lookT: number;
+  /** a drawing's fallback: the cage she leaves the zone by (centre x, z and half extent; 0 = none: the volume itself) */
+  cx: number; cz: number; chalf: number;
+  /** a figure's trigger has been walked through without a look at the figure (she went by) */
+  crossed: boolean;
+  /** pass i3: the look gate of its lines (LOOK_GATES), seconds since it was crossed without the look, a second volume (ALSO_AT) */
+  gate: LookGate | null; crossT: number; also: LayoutMarker | null;
+}
+/** a prop that names its own line (NEAR_LINE) */
+interface NearLine { marker: LayoutMarker; key: StoryKey; t: number; readable: string }
 
 /** what debug.clearEncounter has to have happened first: the puzzle that stands in front of the encounter */
 const PREREQUISITE: Readonly<Partial<Record<EncounterId, PuzzleId>>> = { enc_tally: 'daylight', enc_file: 'proving_line', enc_windlass: 'the_asking' };
@@ -299,12 +335,103 @@ const SIGHT_COS = Math.cos(30 * DEG2RAD);
 const LOOK_COS = Math.cos(15 * DEG2RAD);
 const SIGHT_LOOKED = 1, SIGHT_AWAY = 2;
 /**
+ * Pass i1 (story reviewer: a brisk player never heard "When she looked again there was only rim"): once the tally door
+ * has opened by its clock, turning from him to the door is looking away: half a second of it is enough. And the line,
+ * once it is on screen, is not cut when she walks in (it was cut mid-sentence at the threshold); only a line that has
+ * not started is dropped there.
+ */
+const SIGHT_AWAY_OPEN = 0.5;
+/**
+ * Pass i1 (story reviewer: "One sat in the niche, apart from the rest. It turned its hood to watch her." was said as
+ * she crossed a 2 m trigger abreast of the niche, with no figure in the frame). A vignette trigger with a figure of
+ * its own (`prop_<name>` for `trg_<name>`) starts when she LOOKS at the figure: within WATCH_RANGE metres, inside
+ * WATCH_COS of the middle of her view, with a clear line to it. Its first line is then on screen at once (over a room
+ * line that has had URGENT_READ of its time). Crossing the trigger without having looked still starts it, with a glint
+ * at the figure to draw the eye, and the line waits up to WATCH_HOLD seconds for her to turn to it.
+ */
+export const WATCH_RANGE = 9, WATCH_UP = 0.95;
+/**
+ * Pass i2 (both story reviewers: at the trigger, facing down the stair, the niche is off the edge of the frame, and the
+ * lines started 1.5 s later whether she had turned or not). The lines are said ONLY when she has looked at the figure:
+ * it has been inside WATCH_COS of the middle of her view, in range and with a clear line, for `LOOK_DWELL` seconds
+ * (before the trigger, on it or after it, for as long as she is in range). Crossing the trigger without a look plays
+ * the figure's own motion (its hood turns) and says nothing; the glint in the mouth of the niche goes on drawing the
+ * eye while she is near. A player who never looks is told nothing about a thing she never saw.
+ */
+export const LOOK_DWELL = 0.4;
+/**
+ * Pass i2 (story reviewer a: "His cup on their hearthstone..." was said on the way to the hatch, a room's length from
+ * the hearth and after his note there had been read). A prop that names its line (`params.line` begins with the key:
+ * `prop_cup_two`) is described when she first stands within `NEAR_LINE` metres of it and is turned to it (inside
+ * NEAR_COS, for LOOK_DWELL), out of a fight, or when she opens a readable that lies within `NEAR_READ` metres of it,
+ * whichever is first. The encounter's `onClear.lines` still names the line: that slot is the fallback of a player who
+ * never went near (the once-only rule refuses it there when it has been said).
+ */
+export const NEAR_LINE = 3, NEAR_READ = 1.5, NEAR_UP = 0.5;
+const NEAR_COS = Math.cos(35 * DEG2RAD);
+/**
+ * Pass i2 (story reviewer b: 36.7 s of listening between the bore door and the first phase, the first 7.4 s of it a
+ * line about the cradle). The Windlass's first parley line opens its scene (`StoryApi.opening`: what is only waiting
+ * and is not story is let go, and it is said at once), and the two roll-call lines are held `PARLEY_ROLL_HOLD` seconds
+ * each instead of 4.5 and 4 (src/enemies/defs.ts BOSS.parley carries the same clock: the inspection opens 21.5 s after
+ * the seal, it was 23 on paper and 31.7 as played).
+ */
+export const PARLEY_ROLL_HOLD = 4.5;
+/**
+ * Pass i3 (story reviewer b: still 29.9 s of standing from the seal to phase 1, the longest passive stretch of the stage,
+ * straight before its hardest fight). In this pass the enemies team made the asking's clock follow each line AS HELD
+ * (src/enemies/boss/parley.ts `parleyPlan`, `shown`: a stage lasts exactly the `seconds` that `story/line` reports), so
+ * the holds below ARE the asking's length. The text is frozen (design/story.json) and the merged roll-call line would
+ * be 89 characters (the subtitle rule is 84), so the six lines stay and are held shorter: the station's first
+ * `PARLEY_FIRST_HOLD` (5.5 written; ten words), the narrator's and the Reeve's `PARLEY_SPOKEN_HOLD` each (4.5 written;
+ * nine words each), the two roll-call lines `PARLEY_ROLL_HOLD` each (3.5 in pass i2; the six mouth lamps come on in
+ * turn under them, a second apart). The last line, which states the rule of the fight, keeps its five seconds.
+ * 4 + 4 + 4 + 3 + 3 and five breaths: the six stand open 19.25 s after the first line appears (it was 22.75) and phase 1
+ * begins at 24.25 s (27.75). The 4 s the six stand open and the second after are the Windlass's.
+ */
+/**
+ * Closing of pass i3: the text change was made. The two roll-call lines are ONE line (`stn_parley_2`, 67 characters,
+ * `stn_parley_3` is gone) held `PARLEY_ROLL_HOLD` = 4.5 s, the six mouth lamps coming on across it; the first line is held
+ * 3.5 s. design/story.json carries the same seconds, so the holds below only repeat the data. 3.5 + 4 + 4 + 4.5 and four
+ * breaths: the six stand open 17.0 s after the first line appears and phase 1 begins at 22.0 s.
+ */
+export const PARLEY_FIRST_HOLD = 3.5, PARLEY_SPOKEN_HOLD = 4;
+/**
+ * The niche is recessed: the figure can be seen only from about 1.5 m before she is abreast of it, 50 degrees off the
+ * line of the stair. So the eye is drawn before that: while she is within WATCH_RANGE and the moment has not begun, a
+ * small glint (the star card; a 0.4 m violet halo at half strength could not be seen on the stair) stands in the mouth of the niche (WATCH_MOUTH metres out from the figure toward the stair) every
+ * WATCH_GLINT_EVERY seconds, as the rod's glint points at the man on the mesa.
+ */
+export const WATCH_MOUTH = 0.8, WATCH_GLINT_EVERY = 1.5, WATCH_GLINT_SECONDS = 0.5, WATCH_GLINT_LEVEL = 0.45;
+const WATCH_COS = Math.cos(28 * DEG2RAD);
+/**
+ * Pass i1 (story reviewer; the fixer's note in docs/requests/world.md): "The lift head, drawn on the wall" is said on
+ * the floor before the ring, where she walks east with the diagram 43 degrees and more to her left (the edge of the
+ * frame, then out of it). The same rule as the watcher's, without the glint: once the Tamper is down, looking at the
+ * diagram from anywhere in the hall within VIEW_RANGE metres starts its lines, with the drawing in the middle of her
+ * view; the floor before the ring still says them to a player who never looked (they are never stale).
+ */
+export const VIEW_RANGE = 26, VIEW_OFF = 0.5;
+/**
+ * Pass i2 (story reviewer b: the three lines began the moment the Tamper fell, because she stood on the trigger's
+ * floor, and played over the cage's lever). The floor says nothing by itself now: the lines start when the drawing has
+ * been in her view (inside DRAW_COS, in range, a clear line) for LOOK_DWELL seconds, from anywhere in the hall. Only a
+ * player who walks up to the cage (CAGE_NEAR) without ever having had it in view is told there (the lines are
+ * load-bearing: the only place play says what the seventh round is), and the ride carries them as before.
+ */
+const DRAW_COS = Math.cos(30 * DEG2RAD);
+/** she is on her way out when she is within this many metres of the cage (its gate is the hall's only way on) */
+export const CAGE_NEAR = 3.5;
+/**
  * R4: the figure is at least this tall on screen, in pixels of a 720-line frame, from wherever she stands. The card is
  * the enemies' (its vignette puts it on the mesa) and its smallest drawn size is theirs and the renderer's (8 and 9 px:
  * docs/requests/code-world.md 9.1). Until those numbers follow the ruling the world stands the card in a group of its
  * own and scales that group by what is missing; the factor is 1 once the card comes out tall enough by itself.
  */
-const SIGHT_MIN_PX = 32;                               // of the card: the drawn figure fills about nine tenths of it (28 px)
+// pass i2 (visual reviewer: "about 30 px tall and under the crosshair ... scale the far figure to about 50-60 px at 720p"):
+// 62 px of card, a figure of about 56: the hat, the coat and the forked rod read as a man, not a mark on the skyline
+const SIGHT_MIN_PX = 62;                               // of the card: the drawn figure fills about nine tenths of it (56 px; it was 32 / 28)
+const SIGHT_SINK = 0.05;                              // of the card's height: how far its foot line stands under the rim's top (exterior look, pass i3)
 const BREADCRUMB_AFTER = 20;
 /**
  * the health each phase of the Windlass begins with at least: two full segments (src/player/defs.ts SEGMENT_TOPS; the
@@ -327,6 +454,81 @@ const LOCK_INSIDE = 1.5;
  * (meta.rules.once_only; docs/requests/code-world.md asks level design for a field).
  */
 const LINE_FIRST_FELLED = 'nar_first_fell', LINE_FIRST_FREED = 'nar_first_seat';
+
+// =====================================================================================================
+// Pass i3: lines said while their subject is on screen (both story reviewers). The design data is frozen for the world
+// in this pass, so what these rules need beside the layout is carried here; docs/requests/world.md asks for the fields.
+// =====================================================================================================
+/** a sight line for a look test passes a grille and low cover (the gantry's cage, a kerb) */
+const SIGHT_THROUGH = ColFlag.LOW | ColFlag.GRILLE;
+/**
+ * A trigger whose lines are about one thing she may or may not be facing as she crosses it ("It hung over the bore like
+ * her own cylinder" was said on the gantry while she looked along it, the Windlass 90 degrees to her right; "Embers,
+ * still orange" as she faced the bore door with the camp behind her). The lines are said when the thing has been inside
+ * `cos` of the middle of her view, within `range` metres, on the trigger's level (`level` metres of height) and with a
+ * clear line (through a grille) for LOOK_DWELL seconds: before, on or after the trigger. They are then PRESENT lines:
+ * next, ahead of what waits. Crossing the trigger without that look says nothing yet; `cue` / `caption` draw the ear to
+ * the thing, and the lines are never lost: they are said anyway once she is `leave` metres from the trigger or off its
+ * level (the far end of the gantry), or `after` seconds on with the thing at least in frame (`frameCos`), or `last`
+ * seconds on whatever she faces. 0 = that fallback is not used.
+ */
+interface LookGate {
+  /** the marker the lines are about: a vista's `target`, else the marker's own position raised by `up`; or the point `at` */
+  subject: MarkerId; up: number; cos: number; frameCos: number; range: number; level: number;
+  leave: number; after: number; last: number; cue: AudioCue | ''; caption: StoryKey;
+  at?: readonly [number, number, number];
+  /** crossing the trigger says its lines at once, as an ungated trigger does (the look only brings them forward) */
+  cross?: boolean;
+}
+export const LOOK_GATES: Readonly<Record<MarkerId, LookGate>> = {
+  trg_windlass_seen: { subject: 'vista_windlass', up: 0, cos: Math.cos(30 * DEG2RAD), frameCos: Math.cos(50 * DEG2RAD), range: 30, level: 1.5, leave: 8.5, after: 0, last: 0, cue: 'ratchet', caption: 'cap_ratchet' },
+  trg_ante_enter: { subject: 'prop_camp_three', up: 0.3, cos: Math.cos(35 * DEG2RAD), frameCos: Math.cos(50 * DEG2RAD), range: 8, level: 2, leave: 0, after: 6, last: 20, cue: '', caption: '' },
+  // "Coats on pegs, all the way down": from the Tally House floor, the moment she looks down the open hatch at the first
+  // flight's coats (the point `at`, a clear line through the hatch); else on the stair itself (ALSO_AT). A second and
+  // more gained on the two lines' ten seconds: the second begins on the stair for a player who never breaks step
+  trg_peg_stair: { subject: 'trg_peg_stair', up: 0, at: [-90.5, -1.2, -33], cos: Math.cos(30 * DEG2RAD), frameCos: Math.cos(50 * DEG2RAD), range: 7, level: 9, leave: 0, after: 0, last: 0, cue: '', caption: '', cross: true },
+};
+/**
+ * A second volume for a trigger (the union fires it). `trg_peg_stair` stands on flight 2, a second and a half before
+ * the watcher's niche, and its two lines take ten seconds: "The low pegs were bare" was said in the proving bay. The
+ * coats begin at the hatch, so the lines begin there: flight 1, from its second step down.
+ */
+export const ALSO_AT: Readonly<Record<MarkerId, { pos: [number, number, number]; size: [number, number, number] }>> = {
+  trg_peg_stair: { pos: [-90.25, -4.5, -33], size: [6.5, 4.1, 2] },
+};
+/**
+ * A line of the peg stair that is about the stair: dropped unheard when its turn comes with her off the foot of it
+ * (her feet below `y`, the bay's floor, and more than two strides into the bay: south of `z`). The watcher's lines go
+ * ahead of it while she looks at the watcher.
+ */
+export const STAIR_LINES: Readonly<Record<StoryKey, { y: number; z: number }>> = { nar_pegs_2: { y: -11.7, z: -15.5 } };
+/**
+ * The kneeler (story reviewer a: "Somebody knelt at the trough, scooping" was said at the gate posts, 43 m off, where
+ * the kneeler is fifteen pixels of haze, and it stood up three seconds later: nobody saw it kneel). The gate still
+ * shows the movement card and names the town; the fight and the kneeler's line begin when she is within `look` metres
+ * of it with it inside `cos` of the middle of her view and no line on screen (its own starts at once), or within
+ * `anyway` metres whatever she faces and whatever is being said. Until then it kneels and scoops. A round into it from further off starts the fight as before (and the line is not said of a
+ * figure that is no longer kneeling).
+ */
+export const HELD_START: Readonly<Record<MarkerId, { line: StoryKey; look: number; cos: number; anyway: number; up: number }>> = {
+  trg_enc_street: { line: 'nar_kneeler', look: 24, cos: Math.cos(20 * DEG2RAD), anyway: 20, up: 0.6 },
+};
+/**
+ * "The Rule stood on the far edge of everything. It leaned." (story reviewer b: said to a brisk player facing the jug
+ * gate's wall). The line waits for the Rule: inside RULE_COS of the middle of her view with open sky that way for
+ * RULE_SIGHT metres. It is dropped if she leaves the gully without that look.
+ */
+const RULE_LINE = 'nar_rule', RULE_VISTA = 'vista_rule';
+export const RULE_COS = Math.cos(38 * DEG2RAD), RULE_SIGHT = 120;      // (38: in frame at 4:3 too, not only dead ahead; the gully bends 30 degrees)
+/**
+ * Ruling R2 (story reviewer b: a player who stands and shoots in phase 1 is dead in 13 s, and the lines that say what
+ * hit her came only after the second death). The Windlass's defence is taught when it is first needed: the first stake
+ * or canister that lands on her in a run says `TEACH_MOVE` at once, and the first retry of the fight says `TEACH_HAUL`
+ * `TEACH_AFTER` seconds after she has control (and `TEACH_MOVE` behind it if no hit had said it). The Windlass's own
+ * sayings (the first haul of a try, the second death in a phase: src/enemies/defs.ts) stay as the repeat; its haul
+ * line is not said twice within HINT_ECHO seconds.
+ */
+export const TEACH_MOVE = 'hint_boss_move', TEACH_HAUL = 'hint_boss_haul', TEACH_AFTER = 0.5;
 
 class Director implements DirectorApi {
   private readonly encs: Enc[] = [];
@@ -432,7 +634,91 @@ class Director implements DirectorApi {
         // a puzzle's volume belongs to its puzzle (its objective is all the director reads); the sighting and the two
         // seam triggers (a conditional `when`, a set swap) have code of their own
         generic: !sighting && m.params.residentSet === undefined && m.params.when === undefined,
+        // (pass i1) what the trigger's lines are about, when it stands in the layout as `prop_<name>` for `trg_<name>`:
+        // looked at, it starts the trigger (the watcher in its niche, WATCH_RANGE; the diagram on the hall's wall, VIEW_RANGE)
+        subject: null, figure: false, sx: 0, sy: 0, sz: 0, range2: 0, lookT: 0, cx: 0, cz: 0, chalf: 0, crossed: false,
+        gate: null, crossT: 0, also: null,
       });
+    }
+    // (pass i3) look gates, second volumes, the lines of the stair
+    for (const t of this.triggers) {
+      const m = t.marker;
+      const also = ALSO_AT[m.id];
+      if (also) t.also = { ...m, pos: also.pos, size: also.size, rotY: 0 };
+      const g = LOOK_GATES[m.id];
+      const sub = g ? data.layout.markers.find((x) => x.id === g.subject) : undefined;
+      if (!g || !sub || !t.generic) continue;
+      const target = sub.params.target as [number, number, number] | undefined;
+      t.gate = g;
+      t.sx = target ? target[0] : sub.pos[0]; t.sy = (target ? target[1] : sub.pos[1]) + g.up; t.sz = target ? target[2] : sub.pos[2];
+      if (g.at) { t.sx = g.at[0]; t.sy = g.at[1]; t.sz = g.at[2]; }
+      if (g.cross) continue;                                // (an ungated trigger's lines are not tied to a fight)
+      // what a gated trigger says is behind her once the fight of its zone has begun
+      const fight = this.encs.find((e) => e.data.zone === m.zone);
+      if (fight) for (const key of paramList(m, 'lines')) s.story.unless(key, () => fight.state !== 'idle');
+    }
+    for (const key of Object.keys(STAIR_LINES)) {
+      const foot = STAIR_LINES[key] as (typeof STAIR_LINES)[string];
+      s.story.unless(key, () => { const p = s.ctx.player.position; return p.y < foot.y && p.z > foot.z; });
+    }
+    for (const id of Object.keys(HELD_START)) {
+      const h = HELD_START[id] as (typeof HELD_START)[string];
+      const enc = this.encs.find((e) => e.data.trigger === id);
+      // the line is about a figure that kneels: not said once it has gone down, or the fight is over
+      if (enc) s.story.unless(h.line, () => enc.state === 'cleared' || (enc.members[0] as Member | undefined)?.state === DOWN);
+    }
+    this.ruleVista = data.layout.markers.find((x) => x.id === RULE_VISTA);
+    if (this.ruleVista && data.story.lines[RULE_LINE] !== undefined) {
+      const zone = this.ruleVista.zone;
+      s.story.waitWhile(RULE_LINE, () => !this.ruleSeen());
+      s.story.unless(RULE_LINE, () => s.zone !== zone && !s.zoneHeld);
+    }
+    events.on('player/damaged', (e) => {
+      // R2: the first stake or canister that lands says what it could hit
+      const boss = this.bossEnc;
+      if (!boss || boss.state !== 'active' || !s.running || e.source !== 'windlass' || (e.kind !== 'stake' && e.kind !== 'canister')) return;
+      const phase = s.ctx.enemies.boss.phase;
+      if ((phase !== 'p1' && phase !== 'p2') || s.story.heard(TEACH_MOVE) || data.story.lines[TEACH_MOVE] === undefined) return;
+      s.story.sayNow(TEACH_MOVE);
+    });
+    for (const t of this.triggers) {
+      const m = t.marker;
+      if (!t.generic || m.params.encounter !== undefined) continue;
+      const sub = data.layout.markers.find((x) => x.type === 'prop' && x.id === 'prop_' + m.id.replace(/^trg_/, ''));
+      if (!sub) continue;
+      t.subject = sub;
+      t.figure = m.params.vignette !== undefined;
+      if (t.figure) { t.sx = sub.pos[0]; t.sy = sub.pos[1] + WATCH_UP; t.sz = sub.pos[2]; t.range2 = WATCH_RANGE * WATCH_RANGE; continue; }
+      // a thing on a wall: its middle, a little off the wall toward the trigger's floor (the sight line ends in the room)
+      const ox = m.pos[0] - sub.pos[0], oz = m.pos[2] - sub.pos[2], ol = Math.sqrt(ox * ox + oz * oz) || 1;
+      t.sx = sub.pos[0] + (ox / ol) * VIEW_OFF; t.sy = sub.pos[1] + paramNumber(sub, 'height', 2) / 2; t.sz = sub.pos[2] + (oz / ol) * VIEW_OFF;
+      t.range2 = VIEW_RANGE * VIEW_RANGE;
+      for (const portal of data.layout.nav.portals) {
+        const cage = data.layout.markers.find((x) => x.id === portal.cages[0]);
+        if (cage && cage.zone === m.zone) { t.cx = cage.pos[0]; t.cz = cage.pos[2]; t.chalf = Math.max(portal.cageInterior[0], portal.cageInterior[2]) / 2; }
+      }
+    }
+    // (pass i2, NEAR_LINE) props that name their own line, and the readable that lies at each
+    for (const m of data.layout.markers) {
+      if (m.type !== 'prop') continue;
+      const named = /^(nar_[a-z0-9_]+)\b/.exec(paramString(m, 'line'));
+      const key = named ? (named[1] as string) : '';
+      if (key === '' || data.story.lines[key] === undefined) continue;
+      const rd = data.markersOfType('readable').find((x) => x.zone === m.zone && Math.hypot(x.pos[0] - m.pos[0], x.pos[2] - m.pos[2]) <= NEAR_READ);
+      this.nearLines.push({ marker: m, key, t: 0, readable: rd ? paramString(rd, 'readable') : '' });
+    }
+    events.on('readable/opened', (e) => {
+      for (const l of this.nearLines) if (l.readable !== '' && l.readable === e.key && s.running) s.story.sayFront(l.key);
+    });
+    // (pass i2, PARLEY_ROLL_HOLD) the Windlass's asking: its first line opens the scene, its roll-call is brisk
+    for (const m of data.markersOfType('trigger')) {
+      const parley = paramList(m, 'parley');
+      if (parley.length === 0) continue;
+      s.story.opening(parley[0] as string);
+      // the roll-call: the station's lines between its first (the presenting) and its last (the inspection)
+      // (pass i3: the first line and the two spoken ones are held shorter too; the last keeps its written time)
+      s.story.hold(parley[0] as string, PARLEY_FIRST_HOLD);
+      for (let k = 1; k < parley.length - 1; k++) s.story.hold(parley[k] as string, (parley[k] as string).startsWith('stn_') ? PARLEY_ROLL_HOLD : PARLEY_SPOKEN_HOLD);
     }
     // Lines that announce a fight or one of its waves are about something that is over once the fight is cleared: a
     // brisk player heard "Two of them stood" three seconds after both had sat down again (polish round 3). Each is
@@ -550,6 +836,9 @@ class Director implements DirectorApi {
     const z = this.s.ctx.data.zone(zone);
     if (this.bossEnc && zone === this.bossEnc.data.zone && this.s.flags.has('proven')) return 'L5p';
     if (z.moodIntro === undefined) return z.mood;
+    // release pass p0 (closer): on the title she stands at the start again; the last run's glare flag is not the title's
+    // business (after "Quit to title" the backdrop cross-faded to L1: another exposure, a brighter gun)
+    if (this.s.ctx.state.current === 'title') return z.moodIntro;
     if (zone === this.glareZone && this.s.flags.has(this.glareFlag) && this.glareLeft <= 0) return this.glareTo;
     return z.moodIntro;
   }
@@ -578,6 +867,48 @@ class Director implements DirectorApi {
   /** first lines of the vignette triggers, and which of them have been on screen (their second lines stand on them) */
   private readonly watched = new Set<StoryKey>();
   private readonly shown = new Set<StoryKey>();
+  private readonly nearLines: NearLine[] = [];
+  // ---- pass i3
+  private ruleVista: LayoutMarker | undefined;
+  /** the trigger whose encounter waits for her to come near its first figure (HELD_START) */
+  private heldTrig: Trig | null = null;
+  /** seconds until the first retry's teaching line (TEACH_AFTER); -1: none owed */
+  private teachIn = -1;
+  /** the Rule is in the middle of her view with open sky that way */
+  private ruleSeen(): boolean {
+    const { s } = this;
+    const v = this.ruleVista;
+    const target = v?.params.target as [number, number, number] | undefined;
+    if (!target) return true;
+    if (s.lookCos(target[0], target[1], target[2]) < RULE_COS) return false;
+    const p = s.ctx.player.position, ey = p.y + PLAYER_EYE;
+    const dx = target[0] - p.x, dy = target[1] - ey, dz = target[2] - p.z, k = RULE_SIGHT / (Math.sqrt(dx * dx + dy * dy + dz * dz) || 1);
+    return s.ctx.collision.lineOfSight(p.x, ey, p.z, p.x + dx * k, ey + dy * k, p.z + dz * k, SIGHT_THROUGH);
+  }
+  /** HELD_START: the fight and its figure's line begin when she has come near the figure */
+  private tickHeld(): void {
+    const { s } = this;
+    const t = this.heldTrig;
+    if (!t) return;
+    const h = HELD_START[t.marker.id], enc = this.byId.get(paramString(t.marker, 'encounter') as EncounterId);
+    const k = enc?.members[0]?.marker;
+    if (!h || !enc || !k || enc.state !== 'idle') { this.heldTrig = null; return; }
+    const p = s.ctx.player.position, dx = k.pos[0] - p.x, dz = k.pos[2] - p.z, d2 = dx * dx + dz * dz;
+    if (d2 > h.look * h.look) return;
+    // (between the two distances: turned to it, and with no line on screen, so its own line starts as it is seen)
+    if (d2 > h.anyway * h.anyway && (s.story.current !== '' || s.lookCos(k.pos[0], k.pos[1] + h.up, k.pos[2]) < h.cos)) return;
+    this.heldTrig = null;
+    s.story.sayPresent(h.line);
+    this.start(enc.id);
+  }
+  /** seconds to the next glint in the mouth of the niche (WATCH_GLINT_EVERY) */
+  private watchGlint = 0;
+  private watchLevel = 0;
+  private watchCard: FxHandle | null = null;
+  private endWatchGlint(): void {
+    this.watchGlint = 0; this.watchLevel = 0;
+    if (this.watchCard) { this.watchCard.release(); this.watchCard = null; }
+  }
   tickTriggers(dt: number): void {
     const { s } = this;
     this.tickNo++;
@@ -595,15 +926,105 @@ class Director implements DirectorApi {
         }
         continue;
       }
-      const inside = inVolume(m, p.x, p.y, p.z);
+      const inside = inVolume(m, p.x, p.y, p.z) || (t.also !== null && inVolume(t.also, p.x, p.y, p.z));
+      // (pass i3, LOOK_GATES) lines about one thing: said on a look at it; crossed without one, they wait for it
+      const g = t.gate;
+      if (g) {
+        if (s.flags.has(t.flag) || !this.requirementMet(t)) { t.inside = inside; t.lookT = 0; continue; }
+        const ey = p.y + PLAYER_EYE, gx = t.sx - p.x, gy = t.sy - ey, gz = t.sz - p.z;
+        const level = Math.abs(p.y - m.pos[1]) <= g.level;
+        const cos = level && !this.live && gx * gx + gy * gy + gz * gz <= g.range * g.range ? s.lookCos(t.sx, t.sy, t.sz) : -1;
+        const clear = cos >= g.frameCos && s.ctx.collision.lineOfSight(p.x, ey, p.z, t.sx, t.sy, t.sz, SIGHT_THROUGH);
+        t.lookT = clear && cos >= g.cos ? t.lookT + dt : 0;
+        if (t.lookT >= LOOK_DWELL) { t.lookT = 0; t.inside = inside; this.fire(t, true); continue; }
+        if (inside && g.cross) { t.inside = inside; this.fire(t); continue; }
+        if (inside && !t.crossed) {
+          t.crossed = true; t.crossT = 0;
+          if (g.cue !== '') { s.cue(g.cue, t.sx, t.sy, t.sz); if (g.caption !== '') s.story.say(g.caption); }
+        }
+        if (t.crossed) {
+          t.crossT += dt;
+          const hx = p.x - m.pos[0], hz = p.z - m.pos[2];
+          const left = g.leave > 0 && (hx * hx + hz * hz > g.leave * g.leave || !level);
+          if (left || (g.last > 0 && t.crossT >= g.last) || (g.after > 0 && t.crossT >= g.after && clear)) this.fire(t);
+        }
+        t.inside = inside;
+        continue;
+      }
+      // (pass i1, WATCH_RANGE; pass i2, LOOK_DWELL) a trigger whose lines are about a thing speaks when she has looked at it
+      const sub = t.subject;
+      if (sub) {
+        if (s.flags.has(t.flag) || !this.requirementMet(t)) { t.inside = inside; t.lookT = 0; continue; }
+        const sx = t.sx, sy = t.sy, sz = t.sz, ey = p.y + PLAYER_EYE;
+        const dx = sx - p.x, dy = sy - ey, dz = sz - p.z;
+        const near = dx * dx + dy * dy + dz * dz <= t.range2;
+        const seen = near && !this.live && s.lookCos(sx, sy, sz) >= (t.figure ? WATCH_COS : DRAW_COS) && s.ctx.collision.lineOfSight(p.x, ey, p.z, sx, sy, sz, 0);
+        t.lookT = seen ? t.lookT + dt : 0;
+        if (t.lookT >= LOOK_DWELL) {
+          t.inside = inside; t.lookT = 0;
+          this.fire(t, true);
+          continue;
+        }
+        if (!t.figure) {
+          // a drawing on a wall needs no glint; unseen, it is told in the cage she leaves by (or, with no cage, on its floor)
+          const away = t.chalf > 0 ? Math.abs(p.x - t.cx) <= t.chalf + CAGE_NEAR && Math.abs(p.z - t.cz) <= t.chalf + CAGE_NEAR : inside;
+          t.inside = inside;
+          if (away) this.fire(t);
+          continue;
+        }
+        // the eye is drawn to the mouth of the niche before the figure can be seen
+        if (near && !this.live) {
+          if (!this.watchCard) {
+            const mx = m.pos[0] - sub.pos[0], mz = m.pos[2] - sub.pos[2], ml = Math.sqrt(mx * mx + mz * mz) || 1;
+            this.watchCard = s.ctx.render.vfx.acquireCard('aim_star');
+            if (this.watchCard) { this.watchCard.setPosition(sx + (mx / ml) * WATCH_MOUTH, sy, sz + (mz / ml) * WATCH_MOUTH); this.watchCard.setLevel(0); this.watchCard.setVisible(true); }
+            this.watchGlint = 0; this.watchLevel = 0;
+          }
+          this.watchGlint += dt;
+          if (this.watchGlint >= WATCH_GLINT_EVERY) this.watchGlint = 0;
+          const level = this.watchGlint < WATCH_GLINT_SECONDS ? WATCH_GLINT_LEVEL : 0;
+          if (level !== this.watchLevel) { this.watchLevel = level; if (this.watchCard) { this.watchCard.setLevel(level); this.watchCard.setVisible(level > 0); } }
+        } else this.endWatchGlint();
+        // crossing the trigger without a look: the figure's own motion plays (its hood turns), nothing is said
+        if (inside && !t.inside) { this.startVignette(m); t.crossed = true; }
+        t.inside = inside;
+        // she went by and is out of its reach: the moment is over, unsaid (no star is left blinking in a niche behind her)
+        if (t.crossed && !near) { s.flags.add(t.flag); t.crossed = false; }
+        continue;
+      }
       // on the way in, or (standing in it) the moment what it requires has happened
       const fire = inside && (!t.inside || !s.flags.has(t.flag)) && this.requirementMet(t);
       t.inside = inside && this.requirementMet(t);
       if (fire && t.generic) this.fire(t);
     }
     if (this.glareLeft > 0) this.glareLeft -= dt;
+    this.tickNearLines(dt);
+    this.tickHeld();
   }
-  private fire(t: Trig): void {
+  /** NEAR_LINE: a prop that names its line is described when she stands at it and is turned to it */
+  private tickNearLines(dt: number): void {
+    const { s } = this;
+    const p = s.ctx.player.position;
+    for (let i = 0; i < this.nearLines.length; i++) {
+      const l = this.nearLines[i] as NearLine;
+      const m = l.marker;
+      if (s.story.heard(l.key) || s.story.holds(l.key) || !s.build.markerLive(m)) { l.t = 0; continue; }
+      const dx = m.pos[0] - p.x, dz = m.pos[2] - p.z;
+      const at = !this.live && dx * dx + dz * dz <= NEAR_LINE * NEAR_LINE && Math.abs(p.y - m.pos[1]) < 2 && s.lookCos(m.pos[0], m.pos[1] + NEAR_UP, m.pos[2]) >= NEAR_COS;
+      l.t = at ? l.t + dt : 0;
+      if (l.t >= LOOK_DWELL) { l.t = 0; s.story.sayFront(l.key); }
+    }
+  }
+  /** a vignette trigger's lines: the first is about this second (over a room line once it has been read), the rest follow it */
+  private speak(m: LayoutMarker): void {
+    const { s } = this;
+    const lines = paramList(m, 'lines');
+    // (pass i3: PRESENT lines. Said politely, the first waited behind the line on screen AND its continuation: the
+    // watcher was looked at 5.2 s in and named 13.9 s in, in the proving bay, behind "The low pegs were bare")
+    for (let i = 0; i < lines.length; i++) s.story.sayPresent(lines[i] as string, true, m.zone);
+  }
+  /** `looked`: she is looking at the trigger's figure (a vignette of its own) */
+  private fire(t: Trig, looked = false): void {
     const { s } = this;
     const m = t.marker;
     s.flags.add(t.flag);
@@ -612,31 +1033,46 @@ class Director implements DirectorApi {
     const about = s.ctx.data.zone(m.zone).set === s.residentSet ? m.zone : s.zone;
     // (the rim's lamps and stone: next in line, in their order; R5: the stone's lines are not left behind six others)
     // (a vignette of its own, the watcher in the niche: tied to the moment she passes it, round 5)
-    if (s.ending.front(m) || (m.params.vignette !== undefined && m.params.encounter === undefined)) s.story.sayFrontAll(paramList(m, 'lines'));
-    else for (const key of paramList(m, 'lines')) s.story.say(key, about);
+    const hold = HELD_START[m.id];
+    if (m.params.vignette !== undefined && m.params.encounter === undefined) {
+      // (pass i1) the figure's first line is about this second (pass i2: said only on a look, LOOK_DWELL; a vignette
+      // trigger with no figure of its own in the layout speaks as she crosses it)
+      this.endWatchGlint(); this.speak(m);
+    } else if (t.gate && looked) this.speak(m);             // (pass i3: a gated trigger's lines, on the look itself)
+    else if (s.ending.front(m) || looked) s.story.sayFrontAll(paramList(m, 'lines'));        // (looked: what she is looking at is told next)
+    else for (const key of paramList(m, 'lines')) { if (!hold || key !== hold.line) s.story.say(key, about, m.zone); }
     const objective = paramString(m, 'objective');
     if (objective !== '' && m.params.encounter === undefined) s.story.setObjective(objective);
     const closes = paramString(m, 'closes');
     if (closes !== '') s.doors.close(closes, false, SEAL_CLEAR);
     const encounter = paramString(m, 'encounter') as EncounterId | '';
-    if (encounter !== '') this.start(encounter);
-    const vig = m.params.vignette as { id?: VignetteId; seconds?: number } | undefined;
-    if (vig && vig.id && !s.vignettesSeen.has(vig.id)) {
-      s.vignettesSeen.add(vig.id);
-      s.ctx.enemies.playVignette(vig.id);
-      if (vig.seconds !== undefined) {
-        // a vignette whose clock runs here: it ends by itself, or is skipped by walking on into the fight
-        this.vigId = vig.id; this.vigLeft = vig.seconds;
-        const next = this.encs.find((e) => e.data.zone === m.zone && e.state === 'idle');
-        this.vigSkipEnc = next ? next.id : '';
-      }
-    }
+    // (pass i3, HELD_START: the fight waits for her to come near its first figure; a second attempt does not wait)
+    if (encounter !== '' && hold && this.byId.get(encounter)?.state === 'idle' && !s.story.heard(hold.line)) this.heldTrig = t;
+    else if (encounter !== '') this.start(encounter);
+    this.startVignette(m);
     if (m.id === this.glareTrigger) {
+      // release pass p0 (closer; the UI team's request): the run hint is due on the long walk down the gully, before the
+      // first fight, not in its second wave (the UI holds it back during a fight, so it came up after the street was clear)
+      s.needSprint = true;
       const ramp = m.params.exposureRamp as { seconds?: number };
       this.glareLeft = ramp.seconds ?? 20;
       s.ctx.render.setMood(this.glareTo, this.glareLeft);
     }
     if (m.id === this.exposureTrigger) s.ctx.render.setExposure(this.exposureMult, this.exposureSeconds);
+  }
+  /** the vignette a trigger plays (once per run) */
+  private startVignette(m: LayoutMarker): void {
+    const { s } = this;
+    const vig = m.params.vignette as { id?: VignetteId; seconds?: number } | undefined;
+    if (!vig || !vig.id || s.vignettesSeen.has(vig.id)) return;
+    s.vignettesSeen.add(vig.id);
+    s.ctx.enemies.playVignette(vig.id);
+    if (vig.seconds !== undefined) {
+      // a vignette whose clock runs here: it ends by itself, or is skipped by walking on into the fight
+      this.vigId = vig.id; this.vigLeft = vig.seconds;
+      const next = this.encs.find((e) => e.data.zone === m.zone && e.state === 'idle');
+      this.vigSkipEnc = next ? next.id : '';
+    }
   }
   fireStart(): void {
     const first = Object.keys(this.s.ctx.data.story.objectives)[0];
@@ -652,6 +1088,7 @@ class Director implements DirectorApi {
   // ---- what is built --------------------------------------------------------------------------------
   attach(_zone: ZoneId): void { /* members are spawned from tick(): the enemies module may not be ready inside a build */ }
   detach(zone: ZoneId): void {
+    for (const t of this.triggers) if (t.subject && t.subject.zone === zone) { this.endWatchGlint(); t.lookT = 0; }
     // the enemies module drops what stood in a zone that is gone; forget the ids
     for (const e of this.encs) {
       if (e.state !== 'idle') continue;
@@ -690,6 +1127,13 @@ class Director implements DirectorApi {
     if (e.vignette !== '' && !replay) {
       s.vignettesSeen.add(e.vignette);
       s.ctx.enemies.playVignette(e.vignette);
+      // Release pass p0 (the combat critic's "sharpest spike of the stage"; found with the proxies' watch log: FOUR
+      // Transits in a yard whose layout has three). A vignette that makes its own actor (the yard's first Transit,
+      // which is not dormant in the world before the fight) stood it on the first member's spawn; four seconds later,
+      // with the vignette over, the wave's release asked the enemies for that member and was given a second one (they
+      // hand the vignette's actor over only while its vignette still runs). The member is taken now, while it does.
+      const lead = e.members[0];
+      if (lead && lead.state === NONE && lead.marker.params.dormant === undefined && lead.marker.params.vignette !== undefined) this.spawnMember(e, lead, false);
       const firstSpawn = e.members[0]?.marker;
       const vig = firstSpawn?.params.vignette as { line?: string; thenLine?: string } | undefined;
       if (vig && vig.line) s.story.sayFront(vig.line);                      // tied to the moment: next in line
@@ -756,10 +1200,28 @@ class Director implements DirectorApi {
       if (bursts !== '') s.doors.open(bursts, false, true);
       if (m.state === DORMANT) { s.ctx.enemies.wake(m.id); m.state = ALIVE; } else if (m.state === NONE) m.state = DUE;
     }
+    if (WAVE_RULES[e.id + '/' + wave.id]?.entryPacket) this.entryPacket(e);
     // a wave's lines are about what is happening now: next in line, not behind a room's description
-    if (wave.lines) s.story.sayFrontAll(wave.lines);
-    if (e === this.linesEnc && w === 0) s.story.sayFront(namedLine(this.fileLines(), 'lines', 'seen'));
+    // (p0: urgent. Next in line was up to 8 s late behind the proving plate's lines: "Two more on the stair behind her"
+    // was read with the pair already on her, and "Four more" as the last of them sat down)
+    if (wave.lines) for (let i = 0; i < wave.lines.length; i++) s.story.sayUrgent(wave.lines[i] as string);
+    if (e === this.linesEnc && w === 0) s.story.sayUrgent(namedLine(this.fileLines(), 'lines', 'seen'));
     if (e === this.encs[0] && w === 1) s.needSprint = true;                  // the first fight's second wave: sprint is first needed
+  }
+  /**
+   * p0: a packet of six on her way in (ENTRY_PACKET_IN metres inside the door the fight's knot lets go, toward the
+   * fight's first spawn). Dropped pickups do not outlive a restore, so each attempt finds it again.
+   */
+  private entryPacket(e: Enc): void {
+    const { s } = this;
+    const knot = this.doorMarker(e.data.trigger);
+    const door = knot ? this.doorMarker(paramString(knot, 'opens')) : undefined;
+    const first = e.members[0]?.marker;
+    if (!door || !first) return;
+    const dx = first.pos[0] - door.pos[0], dz = first.pos[2] - door.pos[2], l = Math.sqrt(dx * dx + dz * dz) || 1;
+    const x = door.pos[0] + (dx / l) * ENTRY_PACKET_IN, z = door.pos[2] + (dz / l) * ENTRY_PACKET_IN;
+    const ground = s.ctx.collision.groundHeight(x, door.pos[1] + 0.5, z, 6);
+    s.interact.spawnPickup('pk_rounds_6', x, Number.isNaN(ground) ? door.pos[1] : ground, z);
   }
   /**
    * The bell vignette's second line waits for the turn (the first state change of the fight's first member) and is
@@ -817,7 +1279,8 @@ class Director implements DirectorApi {
   private onEnemyState(id: EntityId): void {
     if (this.turnWatch === '' || id !== this.turnWatch) return;
     this.turnWatch = '';
-    if (this.turnLine !== '') this.s.story.sayFront(this.turnLine);
+    // (pass i1: about this second: over the station's line once that line has been read, not behind all of it)
+    if (this.turnLine !== '') this.s.story.sayUrgent(this.turnLine, URGENT_READ);
     this.dropTurn();
   }
   private onDown(id: EntityId, encounter: EncounterId | '', how: 'felled' | 'freed' | 'died', counted: boolean, x: number, y: number, z: number): void {
@@ -910,6 +1373,9 @@ class Director implements DirectorApi {
     if (on.objective) s.story.setObjective(on.objective);
     this.opensOnClear(e, debug);
     if (on.checkpoint) s.checkpoints.reach(on.checkpoint, true);
+    // p0: the Windlass has no checkpoint of its own death (the next is the rim, at the top of the lift): the one she
+    // holds is saved again, so a reload on the way to the lift or in it finds the Windlass dead and the gate open
+    else if (e.boss && !debug) s.checkpoints.again('dead');
     if (this.sightAfter === e.id) {
       if (debug) this.endSighting(true);
       else if (!s.flags.has('dowser_done')) this.beginSighting();
@@ -1053,6 +1519,10 @@ class Director implements DirectorApi {
         const g = this.sightWrap ?? (this.sightWrap = new THREE.Group());
         g.name = 'world_sighting';
         g.position.copy(o.position); g.scale.setScalar(1);
+        // exterior look, pass i3 (the visual reviewer: "his feet end several pixels above the mesa's top edge, so he hovers
+        // against the cloud"): the card's drawing ends 2.7 % of its height above its foot line, and a boot heel is turned
+        // up; scaled 4 to 7 times about that line the gap was a pixel or two of sky under both boots. The card stands
+        // SIGHT_SINK of its height into the rock (set every frame below): the boots overlap the skyline by a pixel
         o.position.set(0, 0, 0);
         g.add(o);
         if (g.parent !== dynamic) dynamic.add(g);
@@ -1071,6 +1541,9 @@ class Director implements DirectorApi {
     const bufferH = s.ctx.render.renderer.domElement.height || 720;
     const drawn = card.scale.y * Math.max(this.sightCardH * perMetre, this.sightCardFloor * 720 / bufferH);
     const k = Math.max(1, SIGHT_MIN_PX / Math.max(drawn, 1e-3));
+    // (pass i3) ... and SIGHT_SINK of his drawn height under the foot line, in the wrap's own metres (the card's scale and the
+    // shader's floor enlarge the drawing about the card's origin, not the card's place in the wrap)
+    card.position.y = -SIGHT_SINK * drawn / perMetre;
     if (Math.abs(g.scale.x - k) > 1e-3) g.scale.setScalar(k);
   }
   /** a far card of the renderer under `o`: its authored height and the shader's smallest size go to the fields */
@@ -1100,8 +1573,9 @@ class Director implements DirectorApi {
     } else if (this.sight === 2) {
       this.sightBeat += dt;
       if (looked) { this.sightLooked += dt; this.sightAway = 0; } else if (this.sightLooked >= SIGHT_LOOKED) this.sightAway += dt;
+      const awayFor = this.sightDoorOpen ? SIGHT_AWAY_OPEN : SIGHT_AWAY;
       // R4: he is held until she has looked AT him for a second; only then may the clock or her turning away take him
-      if (this.sightLooked >= SIGHT_LOOKED && (this.sightBeat >= paramNumber(m, 'clockSeconds', 12) || this.sightAway >= SIGHT_AWAY)) {
+      if (this.sightLooked >= SIGHT_LOOKED && (this.sightBeat >= paramNumber(m, 'clockSeconds', 12) || this.sightAway >= awayFor)) {
         this.sight = 3;
         const vig = m.params.vignette as { id?: VignetteId } | undefined;
         if (vig && vig.id) { this.vignettePayload.id = vig.id; this.vignettePayload.stage = 'ended'; s.ctx.events.emit('vignette/state', this.vignettePayload); }
@@ -1117,7 +1591,8 @@ class Director implements DirectorApi {
     if (this.sightEntered && this.sightEnter >= paramNumber(m, 'clockSeconds', 12) && !(this.sight === 2 && !s.story.finished(seenLine))) this.openSightDoor(false);
     if (this.sightDoorOpen && s.zone !== m.zone && !s.zoneHeld) {
       // she has gone in: what was being said about the rim is behind her
-      s.story.drop(seenLine); s.story.drop(gone);
+      // (pass i1: "gone", once it is on screen, is heard to its end)
+      s.story.drop(seenLine); if (s.story.current !== gone) s.story.drop(gone);
       this.endSighting(true);
       return;
     }
@@ -1166,6 +1641,16 @@ class Director implements DirectorApi {
       if (e.sched.clear) this.clear(e, false); else this.announceLast(e);
     }
     if (this.vigId !== '') { this.vigLeft -= dt; if (this.vigLeft <= 0) this.endVignette('ended'); }
+    if (this.teachIn >= 0) {
+      this.teachIn -= dt;
+      const boss = this.bossEnc, phase = s.ctx.enemies.boss.phase;
+      if (this.teachIn < 0 && boss && boss.state === 'active' && (phase === 'p1' || phase === 'p2') && s.ctx.data.story.lines[TEACH_HAUL] !== undefined) {
+        // the first retry: what the ribs are for, at once; then (if no hit had said it) what standing still costs
+        if (s.story.current === '') s.story.sayNow(TEACH_HAUL); else s.story.sayFront(TEACH_HAUL);
+        s.story.mute(TEACH_HAUL, HINT_ECHO);
+        if (!s.story.heard(TEACH_MOVE) && s.ctx.data.story.lines[TEACH_MOVE] !== undefined) s.story.sayFront(TEACH_MOVE);
+      }
+    }
     this.tickSighting(dt);
   }
 
@@ -1248,10 +1733,12 @@ class Director implements DirectorApi {
       e.sched.reset();
       for (const m of e.members) { m.state = NONE; m.id = ''; }
     }
-    for (const t of this.triggers) t.inside = false;
+    for (const t of this.triggers) { t.inside = false; t.lookT = 0; t.crossed = false; t.crossT = 0; }
+    this.heldTrig = null; this.teachIn = -1;
+    for (const l of this.nearLines) l.t = 0;
     this.sight = 0; this.sightDoorOpen = false; this.glareLeft = 0; this.vigId = ''; this.vigLeft = 0; this.turnWatch = ''; this.turnLine = ''; this.turnEnc = '';
     this.pipLeft = 0;
-    this.s.needSprint = false;
+    this.s.needSprint = false; this.endWatchGlint();
   }
   capture(save: WorldSave): void {
     for (const e of this.encs) {
@@ -1301,7 +1788,18 @@ class Director implements DirectorApi {
     // a restore at a boss checkpoint: the fight is on again from the saved phase, wherever its trigger stands
     const boss = this.bossEnc;
     if (boss && full && boss.state === 'idle' && BOSS_VALUES.includes(full.checkpoint)) this.start(boss.id);
+    // (pass i3, R2) the first retry of the Windlass is told what its ribs are for, straight after the respawn
+    if (boss && boss.state === 'active' && s.bossDeaths >= 1 && !s.story.heard(TEACH_HAUL)) this.teachIn = TEACH_AFTER;
     for (const e of this.encs) this.stationLamp(e, e.state === 'cleared');
+    // p0: a save taken with the Windlass dead (checkpoints.again) restores in the bore: the lift gate's lamp is lit again
+    if (boss && boss.state === 'cleared' && s.build.isBuilt(boss.data.zone)) {
+      for (const id of s.doors.ids()) {
+        const m = this.doorMarker(id);
+        if (!m || !(paramString(m, 'opens') || paramString(m, 'opensOn')).startsWith('boss dead')) continue;
+        const lamp = lampNode(s, id, 'gate_lamp');
+        if (lamp) s.ctx.render.lamps.setMask(lamp, 1);
+      }
+    }
   }
   /** the yard's station wakes with its fight (stn_yard_wake: "surface power: wind"): the drum's lamp */
   private stationLamp(e: Enc, on: boolean): void {
@@ -1317,6 +1815,7 @@ class Director implements DirectorApi {
       out[e.id] = { state: v.state, wave: v.wave, alive: v.alive, spawned: v.spawned, pendingWaves: e.sched.pending, freed: e.freed, felled: e.felled };
     }
     out.sight = this.sight;
+    out.watch = { glint: this.watchCard !== null, level: this.watchLevel, held: false };
     out.sightLooked = Math.round(this.sightLooked * 100) / 100;
     return out;
   }

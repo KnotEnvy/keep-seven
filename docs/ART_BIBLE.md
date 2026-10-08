@@ -186,7 +186,7 @@ Violet is under **2 % of any frame until the bore catwalk**. Outside this list i
 | Tamper | the livery band and the glow behind both vents |
 | Gallery | one hairline under the baffle door (emissive strip 2 cm × 3 m) |
 | Bore catwalk, chamber | the bore's glow; baked violet light from below; threads at relight |
-| Far rim | the Rule again, 2° lean; the faint violet band on `ia_stone_round`; the HUD seventh in state `violet` |
+| Far rim | the Rule again, 5° lean (pass i1; it was 2°); the faint violet band on `ia_stone_round`; the HUD seventh in state `violet` |
 
 After the seventh (`wrong_fade` → 1) all of these except the Rule and the stone round go
 grey (`#8A8A92`) or aqua (bands). The antechamber is **not** violet: it belongs to the
@@ -244,7 +244,7 @@ Same bake as L1. Only the grade changes.
 | Key (bake target, sun-facing white) | `#FFD09A` × 1.30 |
 | Ambient (bake target, open shade) | `#7A86D8` × 0.90. Deliberately violet-blue, **not** sky-coloured: gives mauve shadows at about 5.5:1 instead of olive mud |
 | Sky gradient | zenith `#2C5A6E`, mid band `#8FB0A0` at 25° elevation, horizon `#F3C58E`; below horizon `#C9A592`. Dithered in the shader. 5 faceted cloud cards, flat-bottomed, lit edge `#FFE0B0`, body `#B9A79C`, all in the western half |
-| The Rule | azimuth 0° (north), a hairline from behind the far mesa to past the zenith, leaning **1° toward the east**. Core `#F0DCFF` 2 px constant, halo `#B24BFF` 10 px at 25 %. No bloom dependence |
+| The Rule | azimuth 0° (north), a hairline from behind the far mesa to past the zenith, leaning **6° toward the east, 9° from the rim** (pass i2; 2.5° and 5° in pass i1 measured about 2° on screen in the gully). Core `#F0DCFF` 2 px constant, halo `#B24BFF` 10 px at 25 %. No bloom dependence |
 | Fog colour | `#EDBB86` looking toward the sun, `#C9A592` away (one dot product) |
 | Fog density | 0.0058 /m (20 % at 40 m, 50 % at 120 m, 87 % at 350 m) |
 | Height fog | base = local ground y; falloff 0.35 /m; extra 1.5 in the gully (dust below 3 m), 0.6 on the street, 0 in the yard |
@@ -252,7 +252,7 @@ Same bake as L1. Only the grade changes.
 | Dyn ambient / key | ambient `#7A86D8` × 0.55; key `#FFD09A` × 1.1 from `S`. In baked shadow volumes (marked in layout) key × 0 |
 | Practicals | none lit. Lanterns hang dark on the street (they are lit only on the rim card at the end). The sweep, the wind-pump rotor and the pylon are the moving silhouettes |
 | Emissives | Bider slits and knots; `knot_yard_latch` on a dark steel latch plate; Transit lens; `aqua`: one status lamp on the pump drum door (on the seam; the town has hung a cup under it), one on `ia_ammo_box` |
-| Atmosphere | cloud-shadow scroll (128² noise, world space, 0.6 m/s toward the south-east, multiplies baked light by 0.82–1.0); low sand streaks in the gully; heat shimmer on the horizon band (High only); sand sparkle on sun-facing sand (thresholded, High only) |
+| Atmosphere | cloud-shadow scroll (128² noise, world space, 0.6 m/s toward the south-east, multiplies baked light by 0.82–1.0); low sand streaks in the gully; heat shimmer on the horizon band (High only; as built in pass i1: within 7° of the horizon, 1.2 px, beyond 60 m); sand sparkle on sun-facing sand (thresholded, High only) |
 | Baked | sun, ambient, bounce (2 bounces), AO. Lightmap `lm_surface` on gully floor and first 3 m of walls, street ground, facades to the eave, yard ground, yard walls, drum base. Vertex light on everything above the eave, the wind-pump frame, rock above 3 m, props |
 | Dynamic | muzzle pulse (barely visible in daylight: scale to 35 %), cloud shadow, blob shadows, rotor, sweep |
 
@@ -343,7 +343,7 @@ Rules for the chamber:
 | Key (bake target) | sky dome `#A9B8E0` × 0.75, soft, from above |
 | Ambient | `#4A5A96` × 0.50 |
 | Sky | zenith `#1B2440`, mid `#5D6690`, horizon ember band `#D9967A`, narrow (6° tall), strongest at 315° and fading round to cold `#4D5578` in the east |
-| The Rule | north, **2° lean**, halo 14 px at 35 %: visibly further over than at minute one |
+| The Rule | north, **5° lean** (pass i1; it was 2°), halo 14 px at 35 %: visibly further over than at minute one |
 | The thread | aqua `#7CF2E2`, 2 px constant, dead plumb, rising from the town card. It and the Rule must be in one frame from the stone so the eye can compare plumb with leaning |
 | Fog | `#4D5578`, 0.012 /m, height extra 0.8 from the plain |
 | Display targets | lit ledge `#65656D`, shadow `#1F2233` |
@@ -463,7 +463,7 @@ materials, merged per material per 40 m chunk.
 - **`Wind` (second colour attribute, exported only on wind assets as `_WIND` or packed into
   UV1.x where the pipeline requires).** 0 = fixed, 1 = free end. Used by coats, cloth,
   the share cloth, cord ends, dry grass. If custom attributes do not survive
-  `optimize-glb`, fall back to "height above pivot" computed in the shader; the asset must
+  `optimize-glb`, fall back to "distance from the pivot" (release pass p0; it was "height above pivot", which never moved a thing that hangs) computed in the shader; the asset must
   then be authored with its pivot at the fixed end.
 - **Alpha** of COLOR_0 is not used (it may be stripped).
 - Emissive is **never** a vertex colour: it is a face mapped to an emissive cell of
@@ -1024,7 +1024,7 @@ its child.
 ### 7.5 Owner: `weapons`
 
 One GLB: **`weapon_revolver`** (`public/assets/weapons/weapon_revolver.glb`). 6 000
-triangles: gun ≤ 3 200 (`m_gun`, 1 dc), hands and arms ≤ 2 800 (`m_prop`, 1 dc). One
+triangles: gun ≤ 3 200 (`m_gun`, 1 dc), hands and arms ≤ 2 800 (`m_prop`, 1 dc). **Ruling R14 (release pass p0, 2026-10-06): the view-model has 18 000 triangles (it was 6 000), up to 3 draw calls (`m_gun`, `m_hands`, and `m_prop` where the palette still serves), and its own texture set: `tx_gun` 1024 x 512 RGBA8 and `tx_matcap_steel` as before, plus `tx_gun_detail` (1024 x 512 R8: height in `tx_gun`'s layout), `tx_hands` (512 x 512 RGBA8: albedo, A = gloss) and `tx_hands_detail` (512 x 512 R8: height). The split between gun and hands inside the 18 000 is the gun team's (a guide: gun 10 000, hands and forearms 8 000). The 31 bones, the nodes and the 15 clips are unchanged. The numbers in `design/assets.json` hold.** One
 armature, rigid skinning for gun parts, smooth skinning for arms. Design in section 8.
 
 - **Pivot:** the camera. Root at the origin; the asset is authored in camera space
@@ -1249,7 +1249,7 @@ trigger / gate / ejector 550, grip 350, six case heads 150, hand rounds 100.
 
 - Right hand holds the gun; left hand is off-screen at idle and enters for reloads, the
   line round, the kept round and the stone.
-- **Gloves:** unlined work gloves in dull, greyed leather (as built, polish round 2: `#5A5048` / `#6E6459`, OKLCH
+- **Gloves (pass i1: WHOLE gloves again, p0's fingerless cut is gone; see "Amendments, pass i1"):** unlined work gloves in dull, greyed leather (as built, polish round 2: `#5A5048` / `#6E6459`, OKLCH
   chroma ≤ 0.05, so they are never the lightest or most saturated thing in the frame; this paragraph said "pale tan"), a seam along each finger, a short
   gauntlet; palm and trigger finger worn. Slim hands, strong; not bulky. Three finger
   units on the right (thumb, index, the other three as one), four on the left.
@@ -1322,7 +1322,7 @@ decals: `dec_wood` (a dark hole with pale torn edge), `dec_adobe` (a pale crater
 | **Muzzle flash** | one `flash_*` quad at `muzzle`, 0.35 m, random of four, 33–50 ms, additive; plus the world light pulse (flame, r 7 m, 70 ms; 35 % outdoors by day) and the pooled point light on dynamic objects. Reduce Flashes: 60 % size, pulse halved | 1 quad |
 | **Powder smoke** | 4 soft `smoke` puffs drifting up-right from the muzzle, 0.7 s, grey-warm `#B9A79C` at 25 % alpha | 4 / 6 |
 | **Tracer (lead)** | a flame-white streak 3 m long, 2 px, 2 frames, from muzzle toward the hit | 1 |
-| **Ricochet tracer** | the same, reflected off plate, 6 m, with a `spark` burst of 6 and the deflected glyph | 1 + 6 |
+| **Ricochet tracer** | pass i1: a spark 0.7 m long thrown 1.6 m off the plate, leaned toward the surface's normal and to one side (it was the mirrored direction drawn 6 m: a line to the top of the frame when shot head-on), with a `spark` burst of 6 and the deflected glyph | 1 + 6 |
 | **Line round** | a dead-straight aqua line muzzle to end point, constant 3 px with a soft halo, holds 1.2 s, fades 0.3 s; small aqua `soft_dot` at each body it passes | 1 quad + ≤ 6 dots |
 | **Impact: sand** | a fan of `dust` (6), a crater puff, 0.5 s | 6 / 10 |
 | **Impact: wood** | 4 `splinter` + 1 dust + `dec_wood` | 5 / 8 |
@@ -1391,7 +1391,7 @@ Budget: 2 additive quads + the shader term. No new geometry.
 
 ### 9.4 The coda
 
-The Rule at 2°. The aqua thread from the town card (sky shader). Lit windows: `lamps`
+The Rule at 5° (pass i1). The aqua thread from the town card (sky shader). Lit windows: `lamps`
 flame quads with a 2 px halo each, lighting one by one over 3 s on arrival. The last
 fire: one flame sprite ≥ 4 px, flickering, kindling from nothing over 1.5 s, with a
 1 px smoke thread on High.
@@ -1901,8 +1901,9 @@ key is 0: the gun stood grey-white in the orange room). L3 `vmK` 1.08 (0.95). L5
   The pylon stump on the ledge is x 0.32 (it was the lightest thing on the ledge, L* 65).
 - The far country within 60 degrees of south of the rim is not drawn (it stands behind the mesa from anywhere on the
   ledge). `env_backdrop_dusk` 1 965 of 2 000 triangles, `env_far_rim` 8 316 of 14 000.
-- **Open:** `ia_proving_lift_cage` and `ia_lift_cage` have single-sided panels: from inside a cage she looks through
-  its walls and roof.
+- **Corrected in release pass p0:** the proving lift's panels are NOT see-through from inside. What covered them was the
+  rim zone's own shaft box standing at the cage's envelope; the shaft now stands 0.4 to 0.9 m clear and the lattice is
+  seen from inside. The lattice and roof are still lit from their outer side only (near black from inside).
 
 ### Underground
 
@@ -1937,3 +1938,309 @@ Title: with a save, Go on is the chosen item and names its count; Begin over a s
 mark is not drawn under it; the pause column is capped at 47 % and wraps; under 700 px wide or 420 px tall the side
 column starts at 8 %. End card: under 900 px wide the ledger labels are tracked 0.03 em and do not wrap; no checkpoint
 numeral behind it. A movement card is shown once a run and gives way to a fight (1.0 s + 0.3 s).
+
+## Amendments, release pass p0 (closer, 2026-10-07): the look as released (lead rulings R6, R7, R9, R13, R14, R15)
+
+Where a line below differs from a section above, this one holds. Evidence: `shots/p0/hero_01..12.png`, `hero_sheet.jpg`
+(the real game, High, 1280 x 720, taken after the last rebuild) and each look team's `shots/p0-team-*/`.
+
+**8.1 to 8.3 The revolver and the hands (R6, R13, R14).**
+- Budget: 18 000 triangles, 3 draw calls, five textures (`tx_gun`, `tx_gun_detail`, `tx_hands`, `tx_hands_detail`,
+  `tx_matcap_steel`). Built: `gun_mesh` 5 561 + `arms_mesh` 6 576 = **12 137 triangles**, 392 kB.
+- Steel: the frame, gate and hammer are colour-case-hardened (slate and tobacco clouds in the blue); the blued parts are
+  thinned to plum-grey in patches; ragged edge wear, fine scratches, pits. The height map carries the grip frame's
+  seams, a milled panel on each flank, counterbores and slots of the screws, bolt notches. Still no engraving, motif
+  or logo. "No noise, no grunge" of the weapons order is superseded by R6 ("not a smooth casting").
+- Hands: **fingerless gloves** (the last two joints of every finger and the thumb's tip are skin, with nails and
+  creases drawn), a web between thumb and forefinger, stitched side seams, worn knuckles, a rolled hem at each cut
+  finger, a bound gauntlet edge, oilcloth sleeve with a horn button. Own material `m_hands`, lit per pixel by the
+  view-model's rig. "Gauntleted full gloves" is superseded.
+- Idle placement: `VIEW_PLACE` (-0.006, 0.024, 0; pitch -8, yaw 7.5, roll -13). Gun and hand 11.6 to 11.9 % of a 16:9
+  frame; the muzzle 13.6 % of the frame height from the crosshair. `VM_HANDS` 0.96.
+- Mood table, view-model column: `L5a` (antechamber) ambient `#5e4c3c`, key `#ffa462`; `L5c` (catwalk, cage, stair)
+  ambient `#3c5560`, key `#9adfd2`; `L6` ambient `#485470`, `vmAmbK` 0.84, `vmK` 1.32; `L3` `vmK` 1.14.
+- Under the end card the view-model is let down out of the frame.
+
+**1 / 3 The first image, and the title (R7, R15).** A shaft of sun stands in the air under the overhang, from the roof's
+notch to the sun patch on the sand, with motes riding in it (two cards on Low, a third and more motes on High). It is in
+the title shot too. After "Quit to title" the title is in the opening mood again.
+
+**3.6 The antechamber.** Embers: the light 0.8 m over the fire, 0.8 at 1.5 m, reach 5.5 m, bounce 0.17 (it clipped to a
+mustard wall at 1.3 / 6.5 m / 0.24). Four concrete beams across the lid on pilasters 0.22 m proud of the west and east
+walls, a corbel over the stair's door. The station plate is the stained glaze, so its numeral reads. `L5a` saturation
+0.92 (11.1). The stair down to it has a pale worn nosing on every tread and a third aqua lamp half way down its lower
+flight.
+
+**The lift hall.** The switchgear cabinet at the foot of the gantry ramp carries its livery band round all four sides
+and a door seam, two louvre blocks and a kick strip on the three faces that had nothing (it read as an orange box from
+the ramp).
+
+**The coda.** The proving lift arrives in the head of a shaft cut in the mesa's beds, with a frontier timber set (posts,
+caps, braces, lagging), the hoist's sheave, rope and bail; the cage's lattice is seen from inside. `env_far_rim` 11 374
+of 14 000 triangles. The last fire's glow is 16.5 flame sizes wide and never under 180 px (it was 11 and 120).
+
+**7 Asset rows.** `prop_coat_hung`: thin smooth-shaded sheets with notched lapels and a lapped front; the shawl is two
+gathered ends hung side by side over the peg (not "three-cornered, thrown across the front"); folds are painted into
+the vertex colours. **Hung things sway now** (the wind weight is the distance from the pivot). The one coat meant to
+hang dead still sways with the rest (open). `ia_line_locker`: the niche is an enamel-lined light box with the aqua
+strip on its back wall over the round, louvre slots and a service seam on each flank; upright faces lean their shading
+normals up 29 degrees so a top key lights them (`ia_ammo_box` 19 degrees).
+
+**9 / 11 High (R9).** Outdoors by day High adds sun shafts to its one merged pass (contact shade, shafts, bloom, grade)
+and a firmer contact shade under a sky (`AO_SKY` 0.75). The contact shade everywhere is a ramp from the contact outward
+(`AO_TAP` 0.55, exponential shoulder, `AO_INTENSITY` 15), not a hard blot.
+
+**10 UI.** The movement card stands 12 % from the top (it was 27 %, on the crosshair's band) with an ink halo round its
+letters and a soft ink ground (the one exception to "no shadows beyond a 1 px ink outline"); it fades on the game clock.
+The end card's panel is ink at 88 %, never taller than the window, laid out down to 360 x 240, with ten rows ("Times
+she went down" second). The title's words rise in 0.7 s with the picture after a load. Before the script has arrived
+the page shows a brass hairline on ink.
+
+**Still open (see `docs/KNOWN_ISSUES.md`):** the gun is the lightest large shape at the dusk rim and pale in the Tally
+House; the steel reads pale grey rather than dark blue in most rooms; bare fingers are smooth cylinders; the proving
+lift's lattice and roof are near black from inside and its call station blooms on High; `ia_ammo_box` is a dark block
+in the antechamber; High equals Low with the sun behind her; nothing of High has been seen on a real GPU.
+
+## Amendments, pass i1 (closer, 2026-10-07): the look as built toward release (lead rulings R6, R7, R9, R13, R14, R15)
+
+Where a line below differs from a section above, this one holds. Evidence: `shots/i1/hero_01..12.png`, `hero_sheet.jpg`
+(the real game, High, 1280 x 720, taken after the last rebuild) and each look team's `shots/i1-team-*/`.
+
+**3 The Rule.** 2.5° in the opening, 5° on the rim (it was 1° and 2°); the rim's wider halo starts at 3.5°.
+
+**3 / 7.2 The exterior.**
+- The gully's walls have two more beds at eye level (soft beds retreating under hard lips, lightmapped). Mid-scale
+  dressing without colliders: scree fans, slabs on edge, dead scrub, four dead trees out of the walls' feet, bedrock
+  plates and loose stones along a dry wash (nothing over 0.33 m on the open floor), a line pylon's ceramic cross-arm
+  with insulators and cable, the wreck of a cart. `env_the_lip` 22 684 of 24 000 triangles.
+- What wheels, feet and wind left is painted into `lm_surface` after the bake (no triangle, texture or draw call): a
+  dry wash, the cart's ruts, one line of boot prints from the overhang to the gate, wind streaks, a dark foot and a
+  pale drift line along every wall; in the yard the packed middle, ruts to the water cart, the trodden line to the
+  Tally House, damp under the tank and at the trough.
+- The yard: four low drifts, scrub in the two wall feet clear of every nav link, a dead cottonwood in the south-west
+  corner, a cart wheel against the south wall, the bricks out of the west wall's gap. `env_plenty_street` 47 890 of 50 000.
+- `prop_water_cart`, `prop_wagon_tipped`: round wheels (a rim of 18 or 20 segments in six felloes, an iron tyre,
+  tapered spokes, a turned nave); they were 10- and 12-sided.
+- The last image: the fins of the mesa's foot hold the afterglow (`#A2605E`), the ridges are lit along their backs.
+  **The last fire is a flame**: three tongues, deep orange edges, a pale-yellow heart, never under 92 px tall, six
+  puffs of warm smoke, two pools of light on the plain, five sparks (18 quads of the one batch).
+
+**3.2 / 10 / 11.1 High against Low (R9).** None of these adds a pass, a target, a texture or a program linked in play.
+- *Air light*: lamps glow in the air between themselves and the eye (up to 12 lamps a frame). `AIR` by mood: L2 1.0,
+  L3 1.0, L4 1.5, L5 1.5, L5a 2.2, L5c 1.8, L5p 1.2, L6 0.8. The layout's fires: level 1.2, reach 3.5 m; the bore's
+  violet well 1.6 / 7 m.
+- *The one shadow map in every zone*: the sun's outdoors; in a room a light overhead, 26 m square. Walls receive.
+  In a room only creatures, projectiles and loose instanced things cast.
+- *Relief* on sunlit lightmapped surfaces (L0 2.4, L1 3.6) and *sand sparkle* out to 16 m.
+- *Heat shimmer*: within 7° of the horizon, 1.2 px, beyond 60 m; off with Reduce Motion.
+- *The sun's veil and dust in the light* outdoors: glow in the air on the sun's side 5 to 28 m in, gone by 130 m;
+  half of High's ambient points are gold motes from knee height to 3.5 m.
+- *Bloom by mood*: L2 0.62 / 0.40 / 0.9 (it had none of its own), L5a 0.62 / 0.40 / 1.0.
+- *Contact shade*: `AO_THIN` 0.028 m (a plate a finger proud shades nothing), `AO_INTENSITY` 20, `AO_LIT` 0.8 between
+  display levels 0.25 and 0.70.
+- Still true: with the sun behind her, outdoors, a static High frame is nearly Low's (every outdoor shadow is baked on both tiers).
+
+**3.2 / 11.1 Mood L2 (the Tally House), dynamic ambient.** `#CB9587` x 0.118 (it was `#4A3A44` x 0.35, a cold mauve
+in a lamp-orange room); the key stays 0 outside a blade, its direction is overhead `[0.16, 1, 0.10]`.
+View-model rigs: L1 `vmAmb #7C98A8`, L0 `vmAmb #8A6A5C`, L3 `vmK` 1.24, L5 1.38, L5c 1.3, L6 `vmAmbK` 1.0 / `vmK` 1.4.
+
+**3.3 The Tally House.** An ox-blood dado under the chair rail, smoke over 2.6 m; a peg rail with dippers, measures and
+a folded cloth; the watch slate by the door; two shelves of bottles; a carrying yoke. Chalk decals take half the room's
+ambient unoccluded (`CHALK_AMBIENT` 0.5): the tally wall's rows read across the whole wall. 16 903 of 17 000 triangles.
+The watcher's niche on the peg stair has a sodium pilot lamp and its baked wash. The bore's catwalk has a knee rail at
+0.5 m in the viewing bay.
+
+**4.3 / 5.6 `tx_mask`.** Region `rivets` appended at (640, 192, 256, 16): sixteen heads in a row, laid 16 : 1.
+
+**7.6 The static Biders.** A hood, not a ball: `build_hood_lo` (brow, slit hollows, the push of the nose, the fall
+under the chin; cloth hanging straight to the cord; the felled seam as a proud band; a scalloped cape). `bider_table_static`
+592 / 600 (10-sided hood, a thumb on each mitten), `bider_seated_static` 496 / 500, `bider_felled_static` 448 / 450 (no
+decimation). **UV1.y on `bider_table_static` is the head's weight**: the instanced breath shader turns, bows and tips
+each of the nine heads about its neck by angles hashed from its seat (up to 24° aside, 4° back to 15° down, 8° over a
+shoulder). UV1.y is 0 on `bider_seated_static`. The nine seats are yawed -8° to +8° off square in the layout.
+
+**7 `ia_proving_lift_cage`, `ia_lift_cage`.** The proving cage stands inside its shaft (grille walls 3 cm inside the
+4 x 4 interior). Both interiors: an enamel wainscot of riveted panels to the livery band, mesh above, a steel handrail,
+a station board (numeral 4, `LIFT STATION 4`), a brass maker's plate, a strip lamp in the roof (faces of the one
+`gate_lamp`), a grating strip in the floor. 658 / 700 and 826 / 900 triangles, 3 draw calls each.
+
+**8.1 The revolver (supersedes round 4's "hump-backed frame, low spur").** A single action's rear: behind the cylinder
+window the frame falls to the back strap; the cocked hammer stands 8 to 17 mm proud as one horn, its spur a low pad with
+five ribs; the recoil shield's left lobe is a turned disc with a chamfer. Blue-black steel (the darkest colour of the
+gun), worn-bright edges, holster rub on the barrel's sides, the cylinder's lands, the shield, the top strap and the
+guard; case colours with a satin gloss; oiled red-brown walnut. The steel mirrors a studio of three things: a ground in
+the mood's key hue, a dim sky in the ambient's, a thin hot band of the key on the horizon; worn steel mirrors more than
+blued. `gun_mesh` + `arms_mesh` **11 597 of 18 000 triangles**, 3 draw calls.
+
+**8.2 The hands (supersedes p0's "fingerless").** Whole gloves, stitched seams, joint wrinkles and worn pads to the
+fingertips. The gun hand's thumb is 28 + 25 mm from knuckle to tip; the middle, ring and little finger wrap on to the
+left grip panel.
+
+**8.3 Placement.** `VIEW_PLACE` x -0.004, y 0.022, z 0.010, pitch -8, yaw 9.5, roll -13. At 720p: the muzzle 70 px
+right and 60 px below the crosshair (12.8 % of the height), the view-model 11.0 to 11.6 % of the frame on Low (11.5 to
+13.3 High). `VIEW_PLACE_TUCK`: inside the antechamber, facing the dial, the idle gun eases 3.4 cm down and 4° muzzle-down
+(7.5 % of the frame there).
+
+**10 UI.** Hints at the top of the talk column (88 % of the height when nothing is said). Low health: the three bars
+breathe a pale outline (1.3 s) and the frame's edge is inked in at 66 %, no red. The readable sheet shows a key cap
+before NEXT and CLOSE. Options: scrim ink at 86 %, no text under 12 px at 720p. The end card shows the feat's row only
+when it was done, and its items are "Walk it again", "The rim again", "Title". Loading is the title arriving: the name
+and the mark in the title's place from the first paint (`index.html #preload`), a 2 px line of at least 180 px with a
+glint every 1.5 s. The HUD mark scales down below 600 px of window height (0.72 at the least).
+
+**Still not as wished** (also in `docs/KNOWN_ISSUES.md`): the idle hand is large simple forms close to the eye; the
+forecourt of the lip gate is the plainest exterior; the yard's drum has no rivets or stain band at player height; the
+hung coats are smooth but plain; instanced figures do not follow a room's changing light.
+
+## Amendments, pass i2 (closer, 2026-10-07): the look as built toward release (lead rulings R6, R7, R9, R13, R14, R15)
+
+Where a line below differs from a section above (the pass i1 amendments included), this one holds. Evidence:
+`shots/i2/hero_01..12.png`, `hero_sheet.jpg` (the real game, High, 1280 x 720, taken after the last rebuild) and each
+look team's `shots/i2-team-*/`.
+
+**3 The Rule.** 6° in the opening, 9° on the rim (2.5° and 5°); on screen 5.9° and 8.6°; the rim's wider halo starts
+at 7.5°.
+
+**3 The sky.** Clouds are drawn by the sky: long soft bars on a deck overhead, cut from the shared noise (two taps on
+sky pixels; no texture, pass or draw call), their thin edges lit by the sun or by the afterglow (`sky.ts` `CLOUD_DAY`
+0.50, `CLOUD_DUSK` 0.54). The five faceted cloud cards are no longer built (`env_backdrop_day` 1 539 of 2 000).
+
+**3 / 8.3 The view-model's rig.** In a mood without a sky the rim light takes the hue of the view-model's key (`VM_COOL`
+only under a sky or when `vmRim` is set); optional `vmAmbSat` / `vmKeySat`. L2 (the Tally House): `vmK` 0.764, `vmAmbK`
+0.72, `vmAmb` #784D3A at 0.7, `vmKey` #FFAA66 at 0.8: the gun stands at the room's level (mean L* 25 over a room of 24)
+and warm (R / B 2.3). `tests/render/moods.spec.ts` holds L2's on-screen floors at 0.5 x `VM_AMB` and 0.75 x `VM_KEY`
+(0.85 elsewhere); `tests/art_weapons/i2_real.test.mjs` holds the picture.
+
+**6.1 / 7.6 The townspeople's cloth is painted.** `tx_palette` is no longer cells only (2.1, 4.2): rows 6 to 15
+(y 96..255) are a cloth atlas, append-only like the cells: `hood` (0, 96, 256, 80), `coat` (0, 176, 160, 80), `sleeve`
+(160, 176, 48, 80), `weave` (208, 176, 48, 80) (`blender/tex/cloth_atlas.py`). **4.4 `m_prop`: UV0 is a cell centre OR
+a point in a cloth region**; the part's colour stays in COLOR_0, divided by the region's base colour. Every Bider wears
+it (hood, cape, coat, sleeves); the skinned Bider's mittens have a thumb. Still no face is drawn: the hood carries two
+knife-cut slits and a faint breath stain.
+- `bider_table_static` (600 / 600): two corners of the bag at the ends of the crown seam (a sack, not an egg), a
+  rounder cape with its hem turned under; each of the nine leans its trunk and bows its head its own way (hashed from
+  its seat: up to 7.5° to a side, 3° back to 10° forward, the head 5° back to 24° down).
+- `prop_hat_hung` (48 / 50): closed underneath, an eight-sided brim. `prop_coat_hung` (268 / 270): the Biders' `coat`
+  cloth true to scale, the shawl on `weave`, baked occlusion 0.6.
+- The watcher is tinted by its niche's lamp (`src/enemies/vignettes.ts` `WATCHER_LAMP`): brown coat, pale wraps, a
+  warm hood in front of the orange-lit wall.
+
+**6.5 The sighted man** is about 56 px tall at 720p (28).
+
+**7.2 The exterior.**
+- **Weathering is painted into the lightmap after the bake** (`blender/env_exterior/wall_paint.py`; no triangle,
+  texture or draw call): adobe has broad plaster tones, an eroded foot, fallen patches showing brick courses, hairline
+  cracks, rain streaks, a damp foot and the pale line of blown sand; the gully's lower walls (to 3 m) have warm and
+  cool fields, thin beds, varnish streaks and joints; the yard's drum has plate laps with rivet rows, a rust skirt to
+  knee height, weeps and one mineral streak under the tap; boards have damp feet. A new lightmapped wall chart is
+  weathered only when its name matches a pattern at the top of that file.
+- Stop one's shelf is leached and dusty, sand over its rim; still swept: **no hearth and no ash** (section 3.6 stands).
+- The forecourt: what is left of a stock fence along the east rock's foot (six posts, one rail up, one hanging, one on
+  the sand; 84 triangles). The third reach: a length of Old-World ceramic main with its livery collar, wall to wall,
+  crown 0.12 m over the floor (128 triangles, no collider). `env_the_lip` 22 896 of 24 000.
+- The ruin's front walls run into the door frame's posts. `env_plenty_street` 48 033 of 50 000.
+
+**11 `tx_frontier_trim`.** The `strata` row's beds are ±0.13 of the sheet (±0.05) with varnish streaks under every
+bedding plane and two pale seams; the `adobe` row's trowel sweep and broad tone are half as strong again. Regions
+unchanged; used indoors too.
+
+**The coda.** The last fire is small and far: a steady flame of about 18 px (it breathes by a tenth), a tight bloom of
+52 px and a wide dim one of 130, a long thin pool of light on the flat, a hairline of smoke eight flames tall, no
+sparks (`vfx.ts` `FIRE_PX`). The eased last view rests 7° above the fire on its bearing: the land's edge at 62 % of the
+frame's height, the fire on the frame's middle line. The town card's dead pylon stands at game (-7.7, 61), left of the
+Rule and in line with the fire from no place on the ledge. The afterglow has shafts on High (`SHAFT_DUSK` 0.6).
+
+**7.3 Underground.**
+- The catwalk's viewing bay has no rail below the head rail (kick plate 80 mm).
+- The bore's kerb is a machined casting: 2.5° segments, smooth-shaded, a 50 mm chamfer on every arris of notch and
+  merlon, a dark steel inlay in each top, a steel band with a bolt circle, two bolted inspection plates on each
+  merlon's outer face. A 44 mm seam in every inlay belongs to the lamp set `bore_glow`: violet while the bore is
+  wrong, aqua behind the seventh's ring. `env_the_bore` 38 049 of 40 000 (`chunk_bo_chamber` 31 444 of 32 000).
+- The lift-head diagram's seventh (hall and antechamber) is a dead signal lamp: a steel bezel with a bolt circle, a
+  pale reflector with eight spokes, a dark lens, hung on a conduit with two saddle clamps. The six lit lamps are round
+  twelve-sided lenses in thin bezels. `env_lift_hall` 25 450 of 30 000.
+
+**9.3 The seventh (budget changed).** "Budget: 2 additive quads + the shader term" becomes **up to 18 additive quads
+for 2.4 s + the shader term**. New step between 4 and 5: inside the standing line's flare four ticked rings of aqua
+light leave the pit 0.28 s apart and climb the line to the vault (1.5 s each), and twelve threads of light are drawn
+up the shaft's wall 0.045 s apart (1.0 s to rise, gone at 1.8 s), each with a bright head. Nothing after 2.35 s.
+Reduce Flashes shows none of it. In step 4 the kerb's seams turn with the bore's light, notches first.
+
+**8.1 The Assize six.** The hammer's spur is one low thumb-piece 8.6 mm wide that rolls up at its end, chequered in the
+texture only (the five ribs of geometry are gone). The ejector housing has one domed retaining screw near the breech.
+The steel's wear is a soft breakup on a lattice turned out of the gun's axes (the row of lit dashes under the barrel is
+gone); edges that look down keep their blue; seam and panel lines are whole; filing marks 0.85 mm apart, none on the
+hammer; nothing is worn inside the cylinder window. `weapon_revolver` 11 697 of 18 000 triangles, 3 draw calls.
+
+**8.2 The right hand at rest.** 12 mm higher and 2 mm back (middle knuckle at gun (27, -106, -51)); the forefinger's
+pad lies on the trigger, three fingers lie on the left panel, the thumb comes down across the panel toward the middle
+finger; fingertips taper to a longer, flatter end; the thumb's root starts small inside the palm.
+
+**8.3 View-model camera.** `VIEW_PLACE` (-0.004, 0.030, 0.004; pitch -11, yaw 9.5, roll -13): the muzzle 96 px from the
+crosshair at 720p (13.3 % of the height), the view-model 12.8 % of the frame. The tuck at the asking: 9.6 cm down,
+2.8 cm right, 8°.
+
+**10 Screens.**
+- The mark on the title, the loading screen and `index.html #preload` is 36 x 56 px of 1080 (34 x 52 floor); one italic
+  serif line stands under it while loading.
+- 10.3: the proving prompt is bone capitals on the subtitle's ink backing (62 %), its key in a cap filled with the
+  proving aqua (ink letter). The word "LINE" (aqua, 9.5 mark units) names the line rounds' dot for 6 s.
+- The objective in play: the pause screen's brass label over the line in the serif at 22 px of 1080 (14 px floor) on a
+  soft ink ground, top left under the checkpoint numeral, 5 s.
+
+**11.1 High.** Outdoors within about 19 to 25 m the bake's shade is drawn 0.45 x 0.55 darker and cooler
+(`SHADOW_SUN`; under the overhang `SHADOW_ROOF.shade` is 0: the first image is not deepened); the town's fixed world
+casts into the sun's map; the detail texture, read as a height, takes the sky's light in shade and the lamps' in a
+room (`RELIEF_SKY`). The art bible's shade targets are Low's; on High the near shade is deeper by design.
+
+**Still not as wished** (also in `docs/KNOWN_ISSUES.md`): the Tally House gun is an even bronze-toned steel rather
+than dark blue with a narrow orange band; the gripping fingers are seen end-on at idle; rock above 3 m is a few large
+facets; the forecourt's sand is wide and plain; the seated figures and the hung coats show their polygon count inside
+about 0.7 m; the lift hall from the gantry is the weakest High-against-Low view.
+
+## Amendments, pass i3 (cross-cutting fixer, 2026-10-07): budgets and rulings that open the pass (lead rulings R7, R14)
+
+Where a line below differs from a section above, this one holds. The pass's look teams work after this; what they
+build is recorded by the closer. The moves were made through `tools/gen_assets.mjs`; the ledger is in
+`docs/INTEGRATION_REPORT.md` O.2 and the chunk and cell tables are ARCHITECTURE 7.5.
+
+| Row | Was | Now |
+|---|---|---|
+| 7 `prop_coat_hung` | 90 triangles each of three variants (270) | **200 each (600)**: a collar stand, cuffs, a hem with thickness, a modelled back. The gallery's dressing allowance is 8 500 triangles (was 6 000): its 28 coats, 24 hats and 15 pairs of boots come to 8 150 |
+| 7 `bider_table_static` | 600 | **900** (nine instances): the legs, the lap and the coat's back |
+| 6.1 `enemy_bider` | 2 500 | **2 600**: the crown knot is the thing the player aims at all game; it is built as a knot (smooth-shaded cord or bound glass with an inner glow), not a flat-shaded gem. `bider_seated_static` (500) and `bider_felled_static` (450) keep their budgets: the same knot at their distance, smooth-shaded |
+| 3 / 7.2 the lip | `chunk_lip_upper` 7 000, `chunk_lip_mid` 4 000, `chunk_lip_gate` 5 000 | **8 500, 6 000, 6 500**: the walk down the gully and the forecourt are the first minute; something every ten metres (broken rock at the wall feet, scree, a wreck or bones, mid-ground silhouettes). `chunk_lip_rock` stays 8 000 |
+| 3 / 7.2 the street | `chunk_st_east` 14 000, `chunk_st_west` 16 000, `chunk_st_yard` 13 000, `chunk_st_works` 7 000, `env_backdrop_day` 2 000 | **13 400, 15 700, 12 700, 6 400, 1 700**: each is still above its built mesh (13 085, 15 437, 12 624, 6 317, 1 539); the slack paid for the lip |
+| the coda | `chunk_rim_ledge` 14 000, `rim_town_card` 600 | **16 000, 1 200**: the last image (the town, its lamps, the fire) |
+| 7.3 underground | `chunk_gl_stair` 4 000, `chunk_gl_bay` 4 000, `chunk_lh_hall` 30 000, `chunk_bo_ante` 8 000, `chunk_bo_chamber` 32 000 | **3 200, 3 200, 28 500, 6 500, 33 500**: the boss room gained 1 500; the stair, bay and hall are still above their built meshes (2 868, 2 818, 25 380) |
+| 3.6 stop one | a swept patch of floor, a flat stone, his coffee pot, the note | the same, and **his blanket, folded or rolled, with folds and a soft contact shadow**, may take the place of the flat patch of colour. No fire, no ash, no ring of stones (GDD 23.16) |
+| 8 the view-model | 18 000 triangles, 3 draw calls, five textures | **unchanged**: 11 697 built, 6 303 left for the idle hand's fingers |
+
+## Amendments, pass i3 (closer, 2026-10-07): the look as built by the pass's teams (lead rulings R6, R7, R9, R13, R14)
+
+Mirrored from the "pass i3" sections of `docs/requests/gun.md`, `exterior-look.md`, `underground-look.md`,
+`creatures-props.md`, `render-tech.md` and `ui.md`. Where a row differs from an earlier section, the row holds.
+
+| Section | Was | Is |
+|---|---|---|
+| 2.1 / 4.2 / 4.4 the palette | an `m_prop` UV0 is a cell centre or a point in a cloth region; `tx_palette_emis` black except eight cells | ... **or a point in a knot region**: columns 10 to 15 of rows 2 to 5 of both sheets hold `knot` 64 x 64 at (160, 32), `knot_dead` 32 x 32 at (224, 32), `cord` 32 x 16 at (224, 64), `cord_dead` 32 x 16 at (224, 80) (`blender/tex/knot_atlas.py`). The emissive sheet holds the light in the glass. Append-only: never name a cell past column 9 in rows 2 to 5 |
+| 3 the sky | no stars | **the first stars of the blue hour** where the sky has gone dark (one cell in thirteen on High, twinkling a little; the brighter two in five of those on Low); nothing by day |
+| 3 the gully's light | every reach one even shade | **three shafts of the low sun** rake across the floor of the first three reaches (baked: both tiers); on High each is a shaft in the air, seen from 44 to 62 m, gone while she stands in it |
+| 3 High outdoors | `VEIL_K` 0.85 on everything; `SHADOW_SUN` k 0.55, shade 0.45; sparkle on any bright sand | `VEIL_K` **0.70** and a dark thing takes 0.30 of it (shade keeps its depth); k **0.60**, shade **0.40**; the sand sparkles only where the baked light is the sun's, in a warm white; `GLANCE` L6 / L6c 2.1; L6 `bloomK` 1.15 |
+| 3 mood table, view-model column | L6 `vmAmbK` 1.0 | **0.9**: the steel at dusk is blue-grey, L* 22, the afterglow only on the muzzle and the strap |
+| 3.4 mood L3 | dynamic things lit from above only | **a teal fill on the upright faces of non-instanced dynamic things** (`rim 0x7cf2e2`, `rimK 0.5`). The peg stair's strips: 0.5 on the low pegs, reach 6 m (were 0.9, 9 m): three pools in dim concrete |
+| 3.6 stop one | a swept shelf | **his blanket**: dark wool folded once, 1.5 x 0.92 m, pale and rust end stripes, one end rolled, a soft painted contact shadow; 260 triangles |
+| 6, 6.1, 7.6 the townspeople's knot | faceted lobes on flat emissive cells | **bound glass**: a clouded bead with a near-white heart 41 % of the knot across, violet round it, lashed by three hand-tied cords in a grommet of two turns of twisted cord, smooth-shaded; `enemy_bider` 2 527 of 2 600 triangles, `bider_table_static` 778 of 900, the seated and felled statics 492 of 500 and 444 of 450 (lashings painted, no light). **The faceted lobes of `blender/lib/knot.py` remain the knot of machines and latches** |
+| 7.2 the gully and the walls | scree, slabs, trees, a cart, a main | the dressing of LEVEL 18; `wall_paint.GAIN` 1.3 to 1.5 (weather on adobe, rock, the tank; the rock has a damp base band and a silt line; the drum's rivet rows and plate laps are drawn); `plug_door_tally` is a recess |
+| 7.3 the kerb | 50 mm chamfers, a 44 mm seam in a 100 mm inlay | **90 mm rounds** in three smooth steps, an **80 mm** seam with a 16 mm feather in a **220 mm** inlay; the hazard diagonals stop inside the rounds |
+| row `prop_coat_hung` | paper-thin fronts | closed bodies with a back, flanks, a rolled collar, six-sided sleeves; 184 / 184 / 180 triangles (548 of 600) |
+| row `prop_sighting_loop` | a hoop on a stem | an instrument stand: ceramic pedestal with a hazard collar, steel post, forked cradle; ring of 14 sides; 220 of 220 |
+| 8.1 the steel's wear | every edge bright, the muzzle's last 30 mm bare | long edges keep a third to a half of their wear (no dashed bright line on the top strap or under the barrel); the muzzle is thinned blue with only the crown's last 2 mm bright; cylinder lands 0.10, rub 0.36; the blue x 0.60 |
+| 8.2 the right hand at rest | knuckles at the rear of the right panel: fingertips only | seated as a hand holds a grip: knuckles 16 mm further forward, the first joints across the front strap, three fingers' middle and end joints on the left panel, the forefinger hooked through the guard, a thumb that breaks at its joint. The glove: knuckles 1.9 mm proud, joint ring x 1.06, pad x 0.93, tips 0.56; the web's ends lie inside the thumb and first knuckle |
+| 8.3 the view-model's place | 12.8 %, muzzle 96 px from the crosshair | section 23.17 of the GDD; **the last image has no revolver in it** (let down as the fire catches) |
+| 8.3 one identity | the steel took each room's hue whole (tan, pink, copper on the stair) | the steel's body takes a tenth of the room's ambient hue and a quarter of its key's, cooled; highlights, gloves and walnut follow the room. On the peg stair's first flight the view-model takes L3's rig |
+| 8.4 the rounds in the hands | 12 mm | the three rounds in the left hand, the kept round, its band and its loop are **9 mm** (0.75 of their girth); world props and pickups stay 12 mm |
+| 9.3 the seventh shot | a column and a light change | section 23.17 of the GDD (17 of 18 quads; one camera knock) |
+| 9.8 the last image | 7 degrees over the fire, `FIRE_PX` 30 | **12 degrees**; `FIRE_PX` **38**, glows 150 / 60 px, one soft leaning column of smoke |
+| 10 the UI | no image | **exactly one**: the share picture behind the pre-boot page and the loading screen, dim and out of focus (`blur(1.3vh) brightness(0.42) saturate(0.9)`; `ui.css .load-bg` and `index.html #preload .bg` must stay equal); the picture's printed name must stay in its top fifth |
+| 11.1 High underground | `SHEEN` L4 2.2; `AIR` L3 1.0, L4 1.5 | `SHEEN` L4 **3.0**; `AIR` L3 **1.4**, L4 **2.2**; `AIR_CONE` L3 6, L4 8, L5 4, L5a 3, L5c 4, L5p 4; **`AIR_DUST`** (L3 0.7, L4 0.8, L5 0.6, L5c 0.7, L5p 0.8): 400 pale motes round the eye |

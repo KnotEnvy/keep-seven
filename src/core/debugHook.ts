@@ -12,6 +12,7 @@ import type { CoreInternals } from './context.ts';
 import { getLoop } from './loop.ts';
 import type { Loop } from './loop.ts';
 import storyJson from '../../design/story.json';
+import { showBootLine } from './dataFile.ts';
 import { RAD2DEG, firstNonFinite, fnv1a, nonFiniteCount, roundDeep, yawOf } from './math.ts';
 
 const PUZZLES: readonly PuzzleId[] = ['seven_jugs', 'daylight', 'proving_line', 'the_asking'];
@@ -155,9 +156,45 @@ class DebugHookImpl implements DebugHook {
       }
     }
     this.ran = i;
-    if (render) this.loop.renderFrame(FIXED_DT, 1, true);
+    if (render) this.draw();
     return this.result();
   }
+  /** drawn frames since the last pacing turn, and the totals `ext.core.paced()` reports */
+  private drawnDue = 0;
+  readonly pacing = { frames: 0, yields: 0, every: 8 };
+  /** One drawn frame asked for by a script (step / stepAsync / perfRun with drawing): counted for `pace`. */
+  private draw(): void {
+    this.loop.renderFrame(FIXED_DT, 1, true);
+    this.pacing.frames++;
+    this.drawnDue++;
+  }
+  /**
+   * Pacing of scripted drawing (release pass p0). A script that draws from one unbroken chain of microtasks submits
+   * frames faster than a software rasteriser draws them, and what a drawn frame leaves behind in the browser is only
+   * released when the page returns to its event loop: a High-tier tour reached 4.3 GiB of renderer memory with a flat
+   * JS heap and was killed. Every `pacing.every` drawn frames the next asynchronous step first WAITS FOR THE
+   * RASTERISER (a one-pixel read of the drawing buffer: gl.finish() does not block in Chromium) and gives the event
+   * loop one turn. No tick, input or event moves: the simulation cannot see it. Synchronous `step(n, true)` cannot
+   * yield; its frames are counted and paid for by the next stepAsync / untilAsync / idle.
+   */
+  private async pace(): Promise<void> {
+    if (this.drawnDue < this.pacing.every) return;
+    this.drawnDue = 0;
+    this.pacing.yields++;
+    try {
+      const canvas = this.core.canvas as HTMLCanvasElement | undefined;
+      const gl = canvas && typeof canvas.getContext === 'function' ? canvas.getContext('webgl2') : null;
+      if (gl && !gl.isContextLost()) {
+        // the renderer caches its framebuffer bindings: read from the drawing buffer and put its binding back
+        const bound = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, this.pacePixel);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, bound);
+      }
+    } catch { /* no context to wait for: the turn of the event loop below is still given */ }
+    await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+  }
+  private readonly pacePixel = new Uint8Array(4);
   /** Resolves when no flow job and no asset activation is pending. Throws if one cannot finish without ticks. */
   async idle(): Promise<void> {
     const flow = this.core.flow;
@@ -174,6 +211,7 @@ class DebugHookImpl implements DebugHook {
   }
   /** step(n) across flow jobs: every one of the n ticks is run, each job settles between the same two ticks on every run. */
   async stepAsync(n = 1, render = false): Promise<DebugStepResult> {
+    await this.pace();
     let left = n;
     for (;;) {
       await this.idle();
@@ -182,13 +220,14 @@ class DebugHookImpl implements DebugHook {
       left -= this.ran;
     }
     this.ran = n;
-    if (render) this.loop.renderFrame(FIXED_DT, 1, true);
+    if (render) this.draw();
     return this.result();
   }
   /** stepUntil across flow jobs; the condition is also looked at after a job settles (a respawn ends in 'playing' with no tick). */
   async untilAsync(condition: DebugCondition, maxSteps: number): Promise<DebugUntilResult> {
     const since = this.core.events.lastSeq;
     let steps = 0, met = false;
+    await this.pace();
     for (;;) {
       await this.idle();
       if (steps > 0 && this.conditionMet(condition, since)) { met = true; break; }
@@ -591,6 +630,7 @@ class DebugHookImpl implements DebugHook {
       this.loop.renderFrame(FIXED_DT, 1, true);
     }
     this.ran = i;
+    this.pacing.frames += i; this.drawnDue += i;
     this.warnShort('perfRun', i, ticks);
     return this.copyPerf(this.ctx.perf.peak);
   }
@@ -630,6 +670,8 @@ export function installDebugHook(ctx: GameContext, systems: readonly GameSystem[
     busy: (() => hook.busy) as (...args: never[]) => unknown,
     ran: (() => hook.ran) as (...args: never[]) => unknown,
     idle: (() => hook.idle()) as (...args: never[]) => unknown,
+    /** scripted drawing's pacing: `{ frames, yields, every }` (frames drawn by step / stepAsync, turns of the event loop given); pass a number to change `every` (0 = never) */
+    paced: ((every?: number) => { if (typeof every === 'number') hook.pacing.every = every > 0 ? every : Infinity; return { ...hook.pacing }; }) as (...args: never[]) => unknown,
     stepAsync: ((n?: number, render?: boolean) => hook.stepAsync(n, render)) as (...args: never[]) => unknown,
     untilAsync: ((condition: DebugCondition, maxSteps: number) => hook.untilAsync(condition, maxSteps)) as (...args: never[]) => unknown,
     recordEvents: ((on: boolean) => { core.events.setRecording(on); }) as (...args: never[]) => unknown,
@@ -722,16 +764,6 @@ export function reportBootFailure(err: unknown): void {
   try {
     const line = bootFailureText(err, hasWebgl2());
     if (!document.title) document.title = (storyJson as unknown as { ui: Record<string, string> }).ui.ui_title ?? '';
-    const host = document.getElementById('ui') ?? document.body;
-    let el = document.getElementById('boot-failure');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'boot-failure';
-      el.setAttribute('role', 'alert');
-      el.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:8vmin;text-align:center;'
-        + 'background:#0b0d12;color:#e8dcc4;font:18px/1.5 Georgia,serif;z-index:1000;-webkit-user-select:text;user-select:text';
-      host.appendChild(el);
-    }
-    el.textContent = line;
+    showBootLine(line);
   } catch { /* the page itself is unusable: the console line above is all there is */ }
 }

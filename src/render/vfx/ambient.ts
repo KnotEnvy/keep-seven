@@ -1,6 +1,10 @@
 // The two ambient point clouds, one THREE.Points and one draw call between them (only one is ever on):
 //   motes  interior dust that exists only inside the sun blades: each point rides one blade's volume (40 a blade on Low)
-//   sand   exterior blowing sand: short streaks hugging the ground, wrapped round the camera, along the wind (south-east)
+//   sand   exterior blowing sand: short streaks hugging the ground, wrapped round the camera, along the wind (south-east);
+//          on High (uGround.z = 1; exterior look, pass i1, R9) the second half of the cloud is DUST IN THE LIGHT instead:
+//          round gold motes from knee height to 3.5 m that drift with the wind and glint as they turn (additive)
+//   air    the station's own air on High (underground look, pass i3, R9): pale motes in a box round the eye that hang,
+//          turn and glint under the works' lamps (additive; no streaks). Low and min never switch it on.
 // Everything is animated in the vertex shader from clock.simTime; the CPU does nothing per frame.
 import * as THREE from 'three';
 import type { Uniform } from '../shared.ts';
@@ -41,6 +45,15 @@ void main() {
 		alpha = a.w * 0.55 * smoothstep( 0.0, 0.08, t ) * ( 1.0 - smoothstep( 0.85, 1.0, t ) );
 		sizeM = 0.010 + 0.012 * seed.x;
 		vCol = vec4( 1.0, 0.85, 0.66, alpha );
+	} else if ( uMode > 1.5 ) {
+		// the station's air: a mote hangs, sinks a hand a minute and wanders a hand's width; it glints as it turns
+		vec3 abox = vec3( 16.0, 5.0, 16.0 );
+		vec3 aw = seed * abox + vec3( 0.04, -0.012, 0.03 ) * uTime * ( 0.5 + seed.y ) + 0.12 * sin( seed.zxy * 40.0 + uTime * 0.21 );
+		p = mod( aw - cameraPosition + abox * 0.5, abox ) - abox * 0.5 + cameraPosition;
+		float atw = 0.5 + 0.5 * sin( uTime * ( 0.5 + seed.z ) + seed.x * 63.0 );
+		alpha = uGround.y * ( 0.12 + 0.88 * atw * atw * atw );
+		sizeM = 0.012 + 0.016 * seed.x;
+		vCol = vec4( 0.70, 1.0, 0.94, alpha );
 	} else {
 		vec3 box = vec3( 26.0, 1.0, 26.0 );
 		vec3 w = seed * box + uWind * uTime * ( 0.7 + 0.6 * seed.y );
@@ -49,6 +62,18 @@ void main() {
 		alpha = uGround.y * ( 0.10 + 0.14 * seed.z );
 		sizeM = 0.34;
 		vCol = vec4( 0.72, 0.5, 0.32, alpha );
+		vStreak = vec2( 1.0, 0.0 );
+		if ( uGround.z > 0.02 && fract( seed.z * 13.0 ) > 0.5 ) {
+			// dust in the light: higher, slower, a glint that comes and goes
+			vec3 w2 = seed * box + uWind * uTime * ( 0.16 + 0.2 * seed.y );
+			p.xz = mod( w2.xz - cameraPosition.xz + box.xz * 0.5, box.xz ) - box.xz * 0.5 + cameraPosition.xz;
+			p.y = uGround.x + 0.35 + fract( seed.y * 7.0 + seed.x ) * 3.2 + 0.12 * sin( uTime * 0.5 + seed.x * 40.0 );
+			float tw = 0.5 + 0.5 * sin( uTime * ( 0.9 + seed.z ) + seed.x * 63.0 );
+			alpha = uGround.y * uGround.z * ( 0.25 + 0.75 * tw * tw * tw );
+			sizeM = 0.03 + 0.03 * seed.x;
+			vCol = vec4( 1.0, 0.80, 0.52, alpha );
+			vStreak = vec2( 0.0 );
+		}
 	}
 	vec4 mv = viewMatrix * vec4( p, 1.0 );
 	float dist = max( - mv.z, 0.05 );
@@ -59,11 +84,16 @@ void main() {
 		gl_PointSize = clamp( px, 1.5, 6.0 );
 	} else {
 		// a streak along the wind as it appears on screen
-		vec4 q = projectionMatrix * viewMatrix * vec4( p + normalize( uWind ) * 0.3, 1.0 );
-		vec2 d = ( q.xy / max( q.w, 1e-3 ) - gl_Position.xy / max( gl_Position.w, 1e-3 ) ) * uViewport;
-		vStreak = length( d ) > 1e-3 ? normalize( d ) : vec2( 1.0, 0.0 );
-		vCol.a *= smoothstep( 0.6, 2.0, dist ) * ( 1.0 - smoothstep( 9.0, 13.0, dist ) );
-		gl_PointSize = clamp( px, 2.0, 40.0 );
+		if ( vStreak.x > 0.5 ) {
+			vec4 q = projectionMatrix * viewMatrix * vec4( p + normalize( uWind ) * 0.3, 1.0 );
+			vec2 d = ( q.xy / max( q.w, 1e-3 ) - gl_Position.xy / max( gl_Position.w, 1e-3 ) ) * uViewport;
+			vStreak = length( d ) > 1e-3 ? normalize( d ) : vec2( 1.0, 0.0 );
+			vCol.a *= smoothstep( 0.6, 2.0, dist ) * ( 1.0 - smoothstep( 9.0, 13.0, dist ) );
+			gl_PointSize = clamp( px, 2.0, 40.0 );
+		} else {
+			vCol.a *= smoothstep( 0.8, 2.5, dist ) * ( 1.0 - smoothstep( 9.0, 13.0, dist ) ) * clamp( px, 0.4, 1.0 );
+			gl_PointSize = clamp( px, 2.0, 6.0 );
+		}
 	}
 }
 `;
@@ -81,11 +111,16 @@ void main() {
 		a = max( 1.0 - dot( p, p ), 0.0 );
 		gl_FragColor = vec4( c * a * vCol.a, 0.0 );
 	} else {
-		float along = dot( p, vStreak );
-		float across = dot( p, vec2( - vStreak.y, vStreak.x ) );
-		a = max( 1.0 - along * along, 0.0 ) * ( 1.0 - smoothstep( 0.0, 0.07, abs( across ) ) );
-		a *= vCol.a;
-		gl_FragColor = vec4( c * uLit * a, a );
+		if ( dot( vStreak, vStreak ) < 0.25 ) {
+			a = max( 1.0 - dot( p, p ), 0.0 );
+			gl_FragColor = vec4( c * a * a * vCol.a, 0.0 );
+		} else {
+			float along = dot( p, vStreak );
+			float across = dot( p, vec2( - vStreak.y, vStreak.x ) );
+			a = max( 1.0 - along * along, 0.0 ) * ( 1.0 - smoothstep( 0.0, 0.07, abs( across ) ) );
+			a *= vCol.a;
+			gl_FragColor = vec4( c * uLit * a, a );
+		}
 	}
 	#include <colorspace_fragment>
 }
@@ -98,7 +133,7 @@ export class AmbientPoints {
   /** per blade: x, y, z of its end */
   readonly bladeB = new Float32Array(MAX_BLADES * 3);
   private readonly mode: Uniform<number> = { value: 0 };
-  /** x: ground height under the player, y: strength */
+  /** x: ground height under the player, y: strength, z: 1 = half the sand cloud is dust in the light (High) */
   readonly ground: Uniform<THREE.Vector4> = { value: new THREE.Vector4(0, 1, 0, 0) };
   readonly viewport: Uniform<THREE.Vector2> = { value: new THREE.Vector2(960, 540) };
   readonly lit: Uniform<THREE.Color> = { value: new THREE.Color(1, 1, 1) };
@@ -135,10 +170,10 @@ export class AmbientPoints {
     this.points.visible = false;
   }
 
-  /** `kind`: 'off', 'motes' (count = points per blade x blades) or 'sand' */
-  set(kind: 'off' | 'motes' | 'sand', count: number): void {
+  /** `kind`: 'off', 'motes' (count = points per blade x blades), 'sand' or 'air' (the station's motes, High only: ground.y = their level) */
+  set(kind: 'off' | 'motes' | 'sand' | 'air', count: number): void {
     if (kind === 'off' || count <= 0) { this.points.visible = false; this.drawn = 0; return; }
-    this.mode.value = kind === 'motes' ? 0 : 1;
+    this.mode.value = kind === 'motes' ? 0 : kind === 'air' ? 2 : 1;
     const n = Math.min(AMBIENT_POINTS, count);
     this.geometry.setDrawRange(0, n);
     this.points.visible = true;

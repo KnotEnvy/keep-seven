@@ -135,9 +135,62 @@ export function wrapSubtitle(text: string, max: number = SUBTITLE_LINE_CHARS): s
   return lines;
 }
 
-/** A readable body in cards: a blank line starts a new card (story.json meta.rules.readable_cards). */
+/**
+ * A card this short, on one line, is a salutation or a signature ("Reeve Ware. ..." / a name): it shares a card with the
+ * paragraph beside it instead of standing alone in a sheet built for a paragraph (pass i1: the first note took three
+ * presses for four sentences).
+ */
+export const SHORT_CARD_CHARS = 40;
+/**
+ * A readable body in cards: a blank line starts a new card (story.json meta.rules.readable_cards). A one-line card of
+ * at most SHORT_CARD_CHARS joins the card after it (the last one joins the card before it), a blank line between them.
+ */
 export function splitCards(body: string): string[] {
-  const cards = body.split(/\n[ \t]*\n/).map((c) => c.replace(/^\n+|\n+$/g, '')).filter((c) => c !== '');
+  const parts = body.split(/\n[ \t]*\n/).map((c) => c.replace(/^\n+|\n+$/g, '')).filter((c) => c !== '');
+  const short = (c: string): boolean => c.length <= SHORT_CARD_CHARS && !c.includes('\n');
+  const cards: string[] = [];
+  let carry = '';
+  for (const part of parts) {
+    const text = carry === '' ? part : carry + '\n\n' + part;
+    if (short(part)) { carry = text; continue; }
+    cards.push(text);
+    carry = '';
+  }
+  if (carry !== '') { if (cards.length > 0) cards[cards.length - 1] += '\n\n' + carry; else cards.push(carry); }
+  return cards.length > 0 ? cards : [''];
+}
+
+/**
+ * Pass i2 (story reviewer: the first note was two thin cards, the ledger three of one short paragraph each, on a sheet
+ * with room for all of it). A readable found in the world is laid out by what the sheet holds, not one paragraph a
+ * card: paragraphs are packed onto a card while its estimated height stays within CARD_MAX_LINES lines of
+ * CARD_LINE_CHARS characters (the sheet is 60 ch wide: ui.css `.sheet-body`; a blank line between paragraphs counts as
+ * a line). Every note in story.json is one card by this rule (the longest, the ledger, is 9 lines). A paragraph is
+ * never split; one longer than the budget has a card to itself. "The story so far" and the credits keep their authored
+ * cards (splitCards: a blank line starts a new card, story.json meta.rules.readable_cards): their pace is deliberate.
+ */
+export const CARD_MAX_LINES = 12;
+export const CARD_LINE_CHARS = 58;
+/** Estimated lines a text takes on the sheet: each of its lines wrapped at `chars`, a blank line counted as one. */
+export function sheetLines(text: string, chars: number = CARD_LINE_CHARS): number {
+  let n = 0;
+  for (const line of text.split('\n')) n += Math.max(1, Math.ceil(line.trim().length / chars));
+  return n;
+}
+export function packCards(body: string, maxLines: number = CARD_MAX_LINES, chars: number = CARD_LINE_CHARS): string[] {
+  const parts = body.split(/\n[ \t]*\n/).map((c) => c.replace(/^\n+|\n+$/g, '')).filter((c) => c !== '');
+  const cards: string[] = [];
+  let card = '', lines = 0;
+  for (const part of parts) {
+    const n = sheetLines(part, chars);
+    if (card !== '' && lines + 1 + n <= maxLines) { card += '\n\n' + part; lines += 1 + n; continue; }
+    if (card !== '') cards.push(card);
+    card = part; lines = n;
+  }
+  if (card !== '') cards.push(card);
+  // a last card that is only a signature or a closing line never stands alone
+  const last = cards[cards.length - 1];
+  if (cards.length > 1 && last !== undefined && last.length <= SHORT_CARD_CHARS && !last.includes('\n')) { cards.pop(); cards[cards.length - 1] += '\n\n' + last; }
   return cards.length > 0 ? cards : [''];
 }
 
@@ -159,4 +212,52 @@ export function clockTime(seconds: number): string {
   const s = total % 60, m = Math.floor(total / 60) % 60, h = Math.floor(total / 3600);
   const two = (n: number): string => (n < 10 ? '0' + n : String(n));
   return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
+}
+
+/**
+ * Pass i2: the line under the name while the game loads, in the narrator's voice: `ui_loading_line` when story.json has
+ * it (requested: docs/requests/ui.md), until then the last two sentences of the second card of "The story so far"
+ * (the court and the Rule). index.html's pre-boot page carries the same words: tests/ui/i2.test.mjs holds them equal.
+ */
+export function loadingLine(backstory: string): string {
+  const card = backstory.split(/\n[ \t]*\n/)[1] ?? '';
+  const sentences = card.split(/(?<=[.!?])\s+/).filter((t) => t !== '');
+  return uiOr('ui_loading_line', sentences.slice(-2).join(' '));
+}
+
+// ---------------------------------------------------------------- the credits sheet (pass i3)
+/** The release's version (package.json's, by hand: src/ui may not import outside src; tests/ui/text.spec.ts holds them equal). */
+export const VERSION = '1.0.0';
+/** Where the source lives when the page is not on a github.io address that says so itself. */
+export const REPOSITORY = 'https://github.com/KnotEnvy/keep-seven';
+/**
+ * The repository of a page served by GitHub Pages is in its own address (`<owner>.github.io/<repo>/`): a fork's copy
+ * links to the fork. Anywhere else (a local build, a custom domain) it is REPOSITORY.
+ */
+export function repositoryUrl(hostname: string, pathname: string): string {
+  const owner = /^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\.github\.io$/i.exec(hostname)?.[1];
+  const repo = /^\/([A-Za-z0-9._-]+)(?:\/|$)/.exec(pathname)?.[1];
+  return owner && repo && !/\.html?$/i.test(repo) ? `https://github.com/${owner}/${repo}` : REPOSITORY;
+}
+/** `document.lastModified` ("10/07/2026 14:03:22": the day the host was given this copy) as 2026-10-07; '' when it is no date. */
+export function publishedDate(lastModified: string): string {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(lastModified);
+  return m ? `${m[3]}-${m[1]}-${m[2]}` : '';
+}
+/**
+ * The credits' four strings story.json does not have yet (asked for in docs/requests/ui.md, pass i3; design/*.json was
+ * frozen for the UI team in that pass). Each is read with creditsText(): story.json's the moment the key exists. These
+ * are the ONLY player-facing words written in src/ui (tests/ui/text.spec.ts holds the list to exactly these).
+ */
+export const CREDITS_FALLBACK: Readonly<Record<string, string>> = {
+  ui_credits_made: 'Made with three.js and Blender.',
+  ui_credits_version: 'Version',
+  ui_credits_source: 'Source',
+  ui_credits_report: 'Report a problem',
+};
+export function creditsText(key: string): string { return uiOr(key, CREDITS_FALLBACK[key] ?? ''); }
+/** The credits' words with what the game is made with on a line of its own (story.json's `ui_credits_made` when it has one). */
+export function creditsBody(body: string): string {
+  const made = creditsText('ui_credits_made');
+  return made === '' || body.includes(made) ? body : `${body}\n${made}`;
 }

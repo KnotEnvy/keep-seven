@@ -2,7 +2,7 @@
 // lines, the lazy key hints, the Dowser sighting, the Tamper's vignette clock, the mercy tin, captions.
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mark, marker, open, server, shoot, shootScript } from './lib.mjs';
+import { LAYOUT, mark, marker, open, server, shoot, shootScript } from './lib.mjs';
 
 let srv;
 before(async () => { srv = await server(); });
@@ -26,7 +26,12 @@ test('a readable pauses the game and closes; nar_ask is the middle shutter\'s th
     assert.equal(note.params.thenLine, undefined);
     assert.ok(!(await keys(game, seq)).includes('nar_ask'), 'the hearth note says nothing after it closes');
     const shutter = marker('shutter_m');
-    assert.deepEqual(shutter.params.lines, ['nar_tally_chair', 'nar_tally_chair_2', 'nar_ask', 'nar_tally_hearth']);
+    // pass i1 (cross-cutting fixer; both story reviewers: at five seconds a shutter the room's lines were dropped or said
+    // rooms later): the middle shutter says the chair's two lines; nar_tally_hearth is said when the fight clears and
+    // nar_ask on the peg stair
+    assert.deepEqual(shutter.params.lines, ['nar_tally_chair', 'nar_tally_chair_2']);
+    assert.deepEqual(LAYOUT.encounters.find((e) => e.id === 'enc_tally').onClear.lines, ['nar_nine', 'nar_tally_hearth']);
+    assert.deepEqual(marker('trg_peg_stair').params.lines, ['nar_pegs_1', 'nar_pegs_2', 'nar_ask']);
     const stand = marker('trg_pz_daylight').params.standSpot;
     seq = await mark(game);
     await game.run([{ call: ['teleport', stand[0], stand[1], stand[2], 90, 0] }, { steps: 2 }, ...shootScript('ia_latch_m', 1), { aimAt: shutter.params.blade.hits[0].pos, steps: 30 * 60 }]);
@@ -96,7 +101,7 @@ test('the bore: lead rings flat and the station says so once a phase; a line rou
   } finally { await game.close(); }
 });
 
-test('the lazy key hints: move after 4 s still, fire after 4 s at the jugs, reload at once after two dry clicks; gone when done', async () => {
+test('the lazy key hints: move after 4 s still, fire after 4 s at the jugs, reload when the cylinder is low and at rest; gone when done', async () => {
   const game = await open(srv);
   try {
     let seq = await mark(game);
@@ -113,9 +118,10 @@ test('the lazy key hints: move after 4 s still, fire after 4 s at the jugs, relo
     assert.ok(hints.includes('ui_hint_fire:true'), hints.join(' '));
     await game.run([{ tap: 'fire', steps: 2 }]);
     seq = await mark(game);
-    await game.run([{ call: ['emit', 'weapon/dry_fire', { reason: 'empty' }] }, { steps: 1 }]);
-    assert.equal((await game.events(seq, 'ui/hint')).length, 0, 'not after one dry click');
-    await game.run([{ call: ['emit', 'weapon/dry_fire', { reason: 'empty' }] }, { steps: 1 }]);
+    // (pass i1: dry clicks raise nothing, each starts a reload by itself; the hint is for a low cylinder with the gun at rest)
+    await game.run([{ call: ['emit', 'weapon/dry_fire', { reason: 'empty' }] }, { steps: 1 }, { call: ['emit', 'weapon/dry_fire', { reason: 'empty' }] }, { steps: 1 }]);
+    assert.equal((await game.events(seq, 'ui/hint')).length, 0, 'not on a dry click');
+    await game.run([{ call: ['setAmmo', 2, 18, 0] }, { steps: 100 }]);
     hints = (await game.events(seq, 'ui/hint')).map((e) => `${e.payload.key}:${e.payload.show}`);
     assert.deepEqual(hints, ['ui_hint_reload:true']);
     // the reload ACTION takes it away (a reload a dry click starts by itself does not: tests/world/polish_r2.test.mjs)

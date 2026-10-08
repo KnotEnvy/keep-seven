@@ -364,7 +364,7 @@ MISSING = (6, 7)                            # the panel that has come off (segme
 
 def build_drum(S):
     p = Part("yd_drum", Z, chunk=WORKS)
-    ch = kit.chart("yd_drum", 1.0)
+    ch = kit.chart("yd_drum", 1.8)            # pass i3: 1.0 -> 1.8 (29 texels a metre: the rivet rows and the plate laps of wall_paint.paint_ceramic are drawn, not smeared)
     enamel = lin("enamel"); stain = lin("enamel_stain"); steel = lin("steel"); sdark = lin("steel_dark")
     FL = flat_uv("m_pellam")
     ys = [0.0, 0.3, 1.15, 1.2, 1.25, 2.4, 3.0, 3.6, 4.8, DH]
@@ -944,7 +944,30 @@ def build_dress(S):
         for (sx, sz_) in ((-1, -1), (1, -1), (1, 1), (-1, 1)):                    # corner battens: the crate is not a cube
             c = kit.rot_y((x + sx * (sz[0] / 2 - 0.02), y, z + sz_ * (sz[2] / 2 - 0.02)), r_, (x, y, z))
             kit.add_box(w, c, (0.09, sz[1] + 0.03, 0.09), "m_frontier", mul(lin("board_dark"), 0.9), rot=r_, sides="nsewt")
-    return [d, w, ft, dr]
+    # --- pass i1 (the visual reviewers: "large empty sand, blank adobe walls"): low drifts of blown sand lying across the
+    # open floor (never over 0.3 m: bodies and nav links pass over them; lightmapped, so under the 14 degree sun each
+    # crest is lit and throws a long shadow), dead scrub in three corners nobody walks into, a cart wheel left against
+    # the south wall, and the bricks that came out of the west wall's gap. What wheels and feet left on the sand is
+    # painted into the lightmap (ground_paint.py).
+    import lip_dress
+    gyd = lambda x, z: 0.035 * fbm(x / 5.0, z / 5.0, 21, 2)
+    gcol = lambda x, z, y: mul(mix(lin("sand"), lin("sand_pale"), clamp(0.3 + 0.5 * fbm(x / 7.0, z / 7.0, 22, 2))), 0.93 if math.hypot(x - C[0], z - C[1]) < R + 2.5 else 1.0)     # build_ground's colour
+    dn = Part("yd_dunes", Z, smooth=40)
+    for k, (x, z, L_, W_, hh, brg) in enumerate(((-84.6, -9.0, 5.0, 2.6, 0.33, 140.0), (-95.6, -11.0, 4.6, 2.4, 0.3, 128.0), (-100.4, 10.0, 5.2, 2.6, 0.33, 132.0), (-106.9, -9.6, 4.0, 2.2, 0.28, 150.0))):
+        lip_dress.drift(dn, (x, z), L_, W_, hh, brg, "yd_dr%d" % k, seed=620 + k, ground=gyd, ground_col=gcol)
+    sb = Part("yd_scrub", Z, smooth=None)
+    srng = random.Random(631)
+    for (x, z, hh) in ((-109.35, -13.35, 1.0), (-90.6, 13.5, 0.85)):       # (the only wall feet in the yard more than 1.5 m from every nav link)
+        lip_dress.bush(sb, (x, gyd(x, z), z), hh, srng)
+    # a dead cottonwood in the south-west corner, between the west wall and the shed (its trunk half in the west wall's face:
+    # inside the body's reach of it; twenty metres south of every line to the man on the rim)
+    lip_dress.tree(sb, (-109.9, 0.0, 9.0), (0.05, -0.08), 4.6, srng)
+    lip_dress.wheel(sb, (-94.6, 0.0, 13.62), 0.6, 180.0, -15.0, srng, sunk=0.1, missing=(4,))
+    rb = Part("yd_rubble", Z, smooth=24)
+    fr.rubble_heap(rb, (-109.2, 4.9), 0.8, srng, n=7, hmax=0.3)
+    fr.rubble_heap(rb, (-108.6, 2.6), 0.55, srng, n=4, hmax=0.22)
+    print(f"DRESS yard: {dn.tris()} + {sb.tris()} + {rb.tris()} triangles")
+    return [d, w, ft, dr, dn, sb, rb]
 
 
 def build(S):
@@ -1002,6 +1025,16 @@ def embed(S):
     ty = S.extra[Z]["tally"]; F = ty["F"]; h = ty["hole"]
     pp = Part("plug_door_tally", Z)
     pp.poly([F.p(h[0] - 0.05, 0.0, -1.0), F.p(h[1] + 0.05, 0.0, -1.0), F.p(h[1] + 0.05, h[3] + 0.05, -1.0), F.p(h[0] - 0.05, h[3] + 0.05, -1.0)], "m_frontier", flat_uv("m_frontier"), (0.0, 0.0, 0.0), final=True)
+    # pass i3 (the visual reviewer: "the closed Tally House door shows a bright sliver of light along its top and sides"): the
+    # plug was one card a metre behind the wall; past the leaves' edges and over their top the eye went by it to the sky.
+    # It is a recess now: the card, a soffit over the leaves and a reveal either side, all black
+    pc_ = F.p((h[0] + h[1]) / 2, h[3] / 2, -0.5)
+    for q_ in ([F.p(h[0] - 0.05, h[3] + 0.05, -1.0), F.p(h[1] + 0.05, h[3] + 0.05, -1.0), F.p(h[1] + 0.05, h[3] + 0.05, -0.02), F.p(h[0] - 0.05, h[3] + 0.05, -0.02)],
+               [F.p(h[0] - 0.05, 0.0, -1.0), F.p(h[0] - 0.05, h[3] + 0.05, -1.0), F.p(h[0] - 0.05, h[3] + 0.05, -0.02), F.p(h[0] - 0.05, 0.0, -0.02)],
+               [F.p(h[1] + 0.05, 0.0, -1.0), F.p(h[1] + 0.05, h[3] + 0.05, -1.0), F.p(h[1] + 0.05, h[3] + 0.05, -0.02), F.p(h[1] + 0.05, 0.0, -0.02)]):
+        n_ = kit.vcross(kit.vsub(q_[1], q_[0]), kit.vsub(q_[2], q_[0])); mid_ = kit.vscale(kit.vadd(kit.vadd(q_[0], q_[1]), kit.vadd(q_[2], q_[3])), 0.25)
+        if kit.vdot(n_, kit.vsub(pc_, mid_)) < 0: q_ = q_[::-1]
+        pp.poly(q_, "m_frontier", flat_uv("m_frontier"), (0.0, 0.0, 0.0), final=True)
     plug = realize_node(pp, "plug_door_tally", (0.0, 0.0, 0.0))
     del plug["wind"]
     vcol.mark_vertex_lit(plug)

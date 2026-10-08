@@ -44,6 +44,8 @@ interface Running {
   turn: number; yaw0: number; pitch0: number; yaw1: number; setYaw: number; setPitch: number;
 }
 
+/** pass i2: the most a ride is held for its own lines to have started (ticks) */
+export const LINES_GRACE_TICKS = 8 * 60;
 class Rides implements RidesApi {
   private readonly defs: RideDef[] = [];
   private run: Running | null = null;
@@ -301,7 +303,15 @@ class Rides implements RidesApi {
         }
       } else if (r.ticks >= (r.total >> 1)) { this.teleport(d.portal); this.afterTeleport(r); }
     }
-    if (r.teleported && r.ticks >= r.total) this.end(r);
+    // (pass i2) the gate does not open on a line of the ride that is still waiting its turn: the station finishes its
+    // reading in the dark, LINES_GRACE seconds at most (a player who never looked at the hall's drawing is told its
+    // three lines in the cage, and the ride's own stand behind them)
+    if (r.teleported && r.ticks >= r.total && (r.ticks >= r.total + LINES_GRACE_TICKS || !this.linesWaiting(d))) this.end(r);
+  }
+  private linesWaiting(d: Running['def']): boolean {
+    const { story } = this.s;
+    for (let i = 0; i < d.lines.length; i++) { const k = d.lines[i] as string; if (story.holds(k) && story.current !== k) return true; }
+    return false;
   }
 
   /** per rendered frame: the lamp bars pass, fast then slow */

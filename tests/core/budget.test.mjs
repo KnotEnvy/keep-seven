@@ -84,10 +84,10 @@ test('every visibility cell is inside its computed bound and the Low caps, over 
 test('assertBudget fails a frame that is over, and the tier caps differ', () => {
   const ok = { drawCalls: 60, triangles: 50000, textureBytes: 30 * MiB, renderTargetBytes: 20 * MiB, cell: 'cell_street' };
   assertBudget(ok, { zone: 'plenty_street', tier: 'low' });
-  assert.throws(() => assertBudget({ ...ok, drawCalls: 76 }, { zone: 'plenty_street', tier: 'low' }), /draw calls 76/);   // the zone's typical bound + 1 (75 since polish round 4: the yard's cartridge point)
-  assertBudget({ ...ok, drawCalls: 76 }, { zone: 'plenty_street', tier: 'low', worst: true });
-  assert.throws(() => assertBudget({ ...ok, drawCalls: 82 }, { zone: 'plenty_street', tier: 'low', worst: true }), /draw calls 82/);
-  assert.throws(() => assertBudget({ ...ok, triangles: 115782 }, { zone: 'plenty_street', tier: 'low' }), /triangles 115782/);   // the zone's bound + 1 (115 781 since polish round 4)
+  assert.throws(() => assertBudget({ ...ok, drawCalls: 77 }, { zone: 'plenty_street', tier: 'low' }), /draw calls 77/);   // the zone's typical bound + 1 (76 since release pass p0: the view-model's third draw call, R14)
+  assertBudget({ ...ok, drawCalls: 77 }, { zone: 'plenty_street', tier: 'low', worst: true });
+  assert.throws(() => assertBudget({ ...ok, drawCalls: 83 }, { zone: 'plenty_street', tier: 'low', worst: true }), /draw calls 83/);
+  assert.throws(() => assertBudget({ ...ok, triangles: 119789 }, { zone: 'plenty_street', tier: 'low' }), /triangles 119789/);   // the zone's bound + 1 (119 788 since pass i3; 119 930 from release pass p0)
   assert.throws(() => assertBudget({ ...ok, triangles: 120001 }, { tier: 'low' }), /tier cap 120000/);
   assert.throws(() => assertBudget({ ...ok, renderTargetBytes: 35 * MiB }, { zone: 'plenty_street', tier: 'low' }), /65\.0 MiB > 64/);
   assertBudget({ ...ok, drawCalls: 200, triangles: 300000, renderTargetBytes: 90 * MiB }, { tier: 'high' });

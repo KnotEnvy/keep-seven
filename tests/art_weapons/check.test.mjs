@@ -16,7 +16,7 @@ test('check-glb passes on the six assets and the two textures', () => {
 test('asset-status --require=0 --owner weapons exits 0: no placeholder asset, clip or texture', () => {
   const r = node('tools/asset-status.mjs', ['--require=0', '--owner', 'weapons']);
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /0 placeholder assets of 6; 0 placeholder clips of 15 \(0 fallback copies\); 0 placeholder textures of 2/);
+  assert.match(r.out, /0 placeholder assets of 6; 0 placeholder clips of 15 \(0 fallback copies\); 0 placeholder textures of 5/);
 });
 
 test('weapon_revolver.glb: 31 joints, gun_mesh + arms_mesh, 15 clips within one frame, no channel on a code-driven bone, no image', () => {
@@ -28,7 +28,9 @@ test('weapon_revolver.glb: 31 joints, gun_mesh + arms_mesh, 15 clips within one 
   assert.equal(joints.length, 31);
   const meshNodes = js.nodes.filter((n) => n.mesh !== undefined).map((n) => n.name).sort();
   assert.deepEqual(meshNodes, ['arms_mesh', 'gun_mesh']);
-  assert.equal(js.meshes.reduce((s, m) => s + m.primitives.length, 0), 2, 'two primitives = two draw calls');
+  // ruling R14 (release pass p0): at most three primitives: m_gun, m_hands (the gloves, wrists and cuffs) and m_prop (the rounds she handles)
+  assert.equal(js.meshes.reduce((s, m) => s + m.primitives.length, 0), 3, 'three primitives = three draw calls (R14: at most three)');
+  assert.deepEqual(js.meshes.flatMap((m) => m.primitives.map((q) => js.materials[q.material].name)).sort(), ['m_gun', 'm_hands', 'm_prop']);
   assert.ok(!js.images || js.images.length === 0, 'the GLB contains no image');
   for (const e of ['muzzle', 'eject', 'cam_look']) { const n = js.nodes.find((x) => x.name === e); assert.ok(n && n.mesh === undefined, `${e} is an empty`); }
   const parentOf = {}; js.nodes.forEach((n) => (n.children ?? []).forEach((c) => { parentOf[names[c]] = n.name; }));
@@ -54,5 +56,9 @@ test('weapon_revolver.glb: 31 joints, gun_mesh + arms_mesh, 15 clips within one 
   const ammo = IDS.slice(1).reduce((s, id) => s + fs.statSync(M.assets[id]._pub).size, 0);
   const tex = fs.statSync(M.textures.tx_gun._pub).size + fs.statSync(M.textures.tx_matcap_steel._pub).size;
   console.log(`download: weapon_revolver.glb ${(bytes / 1000).toFixed(1)} kB (<= 350), five ammunition GLBs ${(ammo / 1000).toFixed(1)} kB (<= 40), tx_gun + tx_matcap_steel ${(tex / 1000).toFixed(1)} kB (<= 250)`);
-  assert.ok(bytes <= 350000); assert.ok(ammo <= 40000); assert.ok(tex <= 250000);
+  // ruling R14 (release pass p0): three times the triangles and three more textures. The file's share goes from 350 to
+  // 450 kB and the view-model's five textures together stay under 450 kB (the whole download is 12 of 20 MiB)
+  const tex5 = ['tx_gun', 'tx_matcap_steel', 'tx_gun_detail', 'tx_hands', 'tx_hands_detail'].reduce((t, id) => t + fs.statSync(M.textures[id]._pub).size, 0);
+  console.log(`R14: weapon_revolver.glb ${(bytes / 1000).toFixed(1)} kB (<= 450), the five view-model textures ${(tex5 / 1000).toFixed(1)} kB (<= 450)`);
+  assert.ok(bytes <= 450000); assert.ok(ammo <= 40000); assert.ok(tex <= 250000); assert.ok(tex5 <= 450000);
 });

@@ -21,7 +21,7 @@ import type {
   PerfStats, RenderSystem, RingKind, SurfaceType, TextureId, VfxApi, VfxId, ZoneId,
 } from '../contracts.ts';
 import { createFallbackResolver } from '../assets.ts';
-import { coreOf } from '../context.ts';
+import { coreOf } from '../coreOf.ts';
 import type { CoreInternals } from '../context.ts';
 import { round4 } from '../math.ts';
 import { installToneMap } from '../tonemap.ts';

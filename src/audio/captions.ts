@@ -27,5 +27,9 @@ export const CAPTIONS: Readonly<Record<string, { sounds: readonly string[]; on: 
   cap_locker_chime: { sounds: ['locker_chime'], on: 'audio/cue locker_chime' },
   cap_fire_kindles: { sounds: ['fire_kindle'], on: 'ending/fire' },
   cap_wire_resolves: { sounds: ['wire_resolve'], on: 'audio/cue wire_resolve' },
+  // release pass p0 (code team world; audio was not active): the loft bell ringing by itself, the pointer at a secret.
+  // The WORLD says this one, with the cue (src/world/interact.ts tickRingers): the bell has no cue of its own in the
+  // frozen AudioCue list, so audio cannot tell this `step_chime` from the proving step's. docs/requests/world.md P0.3 row 4.
+  cap_loft_bell: { sounds: ['step_chime'], on: 'audio/cue step_chime at the loft bell; raised by src/world, not by audio' },
 };
 export const CAPTION_KEYS: readonly string[] = Object.keys(CAPTIONS);
