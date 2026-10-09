@@ -127,7 +127,7 @@ export class MarkWidget {
 
     // line rounds: 0 to 2 pips under the ring, left of the reserve numeral
     for (let i = 0; i < 2; i++) this.pips.push(svg('circle', { cx: -23 + i * 7, cy: 45.5, r: 2.5 }, root, PIP_CLASS[0] as string));
-    // pass i2: the dots' name, under them, for a few seconds when the first line round is taken (hud.ts LINE_LABEL_SECONDS)
+    // pass i2: the dots' name, under them; pass i4: for as long as a line round is held (hud.ts LINE_LABEL_ALWAYS)
     this.lineLabel = svg('text', { x: -26.5, y: 63, 'font-size': 9.5 }, root, LABEL_CLASS[0] as string);
     this.lineLabel.textContent = lineName;
     this.reserve = svg('text', { x: 0, y: RESERVE_BASELINE, 'text-anchor': 'middle', 'font-size': RESERVE_SIZE }, root, 'rs');

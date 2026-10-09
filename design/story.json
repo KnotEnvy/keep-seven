@@ -62,8 +62,8 @@
           "nar_last"
         ],
         "leave": [
-          "nar_take_1",
           "nar_leave",
+          "nar_leave_2",
           "nar_fire",
           "nar_last"
         ]
@@ -105,6 +105,7 @@
         "nar_take_1",
         "nar_take_2",
         "nar_leave",
+        "nar_leave_2",
         "nar_fire",
         "nar_last",
         "stn_tally_wake_2",
@@ -297,6 +298,11 @@
       "text": "When she looked again there was only rim.",
       "seconds": 4
     },
+    "nar_dowser_down": {
+      "speaker": "narrator",
+      "text": "He turned and went down the far side.",
+      "seconds": 3.5
+    },
     "nar_tally_1": {
       "speaker": "narrator",
       "text": "Eleven at the table. Hooded. Hands flat on the boards.",
@@ -462,6 +468,11 @@
       "text": "The ring on the floor was where the arm came down. She stepped out of it.",
       "seconds": 6
     },
+    "hint_tamper_back": {
+      "speaker": "narrator",
+      "text": "It ran itself into the wall. Its back stood open a while.",
+      "seconds": 5
+    },
     "nar_tamper_dead": {
       "speaker": "narrator",
       "text": "It stopped mid-stroke. It had never been anyone. That helped.",
@@ -572,15 +583,20 @@
       "text": "Standing still was the one thing it could hit. The ribs were cover.",
       "seconds": 5.5
     },
+    "hint_boss_lob": {
+      "speaker": "narrator",
+      "text": "What it lobbed came down where she had been standing.",
+      "seconds": 4.5
+    },
+    "hint_boss_pawls": {
+      "speaker": "narrator",
+      "text": "Two knots held the plate shut.",
+      "seconds": 3.5
+    },
     "stn_parley_1": {
       "speaker": "station",
       "text": "LIFT HEAD PRESENTING. SIX CHAMBERS. STATE BUSINESS AT THE BORE.",
       "seconds": 3.5
-    },
-    "nar_parley": {
-      "speaker": "narrator",
-      "text": "A Reeve asks once before she draws. She asked.",
-      "seconds": 4
     },
     "rv_ask": {
       "speaker": "reeve",
@@ -589,7 +605,7 @@
     },
     "stn_parley_2": {
       "speaker": "station",
-      "text": "ONE, TWO: STAKE. THREE: CANISTER. FOUR, FIVE: STAKE. SIX: CANISTER.",
+      "text": "STAKE. STAKE. CANISTER. STAKE. STAKE. CANISTER.",
       "seconds": 4.5
     },
     "stn_parley_4": {
@@ -802,6 +818,11 @@
       "text": "She left it on the stone. Six, then.",
       "seconds": 3.5
     },
+    "nar_leave_2": {
+      "speaker": "narrator",
+      "text": "It was his to keep. She had spent her own.",
+      "seconds": 4
+    },
     "nar_fire": {
       "speaker": "narrator",
       "text": "Out on the flat, one small fire. It was not moving.",
@@ -1005,12 +1026,20 @@
     "waiting": "Waiting on the connection.",
     "save_unreadable": "The last count could not be read. Begin again.",
     "page_description": "A weird-west gunslinger shooter that runs in the browser. One stage, one heavy six-shot revolver, and a seventh round that is not for firing.",
-    "page_image_alt": "The title screen of KEEP SEVEN: a revolver held out under a red rock overhang, a shaft of evening sun on the sand."
+    "page_image_alt": "The title screen of KEEP SEVEN: a revolver held out under a red rock overhang, a shaft of evening sun on the sand.",
+    "needs_input": "KEEP SEVEN needs a mouse and a keyboard. Open it on a computer.",
+    "load_anyway": "Load it anyway",
+    "needs_script": "KEEP SEVEN needs JavaScript. Turn it on for this page and reload.",
+    "page_failed": "It would not load. Reload the page.",
+    "page_reload": "Reload",
+    "page_slow": "Still waiting on the connection."
   },
   "ui": {
     "ui_title": "KEEP SEVEN",
     "ui_subtitle": "First Tally: Plenty",
     "ui_click_to_start": "Click to take up the gun",
+    "ui_needs_input": "KEEP SEVEN needs a mouse and a keyboard. Open it on a computer.",
+    "ui_lock_refused": "The browser will not give the game the mouse. Open the page in its own tab.",
     "ui_loading": "Loading",
     "ui_menu_play": "Begin",
     "ui_ask_begin": "Begin again?",
@@ -1036,6 +1065,7 @@
     "ui_seventh_violet": "A seventh round. Not hers.",
     "ui_hud_reserve": "{n}",
     "ui_hud_line_rounds": "Line",
+    "ui_legend_line": "A line round, held. {line} seats it under the hammer.",
     "ui_boss_name": "LIFT HEAD · STATION 4",
     "ui_checkpoint": "{movement} · {n}",
     "ui_death": "She went down. The count began again.",

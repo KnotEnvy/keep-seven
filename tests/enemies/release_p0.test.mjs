@@ -267,10 +267,11 @@ test('release p0: the asking follows its lines as shown: a line that waits 9 s b
     });
     // (a)
     assert.equal(r.clock.live, false, 'no story/line had been heard in this page');
-    assert.deepEqual(r.clock.said.map((x) => x[0]), ['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_4', 'nar_parley_kept']);
-    const want = [0, 210, 450, 690, 960, 1200];
+    // (pass i4: four lines; the narrator's line has left the asking)
+    assert.deepEqual(r.clock.said.map((x) => x[0]), ['stn_parley_1', 'rv_ask', 'stn_parley_2', 'stn_parley_4', 'nar_parley_kept']);
+    const want = [0, 210, 450, 720, 960];
     r.clock.said.forEach((x, i) => assert.ok(Math.abs(x[1] - want[i]) <= 2, `${x[0]} at ${want[i]} ticks by the written clock (${x[1]})`));
-    assert.ok(Math.abs(r.clock.inspection[0] - 960) <= 2 && Math.abs(r.clock.p1[0] - 1260) <= 2, `inspection at 16 s, phase 1 at 21 s (${r.clock.inspection}, ${r.clock.p1})`);
+    assert.ok(Math.abs(r.clock.inspection[0] - 720) <= 2 && Math.abs(r.clock.p1[0] - 1020) <= 2, `inspection at 12 s, phase 1 at 17 s (${r.clock.inspection}, ${r.clock.p1})`);
     // (b), (c), (d): the picture and the text agree
     for (const [name, run] of [['free', r.free], ['late', r.late], ['dropped', r.dropped]]) {
       assert.ok(run.shown.stn_parley_4 >= 0, `${name}: stn_parley_4 was shown`);
@@ -282,8 +283,8 @@ test('release p0: the asking follows its lines as shown: a line that waits 9 s b
       const keys = Object.keys(run.shown);
       for (let i = 1; i < keys.length; i++) assert.ok(run.said[keys[i]] >= run.shown[keys[i - 1]], `${name}: ${keys[i]} is not asked for before ${keys[i - 1]} has come on screen (never more than one line of the asking waiting)`);
     }
-    assert.ok(r.free.p1 <= 1260 + 5 * 20, `a free line box costs at most the breaths between five lines (${r.free.p1} ticks against 1 260)`);
-    assert.ok(Math.abs(r.late.shown.stn_parley_1 - 540) <= 1 && r.late.p1 >= 1260 + 540 && r.late.p1 <= 1260 + 540 + 5 * 20, `9 s late: every stage 9 s later (phase 1 at ${r.late.p1})`);
+    assert.ok(r.free.p1 <= 1020 + 4 * 20, `a free line box costs at most the breaths between four lines (${r.free.p1} ticks against 1 020)`);
+    assert.ok(Math.abs(r.late.shown.stn_parley_1 - 540) <= 1 && r.late.p1 >= 1020 + 540 && r.late.p1 <= 1020 + 540 + 4 * 20, `9 s late: every stage 9 s later (phase 1 at ${r.late.p1})`);
     assert.ok(r.late.shift >= 9 && r.late.shift < 11.5, `shift ${r.late.shift}`);
     assert.equal(r.dropped.shown.stn_parley_2, undefined);
     assert.ok(r.dropped.said.stn_parley_4 - r.dropped.said.stn_parley_2 >= 14 * 60 - 2 && r.dropped.said.stn_parley_4 - r.dropped.said.stn_parley_2 <= 14 * 60 + 2, `a line that never shows holds its stage 14 s (${r.dropped.said.stn_parley_4 - r.dropped.said.stn_parley_2} ticks)`);

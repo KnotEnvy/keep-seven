@@ -205,3 +205,221 @@ point of every Bider is where it was.
 | 3.2 the notes of `tx_palette` / `tx_palette_emis` | **Applied** through `tools/gen_assets.mjs` |
 | 3.3 the machines' knots | **Left**: no reviewer names them; `docs/KNOWN_ISSUES.md` |
 | 2 test edits (`tests/pipeline/textures.test.mjs`, `tests/render/moods.spec.ts`) | **Accepted**: each follows a deliberate change and still measures it |
+
+## Fixer, pass i4 (2026-10-08): what is ready for this team, and what is ruled
+
+
+| Item | State |
+|---|---|
+| Triangles (ruling R14) | **Applied**; nothing built with them. `prop_rim_stone` 1 200 (970 free; it is merged into `chunk_rim_ledge`, 7 626 free), `enemy_tamper` 5 000 (1 038 free), `tamper_cold_static` 5 000 (merged into `chunk_lh_hall`, 1 520 free there), `boss_windlass` 8 400 (409 free), `prop_hat_hung` 110 (62 free a hat, 24 hats; the gallery's dressing allowance is 10 000), `prop_sighting_loop` 320 (100 free), `prop_wagon_tipped` 1 500 (300 free; merged into `chunk_st_east`, 715 free), `prop_water_cart` 1 100 (merged into `chunk_st_yard`, 776 free), `bider_table_static` 900 (122 free) |
+| The round on the stone | its binding's scale is **3.4** (was 2.6): it stands 139 mm tall. The asset (`prop_cartridge_kept`, 240 triangles, 106 free) is the gun team's: the violet band is asked of it in `docs/requests/gun.md` |
+| The Tamper's "texture region" | there is none: it is `m_prop` on palette cells. Seams, rivets and grime are geometry and vertex colour within the 1 038 triangles; a detail sheet would be a new texture and a material change (ask the closer with the size) |
+| Captions for a secret's tell | **not added**: `tests/audio/logic.spec.ts` pins the audio's caption table to the `cap_*` keys of `story.json`. If a tell is a sound, the audio and world teams ask the closer for the key and the table row together |
+
+## Look team creatures-props, pass i4 (2026-10-08)
+
+Five carry-over issues (one major). Evidence: `shots/i4-team-creatures-props/before/` against `after/` (Low and High,
+1280 x 720, the real game: `sheet_rim.png`, `sheet_stair.png`, `sheet_loop.png`, `sheet_tamper.png`, `sheet_knot.png`),
+working sets `w1/` to `w9/`, the test's own frames in `test/`; log `scratch/i4-team-creatures-props/NOTES.md`; scripts
+`scratch/i4-team-creatures-props/cap2.mjs` (one checkpoint, a JSON list of views), `sheet.mjs`. No node, bone, clip,
+timing, pivot, collider or budget changed. `tamper_cold_static` is byte-identical (the lift hall is not rebuilt).
+
+### 1. Done, to mirror into the documents (closer)
+
+| # | What changed | Where | Mirror into |
+|---|---|---|---|
+| 1 | **The rim stone is the whole outcrop (R19).** The reviewers' "mauve box slab" and "pale patch with hard polygon edges" were the ZONE's two shelf boxes (`env_far_rim.py` `rim_shelf`); the "tray" was this asset. The asset now swallows both: an **apron** of dark caprock that covers the lower box (3.0 x 2.0 m) and goes down under the ledge's sand; a **bed** 2.3 x 1.5 m over the upper box (swept uneven top 3 cm above the box, knocked arris, two courses with a dark joint, two fractures cut INTO it as grooves, two laminae of its old skin standing 3 cm proud, pebbles, a three-stone marker stack at its far end); the **capstone** the seats are cut in (the old slab's outline and place, 0.9 x 0.5 m, top at 0.12: undercut foot, belly, chipped arris, top worn palest along the row); the six **cases** eight-sided with a rolled mouth, a lit flank and a brighter brass (`#D2A650`: `#B88A3A` was dull brown under the blue hour). Seat 7, the row, the pivot and the top's height are where they were. **1 199 / 1 200**, one draw call | `blender/props/dress/prop_rim_stone.py` | ART_BIBLE row `prop_rim_stone` (a hero prop; "a flat slab" is the capstone only); ARCHITECTURE 7.5 table (1 199); the manifest's `placeholder.size` of the asset is the capstone's, not the asset's bounds (4.2 x 3.3 m with the apron) |
+| 2 | **`env_far_rim` rebuilt by this team** (the stone is embedded): `node tools/build-assets.mjs --only prop_rim_stone,env_far_rim`, 7 s; `chunk_rim_ledge` total 12 343 / 19 000, 3 / 3 draw calls; `env_far_rim.glb` 340 kB (was 320), `lm_rim.webp` re-baked. `tests/art_env_exterior` 29 of 29 after it | `public/assets/env/env_far_rim.glb`, `public/assets/lm/lm_rim.webp` | `src/ui/loadMeter.ts` byte table if it is refreshed (+20 kB on the coda set) |
+| 3 | **The seventh round is seen (the part that is this team's).** (a) `prop_cartridge_kept\|round_violet` carries a violet glow at its band: one quad of the halo batch, 0.2 m, never under 16 px, strength 0.5, gone when the instance is hidden or removed (`GLOW_SETS` is a record of specs now; the stake's glow is unchanged). (b) An instanced thing in mood **L6** takes `INST_DUSK` (0.40, 0.38, 0.44 linear) instead of `ambient + key / 2`: the round was a third as bright as the six baked cases beside it and ember-pink (a dark red speck); its pale band and its nose are lit now | `src/render/instances.ts` | ARCHITECTURE 8.4 (instances: the L6 rule beside `INST_STAIR_Y`; glow sets); GDD 12 where the stone's glint is described (the white glint is the world's and still stands; the violet at the band is new) |
+| 4 | **Hats hang by the brim.** The hat sat crown-up ON the peg, so 13 cm of pale enamel peg came out through its closed underside and crown. It hangs now as a hat is hung: brim against the rail board, crown toward the stair and 8 degrees down, the whole peg inside the crown; ten sides, one welded smooth skin, a pinched creased crown, a pale plaited cord band with a hard colour edge. **100 / 110** | `blender/props/dress/prop_hat_hung.py` | ART_BIBLE row `prop_hat_hung` (0.38 across, 0.20 deep as it hangs) |
+| 5 | **The Tamper at slam range** (the fighting unit only). Five more edge loops round the drum's wall; a 12 mm plate **seam** let into the wall's own faces with a rivet row on both sides; rivets along both lips of the band and round the crown's shoulder; each **plate** (two facets wide, the two courses half a plate out of step) its own shade; **grime** (hand-sized blotches with an edge, dust on the band's upper lip, a weep under the seam, splash at the foot), **scuffs** where the film is rubbed back to pale enamel, small chips to steel; the stain streaks are shaded to the wall they lie on (they stood out as pale spikes). **4 483 / 5 000** (was 3 962); 197 kB (was 180) | `blender/boss/tamper_parts.py` ("close-range surface") | ART_BIBLE 6.3 / row `enemy_tamper`; ARCHITECTURE 7.5 table |
+| 6 | **Mood L4 fills the upright faces of dynamic things** (`rim: 0x7cf2e2, rimK: 0.12`; L3 has 0.5). The hall lit a dynamic thing from straight above only: the drum's wall had the ambient alone and whatever was painted on it was a dark sheet. 0.5 and 0.25 were tried and made the Tamper the palest thing in the hall | `src/render/moods.ts` L4 (one entry) | ART_BIBLE 3.4 (L4); ARCHITECTURE 8.4 |
+| 7 | **The sighting loop's line** is 22 mm on the face the step sees and 24 mm on the far face (13 mm both: under a pixel from down the gallery). 236 / 320 | `blender/props/mech/prop_sighting_loop.py` | ART_BIBLE row `prop_sighting_loop` |
+
+### 2. Tests changed or added
+
+| File | Change | Why |
+|---|---|---|
+| `tests/art_props/dress/i4_real.test.mjs` (new) | in the real game at `cp_rim`: one glow, at least 60 violet pixels round the round's band from standing distance (580 measured), the six cases read as brass, and with the round hidden no glow and no violet | row 3 |
+| `tests/art_props/dress/variants.test.mjs` | the rim stone's test measures the CAPSTONE (0.9 x 0.5 m, top at 0.12) and asks that the bed covers the zone's shelf box and that the foot goes under the sand; "the one dark cup" is looked for in the row only (the fractures are dark too); `prop_rim_stone` and `prop_hat_hung` left the manifest-box size list | rows 1, 4 |
+| `tests/art_boss/tamper_check.test.mjs` | the two files' download share is 0.27 MB (was 0.25): 264.7 kB | row 5; the whole download is 11.4 of 20 MB |
+| `tests/render/moods.spec.ts` (render-tech's file) | L4 left the list of moods whose rim is 0; it is held above 0.05 and under half of L3's | row 6 |
+
+Run on this tree: `tests/art_props` 98 of 98, `tests/art_boss` 39 of 39, `tests/art_env_exterior` 29 of 29, `tests/world/ending.test.mjs`
+9 of 9, vitest 519 of 519, `tests/render` polish 8, polish3 6, i1_high 5, i2 5, i3 3, i4 7, budget 7, runtime 5, polish4_high 2,
+polish5_high 2, release_p0 5 (each file by itself, one browser at a time; the rest of `tests/render` and the playthrough were not run),
+`check-glb` 84 assets pass (11.41 MB), `validate_assets` OK, `tsc` clean.
+
+### 3. Asked of others (none of these files is this team's; every one of these teams is active in this pass)
+
+| # | To | What |
+|---|---|---|
+| 1 | underground-look / closer | **The "black ball on a stick" at the gallery's vanishing point is not the sighting loop.** It is the zone's knot seat at `knot_a` and `knot_b` (`blender/env_interior/env_the_gallery.py` 519 to 535: `elbow_a`, `elbow_a_neck`, the cross pipe's bonnet) once the world has hidden the burst `knot_mech` (`before/sheet_knot.png`: solved = a flat black twelve-sided disc on a black arm; live = the violet knot on its hex collar). The seat's face and its elbow carry no light at all beside teal pipes. Wanted: bake the seats with the knot not casting on them (or give the blank flange and elbow the banks' steel value), and a paler rim or a broken-glass husk on the flange's face so a spent seat reads as a spent seat. The loop itself stands lit beside it (`after/sheet_loop.png`) |
+| 2 | gun / closer | **The band of `round_violet` is still the pale enamel sleeve with a 1 mm violet hairline** (`blender/weapons/ammo.py` `cartridge`, `prop_cartridge_kept.py`): the fixer's request stands. With row 3 the round is lit and its band sits in a violet glow, which is what a player sees from standing distance; up close the sleeve itself is still pale. Wanted: the whole sleeve of `round_violet` on the `violet` emissive cell (in `cartridge`: `strip(b0, b1, hairline if hairline != "livery" else "kept_band", emis=hairline != "livery")`), and a look at `materials.ts` `wrong_fade` for it (a violet cell outside columns 6 and 7 goes OUT when the stage is proven) |
+| 3 | exterior-look / closer | (a) `env_far_rim.py` `rim_shelf` (lines 646 to 654): both `rock_box` calls are inside this asset now and draw nothing a player can see; they can go (about 120 triangles and their lightmap charts back). If they go, nothing in the stone needs to change. (b) The "faceted three-piece rock behind" the stone is the zone's `rim_boulder_2` and its shard: the reviewer asks for a believable cairn there; the stone now carries a small marker stack of its own on the bed's far end. (c) The bed's swept top is 3 cm above the old shelf's: the layout's `rim_stone` collider is unchanged, so a player standing on it stands 3 cm into the stone (not seen in first person) |
+| 4 | underground-look / closer | The peg stair's pegs are the zone's (`enamel` cell, in the second strip's pool): they still read as small lights where no hat hangs. A hat's own peg is hidden inside its crown now |
+| 5 | world / closer | The stone's white glint (`light_rim_stone_glint`, hue `brass`) fires on top of the round's violet glow: a violet or brass-only glint, or one that sits on the six cases and not on the seventh, would keep the two apart |
+| 6 | render-tech (observation) | On High the room shadow of an instanced hat is a soft dark halo on the wall round it, as for the coats (pass i3 row 3.4): the hats lie closer to the wall now, so it is tighter |
+
+### 4. Not done
+
+- **The stone has no texture.** It is `m_prop` on one palette cell (the manifest allows one material, and the zone folds it onto its flat trim cell): its weathering is geometry and vertex colour. From standing distance it reads as a cracked, layered outcrop; with the muzzle on it the bed's broad top between the fractures is smooth. The apron is a dark plain sheet where the sand does not cover it (seen mostly from behind the stone, off the path).
+- **No sand drift up the stone's sides.** Wedges of sand in the asset were tried and removed (vertex-lit plain faces beside the ledge's rippled lightmapped sand read as more rock). The bed's battered foot goes under the zone's sand instead; a blended drift is the zone's to make (`m_sand`).
+- **The seventh round's band geometry** and **the knot seats** (rows 3.1, 3.2): other owners' files.
+- The Tamper's new surface is on the DRUM only: the arm casing, the left arm, the thighs and the crown's cap are as they were; the cold unit has none of it (it is the clean casting, and its zone would have to be rebuilt). The dome was not looked at from above.
+- The Tamper was looked at standing (spawned at `cp_hall_clear`, AI off), not in the fight's clips.
+- The hats are olive under the stair's teal like the coats; from far down the flight a row of them reads as pale crowns on dark discs.
+
+## Closer, pass i4 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| 1 rows 1 to 7 | Mirrored: ART_BIBLE amendments, ARCHITECTURE "Pass i4 (closer)" 8.4, GDD 23.19 (9.8), LEVEL 19 |
+| 3 rows 1 to 5 | **Not built** in this pass (other owners' files, no eyes left at the close): each is in `docs/KNOWN_ISSUES.md` |
+| `src/ui/loadMeter.ts` byte table | Checked by `tests/ui`; see INTEGRATION_REPORT Part R |
+
+## Look team creatures-props, pass i5 (2026-10-08)
+
+Eight issues from the two visual reviewers (one major). Evidence: `shots/i5-team-creatures-props/before/` against `after/`
+(the real game, Low and High, 1280 x 720: `after/sheet_rim.png`, `sheet_wagon.png`, `sheet_boss.png`, `w_stair2/sheet.png`,
+`w_knot2/`), working sets `w1/` to `w5t/`; log `scratch/i5-team-creatures-props/NOTES.md`; scripts there: `cap.mjs`
+(tier, folder, a JSON list of `[name, checkpoint, pos, at]`), `knot.mjs` (steps the Windlass to a haul and looks at an open
+cell), `sheet.mjs`, `swap.sh`, `ov/manifest.json`. No node, bone, clip, timing, pivot, collider or budget changed.
+
+### 1. Done, to mirror into the documents (closer)
+
+| # | What changed | Where | Mirror into |
+|---|---|---|---|
+| 1 | **The rim stone has form and three values.** The bed's top is two levels in one skin (a terrace the capstone lies on, a lower swept bed, a ragged step between them; the two flat "laminae" n-gons are gone), bays knocked out of its arris, an upper course that overhangs a dark joint, the apron the darkest stone on the ledge, the capstone a dressed flag with a tooled groove inside its arris, three fractures; cases 38 triangles each. **1 196 / 1 200**, one draw call. `env_far_rim` rebuilt (12 340 / 19 000, 3 / 3) | `blender/props/dress/prop_rim_stone.py` | ART_BIBLE row `prop_rim_stone`; ARCHITECTURE 7.5 (1 196) |
+| 2 | **The Windlass's chambers are round from the mark**: lip, recess and lid 24-sided (16), lamp and bezel 12-sided (8), the bore behind the step 12-sided; the lid's 15 mm chamfer paid for it. **8 375 / 8 400**, 3 draw calls, 333.8 kB | `blender/boss/boss_windlass.py` (`MOUTH_SEG`, `LAMP_SEG`) | ART_BIBLE 6.4 / row `boss_windlass`; ARCHITECTURE 7.5 |
+| 3 | **A knot's lobes are beads, not petals.** (a) Every knot in the game: the violet of a lobe is `KNOT_BEAD_EDGE` 0.34 where a facet is seen edge-on and `KNOT_BEAD_HEART` 1.30 where it looks at her (one dot product in the object shader's emissive term; livery bands of columns 6 and 7 stay even). (b) The Windlass's cores: COLOR_0 R of lamps 6 to 13 falls from 1 at the heart to 0.1 at the rim (baked) | `src/render/materials.ts` (two constants, five lines in the emissive block); `boss_windlass.py` `build_lamps` | ARCHITECTURE 8.4 (knot emissive); ART_BIBLE 6 (the knot) |
+| 4 | **Hats**: an 18-sided waved brim over a 9-sided crown, the back a shallow cone into the board, felt / band / worn edge a grey khaki (`#6C665E`, `#A9A294`, `#8C867C`: a brown turns olive under the stair's teal). **108 / 110** | `blender/props/dress/prop_hat_hung.py` | ART_BIBLE row `prop_hat_hung` |
+| 5 | **Coats**: the long coat's and the jacket's dyes are 85 % of the way to the grey of their own lightness (`_khaki`); the shawl keeps its dye (its test asks for tan against the stripe) | `blender/props/dress/prop_coat_hung.py` | ART_BIBLE row `prop_coat_hung` |
+| 6 | **Wagon wheel**: the iron tyre shows on the wheel's face (a 22 mm edge ring), spoke faces a step paler and flanks and the rim's inside 30 % darker, the nave of the wheel in the air 12-sided (8), the sunk one 8 (6). **1 306 / 1 500**. `env_plenty_street` rebuilt with `lm_surface` and `env_the_lip` (49 051 / 49 700; 100 s) | `blender/props/dress/dress_common.py` `wheel(tyre_band, form)` (defaults leave the water cart as it was), `prop_wagon_tipped.py` | ART_BIBLE row `prop_wagon_tipped`; ARCHITECTURE 7.5 |
+
+### 2. ASKED OF THE CLOSER: one line that gives the rim stone its texture (ready, built and looked at)
+
+`prop_rim_stone.py` has two modes and picks by the manifest. With `m_frontier` allowed for the asset, every rock face goes
+on the zone's own structure material with the cliffs' **strata row**, mapped ring by ring so the beds follow the stone's
+contours a few centimetres apart; brass and seat stay `m_prop`. The chunk stays one `m_frontier` mesh (3 / 3 draw calls,
+no texture memory: the sheet is already bound). Frames of that build in the real game: `shots/i5-team-creatures-props/w5t/`
+(`ri_stone2_low.png`, `ri_stone_high.png`), against `after/` (what ships now: vertex colour only). It is the difference
+the reviewers ask for ("a painted albedo: strata bands"), and nothing in this team's files can make it without the line:
+
+    tools/gen_assets.mjs line 382:
+    D('prop_rim_stone', { priority: 0, triBudget: 1200, materials: ['m_prop', 'm_frontier'], drawCalls: 2, bake: 'VL', placedBy: 'zone', sets: ['coda'], size: [0.9, 0.12, 0.5] });
+    node tools/gen_assets.mjs && node tools/build-assets.mjs --only prop_rim_stone,env_far_rim
+
+(`prop_stock_gate` already lists both materials.) Tried with the overlay `scratch/i5-team-creatures-props/ov/manifest.json`
+(`node tools/build-assets.mjs --manifest <it> --only prop_rim_stone,env_far_rim`): prop 1 196 triangles, 2 meshes;
+zone 12 340 / 19 000, 3 / 3. Then open `cp_rim` and look. The asset is two meshes in that mode because of row 3.1.
+
+### 3. Asked of others
+
+| # | To | What |
+|---|---|---|
+| 1 | pipeline (`blender/lib/zone.py` `embed_prop`) | A mesh with two material slots comes through as all `m_prop`: `me.materials.clear()` resets every polygon's `material_index` to 0 before the loop reads it. Read the indices before the clear. (Worked round in the stone by one mesh per material.) |
+| 2 | exterior-look | **The gate pylon** (reviewer: "a plain tapered prism on a box", `shots/i5-visual-a/cpair_05.png`) is the zone's `lip_built.py` `build_pylon`, not a prop: NOT TOUCHED by this team (the exterior team was active). Wanted: panel seams on the 1.2 m module, a riveted collar at the foot, a chamfered plinth, a cable bracket or rungs to break the silhouette |
+| 3 | exterior-look | The "balanced red rock" behind the stone is the zone's `rim_boulder_2` and its shard (`env_far_rim.py` `build_rocks`): faceted lumps. And `rim_shelf`'s two `rock_box` calls are still inside the stone and can go |
+| 4 | exterior-look / closer | The wagon would take wood grain the same way as the stone: `materials: ['m_prop', 'm_frontier']` for `prop_wagon_tipped` and its boards on the `plank_a` / `plank_b` rows. Not prepared in the script |
+| 5 | underground-look / render-tech | On High the contact shade still stipples the wall round a hung hat (`after/st_stair_e_high.png`): the brim hangs 28 mm off the wall, exactly `AO_THIN` (`src/render/post.ts`). 0.035 would take it out |
+| 6 | closer | `src/ui/loadMeter.ts` `BOOT_FILE_BYTES`: `public/assets` is 12 257 898 B after this team's rebuilds (boss +6 kB, street +2 kB, props) |
+
+### 4. Not done
+
+- **The stone as shipped has no texture** (section 2). Its top between the fractures is still smooth vertex colour; on High the air lifts the dark values and the mottling is fainter than on Low.
+- **The Windlass's face plates are still an even enamel**: 25 triangles are left in its budget, and the palette sheet has no room for a plate texture. Only the rings, lids and lamps changed.
+- **Coats still read olive in the stair** ((35, 46, 38) to (33, 47, 41) on screen): the coat cloth's base colour in `tx_palette` caps the blue a vertex colour can ask for, and that cloth is the Biders' too.
+- **The wagon wheel in its building's shade is still close to one dark value** at arm's length (form is a 30 % step); no grain (row 3.4).
+- **The pylon** (row 3.2).
+- Hat brims are 18-sided, not the 24 asked for (110 triangles).
+- The knot's bead term was looked at on the Windlass only (Low and High), not on a Bider's, a Tamper's or `knot_mech` up close; `tests/render` (86 of 86) and `tests/art_enemies` (41 of 41) pass with it.
+- No new test was written for this pass's changes; the playthrough (`tests/e2e`) and the full `tests/world`, `tests/ui`, `tests/enemies` were not run.
+
+Run on this tree, one after another: `tests/art_props` 98 of 98, `tests/art_boss` 39 of 39, `tests/art_env_exterior` 33 of 33, `tests/art_enemies` 41 of 41,
+`tests/render` 86 of 86 (two halves), vitest `tests/render` 27 of 27, `tests/world/ending.test.mjs` 9 of 9, `check-glb` 84 assets pass (11.69 MB), `tsc` clean.
+
+## Closer, pass i5 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| Section 1 rows 1 to 6 (documents) | **Mirrored**: ART_BIBLE "Amendments, pass i5 (closer)", ARCHITECTURE "Pass i5 (closer)" 7.5 / 8.4 |
+| Section 2 (the rim stone's texture) | **Applied.** `tools/gen_assets.mjs`: `prop_rim_stone` lists `m_prop` and `m_frontier`, 2 draw calls; `design/assets.json` regenerated; every asset rebuilt. Looked at in the real game at `cp_rim` (Part S) |
+| 3.1 `blender/lib/zone.py` `embed_prop` reads a cleared material index | **Not changed**: it would alter how every embedded two-material prop is drawn at the close of the last pass; the stone's one-mesh-per-material form works. Written into ARCHITECTURE "Pass i5 (closer)" as the rule |
+| 3.2, 3.3 the gate pylon, the balanced rock | **Not built**: in `docs/KNOWN_ISSUES.md` |
+| 3.4 wood grain for the wagon | **Not built** (the script is not prepared): in `docs/KNOWN_ISSUES.md` |
+| 3.5 `AO_THIN` | **Tried and reverted**: at 0.035 the gallery's contact shade as a whole fell under the floor of `tests/render/polish4_high` (0.77 of 255). The halo round a hung hat on High stays: in `docs/KNOWN_ISSUES.md` |
+| 3.6 `BOOT_FILE_BYTES` | **Refreshed** (Part S) |
+
+## Look team creatures-props, pass i6 (2026-10-08)
+
+Six issues from the two visual reviewers (all minor; two pairs overlap). Evidence: `shots/i6-team-creatures-props/before/`
+against `after/` (the real game, Low and High, 1280 x 720: `sheet_boss.png`, `sheet_wagon.png`, `sheet_cart.png`,
+`sheet_stair.png` in each), `pairs_low.png`, `pairs_high.png`, `pairs_boss_low.png` (before left, after right), working
+sets `w1/` to `w13/`; log `scratch/i6-team-creatures-props/NOTES.md`; scripts there: `cap.mjs` (tier, folder, a JSON list
+of `[name, checkpoint, pos, at]`), `knot.mjs` (steps the Windlass to a haul and looks at an open cell), `views.json`.
+No node, bone, clip, timing, pivot, collider, socket or budget changed.
+
+**What the reviewers' words were pointing at** (found by looking): the "swollen dome that cuts through the face plate" is
+an OPEN LID (it lifts 0.1 m and swings over the flute beside its mouth; it was painted as a dish). The "white disc in a
+yellow octagon ring" is the LAMP beside a mouth on Low. The "wagon/drum ... flat dark plum hexagon" in the yard is
+`prop_water_cart` (an eight-sided barrel); the wheel by the gate is `prop_wagon_tipped`. The "even flat blue" of both on
+High is not their material: it is High's shadow twin laid over a vertex-lit prop's own baked shade (row 5).
+
+### 1. Done, to mirror into the documents (closer)
+
+| # | What changed | Where | Mirror into |
+|---|---|---|---|
+| 1 | **The Windlass's knot is a cluster of crystal points**, not lobes: one thick six-sided point in the middle, six leaning points round it (five- and four-sided, no two alike), two splinters; each a prism with a pointed termination. UV0 of a point runs along one clean ray of the painted knot (`blender/tex/knot_atlas.py`, the ray at 147 degrees between two lashings): pale at the tip, violet down the shaft, deep violet at the root. The CORE lamp is the crown of the middle point (six facets): its UV0 runs from the `violet` cell at the girdle to `violet_core` at the point, so the heart is a cut stone, violet with a white middle. Same hex collar (`lib.knot`), same footprint, height, hit sockets and bones; 117 triangles a knot (140). Six mouths and two pawls | `blender/boss/boss_windlass.py` `crystal_knot`, `place_knot`, `build_lamps` | ART_BIBLE 6 (the knot of the Windlass: crystal points on the hex collar; the faceted lobes of `blender/lib/knot.py` remain on the Tamper, the latches and `knot_mech`), 6.4 / row `boss_windlass` |
+| 2 | **The face is twelve plates, bolted.** Each sixth is a hub plate (r 0.6 to 1.0) and a chamber plate with a 30 mm ring seam between them; 36 square-headed bolts along the seams (domed, one normal a vertex); a stain thrown OUTWARD from every other bolt (the drum spins); each chamber plate its own value (`PLATE_VALUE`), the hub plates stained. **The lids** are machined caps: no underside (never seen: the lid swings in its own plane), a turned 18-sided boss in the middle, the flat stained toward its rim. **The flutes** are dark at their bottom (x 0.40, was x 0.90: a pale smooth scoop read as a ball standing proud of the face). The hub cap is flat and pale to its edge (its paint drew a dome). The chamber heads on the BACK of the drum are 8-sided (12). **8 371 / 8 400**, 3 draw calls, 341.6 kB (333.8) | `boss_windlass.py` `build_drum`, `build_mouths`, `paint_face`, `paint_steel` | ART_BIBLE 6.4 / row `boss_windlass`; ARCHITECTURE 7.5 (8 371) |
+| 3 | **The six lamps beside the mouths are lenses**: a low cone of twelve faces, UV0 from `aqua_core` at the heart to `aqua` at the rim, at full intensity (see section 3, row 1 for why not a dimmed rim) | `boss_windlass.py` `build_mouths`, `build_lamps` | ART_BIBLE row `boss_windlass` |
+| 4 | **A lamp's hue is its highest UV0 column** (was: the column of whichever vertex is stored first): a lamp that runs over two cells that stand side by side has the hue of its heart for the air light and for Low's halo, whatever order the optimiser writes its vertices in. A lamp on one cell (every other lamp in the game) reads as before | `src/render/materials.ts` `lampInfoOf` (one line; **render-tech is not active in this pass: edited by this team**) | ARCHITECTURE 8.4 |
+| 5 | **A vertex-lit face keeps its baked shade on High.** The shadow twin (`makeShadowMaterial`) read an embedded prop's UV1 (the lightmap's neutral white block) as "in the bake's sun" and laid the map's whole shadow over the shade its vertex colour already carries: the wagon, the water cart and every other embedded prop under a roof or on its own lee side went one flat blue. A face whose UV1 lies in the neutral 4 x 4 block of a real lightmap (8 px or more) takes `SHADOW_VERTEX_LIT` 0.22 of the map's shadow and none of the shade's deepening. Every embedded prop of every zone is touched (pump, trough, crates, the tally table ...): on High they now look as they do on Low, with a faint cast shadow across them | `src/render/system.ts` `SHADOW_VERTEX_LIT`, `keepShadowGate` (**render-tech's file: edited by this team**) | ARCHITECTURE 8.4 (the shadow twin); KNOWN_ISSUES "a vertex-lit face under High's shadow map" can go |
+| 6 | **The water cart's barrel** is twelve-sided (8) and its two heads are boarded (four boards on the tap end, three on the nose end, each its own part and value) where there was one flat cap a head; one stave a facet with a wider spread of values. **1 038 / 1 100** | `blender/props/dress/prop_water_cart.py` | ART_BIBLE row `prop_water_cart` |
+| 7 | **The wagon's wheel in the air**: 24 segments of rim (20), spokes shaved to a ridge with a lit and an unlit flank (`dress_common.wheel(ridge=True)`: the same triangles), a deeper step between a face and its flank (0.42), and a tyre of worn iron PALER than the wood (it was a dark brown: one value with the felloes in the building's shade). The half-buried wheel is 16 segments with three-sided spokes. **1 328 / 1 500** | `blender/props/dress/prop_wagon_tipped.py`, `dress_common.py` `wheel` | ART_BIBLE row `prop_wagon_tipped` |
+| 8 | **Hats**: a 12-sided crown (9) under one smooth skin from the band to the crease (the foot and the band's edge are sharpened by hand), the crease a dent, crown and brim one felt (the brim was a dark ring round a pale knob). **108 / 110** | `blender/props/dress/prop_hat_hung.py` | ART_BIBLE row `prop_hat_hung` |
+| 9 | **`env_plenty_street`, `env_the_lip` and `lm_surface` rebuilt by this team** (the street embeds the cart and the wagon): `node tools/build-assets.mjs --only env_plenty_street,env_the_lip,lm_surface`, 102 s. Street **49 177 / 49 700**, 16 / 16 draw calls (`chunk_st_east` 13 400 / 13 800, `chunk_st_yard` 13 282 / 13 400); the Lip 28 289 / 31 000. `tests/art_env_exterior` 38 of 38 after it. The exterior team's request file quotes 49 017 and 13 144 for the street and its yard chunk: those are the figures before this rebuild | `public/assets/env/`, `public/assets/lm/lm_surface.webp` | `docs/requests/exterior-look.md` pass i6 figures; `src/ui/loadMeter.ts` `BOOT_FILE_BYTES` (the surface set's files changed) |
+
+### 2. Tests changed
+
+| File | Change | Why |
+|---|---|---|
+| `tests/art_props/dress/check.test.mjs` | the piece's own download figure is 0.305 MB (0.3) and the test now also holds ALL props (mech + dress) to the order's 0.8 MB | the 29 files are 315 096 B (0.3005 MB) after rows 6 to 8; mech + dress are 0.794 MB of 0.8. Trimmed first (the buried wheel, one head board, the hat's shoulder): 740 bytes back, 524 short |
+
+Run on this tree, one after another: `tests/art_boss` 39 of 39, `tests/art_props` 98 of 98, `tests/art_enemies` 41 of 41,
+`tests/art_env_exterior` 38 of 38, `tests/render` 86 of 86 (three groups of files: 14 + 32 + 40; `i4` test 4 again after the
+last build: vista 10.2, boss 9.3), vitest `tests/render` 27 of 27, `npm run check:assets` 84 assets and 21 textures pass
+(11.75 MB), `validate_assets` OK, `tsc` clean. Not run: `tests/enemies`, `tests/world`, `tests/ui`, `tests/pipeline`, the
+playthrough.
+
+### 3. For render-tech and the closer (found on the way)
+
+| # | What |
+|---|---|
+| 1 | **High's lit air depends on the mean vertex colour of whatever lamps are in view.** `emitAir` takes a lamp's power from the MEAN of its COLOR_0 R (`lampInfoOf`) and `AirLights` keeps the twelve strongest in the frame. A first build of the new cores had a mean of 0.8 (the old ones 0.34): the eight cores pushed the chamber's own lamps out of the twelve and the lit air of the whole room went out on High (`tests/render/i4` test 4, `vista_windlass`: 10.2 of 255 with the old asset, 3.8 with that build; the picture was otherwise fine). The cores are now held at a mean of 0.33 (`TIP` 0.72, `FACET` 0.09 to 0.20) and the lenses at 1.0. Anyone who paints a lamp's COLOR_0 R for LOOK changes the air of its room: a per-lamp-set power that does not follow the paint would end that |
+| 2 | **The dark ring round a hung hat on High is not fixed.** Tried in the asset: bending the brim's upper and lower arcs back onto the wall so that the contact shade (`post.ts` `AO_THIN` 28 mm) has no gap to draw. The rail board is 3 cm proud of the wall and runs at the stair's slope, not level in the hat's frame: the board cut through the bent brim (`shots/i6-team-creatures-props/w6/crop_hat_high.png`), so it was taken out. The crown stands 15 cm off the wall: the shade round it is what a contact shade does. It needs the pass itself: a per-tap exclusion (instanced dressing writes a flag the taps read), or a second, larger `AO_THIN` for taps that land on instanced things. The closer's `AO_THIN` 0.035 broke `polish4_high` in pass i5 |
+| 3 | The wagon and the cart still have no wood grain: they are vertex colour on one palette cell, folded onto the zone's flat trim cell. Grain is the manifest line asked in pass i5 (section 3 row 4: `materials: ['m_prop', 'm_frontier']`, boards on the `plank_a` / `plank_b` rows), not prepared in the scripts |
+| 4 | **The gate pylon** was rebuilt by the exterior team in this pass (`blender/env_exterior/lip_built.py`, their request file): not touched here |
+| 5 | `blender/boss/boss_windlass.py` now imports `blender/tex/knot_atlas.py` (for `top_uv`): the build driver records it in the asset's `.deps.json`, so a change to the knot atlas rebuilds the Windlass |
+
+### 4. Not done
+
+- **The hat's halo on High** (section 3 row 2).
+- **No halo quad was added on Low**: the reviewer asked for "a small additive halo quad" round a lit lamp. The renderer has a halo pass for lit lamps on Low (`materials.ts` `emitHalos`); how much of it shows at these lamps was not measured, and in the Low frames from under the drum no glow is seen round the lamp (`after/bo_under_low.png`). What changed is the lamp itself: a lens with a white heart in an aqua body inside its brass bezel, not a flat white disc.
+- The plates' wear is vertex colour and twelve stain triangles: there is no texture on the face (the palette sheet has five free cells left in row 0 and four in row 1, the boss has no `m_mask`). From 6 m it reads as a bolted, seamed, two-ring face; with the muzzle on a plate the enamel between the bolts is still smooth.
+- The wheel has no nail heads and no grain; in the building's shade at arm's length it is three values (tyre, face, flank), not a textured thing.
+- The hat is 108 triangles: a brim, a band, a soft crown with a dent. No curled brim edge with thickness, no modelled underside (the reviewer asked for about 150 more triangles; the budget is 110 and 24 hats hang in a gallery whose dressing allowance is spent).
+- The knots of the Tamper, the latches and `knot_mech` are still the library's lobes (`blender/lib/knot.py` is not this team's).
+- The burst and the hit state of the new knot (the bone's squash, the core out) were not looked at in a played fight; only the lit, open state on Low and High.
+- Fights were not replayed: nothing but pictures changed, but `tests/enemies` and the playthrough were not run by this team.
+
+## Closer, pass i6 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| Section 1 rows 1 to 9 (documents) | **Mirrored**: ART_BIBLE "Amendments, pass i6 (closer)", ARCHITECTURE "Pass i6 (closer)" 7.5 / 8.4 |
+| Section 1 rows 4 and 5 (edits in render-tech's files) | **Accepted**; every `tests/render` file is run on the final tree (Part T) |
+| Section 2 (the dress download figure 0.3 -> 0.305 MB) | **Accepted** (ruling R14: the total is 11.8 of 20 MB and all props are now held to the order's 0.8) |
+| Section 3 row 1 (lit air follows the lamps' paint) | Written into ARCHITECTURE "Pass i6 (closer)" as a rule; no mechanism change at the close |
+| Section 3 rows 2, 3; section 4 | **Not built**: in `docs/KNOWN_ISSUES.md` |
+| `BOOT_FILE_BYTES` | **Refreshed** (Part T) |

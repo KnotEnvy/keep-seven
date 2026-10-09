@@ -64,9 +64,11 @@ test('a hint line a death cut off is said again after the respawn (hint_kept_2 w
     await game.run([{ steps: 600 }]);
     const seq = await mark(game);
     await game.run([{ call: ['emit', 'boss/charge_required', {}] }, { steps: 16 * 60 }]);      // tier 1 at 15 s
-    // the narrator is busy when tier 2 falls (30 s): the hint is held for a quiet moment, and she dies before it comes
-    await say(game, 'nar_rim_1'); await say(game, 'nar_rim_2'); await say(game, 'nar_rim_3');
-    await game.run([{ steps: 14 * 60 + 30 }]);
+    // the narrator is speaking when tier 2 falls (30 s): the hint is next in line (pass i4: it was held for a quiet
+    // moment that the Windlass's talk never gave), and she dies before its turn comes
+    await game.run([{ steps: 13 * 60 }]);
+    await say(game, 'nar_rim_1');
+    await game.run([{ steps: 60 + 30 }]);
     let ev = await game.events(seq);
     assert.ok(ev.some((e) => e.name === 'puzzle/hint' && e.payload.puzzle === 'kept' && e.payload.tier === 2), 'tier 2 was reached');
     assert.ok(!ev.some((e) => e.name === 'story/line' && e.payload.key === 'hint_kept_2'), 'its line had not started (the narrator was speaking)');

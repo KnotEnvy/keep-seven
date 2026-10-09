@@ -263,8 +263,8 @@ class Poser:
 _ROLL = {}
 
 
-PORT_ROLL = float(os.environ.get("PORT_ROLL", "125"))      # degrees round the bore: where the left hand lies about the round it feeds (0 = toward the top strap)
-ELBOW_DIR = Vector(tuple(float(x) for x in os.environ.get("ELBOW_DIR", "0.0,0.34,-0.94").split(",")))   # wrist -> elbow in the loading pose (camera space): down and back, out of the bottom edge
+PORT_ROLL = float(os.environ.get("PORT_ROLL", "145"))      # degrees round the bore: where the left hand lies about the round it feeds (0 = toward the top strap)
+ELBOW_DIR = Vector(tuple(float(x) for x in os.environ.get("ELBOW_DIR", "-0.33,0.37,-0.87").split(",")))   # wrist -> elbow in the loading pose (camera space): down and back, out of the bottom edge
 
 
 def port_frame(rig, back_mm=0.0, roll_hint=None, Wg=None):
@@ -289,6 +289,8 @@ def port_frame(rig, back_mm=0.0, roll_hint=None, Wg=None):
         ELBOW_L.xyz = E - (e0 + (w - wrist) * 0.72)
         sx = lambda p: 0.5 + p.x / p.y / (2 * TAN_V * 16.0 / 9.0); sy = lambda p: 0.5 + p.z / p.y / (2 * TAN_V)
         g = Wg @ o0
+        own = (Wl.to_3x3() @ (e0 - wrist)).normalized()
+        print("PORT the left hand's own forearm line (wrist -> elbow, camera space) (%.2f, %.2f, %.2f); the arm is laid along (%.2f, %.2f, %.2f): a wrist bent %.0f degrees" % (*own, *ELBOW_DIR.normalized(), math.degrees(own.angle(ELBOW_DIR))))
         print("PORT gate at screen (%.3f, %.3f) depth %.3f; wrist (%.3f, %.3f) depth %.3f; elbow (%.3f, %.3f)" % (sx(g), sy(g), g.y, sx(w), sy(w), w.y, sx(E), sy(E)))
     return frame(o, rig.bore, _ROLL["hint"])
 

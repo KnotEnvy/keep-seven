@@ -173,10 +173,16 @@ test('the sighting: nar_dowser_seen when he is in view, he goes when she looks a
     assert.ok((await g4.events(seq, 'story/line')).some((e) => e.payload.key === 'nar_dowser_seen'), 'in view: the line');
     assert.equal(await ended(seq), false, 'fourteen seconds in the corner of her eye: the 12 s clock does not take him');
     assert.equal((await sight()).sightLooked, 0);
-    // she looks at him for a second and a half: now the clock (long past) may take him
+    // she looks at him for a second and a half. Pass i4: the clock (long past) does NOT take him while he is in her view
     seq = await mark(g4);
-    await g4.run([{ aimAt: DOWSER, steps: 90 }, { steps: 30 }]);
-    assert.equal(await ended(seq), true, 'looked at: he goes');
+    await g4.run([{ aimAt: DOWSER, steps: 90 }, { steps: 5 * 60 }]);
+    assert.equal(await ended(seq), false, 'looked at and still in her view: he stands (he was taken at 12 s under "When she looked again")');
+    // off the middle of her view but in the frame (40 degrees): he still stands
+    await g4.run([{ aim: [yawTo - 40, 12], steps: 4 * 60 }]);
+    assert.equal(await ended(seq), false, 'in the frame, off its middle: he stands');
+    // out of the frame for half a second (the door has opened by its clock): he is gone, and the line is true
+    await g4.run([{ aim: [yawTo - 90, 0], steps: 40 }]);
+    assert.equal(await ended(seq), true, 'she looked away: he goes');
     assert.ok((await g4.events(seq, 'story/line')).some((e) => e.payload.key === 'nar_dowser_gone'));
   } finally { await g4.close(); }
   const g5 = await open(srv, { checkpoint: 'cp_yard_clear' });

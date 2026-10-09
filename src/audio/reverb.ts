@@ -33,9 +33,10 @@ export const IR_CONFIRM_LIFT: readonly number[] = [1, 1, 1, 1.33, 1.5];
  * recipes' `a`, gun.ts). All four peak at the limiter, so the lift above buys almost nothing: in the bore, with ambience
  * and music, they stood 0.6 to 1.2 dB over the report's tail and for 30 ms only (critic "combat", polish round 5). A knock
  * that holds 20 ms carries about three times the energy at the same peak (12 ms in the hall, 20 ms in the bore: +5.9, +4.1,
- * +6.5 and +4.1 dB over the bore's bed after). 0 in the open and the small rooms: unchanged.
+ * +6.5 and +4.1 dB over the bore's bed after). Pass i4: 6 ms in the open, the Tally House and the gallery too, where the
+ * street's tick stood 2.5 dB and the gallery's 1 dB over the bed (+9 dB after, with the confirms 40 ms later: gun.ts).
  */
-export const IR_CONFIRM_HOLD: readonly number[] = [0, 0, 0, 0.012, 0.02];
+export const IR_CONFIRM_HOLD: readonly number[] = [0.006, 0.006, 0.006, 0.012, 0.02];
 export const IR_NAMES: readonly string[] = ['outdoors', 'tally', 'gallery', 'hall', 'bore'];
 /** the outdoor slap-back, seconds */
 export const SLAP_SECONDS = 0.32;

@@ -399,6 +399,9 @@ def build(S):
         plate(pl, (x, z), (sx, sz), rot_, 760 + k, h=hh); n_pl += 1
     for (x, z, hh) in ((13.2, -6.45, 1.0), (21.6, 5.9, 0.9)):
         if nav_dist(x, z) > 1.6: bush(bu, (x, lf.ground(x, z), z), hh, rng); n_bu += 1
+    # (pass i5, tried and withdrawn: a second run of LONGER bedrock shelves, 2.6 to 3.9 m, along the path. A plate that long
+    # is one flat vertex-lit facet: on the shaded mauve sand it read as a pale orange board lying on the floor
+    # (shots/i5-team-exterior-look/w_shelves/). The floor's mid-size shapes of this pass are painted: ground_paint.sheets.)
     # --- the third reach (chunk_lip_mid has triangles): more of the wash's stones, two more bushes
     for (x, z, hh) in ((19.6, 49.6, 1.0), (6.6, 33.6, 0.9)):
         if lf.F(x, z) > 0.3 and nav_dist(x, z) > 1.6: bush(bu, (x, lf.ground(x, z), z), hh, rng); n_bu += 1

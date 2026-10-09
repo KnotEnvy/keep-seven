@@ -5,7 +5,7 @@
 // Frame: lateUpdate() advances everything that moves by itself (mood cross-fades, pulses, the quad batch) from the
 // CLOCK, so drawing the same tick twice gives the same picture; render() only draws.
 import * as THREE from 'three';
-import { FIXED_DT } from '../core/contracts.ts';
+import { ColFlag, FIXED_DT } from '../core/contracts.ts';
 import { featuresOf } from '../core/quality.ts';
 import type {
   AssetDef, DebugSnapshot, FxHandle, GameContext, GameEvents, InstanceApi, LampApi, LayoutMarker, MoodId, PerfStats, RenderSystem, RenderTier, TextureId, VfxApi, ZoneId,
@@ -16,15 +16,15 @@ import { HaloSpec, MaterialFactory, writeHalo } from './materials.ts';
 import {
   BORE_KERB_TOP_Y, MOODS, MOOD_SIZE, M_AMBIENT, M_CLOUD, M_CONTRAST, M_DENSITY, M_EXPOSURE, M_FOG_A, M_FOG_B, M_FOG_MIX_DIST, M_FOG_MIX_SUN, M_GLOW,
   M_HEIGHT_EXTRA, M_HEIGHT_FALLOFF, M_KEY, M_KEY_DIR, M_LIFT, M_MID, M_MID_SIN, M_PLACE, M_PULSE, M_RULE, M_SATURATION, M_SKY, M_SUN_COL, M_SUN_DIR, M_SUN_DISC,
-  M_TINT, M_VIGNETTE, M_ZENITH, M_BLOOM_T, M_BLOOM_K, M_BLOOM_S, BLOOM_T_DEFAULT, BLOOM_K_DEFAULT, SHEEN, AIR, AIR_CONE, AIR_DUST, AIR_GLOW, GLANCE, RELIEF, RELIEF_SKY, SHAFT_DUSK, SHAFT_DUSK_VEIL, SHADOWS, SHADOW_RECEIVERS, SHADOW_CASTERS, SHADOW_EDGE, SHADOW_STATIC_ZONES, cellHeightExtra, isMoodKey, lerpMood, moodAt, smoothstep01,
+  M_TINT, M_VIGNETTE, M_ZENITH, M_BLOOM_T, M_BLOOM_K, M_BLOOM_S, BLOOM_T_DEFAULT, BLOOM_K_DEFAULT, SHEEN, AIR, AIR_CONE, AIR_DUST, AIR_GLOW, GLANCE, RELIEF, RELIEF_SKY, SHAFT_DUSK, SHAFT_DUSK_VEIL, DUSK_MIST, SHADOWS, SHADOW_RECEIVERS, SHADOW_CASTERS, SHADOW_EDGE, SHADOW_STATIC_ZONES, cellHeightExtra, isMoodKey, lerpMood, moodAt, smoothstep01,
 } from './moods.ts';
 import type { MoodKey, ShadowSpec } from './moods.ts';
-import { AIR_K, AO_INTENSITY, AO_SKY, EMISSIVE_HDR, PostChain, SHAFT_K, VEIL_GULLY, VEIL_K, VM_DEPTH_RANGE } from './post.ts';
+import { AIR_K, AO_INTENSITY, AO_SKY, DUST_FAR, DUST_GULLY, DUST_H, DUST_K, DUST_LIGHT, DUST_ROOF, EMISSIVE_HDR, GLOW_K, PostChain, SHAFT_K, VEIL_GULLY, VEIL_K, VM_DEPTH_RANGE } from './post.ts';
 import { HUE, SharedUniforms } from './shared.ts';
 import { Sky } from './sky.ts';
 import { Vfx, VFX_IDS } from './vfx/vfx.ts';
 import { PREWARM } from './prewarm.ts';
-import { quietFrustum } from './quiet.ts';
+import { quietBonesSwitch, quietBonesWritten, quietFrustum } from './quiet.ts';
 import { benchmarkVerdict } from './benchmark.ts';
 
 const VIEWMODEL_FOV = 40;
@@ -34,6 +34,8 @@ const DEFAULT_MOOD_FADE = 1.5;
 const TRAUMA_DECAY = 1.8;
 /** underground look, pass i3: the knock the camera takes at the seventh (one of the kept round's own weight again; gone in a third of a second; none under Reduce Motion) */
 const PROVEN_TRAUMA = 0.55;
+/** underground look, pass i4: under this eye height in the Tally House's mood she is on the staged stair (the hall's floor is y 0, its underside -0.3); the far air changes over UNDER_FADE seconds */
+const UNDER_Y = -0.3, UNDER_FADE = 0.5;
 const SHAKE_PITCH = 1.2 * Math.PI / 180, SHAKE_YAW = 1.2 * Math.PI / 180, SHAKE_ROLL = 1.5 * Math.PI / 180;
 const SHADOW_MAP_BYTES = 8 * 1024 * 1024;
 /**
@@ -66,6 +68,16 @@ const GULLY_SHAFT_SEE: readonly [number, number] = [62, 44], GULLY_SHAFT_NEAR: r
 // 18 m (5 cm a texel under PCF; the map and its cost are the same).
 /** how fast the shadow map's direction and darkness follow the mood (seconds), and the cosines of the angle to the light between which a face takes the shadow */
 const SHADOW_EASE = 0.6, SHADOW_FACE_FROM = 0.02, SHADOW_FACE_TO = 0.22;
+/**
+ * Exterior look, pass i5 (both visual reviewers: the broken wall beside the sighting stood "on a plain blue base" on High).
+ * In the bake's shade a face that looks at the sun took the map's shadow at `inShade` ON TOP of the deepened shade
+ * (0.36 + 0.45 of the way to the shadow's dark blue; a face turned from the sun took 0.36): every sun-side wall in a
+ * building's shade lost its brick and plaster to one flat violet. The share `inShade` is for the GROUND, where a deeper
+ * pool of shadow stands a building on the street; a wall takes this fraction of it (up-facing from 0.35 to 0.75).
+ */
+const SHADOW_WALL_IN_SHADE = 0.27;
+/** creatures-props, pass i6: the share of the map's shadow a vertex-lit face takes (its own shade is in its vertex colour; makeShadowMaterial) */
+const SHADOW_VERTEX_LIT = 0.22;
 /** High: how bright a flashing grain of sunlit sand is against the light baked onto it (shared.ts uSparkle; the look teams' number) */
 const SPARKLE_K = 3.0;
 /** seconds over which a zone's lamps come into and leave the air light when she crosses into another zone */
@@ -77,7 +89,10 @@ const CAST_EVERY = 20;
  * the bore's glow stands at the pit's mouth and is the light of the chamber.
  */
 // underground look, pass i1: practical 0.7 / 2.5 -> 1.2 / 3.5 (the lantern on the long table and the Dowser's embers: a dome of lit air a player sees from the door)
-const AIR_LAYOUT: Readonly<Record<string, readonly [number, number]>> = { practical: [1.2, 3.5], bore_glow: [1.6, 7], hatch_glow: [0.6, 2.5] };
+// render-tech, pass i4 (R16): the well's glow is the chamber's hero light and stands in its air: bore_glow 1.6 / 7 -> 2.8 / 9
+// underground look, pass i5 (R16, the antechamber): practical 1.2 / 3.5 -> 1.5 / 4.5 (the embers are the room's light: a warm dome over the camp that reaches the
+// crates; 1.8 / 5 veiled the corner and the embers themselves). The Tally House's lantern takes the same (checked: shots/i5-team-underground-look/after/tally_*)
+const AIR_LAYOUT: Readonly<Record<string, readonly [number, number]>> = { practical: [1.5, 4.5], bore_glow: [2.8, 9], hatch_glow: [0.6, 2.5] };
 /**
  * High: a dense lamp set (materials.ts LampInfo.dense, the Windlass's gauge) is drawn DENSE_OVER of the mood's bloom
  * threshold and never under DENSE_MIN of display white; DENSE_LUMA is the luminance of its aqua-white lamp value.
@@ -165,6 +180,11 @@ export class RenderSystemImpl implements RenderSystem {
   private cssWidth = 960;
   private cssHeight = 540;
   private appliedRatio = -1;
+  /** pass i4: what the canvas itself was last allocated at (its ratio and CSS size), and how often it has been */
+  private canvasRatio = -1;
+  private canvasW = -1;
+  private canvasH = -1;
+  private canvasResizes = 0;
   private readonly bufferSize = new THREE.Vector2(960, 540);
   // ---- visibility
   private readonly visibleUnits = new Set<string>();
@@ -192,6 +212,8 @@ export class RenderSystemImpl implements RenderSystem {
   /** an exterior zone is among the drawn ones / how much of the open air's own fog and sky exterior things take (0 under an exterior mood) */
   private exteriorDrawn = false;
   private outside = 0;
+  /** underground look, pass i4: 0..1, the eye is under the Tally House's floor on the staged stair (UNDER_Y): the far air is the gallery's */
+  private under = 0;
   /** where the camera was at the last frame (a warp snaps the dynamic lights) */
   private readonly lastCam = new THREE.Vector3(1e9, 0, 0);
   private exposure = 1;
@@ -234,6 +256,8 @@ export class RenderSystemImpl implements RenderSystem {
   private shadowWhite: THREE.DataTexture | null = null;
   /** pass i2: the fixed world of the exterior zones casts into the map (ShadowSpec.statics) */
   private staticsCast = false;
+  /** pass i5: the blobs' shade probe (a test switches it off to see the blob as it was) */
+  private blobTest = true;
   /**
    * The depth material of the fixed casters. Left to three, a caster whose material has a `map` (the detail texture)
    * is drawn into the shadow map with a depth program of its own kind (USE_MAP: three keeps the map for alpha-tested
@@ -272,6 +296,8 @@ export class RenderSystemImpl implements RenderSystem {
   private sparkleTest = true;
   private reliefTest = true;
   private shimmerTest = true;
+  /** exterior look, pass i4: the ground dust and the sun's glow (post.ts DUST_*, GLOW_*); a test's switch */
+  private dustTest = true;
   /** pass i2: the afterglow's shafts (moods.ts SHAFT_DUSK), eased; a test's switch */
   private dusk = 0;
   private duskTest = true;
@@ -323,6 +349,7 @@ export class RenderSystemImpl implements RenderSystem {
       high: () => this.ctx.quality.features.particleScale >= 1,
       additiveCap: () => this.ctx.quality.features.additiveOverdrawCap,
       bladeCards: () => this.ctx.quality.features.bladeCards,
+      shadeAt: (x, y, z) => this.blobTest ? this.shadeAt(x, y, z) : 0,
     });
     this.vfx = this.fx;
     this.materials.bladeAt = (x, y, z) => this.fx.bladeAt(x, y, z);
@@ -351,6 +378,20 @@ export class RenderSystemImpl implements RenderSystem {
     rgbOf(this.shared.uExtFogA.value, MOODS.L1, M_FOG_A); rgbOf(this.shared.uExtFogB.value, MOODS.L1, M_FOG_B);
     this.shared.uExtFog.value.x = MOODS.L1[M_DENSITY] as number;
     for (const m of layout.markers) this.addLayoutLight(m);
+  }
+
+  /**
+   * Pass i5: 1 where a point of the ground outdoors is in the shade of the fixed world (a sight line from 1 m over it,
+   * 80 m toward the sun, meets a collider that is drawn and not a grille), else 0. Asked once per drawn frame for one
+   * blob shadow (vfx.ts fillQuads); it allocates nothing and reads no state of the simulation but the colliders.
+   */
+  private shadeAt(x: number, y: number, z: number): number {
+    const ctx = this.ctx, s = this.shared.uSunDir.value;
+    if (s.y < 0.02) return 0;
+    const zone = ctx.data.zoneAt(x, y + 0.5, z, ctx.world.residentSet);
+    if (zone === null || !this.exteriorZones.has(zone)) return 0;
+    const oy = y + 1;
+    return ctx.collision.lineOfSight(x, oy, z, x + s.x * 80, oy + s.y * 80, z + s.z * 80, ColFlag.GRILLE | ColFlag.INVISIBLE) ? 0 : 1;
   }
 
   private addLayoutLight(m: LayoutMarker): void {
@@ -455,7 +496,11 @@ export class RenderSystemImpl implements RenderSystem {
    * own lightmap uniform): where the bake already has shade the map adds `shade` of itself (ShadowSpec.lit / shade).
    */
   private makeShadowMaterial(lm: { value: THREE.Texture | null }, scale: number): THREE.ShadowMaterial {
-    const m = new THREE.ShadowMaterial({ opacity: 0.55, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, fog: false });
+    // exterior look, pass i5 (both visual reviewers: "an outlined circle patch on the sand" in the sighting's frame, High only): the twin
+    // was pulled toward the eye by a SLOPE-scaled offset (factor -1). Seen at a grazing angle that is centimetres: where a drift or a
+    // wedge of banked sand lies a finger over the ground sheet, the hidden sheet's twin came through it and its toe was shaded twice,
+    // a dark ring round every patch of loose sand. A twin is its mesh's own geometry: a constant offset is all it needs.
+    const m = new THREE.ShadowMaterial({ opacity: 0.55, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -4, fog: false });
     m.name = 'keep_shadow';
     m.defines = { KEEP_LM: '', USE_UV1: '' };
     const light = this.shadowLight, at = this.shadowAt, gate = this.shadowGate, lmScale = { value: scale };
@@ -476,7 +521,11 @@ uniform float uKeepLmScale;
 #endif
 float keepShadowGate( float shadow ) {
 	// a face turned from the light takes no shadow from the map: g is the share of the map's shadow this pixel shows
-	float face = smoothstep( ${SHADOW_FACE_FROM.toFixed(2)}, ${SHADOW_FACE_TO.toFixed(2)}, dot( normalize( cross( dFdx( vKeepW ), dFdy( vKeepW ) ) ), uKeepLight ) );
+	vec3 fn = normalize( cross( dFdx( vKeepW ), dFdy( vKeepW ) ) );
+	float face = smoothstep( ${SHADOW_FACE_FROM.toFixed(2)}, ${SHADOW_FACE_TO.toFixed(2)}, dot( fn, uKeepLight ) );
+	// (pass i5) ... but the ground is the ground: under a 14 degree sun a drift's lee slope is "turned from the light" by a
+	// few degrees, took no shadow in a building's shade and lay there as a paler patch
+	face = max( face, smoothstep( 0.80, 0.93, fn.y ) );
 	float g = face * shadow;
 	#ifdef KEEP_LM
 	// (pass i2) the BAKE says where the fixed world's shade is: there the map's shadow shows at a share of itself
@@ -484,7 +533,16 @@ float keepShadowGate( float shadow ) {
 	// itself is deepened by uKeepGate.z of the shadow's darkness whatever the map holds (a wall's own shade and the
 	// shade cast on the sand beside it are one shade: no edge where the map ends or a caster is not drawn)
 	float lit = smoothstep( uKeepGate.x, uKeepGate.y, dot( texture2D( uKeepLm, vKeepLm ).rgb, vec3( 0.2126, 0.7152, 0.0722 ) ) * uKeepLmScale );
-	g *= mix( uKeepGate.w, 1.0, lit );
+	g *= mix( uKeepGate.w * mix( ${SHADOW_WALL_IN_SHADE.toFixed(2)}, 1.0, smoothstep( 0.35, 0.75, fn.y ) ), 1.0, lit );
+	// creatures-props, pass i6 (visual reviewer: the wagon's wheel and the water cart "turn an even flat blue with no shading
+	// at all" on High). A VERTEX-LIT face (an embedded prop: its UV1 is the lightmap's neutral white block, its light and its
+	// own shade are baked into its vertex colour) read as "in the bake's sun" here and took the map's whole shadow on top of
+	// the shade it already carries: every board, spoke and stave under a roof or on the prop's own lee side was one blue.
+	// It keeps its baked shading and takes SHADOW_VERTEX_LIT of the map (a creature's shadow still crosses it, faintly).
+	vec2 keepLmSize = vec2( textureSize( uKeepLm, 0 ) );                       // (the twin of a mesh without a lightmap reads a 1 x 1 white texture: no vertex-lit rule there)
+	float keepVl = step( max( vKeepLm.x * keepLmSize.x, vKeepLm.y * keepLmSize.y ), 4.0 ) * step( 8.0, keepLmSize.x );
+	g *= mix( 1.0, ${SHADOW_VERTEX_LIT.toFixed(2)}, keepVl );
+	lit = max( lit, keepVl );
 	#endif
 	// toward the map's edge (across the light) the shadow fades out
 	vec3 d = vKeepW - uKeepAt.xyz;
@@ -605,13 +663,45 @@ float keepShadowGate( float shadow ) {
   }
 
   // ---- size ---------------------------------------------------------------------------------------------------------
+  /**
+   * The largest pixel ratio the tier allows for this window (core/quality.ts maxRatio, from the same public inputs): the
+   * ratio the CANVAS is allocated at on a tier with a composer.
+   */
+  private topRatio(): number {
+    const ctx = this.ctx, q = ctx.quality, f = q.features;
+    if (ctx.flags.test) return 1;
+    const dpr = typeof window !== 'undefined' && window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    let r = Math.min(f.maxPixelRatio, Math.max(1, dpr));
+    if (q.tier !== 'high') r = Math.min(r, 1);
+    r *= ctx.options.value.resolutionScale;
+    r = Math.min(r, f.maxBufferHeight / this.cssHeight, Math.sqrt(f.maxBufferPixels / (this.cssWidth * this.cssHeight)));
+    return Math.min(r, f.maxPixelRatio);
+  }
+  /**
+   * Pass i4 (performance: "every adaptive-resolution step resizes the canvas drawing buffer and stalls a frame"). On a
+   * tier with a composer the canvas is allocated ONCE per window size and tier, at the tier's largest ratio; an adaptive
+   * step resizes only the off-screen targets the scene and the chain are drawn into (no round trip to the browser's
+   * compositor: 0.1 to 0.3 ms where the canvas took 96 to 574 ms with work queued), and the chain's last pass, which
+   * already draws onto the canvas, enlarges the picture as it reads it. `min` has no off-screen target (it is the tier
+   * of no full-screen pass): there the canvas itself is still the buffer that steps.
+   */
   private applySize(): void {
-    const r = this.renderer, ratio = this.ctx.quality.pixelRatio;
+    const r = this.renderer, ratio = this.ctx.quality.pixelRatio, post = this.post;
     this.appliedRatio = ratio;
-    r.setPixelRatio(ratio);
-    r.setSize(this.cssWidth, this.cssHeight, false);
-    if (this.post) this.post.setSize(this.cssWidth, this.cssHeight);
+    const offscreen = post !== null && post.composer !== null;
+    const top = offscreen ? Math.max(ratio, this.topRatio()) : ratio;
+    if (top !== this.canvasRatio || this.cssWidth !== this.canvasW || this.cssHeight !== this.canvasH) {
+      this.canvasRatio = top; this.canvasW = this.cssWidth; this.canvasH = this.cssHeight;
+      r.setPixelRatio(top);
+      r.setSize(this.cssWidth, this.cssHeight, false);
+      this.canvasResizes++;
+    }
     r.getDrawingBufferSize(this.bufferSize);
+    if (post) {
+      // the scene's buffer: what the canvas was before this pass (three's own rounding), never larger than the canvas
+      if (offscreen) this.bufferSize.set(Math.min(this.bufferSize.x, Math.max(1, Math.floor(this.cssWidth * ratio))), Math.min(this.bufferSize.y, Math.max(1, Math.floor(this.cssHeight * ratio))));
+      post.setSize(this.cssWidth, this.cssHeight, this.bufferSize.x, this.bufferSize.y);
+    }
     const cam = this.ctx.scene.camera;
     cam.aspect = this.cssWidth / Math.max(1, this.cssHeight);
     cam.updateProjectionMatrix();
@@ -727,6 +817,22 @@ float keepShadowGate( float shadow ) {
     s.uFogMix.value.x = cur[M_FOG_MIX_SUN] as number; s.uFogMix.value.y = cur[M_FOG_MIX_DIST] as number;
     s.uFogDensity.value = this.overFog >= 0 ? this.overFog : (cur[M_DENSITY] as number);
     xyzOf(s.uSunDir.value, cur, M_SUN_DIR);
+    // underground look, pass i4 (visual reviewer: "a red noisy panel at the head of the peg stair"). On the seam (the
+    // staged flight 1, landing 1 and the top of flight 2, still the Tally House's zone and mood until trg_set_swap) she
+    // looks down two flights of aqua-lit concrete, and whatever of the station is not drawn yet beyond them was the Tally
+    // House's wine-dark fog: a dark red doorway in a teal slot. With the eye under the hall's floor the air she looks
+    // into is the station's: the gallery's two fog colours and their mix, at the display level they have down there
+    // (the hall is shown a stop over, by the world's ramp). The room's light, grade and exposure do not change.
+    const underTo = this.moodKey === 'L2' && ctx.player.eye.y < UNDER_Y ? 1 : 0;
+    this.under = this.snapHigh ? underTo : this.under + (underTo - this.under) * Math.min(1, dt / UNDER_FADE);
+    if (this.under > 1e-3) {
+      const l3 = MOODS.L3, u = this.under;
+      const k = (l3[M_EXPOSURE] as number) / Math.max((cur[M_EXPOSURE] as number) * this.expMul, 1e-3);
+      const a = s.uFogColA.value, b = s.uFogColB.value;
+      a.r += ((l3[M_FOG_A] as number) * k - a.r) * u; a.g += ((l3[M_FOG_A + 1] as number) * k - a.g) * u; a.b += ((l3[M_FOG_A + 2] as number) * k - a.b) * u;
+      b.r += ((l3[M_FOG_B] as number) * k - b.r) * u; b.g += ((l3[M_FOG_B + 1] as number) * k - b.g) * u; b.b += ((l3[M_FOG_B + 2] as number) * k - b.b) * u;
+      s.uFogMix.value.x += ((l3[M_FOG_MIX_SUN] as number) - s.uFogMix.value.x) * u; s.uFogMix.value.y += ((l3[M_FOG_MIX_DIST] as number) - s.uFogMix.value.y) * u;
+    }
     // the open air seen from inside (the yard through the Tally House doorway): exterior things and the sky keep the
     // Long Light's fog and sky while an exterior zone is drawn under an interior mood. Not divided by the room's
     // exposure: out there is the over-exposed part of the frame.
@@ -766,6 +872,9 @@ float keepShadowGate( float shadow ) {
       gb.x = cur[M_LIFT] as number; gb.y = cur[M_LIFT + 1] as number; gb.z = cur[M_LIFT + 2] as number; gb.w = cur[M_CONTRAST] as number;
     }
     this.exposure = this.overExposure >= 0 ? this.overExposure : (cur[M_EXPOSURE] as number) * this.expMul;
+    // look team gun, pass i4 (R17): the view-model's rig stays at display levels under the world's exposure ramp (the Tally House's stop), and its steel and leather are held to their own hue through the frame's grade at the frame's exposure (materials.ts GUN_HUE)
+    this.materials.vmExposure = this.overExposure >= 0 ? 1 : Math.max(this.expMul, 1e-3);
+    this.materials.frameExposure = this.exposure;
     const post = this.post;
     if (post) {
       post.vignette.value.z = this.overVignette >= 0 ? this.overVignette : this.overIdentity ? 0 : (cur[M_VIGNETTE] as number);
@@ -775,7 +884,8 @@ float keepShadowGate( float shadow ) {
       post.bloomIntensity = this.overIdentity ? BLOOM_K_DEFAULT : (cur[M_BLOOM_K] as number);
       post.bloomKnee = this.overIdentity ? 0 : (cur[M_BLOOM_S] as number);
       // the contact shade is a thing of rooms: under a sky it is held to AO_SKY of itself (on sunlit rock its stipple showed)
-      post.aoK.value.y = AO_INTENSITY * (1 - (1 - AO_SKY) * (cur[M_SKY] as number));
+      // underground look, pass i4: ... and none of it in the seventh's whiteout (vfx.ts proveGlare)
+      post.aoK.value.y = AO_INTENSITY * (1 - (1 - AO_SKY) * (cur[M_SKY] as number)) * (1 - this.fx.proveGlare);
       // High, outdoors by day: the sun shafts (post.ts SunShaftEffect) in the mood's sun colour; none without a sun disc
       // pass i2: ... and in the blue hour toward the afterglow, in the glow band's colour (moods.ts SHAFT_DUSK), eased with the mood
       const duskTo = this.duskTest && post.keepsDepth ? SHAFT_DUSK[this.moodKey] ?? 0 : 0;
@@ -796,6 +906,31 @@ float keepShadowGate( float shadow ) {
         const day = VEIL_K * this.openAir * (1 - (1 - VEIL_GULLY) * gt * gt * (3 - 2 * gt));
         // (pass i2: the afterglow's shafts carry a veil of their own)
         post.shaftVeil.value = disc + dk > 1e-4 ? (day * disc + SHAFT_DUSK_VEIL * dk) / (disc + dk) : day;
+      }
+      // High, outdoors by day (exterior look, pass i4; R16): the ground dust in the low sun and the sun's glow in the sky
+      // (post.ts DUST_*, GLOW_*). The Long Light's own (openAir: none under the overhang), thinner between the gully's walls
+      {
+        const pz = ctx.player.eye.z, gt = this.zoneNow === 'the_lip' ? Math.min(1, Math.max(0, (pz - 12) / 22)) : 0;
+        const lay = post.keepsDepth && !this.overIdentity && this.dustTest;
+        const on = lay ? disc * (cur[M_SKY] as number) * this.openAir : 0;
+        // pass i6 (R16: under the overhang High drew Low's frame): the layer is drawn from under the roof too, at DUST_ROOF of
+        // itself: it is thin on the near rock (a ray's length in it), a warm band along the foot of the gully beyond the mouth
+        const air = lay ? disc * (cur[M_SKY] as number) * Math.max(this.openAir, DUST_ROOF) : 0;
+        post.dustK = air * DUST_K * (1 - (1 - DUST_GULLY) * gt * gt * (3 - 2 * gt));
+        post.glowK = on * GLOW_K;
+        post.dustGround = ctx.player.eye.y - 1.65;
+        post.dustTime = this.reduceMotion ? 0 : s.uTime.value;
+        // the dust's own light: the fog's colour toward the sun (a display colour stored over the exposure: scene light)
+        post.dustCol.value.set(cur[M_FOG_B] as number, cur[M_FOG_B + 1] as number, cur[M_FOG_B + 2] as number).multiplyScalar(DUST_LIGHT);
+        post.dustAir.value.set(DUST_H, DUST_FAR, 160, 230);
+        // pass i6 (R16, the rim): in the blue hour the same term is the mist on the plain under the ledge (moods.ts DUSK_MIST), eased with the afterglow's shafts
+        const mist = lay && air <= 0 ? DUSK_MIST[this.moodKey] : undefined;
+        if (mist !== undefined && this.dusk > 0) {
+          post.dustK = mist.k * Math.min(1, this.dusk / (SHAFT_DUSK[this.moodKey] ?? 1));
+          post.dustGround = mist.ground;
+          post.dustCol.value.set(mist.col[0], mist.col[1], mist.col[2]).multiplyScalar(1 / Math.max(this.exposure, 1e-3));
+          post.dustAir.value.set(mist.h, mist.far, mist.fade[0], mist.fade[1]);
+        }
       }
       // High, outdoors by day (pass i1): the heat shimmer on the horizon band; still with Reduce Motion
       post.shimmer = ctx.quality.features.heatShimmer && !this.overIdentity && !this.reduceMotion && this.shimmerTest ? (cur[M_SUN_DISC] as number) * (cur[M_SKY] as number) : 0;
@@ -911,7 +1046,7 @@ float keepShadowGate( float shadow ) {
     // ambient points: sand along the wind outdoors by day, motes in the blades indoors
     const high = ctx.quality.features.particleScale >= 1;
     const blades = this.fx.activeBlades();
-    if (blades > 0) this.fx.ambient.set('motes', high ? 600 : 120);
+    if (blades > 0) { this.fx.ambient.ground.value.w = this.zoneNow === 'the_lip' ? 1 : 0; this.fx.ambient.set('motes', high ? 600 : 120); }      // (w: the overhang's shafts are out of doors, ambient.ts OUT_*)
     else if ((this.moodKey === 'L1' || this.moodKey === 'L0') && this.zoneNow !== null && this.exteriorZones.has(this.zoneNow)) {
       const gv = this.fx.ambient.ground.value;
       gv.x = ctx.player.eye.y - 1.65; gv.y = this.reduceMotion ? 0.5 : 1; gv.z = high ? this.openAir : 0;      // High: half of its 400 are dust in the light (ambient.ts), outside the overhang
@@ -919,6 +1054,7 @@ float keepShadowGate( float shadow ) {
     } else if (high && (AIR_DUST[this.moodKey] ?? 0) > 0) {
       // High (underground look, pass i3): the station's air carries motes (moods.ts AIR_DUST; ambient.ts 'air')
       this.fx.ambient.ground.value.y = (AIR_DUST[this.moodKey] ?? 0) * (this.reduceMotion ? 0.5 : 1);
+      this.fx.ambient.ground.value.z = this.moodKey === 'L6' || this.moodKey === 'L6c' ? 1 : 0;      // (exterior look, pass i6: on the rim the motes are the evening's dust, ambient.ts)
       this.fx.ambient.set('air', 400);
     } else this.fx.ambient.set('off', 0);
     // the quad batch: blobs, rings, cards, lines, then the halos of whatever emissive was drawn last frame
@@ -1362,16 +1498,21 @@ float keepShadowGate( float shadow ) {
     // the tiers the quality manager may step to by itself: compiled now when nobody is playing (the boot, the title, a
     // pause), else owed until the next pause or death. Without KHR_parallel_shader_compile the driver
     // compiles in the way of the frames that follow, so the boot does not take it on: the first pause does.
-    if (this.ctx.state.current !== 'playing' && (this.framesDrawn > 1 || r.extensions.has('KHR_parallel_shader_compile'))) this.warmNeighbours(false);
-    else this.neighboursOwed = true;
-    return pending ? pending.then(() => undefined, () => undefined) : Promise.resolve();
+    // (pass i4: the boot takes it on without the extension too, in slices behind the loading screen: warmNeighboursSliced)
+    const waited = pending ? pending.then(() => undefined, () => undefined) : Promise.resolve();
+    if (this.ctx.state.current === 'playing') { this.neighboursOwed = true; return waited; }
+    if (this.framesDrawn > 1 || r.extensions.has('KHR_parallel_shader_compile') || !this.autoTier()) { this.warmNeighbours(false); return waited; }
+    this.neighboursOwed = true;
+    return waited.then(() => this.warmNeighboursSliced()).then(() => undefined, (err: unknown) => { this.neighboursOwed = true; console.warn(`[render] neighbour warm-up: ${err instanceof Error ? err.message : String(err)}`); });
   }
 
   /**
    * Hands every program the active set can need to the compiler, for the tone map, the target and the shadow switch the
    * renderer has NOW (nothing is drawn): the scene's own are left to the caller (compile or compileAsync of the scene).
    */
-  private compilePrograms(): void {
+  private compilePrograms(): void { for (const _ of this.compileSteps()) { /* all of it, now */ } }
+  /** the same work in steps (an asset, the twins, the outline, the recipes, the view-model): a caller may give the page a turn between two */
+  private *compileSteps(): Generator<void, void, void> {
     const r = this.renderer, roots = this.ctx.scene;
     const assets = this.ctx.assets, defs = this.ctx.data.manifest.assets;
     const twins: THREE.InstancedMesh[] = [];
@@ -1380,6 +1521,7 @@ float keepShadowGate( float shadow ) {
       if (!assets.isActive(id)) continue;
       const loaded = assets.get(id);
       r.compile(loaded.scene, roots.camera, roots.scene);
+      yield;
       if (!(defs[id] as AssetDef).instanced) continue;
       loaded.scene.traverse((o) => {
         const mesh = o as THREE.Mesh;
@@ -1393,6 +1535,7 @@ float keepShadowGate( float shadow ) {
     for (const t of twins) group.add(t);
     if (twins.length) r.compile(group, roots.camera, roots.scene);
     for (const t of twins) t.dispose();
+    yield;
     // drawn on their own (not inside the scene): compiled the same way, so their programs match
     if (this.outlineMaterial) {
       const probe = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), this.outlineMaterial);
@@ -1407,10 +1550,15 @@ float keepShadowGate( float shadow ) {
       }
     }
     // every program of the whole stage, from the recipes of a playthrough (prewarm.ts): the sets that are not here yet
-    const probes = new THREE.Group();
-    for (const p of this.materials.prewarm(PREWARM)) probes.add(p);
-    if (probes.children.length) r.compile(probes, roots.camera, roots.scene);
-    probes.clear();
+    yield;
+    // (in lots of four: the recipes are most of the stage's programs)
+    const probes = new THREE.Group(), recipes = this.materials.prewarm(PREWARM);
+    for (let i = 0; i < recipes.length; i += 4) {
+      for (let k = i; k < recipes.length && k < i + 4; k++) probes.add(recipes[k] as THREE.Object3D);
+      r.compile(probes, roots.camera, roots.scene);
+      probes.clear();
+      yield;
+    }
     r.compile(this.fx.flashMesh, this.viewCamera);
     const shown = roots.viewModel.visible;
     roots.viewModel.visible = true;
@@ -1434,36 +1582,85 @@ float keepShadowGate( float shadow ) {
    */
   private warmNeighbours(force: boolean): RenderTier[] {
     const done: RenderTier[] = [];
+    for (const _ of this.neighbourSteps(force, done)) { /* all of it, now */ }
+    return done;
+  }
+  /**
+   * Pass i4 (performance: "an automatic tier step-down can link 41 programs in the middle of play where parallel shader
+   * compile is missing"). Without KHR_parallel_shader_compile the boot left the neighbouring tier owed until the first
+   * pause or death, and a run that stepped down before either compiled the whole of `min` in a fight. The boot now takes
+   * it on there too, behind the loading screen, in slices: NEIGHBOUR_SLICE_MS of steps or NEIGHBOUR_SLICE_PROGRAMS programs, the driver asked to have done
+   * with them (one answer from the context: a wait for what was handed over, so the cost is paid here and not by the
+   * frames that follow), then a turn for the page (the loading line keeps moving). A set or a tier that changes under
+   * it stops it, and the tier is owed again.
+   */
+  private async warmNeighboursSliced(): Promise<void> {
+    const gen = this.warmGen, tier = this.ctx.quality.tier, gl = this.renderer.getContext(), done: RenderTier[] = [];
+    const steps = this.neighbourSteps(false, done);
+    const now = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    this.neighbourSlices = 0; this.neighbourSliceMs = 0;
+    const programs = this.renderer.info.programs;
+    try {
+      for (;;) {
+        const t0 = now(), p0 = programs ? programs.length : 0;
+        let over = false;
+        while (!over && now() - t0 < NEIGHBOUR_SLICE_MS && (programs ? programs.length : 0) - p0 < NEIGHBOUR_SLICE_PROGRAMS) over = steps.next().done === true;
+        gl.getError();
+        this.neighbourSlices++;
+        const took = now() - t0;
+        if (took > this.neighbourSliceMs) this.neighbourSliceMs = took;
+        if (over) return;
+        await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+        if (this.warmGen !== gen || this.ctx.quality.tier !== tier || gl.isContextLost()) { this.neighboursOwed = true; return; }
+      }
+    } finally { steps.return(); }
+  }
+  private neighbourSlices = 0;
+  /** the longest slice, the wait for the driver included (ms) */
+  private neighbourSliceMs = 0;
+  private *neighbourSteps(force: boolean, done: RenderTier[]): Generator<void, void, void> {
     this.neighboursOwed = false;
-    if (!force && !this.autoTier()) return done;
-    const q = this.ctx.quality, r = this.renderer, roots = this.ctx.scene, post = this.post;
-    if (!post) return done;
+    if (!force && !this.autoTier()) return;
+    const q = this.ctx.quality, r = this.renderer, roots = this.ctx.scene, post = this.post, gen = this.warmGen;
+    if (!post) return;
     const list: readonly RenderTier[] = q.tier === 'high' ? ['low'] : q.tier === 'low' ? ['min'] : ['low'];
     for (const tier of list) {
       if (this.warmedAt[tier] === this.warmGen) continue;
       const f = featuresOf(tier, this.ctx.data.manifest.tiers[tier]);
       post.prepare(f);
+      yield;
       if (f.composer !== q.features.composer) {
-        const prevTarget = r.getRenderTarget(), tone = r.toneMapping;
         // the two things three keys a program by that differ: the tone map, and canvas (sRGB out) or float target (linear)
         const scratch = f.composer ? new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false }) : null;
+        const inner = this.compileSteps();
         try {
-          r.toneMapping = f.composer ? THREE.NoToneMapping : THREE.CustomToneMapping;
-          r.setRenderTarget(scratch);
-          this.compilePrograms();
-          r.compile(roots.scene, roots.camera);
-          if (!f.composer) r.compile(post.vignetteMesh, post.quadCamera);
+          // each step under the other tier's switches, and the renderer's own back before anyone else may draw
+          for (let over = false, last = false; !last;) {
+            const prevTarget = r.getRenderTarget(), tone = r.toneMapping;
+            try {
+              r.toneMapping = f.composer ? THREE.NoToneMapping : THREE.CustomToneMapping;
+              r.setRenderTarget(scratch);
+              if (!over) over = inner.next().done === true;
+              else {
+                r.compile(roots.scene, roots.camera);
+                if (!f.composer) r.compile(post.vignetteMesh, post.quadCamera);
+                last = true;
+              }
+            } finally {
+              r.toneMapping = tone;
+              r.setRenderTarget(prevTarget);
+            }
+            if (!last) yield;
+          }
         } finally {
-          r.toneMapping = tone;
-          r.setRenderTarget(prevTarget);
+          inner.return();
           if (scratch) scratch.dispose();
         }
       }
-      this.warmedAt[tier] = this.warmGen;
-      done.push(tier);
+      // (a set that was activated between two steps: the tier is not marked for a set it was not compiled against)
+      if (gen === this.warmGen) { this.warmedAt[tier] = this.warmGen; done.push(tier); } else this.neighboursOwed = true;
     }
     if (done.length) this.neighbourWarms++;
-    return done;
   }
 
   /** warm-up: one probe per shape of fixed caster (its attributes' names), with the caster's own material and the shared depth material */
@@ -1695,7 +1892,11 @@ float keepShadowGate( float shadow ) {
       }),
       /** runs the fill-rate benchmark: { measured, verdict } in ms per pass (the manager is given the verdict) */
       benchmark: fn(async () => { const verdict = await this.benchmark(); return { measured: this.benchmarkMs, verdict }; }),
-      warmState: fn(() => ({ gen: this.warmGen, at: { ...this.warmedAt }, owed: this.neighboursOwed, warmUps: this.warmUps, neighbourWarms: this.neighbourWarms })),
+      /** pass i4: the canvas's own allocation against the buffer the scene is drawn into */
+      sizeState: fn(() => ({ canvasResizes: this.canvasResizes, canvasRatio: this.canvasRatio, ratio: this.appliedRatio, canvas: [this.renderer.domElement.width, this.renderer.domElement.height], scene: [this.bufferSize.x, this.bufferSize.y] })),
+      /** pass i4: bone textures written without three's upload path since the page loaded */
+      bonesWritten: fn((on?: boolean) => { if (on !== undefined) quietBonesSwitch(on); return quietBonesWritten(); }),
+      warmState: fn(() => ({ gen: this.warmGen, at: { ...this.warmedAt }, owed: this.neighboursOwed, warmUps: this.warmUps, neighbourWarms: this.neighbourWarms, slices: this.neighbourSlices, sliceMs: Math.round(this.neighbourSliceMs * 10) / 10 })),
       /** every material x mesh-shape pair handed out since boot (the generator of prewarm.ts) */
       recipes: fn(() => this.materials.recipeList()),
       programNames: fn(() => (this.renderer.info.programs ?? []).map((p) => (p as unknown as { name: string }).name)),
@@ -1742,12 +1943,16 @@ float keepShadowGate( float shadow ) {
       }),
       /** pass i2: the afterglow's shafts as they are now; `on` (optional) switches them for a test */
       dusk: fn((on?: boolean) => { if (on !== undefined) this.duskTest = on; return { on: this.duskTest, level: Math.round(this.dusk * 1e3) / 1e3, shaftK: this.post && this.post.keepsDepth ? this.post.shaftK : 0 }; }),
+      /** pass i4: the ground dust and the sun's glow as they are now; `on` (optional) switches them for a test */
+      dust: fn((on?: boolean) => { if (on !== undefined) this.dustTest = on; return { on: this.dustTest, k: this.post ? Math.round(this.post.dustK * 1e4) / 1e4 : 0, glow: this.post ? Math.round(this.post.glowK * 1e3) / 1e3 : 0 }; }),
       shimmer: fn((on?: boolean) => { if (on !== undefined) this.shimmerTest = on; return { on: this.shimmerTest, level: this.post ? this.post.shimmer : 0 }; }),
       /** pass i1: the shadow pass of this frame; `on` (optional) switches it for a test (the blobs come back) */
       /** pass i2: the fixed casters of the sun's map (ShadowSpec.statics); `on` true / false forces them, null gives the spec's back */
       statics: fn((on?: boolean | null) => { if (on !== undefined) this.staticsOver = on; return { over: this.staticsOver, casting: this.staticsCast }; }),
       /** pass i2: the receivers' gate as it is now: [lit from, lit to, shade, inShade]; `set` (optional) overrides the four until the next frame's update */
       shadowGate: fn(() => this.shadowGate.value.toArray()),
+      /** pass i5: the blob shadows as drawn (shade 0..1, opacity, contact core); `on` (optional) switches the shade probe for a test */
+      blobs: fn((on?: boolean) => { if (on !== undefined) { this.blobTest = on; this.fx.blobReset(); } return { on: this.blobTest, list: this.fx.blobStates() }; }),
       shadow: fn((on?: boolean) => {
         if (on !== undefined) this.shadowTest = on;
         let twins = 0, shown = 0;
@@ -1843,6 +2048,10 @@ float keepShadowGate( float shadow ) {
 }
 
 /** Pass i1: fixed machinery (materials.ts keepCast 1) casts into the sun's shadow map only; everything else is left as it is. */
+/** pass i4: milliseconds of compile steps between two turns of the page while the boot compiles the neighbouring tier without KHR_parallel_shader_compile */
+export const NEIGHBOUR_SLICE_MS = 8;
+/** ... and the most programs handed to the driver in one slice (a link is the driver's time, not this thread's: the clock does not see it until the slice's end) */
+export const NEIGHBOUR_SLICE_PROGRAMS = 4;
 function setCasters(o: THREE.Object3D, sun: boolean): void {
   if (o.userData.keepCast === 1 && o.castShadow !== sun) o.castShadow = sun;
   const kids = o.children;

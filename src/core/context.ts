@@ -83,6 +83,10 @@ import { setCoreOf } from './coreOf.ts';
 const TIERS: readonly string[] = ['min', 'low', 'high'];
 
 /** Parses the URL parameters of ARCHITECTURE 11.1. `dev` is true on the dev server. */
+/** Pass i4: the asset version a build writes into every asset URL (vite.config.mts `assetsVersion`); '' in dev, vitest and node. */
+declare const __KEEP7_ASSETS__: string | undefined;
+const ASSET_VERSION: string = typeof __KEEP7_ASSETS__ === 'undefined' ? '' : __KEEP7_ASSETS__;
+
 export function parseRunFlags(search: string, dev: boolean, sandbox: string | null = null): RunFlags {
   const q = new URLSearchParams(search);
   const tier = q.get('tier');
@@ -154,6 +158,7 @@ export function createContext(options: CreateContextOptions): MutableGameContext
   const assets = new AssetStoreImpl({
     manifest: data.manifest, layout: data.layout, events,
     baseUrl: options.assetBase ?? './',
+    version: ASSET_VERSION === '' ? '' : '?v=' + ASSET_VERSION,
     allowSynthesis: recording,
     forceSynthesis: recording && url.params.get('assets') === 'none',
     test: flags.test,

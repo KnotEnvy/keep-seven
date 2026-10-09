@@ -48,11 +48,26 @@
   #preload .line::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 16%; background: #e9e2d0; opacity: 0.5; animation: preload 1.5s ease-in-out infinite; }
   @keyframes preload { from { transform: translateX(-110%); } to { transform: translateX(640%); } }
   /* pass i2: a frame narrower than 3:2 has the lit camp behind the menu's place: the column stands lower (ui.css) */
-  @media (max-aspect-ratio: 3/2) { #preload .line { bottom: 5.5%; } }
+  /* pass i4 (UI): in a frame narrower than 3:2 the left column stands at 3.5 % (src/ui/ui.css has the same rule for the loading screen and the title) */
+  @media (max-aspect-ratio: 3/2) { #preload .head { left: 3.5%; } #preload .line { left: calc(3.5% + var(--u) * 24); bottom: 5.5%; } }
   @media (prefers-reduced-motion: reduce) { #preload .line::after { animation: none; display: none; } #preload .bg { transition: none; } }
+  /* Pass i4 (ruling R20, robustness). Two things this page says by itself, before or instead of the game; the words are
+     copies of design/story.json `system` (tests/core/pageHead.spec.ts holds them equal). `#pre-note`: a visitor with no
+     mouse (a phone, a tablet) or a browser without pointer lock is told so under the name, with one button, BEFORE the
+     models and textures are asked for (src/main.ts waits on window.__keep7Gate). The same box carries the line of a script
+     or a style that did not come, with a button that reloads, and the line of a slow connection. */
+  #pre-note { position: fixed; left: 7%; right: 7%; top: calc(11% + max(190px, min(calc(100vh / 1080), calc(100vw / 1440)) * 250)); z-index: 2000; max-width: 34em; color: #e9e2d0;
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", Georgia, serif; font-size: max(17px, min(2.4vh, 2.6vw)); line-height: 1.45;
+    -webkit-user-select: text; user-select: text; text-shadow: 0 1px 3px #14110f, 0 0 14px #14110f; }
+  #pre-note.over { top: 0; left: 0; right: 0; bottom: 0; max-width: none; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8vmin; text-align: center; background: rgba(20, 17, 15, 0.94); }
+  #pre-note p { margin: 0 0 1em 0; }
+  #pre-note button { font: inherit; color: #14110f; background: #c9a14a; border: 0; border-radius: 2px; padding: 0.5em 1.1em; cursor: pointer; letter-spacing: 0.04em; }
+  #pre-note button:focus-visible { outline: 2px solid #e9e2d0; outline-offset: 3px; }
+  noscript p { position: fixed; left: 7%; right: 7%; bottom: 20%; z-index: 2000; margin: 0; color: #e9e2d0; font: 18px/1.5 Georgia, serif; }
 </style>
 </head>
 <body>
+<noscript><p>KEEP SEVEN needs JavaScript. Turn it on for this page and reload.</p></noscript>
 <canvas id="game" tabindex="0"></canvas>
 <div id="ui"></div>
 <div id="preload" aria-hidden="true">
@@ -75,8 +90,75 @@
       picture.onload = function () { bg.style.backgroundImage = 'url(./share.jpg)'; bg.className = 'bg in'; };
       picture.src = './share.jpg';
     }
-    if (!pre || !ui || typeof MutationObserver !== 'function') { if (pre) pre.remove(); return; }
-    var seen = new MutationObserver(function () { seen.disconnect(); pre.remove(); });
+    // ---- pass i4: what this page says by itself (the words are design/story.json `system`: needs_input, load_anyway,
+    // page_failed, page_reload, page_slow) -------------------------------------------------------------------------
+    var SAYS = {
+      needs_input: 'KEEP SEVEN needs a mouse and a keyboard. Open it on a computer.',
+      load_anyway: 'Load it anyway',
+      page_failed: 'It would not load. Reload the page.',
+      page_reload: 'Reload',
+      page_slow: 'Still waiting on the connection.'
+    };
+    var booted = false, failed = false, gated = false;
+    function note(kind, text, button, act) {
+      var el = document.getElementById('pre-note');
+      if (!el) { el = document.createElement('div'); el.id = 'pre-note'; document.body.appendChild(el); }
+      el.className = kind === 'failed' ? 'over' : '';
+      el.setAttribute('data-kind', kind);
+      el.setAttribute('role', kind === 'slow' ? 'status' : 'alert');
+      el.textContent = '';
+      var p = document.createElement('p');
+      p.textContent = text;
+      el.appendChild(p);
+      if (button) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = button;
+        b.addEventListener('click', act);
+        el.appendChild(b);
+      }
+      return el;
+    }
+    function unnote(kind) { var el = document.getElementById('pre-note'); if (el && (!kind || el.getAttribute('data-kind') === kind)) el.remove(); }
+    var line = pre && pre.querySelector('.line');
+    // (1) ruling R20: no mouse, or no pointer lock. The game's files are not asked for until the visitor says so.
+    function noMouse() {
+      try {
+        if (/[?&]test=1(&|$)/.test(location.search)) return false;            // a stepped test page (no release build reads it)
+        var fine = typeof window.matchMedia !== 'function' || window.matchMedia('(any-pointer: fine)').matches;
+        return !fine || !('requestPointerLock' in Element.prototype);
+      } catch (e) { return false; }
+    }
+    if (noMouse()) {
+      gated = true;
+      document.documentElement.setAttribute('data-input', 'touch');
+      if (line) line.style.visibility = 'hidden';
+      window.__keep7Gate = new Promise(function (resolve) {
+        note('input', SAYS.needs_input, SAYS.load_anyway, function () { gated = false; unnote('input'); if (line) line.style.visibility = ''; started = Date.now(); resolve(); });
+      });
+    }
+    // (2) the script or the style did not come (a cached page that names a file a newer release has removed, a dropped
+    // connection): the moving line read as "still loading" for ever, and a game without its style drew every screen at once
+    function fail() {
+      if (failed) return;
+      failed = true;
+      if (line) line.style.visibility = 'hidden';
+      note('failed', SAYS.page_failed, SAYS.page_reload, function () { location.reload(); });
+    }
+    window.addEventListener('error', function (e) {
+      var t = e && e.target;
+      if (!t || t === window || !t.tagName) return;
+      if ((t.tagName === 'SCRIPT' && t.src) || (t.tagName === 'LINK' && /stylesheet/i.test(t.rel || ''))) fail();
+    }, true);
+    // (3) the script is slow in coming: say so after 20 s (the line keeps moving; when the script arrives the game takes over)
+    var started = Date.now();
+    var slow = setInterval(function () {
+      if (booted || failed) { clearInterval(slow); return; }
+      if (!gated && Date.now() - started >= 20000 && !document.getElementById('pre-note')) note('slow', SAYS.page_slow);
+    }, 1000);
+    function taken() { booted = true; if (!failed) unnote(); if (pre) pre.remove(); }
+    if (!pre || !ui || typeof MutationObserver !== 'function') { taken(); return; }
+    var seen = new MutationObserver(function () { seen.disconnect(); taken(); });
     seen.observe(ui, { childList: true });
   })();
 </script>

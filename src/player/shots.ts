@@ -4,13 +4,16 @@ import { ColFlag, LAYER_SHOT, Layer, MAX_LINE_HITS } from '../core/contracts.ts'
 import type {
   AmmoType, DamageInfo, EntityKind, GameContext, GameEvents, HitList, HitOutcome, HitResponse, HitResult, KeptContext, Rng, Vec3,
 } from '../core/contracts.ts';
-import { LINE_TICKS_PER_HIT, WEAPON } from './defs.ts';
+import { LINE_HOLD_MAX_SLOPE, LINE_TICKS_PER_HIT, WEAPON } from './defs.ts';
 import { rayEntersBore } from './kept.ts';
 
 const DEG = Math.PI / 180;
 const GEOMETRY = Layer.WORLD | Layer.DYNAMIC;
 
 function isBody(kind: EntityKind): boolean { return kind === 'bider' || kind === 'transit' || kind === 'tamper' || kind === 'windlass'; }
+/** what ends a line round without being asked: solid geometry that is not tagged PIERCE */
+function isWall(h: Readonly<HitResult>): boolean { return (h.layer & GEOMETRY) !== 0 && !h.receiver && (h.flags & ColFlag.PIERCE) === 0; }
+function isBodyHit(h: Readonly<HitResult>): boolean { return h.receiver !== null && h.entity !== null && isBody(h.entity.kind); }
 
 export class Shots {
   private readonly hit: HitResult;
@@ -31,6 +34,17 @@ export class Shots {
   private lineKnots = 0;
   private readonly lineOrigin: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly lineDir: Vec3 = { x: 0, y: 0, z: -1 };
+  /**
+   * What the round meets, in order: the straight ray's hits and, when it holds its height behind the first body (see
+   * `hold`), that body followed by the level ray's. Entries from `seqHeld` on belong to the level ray.
+   */
+  private readonly seq: HitResult[] = [];
+  private seqCount = 0;
+  private seqHeld = -1;
+  private readonly held: HitList;
+  private readonly heldOrigin: Vec3 = { x: 0, y: 0, z: 0 };
+  private readonly heldDir: Vec3 = { x: 0, y: 0, z: -1 };
+  private readonly heldEnd: Vec3 = { x: 0, y: 0, z: 0 };
   private receiverFailed = false;
   // ---- a lead round that a receiver let pass (rare): what it met behind
   private readonly pass: HitList;
@@ -45,10 +59,14 @@ export class Shots {
     this.hit = ctx.collision.createHit();
     this.list = ctx.collision.createHitList();
     this.pass = ctx.collision.createHitList();
+    this.held = ctx.collision.createHitList();
+    for (let i = 0; i < MAX_LINE_HITS * 2; i++) this.seq.push(this.hit);
   }
 
   /** hits of a line round still waiting for their tick */
-  get pending(): number { return this.lineActive ? this.list.count - this.lineNext : 0; }
+  get pending(): number { return this.lineActive ? this.seqCount - this.lineNext : 0; }
+  /** true while the line round in flight has left its aim ray to hold the height of the first body (debug, tests) */
+  get holding(): boolean { return this.lineActive && this.seqHeld >= 0; }
 
   private fillFired(ammo: AmmoType, shotId: number, chambersLeft: number, o: Readonly<Vec3>, d: Readonly<Vec3>, m: Readonly<Vec3>): GameEvents['weapon/fired'] {
     const f = this.firedPayload;
@@ -164,19 +182,103 @@ export class Shots {
     const n = ctx.collision.raycastAll(o.x, o.y, o.z, d.x, d.y, d.z, range, LAYER_SHOT, list);
     const f = this.fillFired('line_round', shotId, chambersLeft, o, d, m);
     f.endX = o.x + d.x * range; f.endY = o.y + d.y * range; f.endZ = o.z + d.z * range;
+    let walled = false;
     for (let i = 0; i < n; i++) {
       const h = list.hits[i] as HitResult;
-      if ((h.layer & GEOMETRY) !== 0 && !h.receiver && (h.flags & ColFlag.PIERCE) === 0) { f.endX = h.x; f.endY = h.y; f.endZ = h.z; break; }
+      this.seq[i] = h;
+      if (!walled && isWall(h)) { walled = true; f.endX = h.x; f.endY = h.y; f.endZ = h.z; }
     }
+    this.seqCount = n; this.seqHeld = -1;
     this.lineActive = true; this.lineNext = 0; this.lineTicks = 0; this.lineShot = shotId;
     this.lineBodies = 0; this.lineFreed = 0; this.lineKnots = 0;
     this.lineOrigin.x = o.x; this.lineOrigin.y = o.y; this.lineOrigin.z = o.z;
     this.lineDir.x = d.x; this.lineDir.y = d.y; this.lineDir.z = d.z;
     const r = this.resolvedPayload;
     r.endX = f.endX; r.endY = f.endY; r.endZ = f.endZ;
+    if (this.hold(n, range)) {
+      // the aim ray is drawn as far as the body it went through (render, on `weapon/fired`); the level run from there is ours
+      const lead = this.seq[this.seqHeld - 1] as HitResult, e = this.heldEnd;
+      f.endX = lead.x; f.endY = lead.y; f.endZ = lead.z;
+      r.endX = e.x; r.endY = e.y; r.endZ = e.z;
+      ctx.events.emit('weapon/fired', f);
+      ctx.render.vfx.line('line_round', lead.x, lead.y, lead.z, e.x, e.y, e.z);
+      this.advanceLine();
+      return;
+    }
     ctx.events.emit('weapon/fired', f);
     this.advanceLine();                                    // entry 0 on the click's tick
   }
+  /**
+   * "One round, one line" (pass i4, combat review). The eye is at 1.65 m and a Bider's body at 0.6 m: a round aimed at
+   * the first of a file slopes into the sand behind the second. So once the round has gone through a body it may HOLD
+   * THAT HEIGHT for the rest of its range: from the point where it met the first body it runs level, on the same
+   * heading. It does so only when that is strictly better for her: the level run must meet every receiver the aim ray
+   * would have met behind that body (the same entity, the same part: a knot, a weak point or a plate is never traded
+   * away) and at least one body more. Otherwise the round flies as aimed, as before. Decided on the click's tick from
+   * the two rays; returns true when the sequence now ends in the level run (`seqHeld` is its first entry).
+   */
+  private hold(n: number, range: number): boolean {
+    const d = this.lineDir, list = this.list;
+    if (d.y > LINE_HOLD_MAX_SLOPE || d.y < -LINE_HOLD_MAX_SLOPE) return false;
+    // the first body on the aim ray, if no wall comes before it
+    let b = -1;
+    for (let i = 0; i < n; i++) {
+      const h = list.hits[i] as HitResult;
+      if (isWall(h)) return false;
+      if (isBodyHit(h)) { b = i; break; }
+    }
+    if (b < 0) return false;
+    const lead = list.hits[b] as HitResult, leadId = (lead.entity as NonNullable<HitResult['entity']>).id;
+    const left = range - lead.distance;
+    if (left <= 0.5) return false;
+    const hl = Math.sqrt(d.x * d.x + d.z * d.z);
+    const hd = this.heldDir, ho = this.heldOrigin;
+    hd.x = d.x / hl; hd.y = 0; hd.z = d.z / hl;
+    ho.x = lead.x; ho.y = lead.y; ho.z = lead.z;
+    const held = this.held;
+    const m = this.ctx.collision.raycastAll(ho.x, ho.y, ho.z, hd.x, hd.y, hd.z, left, LAYER_SHOT, held);
+    // the level run as far as its wall
+    let heldStop = m, heldBodies = 0;
+    for (let k = 0; k < m; k++) {
+      const h = held.hits[k] as HitResult;
+      if (isWall(h)) { heldStop = k + 1; break; }
+      if (isBodyHit(h) && (h.entity as NonNullable<HitResult['entity']>).id !== leadId) heldBodies++;
+    }
+    // what the aim ray meets behind the first body: every receiver of it must be in the level run too
+    let aimBodies = 0;
+    for (let i = b + 1; i < n; i++) {
+      const h = list.hits[i] as HitResult;
+      if (isWall(h)) break;
+      if (!h.receiver) continue;
+      if (!h.entity) return false;
+      let kept = false;
+      for (let k = 0; k < heldStop && !kept; k++) {
+        const g = held.hits[k] as HitResult;
+        kept = g.entity !== null && g.entity.id === h.entity.id && g.part === h.part;
+      }
+      if (!kept) return false;
+      if (isBody(h.entity.kind)) aimBodies++;
+    }
+    if (heldBodies <= aimBodies) return false;
+    let count = b + 1;
+    this.seqHeld = count;
+    const e = this.heldEnd;
+    e.x = ho.x + hd.x * left; e.y = ho.y; e.z = ho.z + hd.z * left;
+    for (let k = 0; k < heldStop && count < this.seq.length; k++) {
+      const h = held.hits[k] as HitResult;
+      // the body it has just gone through (the level ray starts on its skin) and anything it already met
+      if (h.entity !== null && this.met(h.entity.id, b)) continue;
+      this.seq[count++] = h;
+      if (isWall(h)) { e.x = h.x; e.y = h.y; e.z = h.z; }
+    }
+    this.seqCount = count;
+    return true;
+  }
+  private met(id: string, upTo: number): boolean {
+    for (let i = 0; i <= upTo; i++) { const h = this.list.hits[i] as HitResult; if (h.entity !== null && h.entity.id === id) return true; }
+    return false;
+  }
+
   /** Called once per sim tick after the weapon: the line round's next bodies. */
   tick(): void {
     if (!this.lineActive) return;
@@ -185,24 +287,27 @@ export class Shots {
   }
   private flushLine(): void { this.lineTicks = 1 << 20; this.advanceLine(); }
   private advanceLine(): void {
-    const col = this.ctx.collision, list = this.list, d = this.lineDir;
+    const col = this.ctx.collision;
     while (this.lineActive) {
       const i = this.lineNext;
-      if (i >= list.count) { this.finishLine(); return; }
+      if (i >= this.seqCount) { this.finishLine(); return; }
+      // an entry of the level run is a hit of THAT ray: its origin and heading are what a receiver and the ricochet read
+      const level = this.seqHeld >= 0 && i >= this.seqHeld;
+      const o = level ? this.heldOrigin : this.lineOrigin, d = level ? this.heldDir : this.lineDir;
       if (Math.round(i * LINE_TICKS_PER_HIT) > this.lineTicks) return;
       this.lineNext = i + 1;
-      const h = list.hits[i] as HitResult;
+      const h = this.seq[i] as HitResult;
       let stop: boolean;
       if (h.receiver) {
         // an entity destroyed before its turn (its volume is gone or disabled) is skipped
         if (h.entity && !col.volumeCentre(h.entity.id, h.part, this.centre)) continue;
-        this.receive(h, this.fillDamage('line_round', this.lineShot, this.lineOrigin, d));
+        this.receive(h, this.fillDamage('line_round', this.lineShot, o, d));
         stop = this.response.stopsLine;
       } else {
         const res = this.response;
         res.outcome = 'impact'; res.damageDealt = 0; res.healthLeft = 0;
         // static or dynamic geometry stops the line unless it is tagged PIERCE; an inert volume never does
-        stop = (h.layer & GEOMETRY) !== 0 && (h.flags & ColFlag.PIERCE) === 0;
+        stop = isWall(h);
       }
       const kind: EntityKind = h.entity ? h.entity.kind : 'world';
       const outcome = this.response.outcome;
@@ -242,5 +347,5 @@ export class Shots {
   }
 
   /** A restore: a line still in flight belongs to the run that died. */
-  reset(): void { this.lineActive = false; this.lineNext = 0; this.list.count = 0; }
+  reset(): void { this.lineActive = false; this.lineNext = 0; this.list.count = 0; this.held.count = 0; this.seqCount = 0; this.seqHeld = -1; }
 }

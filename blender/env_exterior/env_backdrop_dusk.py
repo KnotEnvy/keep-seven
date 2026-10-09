@@ -49,6 +49,8 @@ def facing_poly(card, pts, cols, toward):
 
 
 EYE = (10.0, 19.65, 103.0)                       # an eye on the ledge
+_TZ = 98.5 - 2.6 * 22                            # where the wash leaves the rock (build_foot zs[-1])
+TRACK_X = lambda z: (15.0 + 3.5 * math.sin(max(z, _TZ) / 17.0)) + (0.0 if z >= _TZ else 0.10 * (_TZ - z) + 2.6 * math.sin((_TZ - z) / 9.0) * clamp((_TZ - z) / 12.0))   # the track on the plain (build_foot xw)
 
 
 def behind_rim(form):
@@ -138,6 +140,157 @@ def under_ledge(card):
                 (ya, oa, ca), (yb, ob, cb) = prof[r], prof[r + 1]
                 q = [(x0 + sgn * oa, ya, zs[j]), (x0 + sgn * oa, ya, zs[j + 1]), (x0 + sgn * ob, yb, zs[j + 1]), (x0 + sgn * ob, yb, zs[j])]
                 facing_poly(card, q, [ca, ca, cb, cb], (x0 + sgn * 400.0, 19.0, 105.0))
+
+
+FOOT_LEVELS = (0.25, 1.1, 2.0, 3.0, 4.1, 5.2, 6.4, 7.6, 8.8, 10.0, 11.1, 12.0)      # the beds that hold the talus (heights over the plain)
+FOOT_X = [-36.0, -27.0, -19.0, -13.5] + [-10.0 + 2.0 * i + 1.1 * (vnoise(i * 1.37, 0.5, 91) - 0.5) for i in range(19)] + [29.5, 34.0, 41.0, 50.0, 63.0]
+FOOT_EYES = ((0.0, 19.65, 102.0), (14.0, 19.65, 102.0), (29.0, 19.65, 102.0), (14.0, 19.65, 110.0))
+NW = (-0.7071, -0.7071)                          # toward the afterglow (plan)
+LIP_W = (0.85, 0.75); LIP_PEAK = 0.58            # pass i6: the lit band's width (m: base, + noise) and its peak against pass i5's
+LIPC = hexlin("#9A5A52")                         # a lip in the afterglow: a dull rose, under the town's lamps and the fire in value
+
+
+def build_foot(card, foot_h, DK, MD, ROSE, CREST, THREAD):
+    Hf = lambda x, z: foot_h(x, z)[0]
+    Z0, Z1 = 39.0, 99.9
+
+    def contour(x, lv):
+        """z of the bed `lv` in the column x: the lowest z from which the ground stays at or over it up to the ledge."""
+        if Hf(x, Z1) < lv: return Z1
+        z = Z1
+        while z > Z0 and Hf(x, z - 1.0) >= lv: z -= 1.0
+        if z <= Z0: return Z0
+        lo, hi = z - 1.0, z
+        for _ in range(12):
+            m = 0.5 * (lo + hi)
+            if Hf(x, m) >= lv: hi = m
+            else: lo = m
+        return hi
+    C = [[contour(x, lv) for x in FOOT_X] for lv in FOOT_LEVELS]
+    C.append([Z1] * len(FOOT_X))
+    nx_ = len(FOOT_X)
+
+    def up_n(k, i):
+        """The uphill direction (plan) of contour k at column i."""
+        a = (FOOT_X[max(i - 1, 0)], C[k][max(i - 1, 0)]); b = (FOOT_X[min(i + 1, nx_ - 1)], C[k][min(i + 1, nx_ - 1)])
+        tx, tz = b[0] - a[0], b[1] - a[1]; l = math.hypot(tx, tz) or 1.0
+        n = (-tz / l, tx / l)
+        return n if n[1] >= 0 else (-n[0], -n[1])                                 # the ledge is uphill (+z) of every bed
+
+    def bed_c(lv, x, z):
+        """A tread's own tone: the land's dark, each bed a little its own, violet under the sky."""
+        t = rock.bed_tone(lv * 1.5 + 0.3) * (0.82 + 0.36 * vnoise(x * 0.11, z * 0.13 + lv, 41))
+        warm = 0.5 + 0.5 * math.sin(lv * 2.1 + 0.6)
+        return mul(mix(mix(DK, MD, 0.55), hexlin("#22141E"), 0.40 * warm), t)
+    fade = lambda lv, c: mix(PLAIN, c, clamp((lv + 0.5) / 2.2))                    # the lowest beds go into the plain
+    n_tread = n_lip = n_riser = 0
+    for k, lv in enumerate(FOOT_LEVELS):
+        y = lv
+        for i in range(nx_ - 1):
+            xa, xb = FOOT_X[i], FOOT_X[i + 1]
+            a0, a1 = C[k][i], C[k][i + 1]; b0, b1 = C[k + 1][i], C[k + 1][i + 1]
+            d0, d1 = b0 - a0, b1 - a1
+            if max(d0, d1) < 0.08: continue
+            if min(a0, a1) >= Z1 - 0.01: continue
+            na, nb = up_n(k, i), up_n(k, i + 1)
+            # the lip: the outer hand's breadth of the tread holds the afterglow, brightest where it looks north-west,
+            # and not everywhere: a lip is broken, sanded over or in a neighbour's lee for half its length
+            # pass i6 (both visual reviewers: "near-black terraces whose every edge is traced by a thin bright orange line,
+            # reading as outlined polygons"): the afterglow lies ACROSS a bed's top. The lit band is a pace to two wide
+            # (it was a hand, 0.26 to 0.42 m), feathered to the tread's own tone at its inner side, and its peak is
+            # LIP_PEAK of the old one: a soft rim light on the terrace, not a drawn line
+            wa = min(LIP_W[0] + LIP_W[1] * vnoise(xa * 0.3, lv, 43), 0.62 * d0); wb = min(LIP_W[0] + LIP_W[1] * vnoise(xb * 0.3, lv, 43), 0.62 * d1)
+            A0 = (xa, y, a0); A1 = (xb, y, a1)
+            L0 = (xa, y, a0 + wa); L1 = (xb, y, a1 + wb)
+            B0 = (xa, y, max(b0, a0 + wa)); B1 = (xb, y, max(b1, a1 + wb))
+            tx, tz = xb - xa, a1 - a0; l = math.hypot(tx, tz) or 1.0
+            out = (tz / l, -tx / l)
+            if out[1] > 0: out = (-out[0], -out[1])                               # the lip looks downhill
+            g = clamp(0.22 + 0.78 * (out[0] * NW[0] + out[1] * NW[1]))
+            tc0 = fade(lv, bed_c(lv, xa, a0)); tc1 = fade(lv, bed_c(lv, xb, a1))
+            near = clamp((0.5 * (a0 + a1) - 44.0) / 30.0)                         # the far beds are fainter: they are small in the frame
+            def edge(tc, x_, z_):
+                live = smooth((vnoise(x_ * 0.19 + lv * 1.7, z_ * 0.07, 47) - 0.36) / 0.22)
+                return mix(tc, mul(LIPC, 0.7 + 0.5 * vnoise(x_ * 0.4, lv * 3.0, 48)), clamp(LIP_PEAK * (0.05 + 0.62 * g ** 1.4) * (0.35 + 0.65 * live) * (0.45 + 0.55 * near) * clamp((lv + 0.4) / 1.6)))
+            e0, e1 = edge(tc0, xa, a0), edge(tc1, xb, a1)
+            lit = max(abs(e0[0] - tc0[0]), abs(e1[0] - tc1[0])) > 0.004
+            if lit and min(wa, wb) > 0.03:
+                facing_poly(card, [A0, A1, L1, L0], [e0, e1, mix(tc1, e1, 0.04), mix(tc0, e0, 0.04)], (xa, 1e6, a0)); n_lip += 1
+            else: L0, L1 = A0, A1
+            # the tread behind the lip: darker toward the riser that stands over it
+            if max(B0[2] - L0[2], B1[2] - L1[2]) > 0.05:
+                in0 = mul(tc0, 0.5); in1 = mul(tc1, 0.5)
+                facing_poly(card, [L0, L1, B1, B0], [tc0, tc1, in1, in0], (xa, 1e6, a0)); n_tread += 1
+            # the riser over this tread (bed k + 1's face), where an eye on the ledge can see it
+            if k + 1 < len(FOOT_LEVELS) and max(b0, b1) < Z1 - 0.01:
+                y1 = FOOT_LEVELS[k + 1]
+                rx, rz = xb - xa, b1 - b0; l = math.hypot(rx, rz) or 1.0
+                rn = (rz / l, -rx / l)
+                if rn[1] > 0: rn = (-rn[0], -rn[1])
+                mid = (0.5 * (xa + xb), 0.5 * (y + y1), 0.5 * (b0 + b1))
+                if any(rn[0] * (e[0] - mid[0]) + rn[1] * (e[2] - mid[2]) > 0.8 for e in FOOT_EYES):
+                    gr = clamp(0.15 + 0.85 * (rn[0] * NW[0] + rn[1] * NW[1]))
+                    tone = rock.bed_tone(y1 * 1.5 + 0.3) * (0.8 + 0.4 * vnoise(mid[0] * 0.23, mid[2] * 0.19, 53))
+                    face = mul(mix(mix(DK, hexlin("#1C121C"), 0.6), ROSE, 0.42 * gr ** 1.3), tone)
+                    lo_ = fade(lv, mul(face, 0.55)); hi_ = fade(y1, face)
+                    facing_poly(card, [(xa, y, b0), (xb, y, b1), (xb, y1, b1), (xa, y1, b0)], [lo_, lo_, hi_, hi_], (mid[0] + rn[0] * 50.0, mid[1], mid[2] + rn[1] * 50.0)); n_riser += 1
+    # the wash: the sand floor of the gully, a hand over each tread it crosses, breaking at every bed's pour-over
+    xg = lambda z: 15.0 + 3.5 * math.sin(z / 17.0)
+    lev = lambda z: max([lv for lv in FOOT_LEVELS if Hf(xg(z), z) >= lv] or [-0.6])
+    zs = [98.5 - 2.6 * j for j in range(23)]
+    n_wash = 0
+    for j in range(len(zs) - 1):
+        za, zb = zs[j], zs[j + 1]
+        la, lb = lev(za), lev(zb)
+        cuts = [(za, zb, la)]
+        if la != lb:
+            lo, hi = zb, za
+            for _ in range(10):
+                m = 0.5 * (lo + hi)
+                if lev(m) == la: hi = m
+                else: lo = m
+            cuts = [(za, hi + 0.15, la), (hi - 0.15, zb, lb)]
+        for (u0, u1, lv) in cuts:
+            if lv < 0.0 or u0 - u1 < 0.2: continue
+            w0 = 0.75 + 0.5 * vnoise(u0 * 0.21, 1.0, 59); w1 = 0.75 + 0.5 * vnoise(u1 * 0.21, 1.0, 59)
+            c0 = fade(lv, mul(THREAD, 0.26 + 0.12 * vnoise(u0 * 0.3, 2.0, 61))); c1 = fade(lv, mul(THREAD, 0.26 + 0.12 * vnoise(u1 * 0.3, 2.0, 61)))
+            q = [(xg(u0) - w0, lv + 0.07, u0), (xg(u0) + w0, lv + 0.07, u0), (xg(u1) + w1, lv + 0.07, u1), (xg(u1) - w1, lv + 0.07, u1)]
+            facing_poly(card, q, [c0, c0, c1, c1], (q[0][0], 1e6, q[0][2])); n_wash += 1
+    # ... and out over the plain: the wash runs on as a faint pale line toward the pylon line and the fire (the eye is
+    # led from the rock at her feet to the light), thinner and fainter until the plain has it
+    zs2 = [zs[-1] + 1.0 - 5.5 * j for j in range(17)]
+    xw = lambda z: xg(max(z, zs[-1])) + (0.0 if z >= zs[-1] else 0.10 * (zs[-1] - z) + 2.6 * math.sin((zs[-1] - z) / 9.0) * clamp((zs[-1] - z) / 12.0))
+    kw = lambda j: clamp(j / 2.0) * (1.0 - j / (len(zs2) - 1)) ** 0.8          # it comes out of the rock's shadow, then thins away
+    for j in range(len(zs2) - 1):
+        u0, u1 = zs2[j], zs2[j + 1]
+        k0, k1 = kw(j), kw(j + 1)
+        w0 = 0.35 + 0.6 * k0; w1 = 0.35 + 0.6 * k1
+        c0 = mix(PLAIN, mul(THREAD, 0.42), 0.80 * k0); c1 = mix(PLAIN, mul(THREAD, 0.42), 0.80 * k1)      # pass i6: 0.30 at 0.55 (the track to the fire was all but lost on the plain)
+        q = [(xw(u0) - w0, -0.52, u0), (xw(u0) + w0, -0.52, u0), (xw(u1) + w1, -0.52, u1), (xw(u1) - w1, -0.52, u1)]
+        facing_poly(card, q, [c0, c0, c1, c1], (q[0][0], 1e6, q[0][2])); n_wash += 1
+    # (the plain's inner disc starts 2 m from CENTRE: the old foot covered that hole, the wash's floor does not)
+    facing_poly(card, [(CENTRE[0] + 2.3 * math.sin(t * math.pi / 4), -0.6, CENTRE[2] - 2.3 * math.cos(t * math.pi / 4)) for t in range(8)], [PLAIN] * 8, (CENTRE[0], 1e6, CENTRE[2]))
+    # loose blocks that came off the lips: dark, a lit facet toward the afterglow (four faces each)
+    import random as _r
+    rng = _r.Random(515)
+    n_block = 0
+    for _ in range(60):
+        if n_block >= 16: break
+        x = rng.uniform(-9.0, 27.0); z = rng.uniform(58.0, 92.0)
+        h = Hf(x, z); lv = max([l_ for l_ in FOOT_LEVELS if h >= l_] or [-1.0])
+        if lv < 1.0 or abs(x - xg(z)) < 2.2: continue
+        s_ = rng.uniform(0.55, 1.5); a0 = rng.uniform(0, 6.283)
+        base = [(x + math.cos(a0 + t) * s_ * rng.uniform(0.7, 1.1), lv, z + math.sin(a0 + t) * s_ * rng.uniform(0.7, 1.1)) for t in (0.0, 1.7, 3.2, 4.8)]
+        apex = (x + rng.uniform(-0.3, 0.3) * s_, lv + s_ * rng.uniform(0.55, 0.95), z + rng.uniform(-0.3, 0.3) * s_)
+        for t in range(4):
+            p0, p1 = base[t], base[(t + 1) % 4]
+            mx, mz = 0.5 * (p0[0] + p1[0]) - x, 0.5 * (p0[2] + p1[2]) - z; l = math.hypot(mx, mz) or 1.0
+            gb = clamp((mx * NW[0] + mz * NW[1]) / l)
+            cb = mix(mul(DK, 1.6), ROSE, 0.55 * gb ** 1.2)
+            facing_poly(card, [p0, p1, apex], [mul(cb, 0.6), mul(cb, 0.6), mix(cb, CREST, 0.35 * gb)], (x + mx * 50, lv + 20.0, z + mz * 50))
+        n_block += 1
+    print("FOOT under the pylon (-7.7, 61):", max([l_ for l_ in FOOT_LEVELS if Hf(-7.7, 61.0) >= l_] or [-0.6]), round(Hf(-7.7, 61.0), 2))
+    print(f"FOOT: {n_lip} lips, {n_tread} treads, {n_riser} risers, {n_wash} wash, {n_block} blocks")
 
 
 def build(card):
@@ -261,19 +414,59 @@ def build(card):
     ridge([(-70.0, 74.0, 0.0), (-52.0, 62.0, 4.2), (-30.0, 47.0, 4.8), (-12.0, 35.0, 3.6), (4.0, 24.0, 4.4), (14.0, 14.0, 0.0)], R_COL[0], 3)
     ridge([(-92.0, 62.0, 0.0), (-72.0, 48.0, 2.4), (-52.0, 36.0, 2.8), (-30.0, 22.0, 2.2), (-8.0, 6.0, 2.6), (10.0, -6.0, 0.0)], R_COL[1], 5)
     ridge([(-150.0, 10.0, 0.0), (-128.0, -4.0, 3.5), (-108.0, -20.0, 4.5), (-96.0, -38.0, 3.0), (-84.0, -58.0, 0.0)], R_COL[2], 8)      # west of the town and beyond it
+    # ---- pass i6 (both visual reviewers: "the ground between the rim and the town is a featureless dark violet field",
+    # "break the dark slope below the town with two or three faint lit ridges or the path"): the flat east of the gully's
+    # line had nothing on it. (a) Two low swells there, in stepped values, their back slopes holding the sky's cold
+    # light; (b) a dry wash that leaves the track under the apron's toe and wanders off east, pale where its bed is
+    # swept (it catches the sky as the playa does), coming and going; (c) scrub along its banks and the track's: dark
+    # tufts, read against the paler beds. All flat tones on the plain, under every line from the ledge to the fire.
+    ridge([(34.0, 33.0, 0.0), (48.0, 26.0, 2.0), (66.0, 18.0, 2.7), (88.0, 12.0, 2.0), (112.0, 10.0, 0.0)], hexlin("#0F111E"), 13)
+    ridge([(38.0, -2.0, 0.0), (58.0, -10.0, 2.4), (82.0, -17.0, 3.2), (106.0, -20.0, 2.3), (132.0, -19.0, 0.0)], hexlin("#181B30"), 17)
+    ridge([(-46.0, 86.0, 0.0), (-36.0, 74.0, 1.5), (-27.0, 63.0, 2.1), (-19.0, 53.0, 1.5), (-12.0, 45.0, 0.0)], hexlin("#10121E"), 21)      # ... and one west of the apron, under the dead pylon's line
+    wz = lambda x: 41.0 - 0.21 * (x - 17.0) + 2.6 * math.sin((x - 17.0) / 8.5) + 1.3 * math.sin((x - 17.0) / 3.7 + 1.0)
+    wk = lambda x: clamp((x - 17.0) / 8.0) * clamp((99.0 - x) / 40.0) * smooth((vnoise(x * 0.085, 0.4, 83) - 0.30) / 0.30)
+    xs_ = [17.0 + 5.2 * j for j in range(17)]
+    for j in range(len(xs_) - 1):
+        x0, x1 = xs_[j], xs_[j + 1]
+        k0, k1 = wk(x0), wk(x1)
+        if max(k0, k1) < 0.05: continue
+        h0, h1 = 0.55 + 0.9 * vnoise(x0 * 0.2, 1.7, 84), 0.55 + 0.9 * vnoise(x1 * 0.2, 1.7, 84)
+        c0 = mix(PLAIN, PAL, clamp(0.40 * k0)); c1 = mix(PLAIN, PAL, clamp(0.40 * k1))
+        facing_poly(card, [(x0, -0.50, wz(x0) - h0), (x1, -0.50, wz(x1) - h1), (x1, -0.50, wz(x1) + h1), (x0, -0.50, wz(x0) + h0)], [c0, c1, mix(PLAIN, c1, 0.55), mix(PLAIN, c0, 0.55)], (x0, 1e6, 0.0))
+    import random as _r6
+    rg = _r6.Random(606)
+    SCRUB = hexlin("#090A14")
+    def tuft(x, z, w, h):
+        tx = (EYE[2] - z, -(EYE[0] - x)); l = math.hypot(*tx) or 1.0; tx = (tx[0] / l, tx[1] / l)       # across the view from the ledge
+        pts = [(x - tx[0] * w, -0.55, z - tx[1] * w), (x + tx[0] * w, -0.55, z + tx[1] * w), (x + tx[0] * w * rg.uniform(0.2, 0.7), h, z + tx[1] * w * 0.4), (x - tx[0] * w * rg.uniform(0.3, 0.8), h * rg.uniform(0.6, 0.95), z - tx[1] * w * 0.5)]
+        facing_poly(card, pts, [SCRUB, SCRUB, mul(SCRUB, 1.5), mul(SCRUB, 1.5)], EYE)
+    for j in range(9):                                # in twos and threes, not a row: thickets where the bed holds water longest
+        x = rg.uniform(24.0, 90.0); side = rg.choice((-1.0, 1.0)); z = wz(x) + side * rg.uniform(1.8, 5.5)
+        for m in range(rg.choice((1, 2, 2, 3))):
+            tuft(x + rg.uniform(-2.6, 2.6), z + rg.uniform(-1.6, 1.6), rg.uniform(0.6, 1.7), rg.uniform(0.5, 1.3))
+    for j in range(6):
+        z = rg.uniform(-34.0, 30.0)
+        tuft(TRACK_X(z) + rg.choice((-1.0, 1.0)) * rg.uniform(3.0, 11.0), z, rg.uniform(0.7, 1.6), rg.uniform(0.6, 1.2))
+    for (x, z) in ((-30.0, 78.0), (-22.0, 70.0), (-33.0, 58.0), (-17.0, 60.0), (-40.0, 66.0)):
+        tuft(x + rg.uniform(-2.0, 2.0), z + rg.uniform(-2.0, 2.0), rg.uniform(0.7, 1.5), rg.uniform(0.6, 1.2))
     # (3) UNDER THE LEDGE: the mesa's foot as land (it was a flat sheet with a straight edge): talus fans falling to the
     #     plain, fins of harder rock running down them, the gully cut down the middle with its sand floor a paler thread
     #     that leads north to the pylon line and the fire. Faceted and shaded per face (sky from above, the afterglow
     #     from the north-west): the darkest land in the frame, the value anchor under the horizon.
     def foot_h(x, z):
-        s_ = clamp((z - 22.0) / 78.0)
+        # pass i5: the apron reaches the plain 60 m out (it ran 78 m: with the last view level it filled the frame's lower
+        # 30 %), its spurs are rounded buttresses with broken edges (the two |sin| families drew chevrons on the benches)
+        s_ = clamp((z - 40.0) / 60.0)
         W = 24.0 + 20.0 * s_
         e = smooth((W - abs(x - 14.0) + 9.0 * (vnoise(z * 0.06, 0.3, 21) - 0.5)) / 16.0)
-        base = 12.1 * s_ ** 1.35
-        fin = (abs(math.sin(x * 0.19 + 1.6 * vnoise(z * 0.03, 1.0, 23))) ** 0.6) * 3.4 * s_ * (1.15 - s_) * 2.0
+        base = 12.1 * s_ ** 1.25
+        k_ = s_ * (1.15 - s_) * 2.0
+        fin = 2.9 * (0.5 + 0.5 * math.cos(x * 0.31 + 1.9 * vnoise(z * 0.035, 1.0, 23))) ** 1.6 * k_
+        fin += 1.5 * (vnoise(x * 0.42, z * 0.16, 27) - 0.5) * clamp(s_ * 5.0)                # blocks that came away: every lip is broken
+        fin += 0.7 * (vnoise(x * 1.1, z * 0.45, 31) - 0.5) * clamp(s_ * 5.0)
         xg = 15.0 + 3.5 * math.sin(z / 17.0)
-        g = math.exp(-((x - xg) / 5.5) ** 2)
-        y = (base + fin) * e - 5.2 * g * min(1.0, s_ * 3.0)
+        g = math.exp(-((x - xg) / 4.6) ** 2)
+        y = (base + fin) * e - 5.4 * g * min(1.0, s_ * 3.0)
         y = max(y, -0.6) if e > 0.02 else -0.6
         return min(y, 12.4), g
     # look-dev, polish round 3 (R7): the foot was shaded per FACE on a 7 m grid: from the ledge it was a fan of big flat
@@ -282,6 +475,8 @@ def build(card):
     # darker (the land under the ledge is the darkest thing in the last image), the fins catching a breath of the
     # afterglow on their north-west sides only, the gully's sand a dim thread that leads the eye north to the fire.
     DK = hexlin("#07070F"); MD = hexlin("#1A1B30"); SANDC = hexlin("#3B3558"); ROSE = hexlin("#A2605E")      # pass i1: ROSE was #6A4450 (the last image's lower half read as one dark slab again: the crests are rim-lit now)
+
+    CREST = hexlin("#C9806A"); THREAD = hexlin("#6C5E8C")
 
     def foot_col(x, z):
         h, gk = foot_h(x, z)
@@ -298,23 +493,26 @@ def build(card):
         c = mix(c, DK, 0.6 * clamp(nx * 2.2))
         c = mix(c, ROSE, 0.72 * clamp((glow - 0.10) / 0.36) ** 1.3)
         c = mix(c, SANDC, 0.7 * gk * up)
+        # pass i4: a CREST is a line of light. Where the ground stands over its neighbours two metres to either side (a
+        # fin's or a rib's top, a bench's lip) it holds the afterglow as a thin apricot edge; the hollow between two of
+        # them goes to the land's black. The gully's floor is a paler thread that runs out toward the fire
+        e2 = 2.2
+        crest = h - 0.25 * (foot_h(x + e2, z)[0] + foot_h(x - e2, z)[0] + foot_h(x, z + e2)[0] + foot_h(x, z - e2)[0])
+        c = mix(c, DK, 0.7 * clamp((0.12 - crest) / 0.5))
+        c = mix(c, CREST, 0.72 * clamp((crest - 0.30) / 0.55) ** 1.6 * (0.35 + 0.65 * clamp(0.5 - 0.5 * nx - 0.4 * nz)))
+        c = mix(c, THREAD, 0.55 * clamp((gk - 0.72) / 0.28) * up)
         c = mix(c, DK, 0.30 * smooth((z - 86.0) / 13.0))                                   # right under the ledge: the dark anchor
         return mix(PLAIN, c, clamp((h + 0.6) / 1.2))                                       # the foot goes into the plain
-    # (finer where the eye is: under the ledge and round the gully; the asset's budget is 2 000 triangles)
-    gx = [-35.0, -23.0, -11.0] + [-5.0 + 4.0 * i for i in range(11)] + [43.0, 51.0, 63.0]
-    gz = [23.0, 33.0, 44.0, 55.0] + [62.6 + 4.66 * j for j in range(8)] + [99.9]
-    for i in range(len(gx) - 1):
-        for j in range(len(gz) - 1):
-            cs = [(gx[i], gz[j]), (gx[i], gz[j + 1]), (gx[i + 1], gz[j + 1]), (gx[i + 1], gz[j])]
-            hs = [foot_h(x, z) for (x, z) in cs]
-            if max(h[0] for h in hs) <= -0.59: continue
-            pts = [(x, h[0], z) for (x, z), h in zip(cs, hs)]
-            cl = [foot_col(x, z) for (x, z) in cs]
-            # split along the diagonal whose ends are nearer in height (the crease follows the fins, not the grid)
-            tris = ((0, 1, 2), (0, 2, 3)) if abs(hs[0][0] - hs[2][0]) <= abs(hs[1][0] - hs[3][0]) else ((0, 1, 3), (1, 2, 3))
-            for tri in tris:
-                a_, b_, c_ = (pts[t] for t in tri)
-                facing_poly(card, [a_, b_, c_], [cl[t] for t in tri], (a_[0], 1e6, a_[2]))
+    # ---- pass i5 (both visual reviewers, a major each: "the bottom 30 % of the last image is a smooth low-detail pink
+    # mound with a pale lavender streak down its middle", "smooth-shaded, untextured pink clay with a blurry blue-white
+    # smear": the foot was a 2 x 3 m grid coloured per VERTEX, so every form on it was an airbrushed gradient beside the
+    # ledge's crisp rock). The foot is now BENCHED RIMROCK, built from the same height field: every bed that holds the
+    # talus is a level tread ending in a broken lip, the lips hold the afterglow as thin lines (brightest where they
+    # face the north-west), the treads are the land's dark, the risers show only where the beds turn into the wash
+    # (lit rose on the flank that faces the afterglow, black on the other). The wash itself is a dry floor of sand that
+    # steps down bench by bench toward the pylon line and the fire: the gully she came up, seen from over it. Flat tones
+    # with hard edges, as the cliff's wings and the loose rock on the ledge are drawn: no gradient wider than a lip.
+    build_foot(card, foot_h, DK, MD, ROSE, CREST, THREAD)
     return layout.marker("vista_fire")["params"]["target"]
 
 

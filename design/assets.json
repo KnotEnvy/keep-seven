@@ -105,7 +105,7 @@
    "owner": "env_exterior",
    "category": "env",
    "priority": 0,
-   "triBudget": 29000,
+   "triBudget": 31000,
    "drawCalls": 10,
    "materials": [
     "m_frontier",
@@ -144,7 +144,7 @@
    "chunks": [
     {
      "id": "chunk_lip_rock",
-     "tris": 8000,
+     "tris": 9200,
      "materials": [
       "m_frontier"
      ],
@@ -165,7 +165,7 @@
     },
     {
      "id": "chunk_lip_upper",
-     "tris": 8500,
+     "tris": 9500,
      "materials": [
       "m_sand",
       "m_frontier",
@@ -188,7 +188,7 @@
     },
     {
      "id": "chunk_lip_mid",
-     "tris": 6000,
+     "tris": 5000,
      "materials": [
       "m_sand",
       "m_frontier"
@@ -210,7 +210,7 @@
     },
     {
      "id": "chunk_lip_gate",
-     "tris": 6500,
+     "tris": 7300,
      "materials": [
       "m_sand",
       "m_frontier",
@@ -241,7 +241,7 @@
    "owner": "env_exterior",
    "category": "env",
    "priority": 0,
-   "triBudget": 48200,
+   "triBudget": 49700,
    "drawCalls": 16,
    "materials": [
     "m_sand",
@@ -291,7 +291,7 @@
    "chunks": [
     {
      "id": "chunk_st_east",
-     "tris": 13400,
+     "tris": 13800,
      "materials": [
       "m_sand",
       "m_frontier",
@@ -314,7 +314,7 @@
     },
     {
      "id": "chunk_st_west",
-     "tris": 15700,
+     "tris": 16000,
      "materials": [
       "m_sand",
       "m_frontier",
@@ -336,7 +336,7 @@
     },
     {
      "id": "chunk_st_yard",
-     "tris": 12700,
+     "tris": 13400,
      "materials": [
       "m_sand",
       "m_frontier",
@@ -358,7 +358,7 @@
     },
     {
      "id": "chunk_st_works",
-     "tris": 6400,
+     "tris": 6500,
      "materials": [
       "m_frontier",
       "m_pellam"
@@ -405,7 +405,7 @@
    "owner": "env_exterior",
    "category": "env",
    "priority": 0,
-   "triBudget": 16000,
+   "triBudget": 19000,
    "drawCalls": 3,
    "materials": [
     "m_sand",
@@ -441,7 +441,7 @@
    "chunks": [
     {
      "id": "chunk_rim_ledge",
-     "tris": 16000,
+     "tris": 19000,
      "materials": [
       "m_sand",
       "m_frontier",
@@ -511,7 +511,7 @@
    "owner": "env_exterior",
    "category": "env",
    "priority": 0,
-   "triBudget": 1700,
+   "triBudget": 2100,
    "drawCalls": 1,
    "materials": [
     "m_flat"
@@ -549,7 +549,7 @@
    "owner": "env_exterior",
    "category": "env",
    "priority": 0,
-   "triBudget": 2000,
+   "triBudget": 3200,
    "drawCalls": 1,
    "materials": [
     "m_flat"
@@ -586,7 +586,7 @@
    "owner": "env_interior",
    "category": "env",
    "priority": 0,
-   "triBudget": 17000,
+   "triBudget": 17200,
    "drawCalls": 4,
    "materials": [
     "m_frontier",
@@ -631,7 +631,7 @@
    "chunks": [
     {
      "id": "chunk_ty_hall",
-     "tris": 17000,
+     "tris": 17200,
      "materials": [
       "m_frontier",
       "m_pellam",
@@ -663,7 +663,7 @@
    "owner": "env_interior",
    "category": "env",
    "priority": 0,
-   "triBudget": 26000,
+   "triBudget": 24400,
    "drawCalls": 10,
    "materials": [
     "m_pellam",
@@ -706,7 +706,7 @@
    "chunks": [
     {
      "id": "chunk_gl_stair",
-     "tris": 4000,
+     "tris": 3200,
      "materials": [
       "m_pellam",
       "m_emis"
@@ -727,7 +727,7 @@
     },
     {
      "id": "chunk_gl_bay",
-     "tris": 4000,
+     "tris": 3200,
      "materials": [
       "m_pellam",
       "m_mask",
@@ -1196,7 +1196,7 @@
    "owner": "weapons",
    "category": "props",
    "priority": 0,
-   "triBudget": 144,
+   "triBudget": 240,
    "drawCalls": 1,
    "materials": [
     "m_prop"
@@ -1518,7 +1518,7 @@
    "owner": "props_dress",
    "category": "props",
    "priority": 0,
-   "triBudget": 1200,
+   "triBudget": 1500,
    "drawCalls": 1,
    "materials": [
     "m_prop"
@@ -1624,7 +1624,7 @@
    "owner": "props_dress",
    "category": "props",
    "priority": 1,
-   "triBudget": 900,
+   "triBudget": 1100,
    "drawCalls": 1,
    "materials": [
     "m_prop"
@@ -2929,7 +2929,7 @@
    "owner": "props_dress",
    "category": "props",
    "priority": 1,
-   "triBudget": 50,
+   "triBudget": 110,
    "drawCalls": 1,
    "materials": [
     "m_prop"
@@ -3092,7 +3092,7 @@
    "owner": "props_mech",
    "category": "props",
    "priority": 0,
-   "triBudget": 220,
+   "triBudget": 320,
    "drawCalls": 2,
    "materials": [
     "m_prop",
@@ -3777,10 +3777,11 @@
    "owner": "props_dress",
    "category": "props",
    "priority": 0,
-   "triBudget": 240,
-   "drawCalls": 1,
+   "triBudget": 1200,
+   "drawCalls": 2,
    "materials": [
-    "m_prop"
+    "m_prop",
+    "m_frontier"
    ],
    "bake": "VL",
    "skinned": false,
@@ -3811,7 +3812,7 @@
    "owner": "weapons",
    "category": "weapons",
    "priority": 0,
-   "triBudget": 18000,
+   "triBudget": 14000,
    "drawCalls": 3,
    "materials": [
     "m_gun",
@@ -4430,7 +4431,7 @@
    "owner": "boss",
    "category": "enemies",
    "priority": 0,
-   "triBudget": 4000,
+   "triBudget": 5000,
    "drawCalls": 1,
    "materials": [
     "m_prop"
@@ -4558,7 +4559,7 @@
    "owner": "boss",
    "category": "enemies",
    "priority": 2,
-   "triBudget": 4000,
+   "triBudget": 5000,
    "drawCalls": 1,
    "materials": [
     "m_prop"
@@ -4592,7 +4593,7 @@
    "owner": "boss",
    "category": "boss",
    "priority": 0,
-   "triBudget": 8000,
+   "triBudget": 8400,
    "drawCalls": 3,
    "materials": [
     "m_prop",
@@ -5528,7 +5529,7 @@
   }
  },
  "allowances": {
-  "gunTris": 18000,
+  "gunTris": 14000,
   "gunDrawCalls": 3,
   "fxTris": 1700,
   "fxDrawCalls": {
@@ -5575,7 +5576,7 @@
      "prop_sack"
     ]
    },
-   "triangles": 119507,
+   "triangles": 118670,
    "drawCalls": {
     "typical": 66,
     "worst": 73
@@ -5607,10 +5608,10 @@
      "prop_strain_cloth"
     ]
    },
-   "triangles": 119788,
+   "triangles": 119840,
    "drawCalls": {
-    "typical": 76,
-    "worst": 82
+    "typical": 77,
+    "worst": 83
    }
   },
   "tally_house": {
@@ -5632,10 +5633,10 @@
      "prop_sack"
     ]
    },
-   "triangles": 108813,
+   "triangles": 105562,
    "drawCalls": {
-    "typical": 78,
-    "worst": 86
+    "typical": 79,
+    "worst": 87
    }
   },
   "the_gallery": {
@@ -5651,7 +5652,7 @@
     "cell_gallery"
    ],
    "dressing": {
-    "tris": 8500,
+    "tris": 10000,
     "drawCalls": 5,
     "assets": [
      "prop_coat_hung",
@@ -5660,7 +5661,7 @@
      "prop_crate"
     ]
    },
-   "triangles": 118700,
+   "triangles": 115700,
    "drawCalls": {
     "typical": 84,
     "worst": 92
@@ -5683,7 +5684,7 @@
      "prop_barrel"
     ]
    },
-   "triangles": 110792,
+   "triangles": 108589,
    "drawCalls": {
     "typical": 81,
     "worst": 89
@@ -5707,7 +5708,7 @@
      "prop_barrel"
     ]
    },
-   "triangles": 92808,
+   "triangles": 89208,
    "drawCalls": {
     "typical": 65,
     "worst": 73
@@ -5727,7 +5728,7 @@
     "drawCalls": 1,
     "assets": []
    },
-   "triangles": 41324,
+   "triangles": 41620,
    "drawCalls": {
     "typical": 22,
     "worst": 27
@@ -5739,7 +5740,7 @@
    "chunk_lip_rock": {
     "asset": "env_the_lip",
     "zone": "the_lip",
-    "tris": 8000,
+    "tris": 9200,
     "drawCalls": 1,
     "box": {
      "min": [
@@ -5758,7 +5759,7 @@
    "chunk_lip_upper": {
     "asset": "env_the_lip",
     "zone": "the_lip",
-    "tris": 8500,
+    "tris": 9500,
     "drawCalls": 3,
     "box": {
      "min": [
@@ -5777,7 +5778,7 @@
    "chunk_lip_mid": {
     "asset": "env_the_lip",
     "zone": "the_lip",
-    "tris": 6000,
+    "tris": 5000,
     "drawCalls": 2,
     "box": {
      "min": [
@@ -5796,7 +5797,7 @@
    "chunk_lip_gate": {
     "asset": "env_the_lip",
     "zone": "the_lip",
-    "tris": 6500,
+    "tris": 7300,
     "drawCalls": 4,
     "box": {
      "min": [
@@ -5815,7 +5816,7 @@
    "chunk_st_east": {
     "asset": "env_plenty_street",
     "zone": "plenty_street",
-    "tris": 13400,
+    "tris": 13800,
     "drawCalls": 4,
     "box": {
      "min": [
@@ -5833,7 +5834,7 @@
    "chunk_st_west": {
     "asset": "env_plenty_street",
     "zone": "plenty_street",
-    "tris": 15700,
+    "tris": 16000,
     "drawCalls": 3,
     "box": {
      "min": [
@@ -5851,7 +5852,7 @@
    "chunk_st_yard": {
     "asset": "env_plenty_street",
     "zone": "plenty_street",
-    "tris": 12700,
+    "tris": 13400,
     "drawCalls": 3,
     "box": {
      "min": [
@@ -5869,7 +5870,7 @@
    "chunk_st_works": {
     "asset": "env_plenty_street",
     "zone": "plenty_street",
-    "tris": 6400,
+    "tris": 6500,
     "drawCalls": 2,
     "box": {
      "min": [
@@ -5900,7 +5901,7 @@
    "chunk_rim_ledge": {
     "asset": "env_far_rim",
     "zone": "far_rim",
-    "tris": 16000,
+    "tris": 19000,
     "drawCalls": 3,
     "box": {
      "min": [
@@ -5924,19 +5925,19 @@
    "env_backdrop_day": {
     "asset": "env_backdrop_day",
     "zone": null,
-    "tris": 1700,
+    "tris": 2100,
     "drawCalls": 1
    },
    "env_backdrop_dusk": {
     "asset": "env_backdrop_dusk",
     "zone": null,
-    "tris": 2000,
+    "tris": 3200,
     "drawCalls": 1
    },
    "chunk_ty_hall": {
     "asset": "env_tally_house",
     "zone": "tally_house",
-    "tris": 17000,
+    "tris": 17200,
     "drawCalls": 3,
     "box": {
      "min": [
@@ -5954,7 +5955,7 @@
    "chunk_gl_stair": {
     "asset": "env_the_gallery",
     "zone": "the_gallery",
-    "tris": 4000,
+    "tris": 3200,
     "drawCalls": 2,
     "box": {
      "min": [
@@ -5972,7 +5973,7 @@
    "chunk_gl_bay": {
     "asset": "env_the_gallery",
     "zone": "the_gallery",
-    "tris": 4000,
+    "tris": 3200,
     "drawCalls": 3,
     "box": {
      "min": [
@@ -6087,12 +6088,12 @@
     "why": "The overhang and the four reaches down to the forecourt. The 12 to 22 m gully walls hide the town: only the tops of the first facades show over the gate wall.",
     "budget": {
      "when": "always",
-     "staticTris": 44100,
-     "dynamicTris": 47256,
-     "triangles": 91356,
+     "staticTris": 46900,
+     "dynamicTris": 43254,
+     "triangles": 90154,
      "parts": {
       "props": 5320,
-      "dressing": 2668,
+      "dressing": 2666,
       "live": 13000,
       "actors": 0,
       "bodies": 4000
@@ -6135,12 +6136,12 @@
     "why": "The forecourt: the whole street is seen through the jug gate, and the gully back up to the overhang.",
     "budget": {
      "when": "always",
-     "staticTris": 66200,
-     "dynamicTris": 53307,
-     "triangles": 119507,
+     "staticTris": 69400,
+     "dynamicTris": 49270,
+     "triangles": 118670,
      "parts": {
       "props": 6620,
-      "dressing": 5419,
+      "dressing": 5382,
       "live": 13000,
       "actors": 0,
       "bodies": 6000
@@ -6195,12 +6196,12 @@
     "why": "Front Street and the gate court. Of the lip only the skyline rock, the gate wall, the forecourt and the last reach can be seen (the blockout rays reach nothing above z = 30 at path level).",
     "budget": {
      "when": "always",
-     "staticTris": 64400,
-     "dynamicTris": 55388,
-     "triangles": 119788,
+     "staticTris": 68300,
+     "dynamicTris": 51540,
+     "triangles": 119840,
      "parts": {
-      "props": 7620,
-      "dressing": 6500,
+      "props": 7740,
+      "dressing": 6532,
       "live": 13000,
       "actors": 0,
       "bodies": 6000
@@ -6268,12 +6269,12 @@
     "why": "The 12 m strip in front of the Tally House door: the only place the hall interior is drawn from outside.",
     "budget": {
      "when": "door_tally open",
-     "staticTris": 61500,
-     "dynamicTris": 54236,
-     "triangles": 115736,
+     "staticTris": 64400,
+     "dynamicTris": 52045,
+     "triangles": 116445,
      "parts": {
-      "props": 13160,
-      "dressing": 6608,
+      "props": 13280,
+      "dressing": 8297,
       "live": 5200,
       "actors": 0,
       "bodies": 7000
@@ -6281,7 +6282,7 @@
      "callParts": {
       "fixed": 5,
       "static": 18,
-      "props": 30,
+      "props": 31,
       "dressing": 11,
       "enemies": 2,
       "bodies": 2,
@@ -6289,8 +6290,8 @@
       "fx": 11
      },
      "drawCalls": {
-      "typical": 76,
-      "worst": 82
+      "typical": 77,
+      "worst": 83
      }
     }
    },
@@ -6316,12 +6317,12 @@
     "why": "The pump yard.",
     "budget": {
      "when": "always",
-     "staticTris": 64400,
-     "dynamicTris": 55388,
-     "triangles": 119788,
+     "staticTris": 68300,
+     "dynamicTris": 51540,
+     "triangles": 119840,
      "parts": {
-      "props": 7620,
-      "dressing": 6500,
+      "props": 7740,
+      "dressing": 6532,
       "live": 13000,
       "actors": 0,
       "bodies": 6000
@@ -6363,30 +6364,31 @@
     "showIf": [
      {
       "units": [
-       "chunk_gl_stair"
+       "chunk_gl_stair",
+       "chunk_gl_bay"
       ],
       "flag": "hatch_powered",
       "value": true,
-      "why": "the staged gallery stair (it is what she stands on)"
+      "why": "the staged gallery stair (it is what she stands on) and, pass i4, the proving bay she looks into down flight 2 through the stair's mouth (it was the sky's fog in a 2 m x 5 m rectangle until trg_set_swap)"
      }
     ],
     "why": "Peg-stair flight 1, landing 1 and the top of flight 2 while the surface set is resident (zoneAt gives tally_house here until trg_set_swap).",
     "budget": {
      "when": "hatch_powered set",
-     "staticTris": 21000,
-     "dynamicTris": 59848,
-     "triangles": 80848,
+     "staticTris": 23600,
+     "dynamicTris": 58743,
+     "triangles": 82343,
      "parts": {
-      "props": 10560,
-      "dressing": 3308,
+      "props": 12140,
+      "dressing": 4623,
       "live": 15600,
       "actors": 2600,
       "bodies": 7000
      },
      "callParts": {
       "fixed": 5,
-      "static": 8,
-      "props": 17,
+      "static": 11,
+      "props": 29,
       "dressing": 8,
       "enemies": 7,
       "bodies": 2,
@@ -6394,8 +6396,8 @@
       "fx": 11
      },
      "drawCalls": {
-      "typical": 50,
-      "worst": 58
+      "typical": 65,
+      "worst": 73
      }
     }
    },
@@ -6439,12 +6441,12 @@
     "why": "The hall.",
     "budget": {
      "when": "door_tally open, ia_hatch open",
-     "staticTris": 41800,
-     "dynamicTris": 67013,
-     "triangles": 108813,
+     "staticTris": 42400,
+     "dynamicTris": 63162,
+     "triangles": 105562,
      "parts": {
-      "props": 11860,
-      "dressing": 5685,
+      "props": 11980,
+      "dressing": 5714,
       "live": 15600,
       "actors": 2600,
       "bodies": 9000
@@ -6452,7 +6454,7 @@
      "callParts": {
       "fixed": 5,
       "static": 18,
-      "props": 26,
+      "props": 27,
       "dressing": 14,
       "enemies": 7,
       "bodies": 2,
@@ -6460,8 +6462,8 @@
       "fx": 11
      },
      "drawCalls": {
-      "typical": 78,
-      "worst": 86
+      "typical": 79,
+      "worst": 87
      }
     }
    },
@@ -6487,12 +6489,12 @@
     "why": "The peg stair after the swap. The hatch above is shut; the bay shows at the foot of flight 3.",
     "budget": {
      "when": "always",
-     "staticTris": 8000,
-     "dynamicTris": 49175,
-     "triangles": 57175,
+     "staticTris": 6400,
+     "dynamicTris": 52560,
+     "triangles": 58960,
      "parts": {
       "props": 1580,
-      "dressing": 2615,
+      "dressing": 10000,
       "live": 15600,
       "actors": 2600,
       "bodies": 6000
@@ -6534,13 +6536,13 @@
     "why": "Proving bay and gallery.",
     "budget": {
      "when": "door_gallery_far open",
-     "staticTris": 52900,
-     "dynamicTris": 65800,
-     "triangles": 118700,
+     "staticTris": 51300,
+     "dynamicTris": 64400,
+     "triangles": 115700,
      "parts": {
-      "props": 6920,
-      "dressing": 10500,
-      "live": 17000,
+      "props": 7020,
+      "dressing": 12000,
+      "live": 18000,
       "actors": 2600,
       "bodies": 8000
      },
@@ -6580,13 +6582,13 @@
     "why": "The lift hall, gantry, cage bay and cold bay. During a ride only env_lift_shaft and the cage are drawn.",
     "budget": {
      "when": "door_gallery_far open",
-     "staticTris": 48900,
-     "dynamicTris": 61892,
-     "triangles": 110792,
+     "staticTris": 48100,
+     "dynamicTris": 60489,
+     "triangles": 108589,
      "parts": {
-      "props": 6920,
-      "dressing": 9192,
-      "live": 17000,
+      "props": 7020,
+      "dressing": 10689,
+      "live": 18000,
       "actors": 0,
       "bodies": 8000
      },
@@ -6617,12 +6619,12 @@
     "budget": {
      "when": "always",
      "staticTris": 40000,
-     "dynamicTris": 52808,
-     "triangles": 92808,
+     "dynamicTris": 49208,
+     "triangles": 89208,
      "parts": {
       "props": 6240,
       "dressing": 1000,
-      "live": 15800,
+      "live": 16200,
       "actors": 0,
       "bodies": 7500
      },
@@ -6653,11 +6655,11 @@
     "why": "The far rim.",
     "budget": {
      "when": "always",
-     "staticTris": 19200,
-     "dynamicTris": 22124,
-     "triangles": 41324,
+     "staticTris": 23400,
+     "dynamicTris": 18220,
+     "triangles": 41620,
      "parts": {
-      "props": 844,
+      "props": 940,
       "dressing": 500,
       "live": 0,
       "actors": 0,
@@ -7301,7 +7303,7 @@
     "asset": "prop_cartridge_kept",
     "mode": "variant",
     "node": "round_violet",
-    "scale": 2.6
+    "scale": 3.4
    }
   },
   "prop": {

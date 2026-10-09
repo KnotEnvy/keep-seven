@@ -122,12 +122,23 @@ test('the rim stone: seven seats 0.11 m apart, seat 7 (empty, dark) at the pivot
   const a = await readAsset('prop_rim_stone');
   const all = [];
   for (const n of a.meshNodes) for (const p of n.getMesh().listPrimitives()) for (const v of vertices(n, p)) all.push(v);
-  const slab = all.filter((v) => v.p[1] <= 0.1215), cases = all.filter((v) => v.p[1] > 0.13);
+  // pass i4 (R19): the stone is the whole outcrop (a bed of caprock that swallows the zone's shelf box, its apron, loose
+  // stone). The CAPSTONE the seats are cut in keeps the old slab's size and place: its top ring is every vertex at the
+  // top's height (0.9 x 0.5 m about seat 4), its foot is let into the bed a hand above the pivot's plane
+  const rowBand = (v) => Math.abs(v.p[2]) < 0.035 && v.p[0] > -0.7 && v.p[0] < 0.04;
+  const slab = all.filter((v) => v.p[1] > 0.1 && v.p[1] <= 0.1215 && Math.hypot(v.p[0] + 0.33, v.p[2]) < 0.6), cases = all.filter((v) => v.p[1] > 0.13 && rowBand(v));
   const ext = (vs, k) => Math.max(...vs.map((v) => v.p[k])) - Math.min(...vs.map((v) => v.p[k]));
-  console.log(`    slab x ${Math.min(...slab.map((v) => v.p[0])).toFixed(3)} .. ${Math.max(...slab.map((v) => v.p[0])).toFixed(3)}, depth ${ext(slab, 2).toFixed(3)}, height ${ext(slab, 1).toFixed(3)}`);
-  assert.ok(Math.abs(ext(slab, 0) - 0.9) < 0.03 && Math.abs(ext(slab, 1) - 0.12) < 0.02 && Math.abs(ext(slab, 2) - 0.5) < 0.03, 'slab size');
-  // seat 7: the only dark cup on the top, on the pivot
-  const dark = all.filter((v) => v.p[1] > 0.119 && v.p[1] < 0.125 && lum(v.rgb) < 0.05).map((v) => v.p);
+  console.log(`    capstone x ${Math.min(...slab.map((v) => v.p[0])).toFixed(3)} .. ${Math.max(...slab.map((v) => v.p[0])).toFixed(3)}, depth ${ext(slab, 2).toFixed(3)}, top ${Math.max(...slab.map((v) => v.p[1])).toFixed(3)}`);
+  assert.ok(Math.abs(ext(slab, 0) - 0.9) < 0.08 && Math.abs(Math.max(...slab.map((v) => v.p[1])) - 0.12) < 0.003 && Math.abs(ext(slab, 2) - 0.5) < 0.05, 'capstone size (its top ring is the knocked arris: 5 % inside the 0.9 m outline)');
+  // the bed: it covers the zone's shelf box (1.95 x 1.2 m about seat 4, its top at the pivot's plane) with a hand to
+  // spare, its swept top lies above that box and under the capstone's, and its foot goes down under the ledge's sand
+  const bedTop = all.filter((v) => v.p[1] > 0.005 && v.p[1] < 0.07 && Math.hypot(v.p[0] + 0.33, v.p[2]) > 0.62);
+  const bx = [Math.min(...bedTop.map((v) => v.p[0])), Math.max(...bedTop.map((v) => v.p[0]))], bz = [Math.min(...bedTop.map((v) => v.p[2])), Math.max(...bedTop.map((v) => v.p[2]))];
+  console.log(`    bed top x ${bx.map((x) => x.toFixed(2))}, z ${bz.map((x) => x.toFixed(2))}; lowest vertex ${Math.min(...all.map((v) => v.p[1])).toFixed(2)}`);
+  assert.ok(bx[0] < -0.33 - 0.975 - 0.05 && bx[1] > -0.33 + 0.975 + 0.05 && bz[0] < -0.65 && bz[1] > 0.65, 'the bed covers the shelf box');
+  assert.ok(Math.min(...all.map((v) => v.p[1])) < -0.3, 'the foot goes under the sand (the ledge is 0.24 m under the pivot)');
+  // seat 7: the only dark cup in the row, on the pivot
+  const dark = all.filter((v) => v.p[1] > 0.119 && v.p[1] < 0.125 && rowBand(v) && lum(v.rgb) < 0.05).map((v) => v.p);
   assert.deepEqual([...new Set(dark.map((p) => Math.round(p[0] / 0.11)))], [0], 'the one empty seat is seat 7');
   const cx = dark.reduce((t, p) => t + p[0], 0) / dark.length, cz = dark.reduce((t, p) => t + p[2], 0) / dark.length;
   assert.ok(Math.hypot(cx, cz) < 0.01, `seat 7 at (${cx}, ${cz})`);
@@ -173,7 +184,7 @@ test('sizes: each asset (each variant) within its manifest placeholder box, exce
   // meant to differ: rd_ledger lies OPEN (0.6 m across, its manifest box is the closed book); prop_coffee_pot has its lid
   // set down beside it (0.30 m over both); prop_rim_stone is offset
   // to put seat 7 on the pivot (its size holds, its centre does not); variants hang or lie their own way
-  const skip = new Set(['rd_ledger', 'prop_coffee_pot', 'prop_coat_hung/coat_short', 'prop_coat_hung/coat_shawl']);   // the open book; the pot with its lid beside it; a short jacket and a shawl are not 1.1 m long
+  const skip = new Set(['rd_ledger', 'prop_coffee_pot', 'prop_coat_hung/coat_short', 'prop_coat_hung/coat_shawl', 'prop_rim_stone', 'prop_hat_hung']);   // pass i4: the stone is the whole outcrop (its capstone is the manifest's box: the test above); the hat hangs by its brim, crown out (0.38 across, 0.2 deep)   // (and: the open book; the pot with its lid beside it; a short jacket and a shawl are not 1.1 m long)
   const lines = []; const failures = [];
   for (const id of IDS) {
     if (skip.has(id)) continue;

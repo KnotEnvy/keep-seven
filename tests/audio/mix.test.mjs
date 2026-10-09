@@ -34,7 +34,7 @@ test('the gun is the loudest thing in the world on a laptop speaker too: 6 dB ov
   // the loud sounds of the game, each at its own default level, dry
   const others = [['kept_tone', {}], ['transit_tone', {}], ['lens_bell', {}], ['jug', { a: 3 }], ['station_line', { text: 'THANK YOU FOR YOUR PATIENCE.', seconds: 3 }],
     ['tamper_howl', {}], ['tamper_slam', {}], ['wire', { a: 5, b: 3 }], ['gate_bang', {}], ['shutter_bang', {}], ['dry_click_big', {}], ['bider_rattle', {}],
-    ['canister_thump', {}], ['drum', { a: 1 }], ['hurt', { a: 30 }], ['hit_kill', {}], ['dry_fire', {}]];
+    ['canister_thump', {}], ['drum', { a: 1 }], ['hurt', { a: 30 }], ['hurt', { a: 38, b: 1 }], ['hurt', { a: 38, b: 2 }], ['hurt', { a: 38, b: 3 }], ['hurt', { a: 38, b: 4 }], ['hit_kill', {}], ['dry_fire', {}]];
   const measure = async (name, params) => {
     await render(game, name, params);
     const { sampleRate: sr, data } = await pcm(game);
@@ -61,7 +61,7 @@ test('the gun is the loudest thing in the world on a laptop speaker too: 6 dB ov
 
 test('the pre-rendered takes are the recipes: same level, same spectrum, sample 0 on the tick', async () => {
   const ops = [['peakDb', 0, 0.4], ['rmsDb', 0, 0.12], ['rmsDb', 0.12, 0.35], ['centroid', 0, 0.2], ['band', 0, 0.003, 2000, 24000], ['sample', 0]];
-  for (const [name, params] of [['gun_report', { a: 4 }], ['gun_report', { a: 1 }], ['impact_metal', {}], ['hit_kill', {}], ['hit_tick', {}], ['step_wood', { a: 1 }]]) {
+  for (const [name, params] of [['gun_report', { a: 4 }], ['gun_report', { a: 1 }], ['impact_metal', {}], ['hit_kill', { a: 0.006 }], ['hit_tick', { a: 0.006 }], ['tamper_clank', {}], ['step_wood', { a: 1 }]]) {
     const take = await render(game, name, params, ops);
     const recipe = await render(game, name, { ...params, baked: false }, ops);
     const [tp, tr, tt, tc] = take.probes, [rp, rr, rt, rc] = recipe.probes;

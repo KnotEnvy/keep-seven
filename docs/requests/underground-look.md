@@ -322,3 +322,142 @@ with render-tech's cones in -> after): `vista_tamper` 2.1 -> 4.3 -> **6.3**; `cp
 | 1 rows 1 to 5 | Mirrored: ART_BIBLE "Amendments, pass i3 (closer)", GDD 23.17, ARCHITECTURE "Pass i3", LEVEL 18 |
 | 2.1 to 2.3 | Noted; `tests/render` and `tests/e2e` re-run on the final tree (INTEGRATION_REPORT Part P) |
 | 3 known gaps | In `docs/KNOWN_ISSUES.md` |
+
+## Fixer, pass i4 (2026-10-08): what is ready for this team, and what is ruled
+
+
+| Item | State |
+|---|---|
+| Triangles | `chunk_ty_hall` 17 200 (305 free: the red face seen through the hatch from the peg stair). `chunk_gl_stair` and `chunk_gl_bay` are 3 200 each again (2 868 and 2 818 built): the ledger now counts a cell's own zone's dressing whole, which is what the closer of pass i3 had padded them for. `chunk_gl_gallery` 2 500 free, `chunk_lh_hall` 1 520, `chunk_bo_ante` 611, `chunk_bo_chamber` 808 |
+| Textures | unchanged |
+
+## Underground look, pass i4 (2026-10-08)
+
+Two issues (both minor, `scratch/lead/carryover-issues.json`, team `underground-look`). Files: `src/render/vfx/vfx.ts`
+(`proveGlare`, `PROVE_GLARE_*`), `src/render/system.ts` (the contact shade's strength; `under`, `UNDER_Y`, `UNDER_FADE`),
+`blender/env_interior/env_the_gallery.py` (`shaft_end`), `tests/art_env_interior/i4_seam.test.mjs` (new). Evidence:
+`shots/i4-team-underground-look/` (`before/`, `after/`, `after/sheet_seventh_high.png` = before above / after below,
+`after/crops_stair.png`), log `scratch/i4-team-underground-look/NOTES.md`.
+
+### 1. What changed, for the closer to mirror into the documents
+
+| # | What | Where | Document rows |
+|---|---|---|---|
+| 1 | **No halo round the kerb in the seventh's whiteout (High).** The band was the contact shade on the kerb's dark skirt while the flare whitened it (`before/seventh_high/fired_t019.png`, `_noao`, `_aoonly`: the same tick with the term off and alone). The shade's strength is multiplied by `1 - proveGlare`: 0 while the column's flare is over 0.45 (it rises over 0.1 s), back by about 1.5 s after the shot. Nothing under Reduce Flashes (no whiteout there), nothing on Low (no contact shade) | `vfx.ts` `proveGlare`; `system.ts` (`post.aoK.value.y`) | ART_BIBLE 9.3 (the seventh), ARCHITECTURE 8.4 (contact shade) |
+| 2 | **The "red panel" was the sky, not a face.** On the seam (`cell_tally_seam`: flight 1, landing 1 and the top of flight 2, before `trg_set_swap`) `chunk_gl_bay` is not drawn, and she looks down two flights straight through the stair's mouth into it. (a) The shaft's wall over the mouth (`shaft_end`, 2 m x 6 m) was assigned to `chunk_gl_bay` by its centre: it is forced into `chunk_gl_stair` (2 879 of 3 200 triangles; the bay 2 807). (b) With the eye under the hall's floor (`UNDER_Y` -0.3, mood L2) the far fog and the fog behind everything are the gallery's two colours at the gallery's display level (0.5 s fade): the mouth is a dim teal depth, not a wine-red door. The room's light, grade, exposure and the view-model's rig are untouched | `env_the_gallery.py`; `system.ts` `updateAtmosphere` | ARCHITECTURE 9 (the seam), ART_BIBLE 3.3 / 3.4 |
+
+### 2. Requests
+
+| # | To | Request | Why |
+|---|---|---|---|
+| 1 | closer / whoever owns `tools/gen_assets.mjs` | **`cell_tally_seam`: `showIf: [{ units: ['chunk_gl_stair', 'chunk_gl_bay'], flag: 'hatch_powered', value: true, ... }]`** (one word), then regenerate `design/assets.json` and the row of ARCHITECTURE 11.1. The plan's ledger for that cell is 76 251 triangles and 50 / 58 draw calls: the bay adds at most 3 200 and 3. `lm_gallery` is already resident there (the stair uses it) | Row 1.2 makes the mouth a dim teal depth; the true picture is the lit bay (`after/st_land1_bay_low.png`: the same frame with the chunk forced visible in the page; `after/st_land1_low.png` is what ships without the rule). A shell of the bay inside the stair's chunk was built and refused by `check-glb` ("art may not undo a visibility rule"), rightly. I did not edit the generator: a manifest change in the middle of a pass makes every other team's assets stale |
+| 2 | gun look team | on the seam the fog colour is the gallery's now; the rig is still L2's (not touched) | row 1.2 |
+| 3 | closer | `env_the_gallery` and `lm_gallery` were rebuilt at final quality (21 192 of 24 400, 10 of 10, 463.5 kB; the lightmap's bytes changed with the bake). The zone is not embedded anywhere | |
+
+### 3. Known gaps
+
+- Until request 1 is applied, the bay's mouth seen from landing 1 is a flat dim teal rectangle with the sky's dither on
+  it, and the bay lights up when she crosses `trg_set_swap` on flight 2.
+- Neither change was seen on a real GPU.
+
+## Closer, pass i4 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| 1 rows 1 and 2 | Mirrored: ART_BIBLE amendments (9.3, 3.3 / 3.4), ARCHITECTURE "Pass i4 (closer)" |
+| 2 row 1 `cell_tally_seam` also draws `chunk_gl_bay` | **Applied by the closer** in `tools/gen_assets.mjs`; `design/assets.json` regenerated; the plan is 82 343 triangles and 65 / 73 draw calls; ARCHITECTURE 7.5 row; every asset rebuilt |
+| Creatures-props' asks: the spent knot seats; the bare pegs | **Not built**; known issue |
+
+## Underground look, pass i5 (2026-10-08)
+
+Two issues (one major, one minor, from the two visual reviewers). Files: `blender/env_interior/env_the_bore.py`
+(`cut_at_opening`), `tests/art_env_interior/i5_doorway.test.mjs` (new), `src/render/moods.ts` (`SHEEN`, `AIR`, `AIR_CONE`,
+`AIR_DUST`: the L4 and L5a entries only), `src/render/system.ts` (`AIR_LAYOUT.practical`). Evidence:
+`shots/i5-team-underground-look/` (`before/`, `after/`: `<frame>_low.png`, `_high.png` and `_pair.png` = Low left, High
+right; `e1/` to `e4/` are the rejected trials), log `scratch/i5-team-underground-look/NOTES.md`.
+
+### 1. What changed, for the closer to mirror into the documents
+
+| # | What | Where | Document rows |
+|---|---|---|---|
+| 1 | **No slivers in the chamber's two doorways.** The six-fold sector is cut for the bore door (z 81) and the proving-lift gate (z 111) by face centre; the livery band's triangle beside each jamb kept its point 0.6 m inside the opening and the lamp conduit's last face hung 0.5 m under the lintel (10 triangles, both openings, both tiers; picked in the real game). `cut_at_opening` gives the conduit an edge loop at the lintel and the jambs before the cut, and takes the band off the opening's facet altogether (what was left of it were two 0.15 m tabs between frame and lesene, brighter than the next facet's band). `env_the_bore` rebuilt: 39 833 of 40 000 triangles, 10 of 10 draw calls, 765.5 kB; `lm_bore`, `lm_bore_glow` re-baked (same sizes). `before/liftdoor_*`, `before/boredoor_*` against `after/` | `env_the_bore.py`; test `i5_doorway.test.mjs` (fails on the old GLB with 10 triangles) | ART_BIBLE, the bore's wall: "the livery band stops at the lesenes of a facet with an opening" |
+| 2 | **The antechamber on High** (4.6 of 255 from Low at the checkpoint, now 10.0; the camp 11.2, the door view 8.2, the view back 8.7). `SHEEN.L5a` 6 (new: the embers' pool and the cradle lamp's lie along the slab toward her), `AIR.L5a` 2.2 -> 3.0, `AIR_CONE.L5a` 3 -> 6 (the cradle lamp's cone reaches the floor), `AIR_DUST.L5a` 0.5 (new: motes in the embers' light, the one draw call the works already pay), `AIR_LAYOUT.practical` 1.2 / 3.5 -> 1.5 / 4.5 (a warm dome over the camp; the Tally House's lantern takes the same). Low reads none of these | `moods.ts`, `system.ts` | ART_BIBLE 11.1 (High only): L5a sheen 6, air 3.0, cone 6, dust 0.5; practicals' air 1.5 / 4.5 m |
+| 3 | **The hall from the gantry on High**: `AIR_CONE.L4` 8 -> 10 (the pendants' shafts; `hall_gantry` 8.9 -> 9.8, `vista_tamper` 5.3 -> 6.0) | `moods.ts` | ART_BIBLE 11.1: L4 cone 10 |
+
+Tried and reverted (the frames are kept): L3 air 1.9 and cone 9 (`e1/gallery_bay_pair.png`, `e1/file_clear_pair.png`: the lamp
+over her head veils the wall, milk and not light), L4 cone 12 (`e1/hall_floor_pair.png`: the cage fills with mist), L5a sheen 9
+with practicals at 1.8 / 5 (`e2/`: a pale floor and a veiled camp), L5c air 3.4 and cone 12 (`e4/cat_along_pair.png`: the
+catwalk's tube goes white).
+
+### 2. Requests
+
+| # | To | Request | Why |
+|---|---|---|---|
+| 1 | render-tech | **The air light across a doorway.** A lamp lights only the air of the zone she stands in (`gatherAir`, zone weight 0 or 1). From the gallery's file door (`cp_file_clear`) the hall's pendants are in full view 20 m down the nave and have no glow and no cone until she steps through: that frame stays 5.7 of 255 from Low. It needs a test of whether a lamp of the next zone is seen (one `lineOfSight` a frame, round the lamps in turn, would do) | issue "High is close to Low at ... the hall vistas" |
+| 2 | exterior look | the overhang start (`cp_lip_start`, 5.1) is theirs, as the issue says | |
+| 3 | closer | `env_the_bore`, `lm_bore`, `lm_bore_glow` were rebuilt at final quality. The zone is not embedded anywhere | |
+
+### 3. Known gaps
+
+- `vista_windlass` (the catwalk's first look at the Windlass) is unchanged at 5.2 of 255: two thirds of that frame are the
+  two dark piers, and every number that lifted it (L5c air, cone) whitened the catwalk's tube first.
+- `vista_tamper` is 6.0 and `cp_file_clear` 5.7: under the bar the reviewer set by the other zones (11 to 19).
+- Nothing here was seen on a real GPU.
+
+## Closer, pass i5 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| Section 1 rows 1 to 3 (documents) | **Mirrored**: ART_BIBLE "Amendments, pass i5 (closer)" (11.1, 9.6), ARCHITECTURE "Pass i5 (closer)", LEVEL 20 |
+| Request 1 (the air light across a doorway) | **Not built** (a new visibility mechanism in `gatherAir`, no time to prove it at the close): in `docs/KNOWN_ISSUES.md` |
+| `polish3` R6 in the bore | Run on the final tree after the gun team's last build: see Part S |
+| A dark navy rectangle on the floor before both chamber doorways on Low | Looked at in this pass: see Part S / `docs/KNOWN_ISSUES.md` |
+
+## Underground look, pass i6 (2026-10-08)
+
+Two issues (both minor, one from each visual reviewer). Files: `blender/env_interior/lm_paint.py` (new), `env_lift_hall.py`
+(`rib_dress`, `build_trays`, `stain`, `pier`), `env_the_bore.py` (`build_stair`, `stair_stain`, the stair's three lamps),
+`tests/art_env_interior/i6_breakup.test.mjs` (new). Nothing in `src/` was edited. Evidence: `shots/i6-team-underground-look/`
+(`before/`, `after/`: `<frame>_low.png`, `_high.png`; `after/pair_hall_1.png`, `pair_hall_2.png`, `pair_stair.png` = before
+left, after right; `d1/`, `d2/` are draft trials), log `scratch/i6-team-underground-look/NOTES.md`.
+
+### 1. What changed, for the closer to mirror into the documents
+
+| # | What | Where | Document rows |
+|---|---|---|---|
+| 1 | **Dirt painted into a lightmap by world position.** `lm_paint.texel_map` gives every texel of an atlas its game position and normal; a zone's own function multiplies the baked light there. No triangle, texture or draw call. Only the hall and the bore import it (`interior_common.py` is untouched: the other three interior zones are not stale) | `lm_paint.py` | ARCHITECTURE 7.4 (interior lighting model): "a zone may multiply its lightmap by painted dirt (`lm_paint`)" |
+| 2 | **The lift hall.** Ribs, pilasters, walls and the gantry's plinth: water stains from the cap band at 4 m and short ones under the livery band, grime rising from the kick, the panel joint at 2.4 m as a dark line, the ribs' course under the band darker. Floor: the pendants' streaks have a soft ceiling (`FLOOR_KNEE` 0.8, `FLOOR_CEIL` 1.3: the strip's core drew at sRGB 225 to 235, now 191 to 207; the bake's `STREAK_T` stays 1.6), wear beside the rails, a spill round each grate, dirt at the foot of every rib and wall | `env_lift_hall.py` `stain` | ART_BIBLE 3.5 / 7.3 |
+| 3 | **Things on the hall's big faces** (776 triangles, paid for by two corner segments instead of three on the ribs above the collar, 720): on every rib its bay number stencilled on three faces (11 to 15 north, 21 to 25 south: no six, seven or nine; 0.22 m, the atlas numerals), a row of fasteners along the joint on four (the mask's `rivets`), a conduit in two clamps on the nave face; a cable tray along each long wall 3.1 m up on an arm at every pilaster, not across the pounded bulkhead; on the north wall the run between lines 3 and 4 is down, one end on its arm and one on the floor against the wall with two cables (never further than 0.34 m from the wall: no collider); `LIFT STATION 4` once on each long wall (0.24 m, the atlas line). `env_lift_hall` 25 506 of 26 900 triangles, 4 of 4 draw calls; the script's own check (own + the embedded props' full budgets) 26 618 | `rib_dress`, `build_trays` | ART_BIBLE 12 row `env_lift_hall` |
+| 4 | **The bore's stair.** A handrail on the outer walls of both flights and round the turn (0.95 m over the nosing line, six arms), a cable run in clips on the inner walls 2.2 m up, at the turn the stencil "<- 02". The lamp at the turn is a pool (0.95 across the landing, dead at 5.5 m, the work lamps' pale aqua-white `#CFFFF6`); the lamps at the head and on the lower flight read 0.47 and die at 6 m (all three were 0.55 with a 9 m reach: every wall alike). In the lightmap: the formwork's joints (1.2 m lifts, 2.4 m panels), water under the lifts, a darker dado that follows the flights with grime along the treads, damp patches, treads dark against the walls. `env_the_bore` 39 981 of 40 000 triangles (+148), 10 of 10 draw calls | `env_the_bore.py` `build_stair`, `stair_stain`, `main` | ART_BIBLE 3.6 (the stair), LEVEL (the bore's stair) |
+
+No dressing crate was added: a dressing prop is a box collider (`src/world/build.ts`) and the hall's allowance is spent
+(1 860 of 2 000).
+
+### 2. Requests
+
+| # | To | Request | Why |
+|---|---|---|---|
+| 1 | closer | `env_lift_hall` + `lm_hall` (407.5 kB, was 402.5) and `env_the_bore` + `lm_bore` (348.7 kB) + `lm_bore_glow` were rebuilt at final quality. Neither zone is embedded anywhere. `src/ui/loadMeter.ts`'s byte table is yours to refresh if these sets are in it | |
+| 2 | closer / fixer | `env_the_bore` has **19 triangles left** of 40 000; `env_lift_hall` 282 by its script's check | ruling R14 |
+| 3 | creatures-props | `tamper_cold_static` is embedded in the hall at 4 068 triangles; the hall's script reserves its full 5 000 | |
+| 4 | gun look team | the stair's turn is a pale pool now and its flights fall darker between the lamps (the view-model's L5a rig was tuned against the even 0.55) | row 1.4 |
+
+### 3. Known gaps
+
+- A lightmap texel is 7 cm in the hall and 6 cm on the stair: the stains are soft, and at arm's length a joint is a
+  soft dark line, not a cut.
+- The ribs above the collar (vertex-lit) carry no stains: clean above 4 m.
+- The hall's floor is still a large open plate between the ribs: only paint was added to it (anything standing on it
+  would be a collider).
+- `tests/e2e` was not run by this team (nothing it reads was touched: no collider, marker, node name or `src/` file).
+- Nothing here was seen on a real GPU.
+
+## Closer, pass i6 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| Section 1 rows 1 to 4 (documents) | **Mirrored**: ARCHITECTURE "Pass i6 (closer)" 7.4, ART_BIBLE "Amendments, pass i6 (closer)", LEVEL 21 |
+| Request 1 (`loadMeter` bytes) | **Refreshed** (Part T) |
+| Request 2 (19 and 282 triangles left) | Recorded in ARCHITECTURE "Pass i6 (closer)" 7.5; no re-allocation needed (both build inside their budgets) |
+| Request 4 (the stair's light against the view-model's rig) | `tests/render/polish3` and the gun's tests are run on the final tree (Part T) |
+| Section 3 | In `docs/KNOWN_ISSUES.md` |

@@ -176,7 +176,7 @@ test('a set file that will not come: asked four times, then the title with one p
     const errors = [];
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
     let seen = 0, down = true;
-    await page.route('**/lm_gallery.webp', (route) => { seen++; return down ? route.abort('failed') : route.continue(); });
+    await page.route('**/lm_gallery.webp*', (route) => { seen++; return down ? route.abort('failed') : route.continue(); });
     await page.goto(prod.url);
     await menuItem(page, 'play');
     await page.evaluate((text) => localStorage.setItem('keepseven.save.v1', text), save);

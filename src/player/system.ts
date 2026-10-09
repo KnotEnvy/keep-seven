@@ -292,6 +292,20 @@ export class PlayerSystemImpl implements PlayerSystem, WeaponHost, HealthHost {
   // ---- HealthHost ----------------------------------------------------------------------------------
   difficulty(): GameContext['options']['value']['difficulty'] { return this.ctx.options.value.difficulty; }
   trauma(amount: number): void { if (!this.ctx.options.value.reduceMotion) this.ctx.render.addTrauma(amount); }
+  flinch(strength: number, fromX: number, fromZ: number): void {
+    const o = this.ctx.options.value, p = this.position;
+    let dx = fromX - p.x, dz = fromZ - p.z;
+    const l = Math.sqrt(dx * dx + dz * dz);
+    let right = 0, front = 0;
+    // a blow with no place of its own (the world's, or one from where she stands) counts as from the front
+    if (l > 0.05 && Number.isFinite(l)) {
+      dx /= l; dz /= l;
+      const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
+      // her view on the ground: ahead (-sy, -cy), right (cy, -sy)
+      front = -dx * sy - dz * cy; right = dx * cy - dz * sy;
+    }
+    this.rig.hurt(strength, right, front, o.screenShake, o.reduceMotion);
+  }
 
   // ---- frames --------------------------------------------------------------------------------------
   update(_frameDt: number, alpha: number): void {
@@ -315,7 +329,9 @@ export class PlayerSystemImpl implements PlayerSystem, WeaponHost, HealthHost {
     if (!this.cameraOn) return;
     const cam = ctx.scene.camera;
     cam.position.set(eye.x, eye.y, eye.z);
-    cam.rotation.set(clamp(this.pitch + rig.kickPitch.get(alpha), -MAX_CAMERA_PITCH, MAX_CAMERA_PITCH), this.yaw + rig.kickYaw.get(alpha), rig.roll.get(alpha), 'YXZ');
+    cam.rotation.set(
+      clamp(this.pitch + rig.kickPitch.get(alpha) + rig.hurtPitch.get(alpha), -MAX_CAMERA_PITCH, MAX_CAMERA_PITCH),
+      this.yaw + rig.kickYaw.get(alpha) + rig.hurtYaw.get(alpha), rig.roll.get(alpha) + rig.hurtRoll.get(alpha), 'YXZ');
     const fov = clamp(o.fov, FOV_MIN, FOV_MAX) + rig.fov.get(alpha);
     if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); }
   }
@@ -377,8 +393,9 @@ export class PlayerSystemImpl implements PlayerSystem, WeaponHost, HealthHost {
       phase: gun.phase, phaseTime: round4(gun.t), phaseLeft: round4(gun.remaining), clip: gun.clip,
       chambered: gun.chambered, reserve: gun.reserve, lineRounds: gun.lineRounds, seventh: gun.seventh, shotsFired: gun.shotsFired,
       bloomDeg: round4(gun.bloom), kickPitchDeg: round4(rig.kickPitchDegNow), kickYawDeg: round4(rig.kickYawDegNow), fovAddDeg: round4(rig.fov.v),
+      hurtPitchDeg: round4(rig.hurtPitchDegNow), hurtYawDeg: round4(rig.hurtYawDegNow), hurtRollDeg: round4(rig.hurtRollDegNow),
       health: round4(life.hp), segment: life.segment, regenerating: life.regenerating, immunity: round4(life.immunity),
-      keptAimLegal: gun.keptAimLegal, keptMark: gun.keptMark, linePending: this.shots.pending, simTicks: this.simTicks,
+      keptAimLegal: gun.keptAimLegal, keptMark: gun.keptMark, linePending: this.shots.pending, lineHolding: this.shots.holding, simTicks: this.simTicks,
     };
   }
 }

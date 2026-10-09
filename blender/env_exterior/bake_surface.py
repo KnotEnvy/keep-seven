@@ -23,6 +23,17 @@ def main():
     for z in S.objs:
         for o in S.objs[z]:
             if o.get("kfit"): o.hide_render = True
+    # pass i4 (the visual reviewer: "lighter patches with dark hard outlines ... read as decals"): a drift, a wedge of banked
+    # sand or the swept ring lies ON a ground sheet. In the bake it shut the sky and the sun out of the sheet under it:
+    # those texels baked near black, and the lightmap's own filter drew them as a dark rim round every patch. Loose sand
+    # takes light and casts none (its lee side is darker by its own slope and colour).
+    import re
+    loose = re.compile(r"(_sd(_|\.|$)|dune|drift|rib_sand)")
+    n_loose = 0
+    for z in S.objs:
+        for o in S.objs[z]:
+            if loose.search(o.name): o.visible_shadow = False; o.visible_diffuse = False; n_loose += 1
+    print(f"LOOSE SAND: {n_loose} objects cast nothing in the lightmap bake")
     device = bake.use_cycles(os.environ.get("KS_EXT_DEVICE", "CUDA"), samples=64)
     img, dt = bake.bake_lightmap(objs, surface_common.LM, samples=16 if surface_common.FAST else 64, margin_px=4)
     print(f"BAKED {surface_common.LM} on {device}: {len(objs)} objects, {sum(len(o.data.polygons) for o in objs)} faces, {dt:.1f}s")

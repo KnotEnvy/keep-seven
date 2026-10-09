@@ -139,7 +139,14 @@ def build_stair(rng):
     wall("l1_e_top", (-85, 0, 0), (0, 0, 1), (0, 1, 0), [-34, -33, -32], -1.0, -0.3, lambda u: -4.0, lm_band=0.0)
     add(ic.surface("f23_ceiling", (0, -1.0, 0), (1, 0, 0), (0, 0, 1), [-87, -86, -85], cuts(-32, -18, 1.4), "m_pellam", "concrete", CONC, lm=False))
     add(ic.from_faces("f2_head", [[(-87, -1.0, -32), (-85, -1.0, -32), (-85, -0.3, -32), (-87, -0.3, -32)]], "m_pellam", CONC, "concrete", toward=(-86, -0.6, -33), tess=1.0))
-    add(ic.from_faces("shaft_end", [[(-87, CEIL, -18), (-85, CEIL, -18), (-85, -1.0, -18), (-87, -1.0, -18)]], "m_pellam", CONC, "concrete", toward=(-86, -4, -19), tess=1.2, mpr=7.2))
+    # look pass i4 (visual reviewer: "a red noisy panel at the head of the peg stair"): this wall over the bay's mouth has
+    # its centre on the line between the two chunks' boxes and went to chunk_gl_bay, which is NOT drawn on the seam
+    # (cell_tally_seam: flight 1, landing 1 and the top of flight 2 before trg_set_swap). What she saw down the shaft
+    # there was the sky, from the mouth's lintel to the ceiling. It is the stair's wall and goes with the stair. (The
+    # mouth itself, 2 m x 5 m, shows the bay: that needs the bay's chunk drawn on the seam, a visibility rule of the
+    # manifest: docs/requests/underground-look.md, pass i4. Geometry of this chunk may not reach into the bay's box.)
+    se = add(ic.from_faces("shaft_end", [[(-87, CEIL, -18), (-85, CEIL, -18), (-85, -1.0, -18), (-87, -1.0, -18)]], "m_pellam", CONC, "concrete", toward=(-86, -4, -19), tess=1.2, mpr=7.2))
+    se["chunk"] = "chunk_gl_stair"
     # the niche off landing 2: x -85..-83.6, z -26..-24, y -8..-6.4 (the watcher sits here: left empty)
     ny0, ny1 = -8.0, -6.4
     nf = [[(-85, ny0, -26), (-83.6, ny0, -26), (-83.6, ny1, -26), (-85, ny1, -26)], [(-83.6, ny0, -24), (-85, ny0, -24), (-85, ny1, -24), (-83.6, ny1, -24)],

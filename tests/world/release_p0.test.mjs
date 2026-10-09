@@ -221,8 +221,11 @@ test('the secrets are pointed at: the loft bell rings by itself when she first c
     let seq = await mark(game);
     await game.run([{ call: ['teleport', rope.pos[0] + 30, 0, 0, 90, 0] }, { steps: 60 }]);
     assert.equal((await rings(seq)).length, 0, '30 m off: nothing');
-    await game.run([{ call: ['teleport', rope.pos[0] + 15, 0, 0, 90, 0] }, { steps: 3 }]);
-    assert.equal((await rings(seq)).length, 1, 'once, as she first comes within 22 m');
+    // (pass i4: 12 m, under the loft with its open door in view; from 22 m it rang as she stepped through the gate posts)
+    await game.run([{ call: ['teleport', rope.pos[0] + 15, 0, 0, 90, 0] }, { steps: 60 }]);
+    assert.equal((await rings(seq)).length, 0, '17 m off: not yet');
+    await game.run([{ call: ['teleport', rope.pos[0] + 8, 0, 0, 90, 0] }, { steps: 3 }]);
+    assert.equal((await rings(seq)).length, 1, 'once, as she first comes within 12 m');
     assert.ok((await game.events(seq, 'story/caption')).some((e) => e.payload.key === 'cap_loft_bell'), 'with its caption');
     await game.run([{ steps: 20 * 60 }]);
     assert.equal((await rings(seq)).length, 1, 'not again within 30 s');

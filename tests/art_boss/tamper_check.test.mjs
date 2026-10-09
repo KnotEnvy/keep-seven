@@ -68,10 +68,12 @@ test('tamper: the cold unit is one static mesh without skin, clips or emissive c
   console.log(`cells: fighting violet_band ${hot.violet_band}, violet ${hot.violet}, violet_core ${hot.violet_core}; cold livery ${hc.livery}, ${cold.idx.getCount() / 3} triangles`);
 });
 
-test('tamper: the two files are within the 0.25 MB download share', () => {
+// pass i4 (ruling R14 gave the Tamper 1 000 more triangles for the surface it shows at slam range): the share is 0.27 MB
+// (it was 0.25; the fighting unit is 197 kB with its seam, rivets and grime, it was 180; the whole download is 12 of 20 MB)
+test('tamper: the two files are within the 0.27 MB download share', () => {
   const sizes = IDS.map((id) => fs.statSync(PUB(id)).size);
-  console.log(`download: ${IDS.map((id, i) => `${id} ${(sizes[i] / 1000).toFixed(1)} kB`).join(', ')}; total ${((sizes[0] + sizes[1]) / 1000).toFixed(1)} kB of 250`);
-  assert.ok(sizes[0] + sizes[1] <= 250000);
+  console.log(`download: ${IDS.map((id, i) => `${id} ${(sizes[i] / 1000).toFixed(1)} kB`).join(', ')}; total ${((sizes[0] + sizes[1]) / 1000).toFixed(1)} kB of 270`);
+  assert.ok(sizes[0] + sizes[1] <= 270000);
 });
 
 test('tamper: asset-status lists no placeholder of this piece', () => {

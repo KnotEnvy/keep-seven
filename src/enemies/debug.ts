@@ -3,7 +3,7 @@
 // Test and sandbox code only: allocation is fine here.
 import { ColFlag, LAYER_SHOT, MAX_LINE_HITS } from '../core/contracts.ts';
 import type {
-  AmmoType, BossPhase, DamageInfo, EncounterId, EnemiesDebug, EnemyKind, EntityId, HitPart, HitResponse, SpawnRequest, VignetteId,
+  AmmoType, BossPhase, DamageInfo, DamageKind, EncounterId, EnemiesDebug, EnemyKind, EntityId, HitPart, HitResponse, SpawnRequest, VignetteId,
 } from '../core/contracts.ts';
 import { DEG2RAD, RAD2DEG, round4 } from '../core/math.ts';
 import { CAPS } from './defs.ts';
@@ -26,9 +26,13 @@ export interface DebugHost {
   lobCanister(x: number, y: number, z: number): boolean;
   sightPeak(reset: boolean): number;
   /** tests: the deaths counted in the running boss phase (the mercy scale and the teaching line read it) */
-  setBossDeaths(n: number): void;
+  setBossDeaths(n: number, lastKind?: DamageKind | ''): void;
   /** tests (pass i3): set or forget "an asking has been heard in this page" */
   setBossAsked(v: boolean): void;
+  /** tests (pass i4): the Tamper's help for a player who keeps dying to it, and the outline rings on screen */
+  tamperHelpState(): Record<string, unknown>;
+  /** tests (pass i4): as if she had died `n` times to the Tamper in this run of its fight */
+  setTamperDeaths(n: number): void;
 }
 
 export interface RoundResult { id: string; kind: string; part: string; outcome: string; damage: number; healthLeft: number; stops: boolean; stopsLine: boolean; x: number; y: number; z: number }
@@ -53,7 +57,7 @@ function actorView(e: Actor): Record<string, unknown> {
     sees: e.sees, lane: e.lane, order: e.order, vignette: e.vignette,
     ventChest: e.ventChest, ventBack: e.ventBack, shots: e.shots, point: e.point, fresh: e.fresh, miss: e.miss,
     aim: [round4(e.aimX), round4(e.aimY), round4(e.aimZ)], hood: round4(e.hood), tint: e.tint, pathLen: e.pathLen, pathAt: e.pathAt, pathGoal: e.pathGoal, stuck: round4(e.stuck), lost: round4(e.lost), grounded: e.grounded,
-    quietUntil: round4(e.quietUntil), slamsLanded: e.slamsLanded, slamsRun: e.slamsRun, hurry: e.hurry,
+    quietUntil: round4(e.quietUntil), slamsLanded: e.slamsLanded, slamsRun: e.slamsRun, hurry: e.hurry, timer: round4(e.timer), helpSeconds: round4(e.helpSeconds),
   };
 }
 
@@ -137,8 +141,11 @@ export function createExt(S: Shared, host: DebugHost): Record<string, (...args: 
       return S.stakes.fire(s);
     },
     boss: () => host.bossState(),
-    bossDeaths: (n: number) => host.setBossDeaths(n),
+    /** deaths counted in the running boss phase; `lastKind` (pass i4): what killed her last, as `player/died` would have told it */
+    bossDeaths: (n: number, lastKind?: DamageKind | '') => host.setBossDeaths(n, lastKind),
     bossAsked: (v: boolean) => host.setBossAsked(v),
+    tamperHelp: () => host.tamperHelpState(),
+    tamperDeaths: (n: number) => host.setTamperDeaths(n),
     /** World centre of a part of the Windlass: knot 0..5, pawl 0 (l) / 1 (r), the guard, the hub. */
     bossPoint: (kind: 'knot' | 'pawl' | 'guard' | 'hub', i = 0) => host.bossPoint(kind, i).map(round4),
     lobCanister: (x: number, y: number, z: number) => host.lobCanister(x, y, z),

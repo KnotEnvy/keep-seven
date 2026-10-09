@@ -545,7 +545,10 @@ class DebugHookImpl implements DebugHook {
   }
   god(on: boolean): void { this.godOn = on; this.ctx.player.setGodMode(on); }
   setHealth(hp: number): void { finite('setHealth', 'hp', hp); this.ctx.player.debug.setHealth(hp); }
-  setAmmo(chambered: number, reserve: number, lineRounds: number): void { this.ctx.player.debug.setAmmo(chambered, reserve, lineRounds); }
+  setAmmo(chambered: number, reserve: number, lineRounds: number): void {
+    finite('setAmmo', 'chambered', chambered); finite('setAmmo', 'reserve', reserve); finite('setAmmo', 'lineRounds', lineRounds);   // (pass i4: a call with two arguments put a NaN into the player's state)
+    this.ctx.player.debug.setAmmo(chambered, reserve, lineRounds);
+  }
   aiEnabled(on: boolean): void { this.ctx.enemies.setAiEnabled(on); }
   spawnEnemy(kind: EnemyKind, x: number, y: number, z: number, yawDeg = 0): EntityId {
     member('spawnEnemy', kind, ENEMY_KINDS);

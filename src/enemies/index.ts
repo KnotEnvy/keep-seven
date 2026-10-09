@@ -3,7 +3,7 @@
 // It exports exactly one factory (docs/ARCHITECTURE.md section 5, "Factory summary").
 import { FIXED_DT } from '../core/contracts.ts';
 import type {
-  BossPhase, BossView, CreateEnemySystem, DamageInfo, DebugSnapshot, EncounterId, EnemiesDebug, EnemiesSave, EnemyKind, EnemySystem,
+  BossPhase, BossView, CreateEnemySystem, DamageInfo, DamageKind, DebugSnapshot, EncounterId, EnemiesDebug, EnemiesSave, EnemyKind, EnemySystem,
   EnemyView, EntityId, GameContext, HitResponse, HitResult, LayoutMarker, SpawnRequest, VignetteId,
 } from '../core/contracts.ts';
 import { DEG2RAD, RAD2DEG, round4 } from '../core/math.ts';
@@ -12,6 +12,7 @@ import { Boss } from './boss/index.ts';
 import { createEnemiesDebug, createExt } from './debug.ts';
 import type { DebugHost } from './debug.ts';
 import { BIDER, CAPS, ENEMIES, TAMPER } from './defs.ts';
+import { HintRing } from './hintring.ts';
 import type { Actor } from './internals.ts';
 import { MAX_ACTORS, Shared } from './internals.ts';
 import { Nav, moveBody } from './nav.ts';
@@ -42,6 +43,15 @@ class Enemies implements EnemySystem, DebugHost {
   /** her last death was to the Tamper's slam; and the unscaled module time at which `TAMPER.hintKey` is owed (-1 none) */
   private slamDeath = false;
   private ringHintAt = -1;
+  /**
+   * Pass i4 (defs.ts `TAMPER.backKey`): deaths to an awake Tamper in this run of its fight; the ring line and the wall
+   * line have each been said (or shown by anyone) in it; the line owed on the respawn ('' none).
+   */
+  private tamperDeaths = 0;
+  private tamperDeath = false;
+  private ringSaid = false;
+  private backSaid = false;
+  private respawnKey = '';
 
   constructor(private readonly ctx: GameContext) {
     const S = new Shared(ctx);
@@ -53,6 +63,7 @@ class Enemies implements EnemySystem, DebugHost {
     this.stakes = new Stakes(S);
     S.stakes = this.stakes;
     this.vignettes = new Vignettes(S);
+    S.rings = new HintRing(ctx, 'enemies_hint_rings');
     for (const m of ctx.data.layout.markers) this.markers.set(m.id, m);
     S.hooks = {
       hit: (e, hit, damage, out) => this.hit(e, hit, damage, out),
@@ -67,6 +78,7 @@ class Enemies implements EnemySystem, DebugHost {
       vignetteActorGone: (e) => this.vignettes.actorGone(e),
       slamLanded: (x, y, z, radius) => this.vignettes.slamLanded(x, y, z, radius),
       bossFight: () => this.bossImpl.fighting,
+      sayRing: () => this.sayRing(),
     };
     this.bossImpl = new Boss(S);
     S.setDifficulty(ctx.options.value.difficulty);
@@ -91,20 +103,35 @@ class Enemies implements EnemySystem, DebugHost {
     this.off.push(on.on('world/cell', () => { this.pool.refreshShown(); this.vignettes.onCell(); }));
     this.off.push(on.on('puzzle/hint', (e) => { if (e.puzzle === 'kept') this.bossImpl.onHint(e.tier); }));
     this.off.push(on.on('options/changed', (e) => { if (e.key === 'difficulty') S.setDifficulty(ctx.options.value.difficulty); }));
-    this.off.push(on.on('game/new_run', (e) => S.setDifficulty(e.difficulty)));
+    this.off.push(on.on('game/new_run', (e) => { S.setDifficulty(e.difficulty); this.forgetRun(); }));
     this.off.push(on.on('encounter/reset', (e) => this.clearEncounter(e.id)));
     this.off.push(on.on('player/died', (e) => {
-      this.deathsPhase = this.bossImpl.save().bossPhase; this.bossImpl.onDied();
+      this.deathsPhase = this.bossImpl.save().bossPhase; this.bossImpl.onDied(e.source === 'windlass' ? e.kind : '');
       if (e.kind === 'slam' && e.source === 'tamper') this.slamDeath = true;
+      // pass i4: a death while a Tamper is up and fighting counts toward its help, whatever dealt the last of it
+      if (this.tamperAwake()) { this.tamperDeath = true; this.tamperDeaths++; S.tamperHelp = Math.min(TAMPER.helpMax, this.tamperDeaths); }
     }));
+    this.off.push(on.on('enemy/died', (e) => { if (e.kind === 'tamper') { this.tamperDeaths = 0; this.tamperDeath = false; S.tamperHelp = 0; this.ringHintAt = -1; } }));
     this.off.push(on.on('vignette/state', (e) => this.vignettes.onVignetteState(e)));
     // polish round 5: the Windlass says phase 3b's lines only into a free line box, and fills her health on a retry
-    this.off.push(on.on('story/line', (e) => this.bossImpl.onLine(true, e.key, e.seconds)));
+    this.off.push(on.on('story/line', (e) => {
+      this.bossImpl.onLine(true, e.key, e.seconds);
+      // (a line shown counts as said, whoever said it: the world's queue replays a hint a death cut off)
+      if (e.key === TAMPER.hintKey) this.ringSaid = true; else if (e.key === TAMPER.backKey) this.backSaid = true;
+    }));
     this.off.push(on.on('story/line_end', () => this.bossImpl.onLine(false)));
     this.off.push(on.on('player/respawned', () => {
       this.bossImpl.onRespawned();
       // release pass p0: she died under the Tamper's arm: the ring is named a second after she has control again
-      if (this.slamDeath) { this.slamDeath = false; this.ringHintAt = S.utime + TAMPER.hintAfterRespawn; }
+      // Pass i4: once only. The ring line if no slam had said it yet; else, once, the other half of the rule (the wall);
+      // after that the respawn says nothing and the help is the outline and the longer openings (defs.ts `backKey`).
+      const slam = this.slamDeath, tamper = this.tamperDeath;
+      this.slamDeath = false; this.tamperDeath = false;
+      const lines = this.ctx.data.story.lines;
+      this.respawnKey = '';
+      if (slam && !this.ringSaid && lines[TAMPER.hintKey] !== undefined) this.respawnKey = TAMPER.hintKey;
+      else if ((slam || tamper) && !this.backSaid && lines[TAMPER.backKey] !== undefined) this.respawnKey = TAMPER.backKey;
+      this.ringHintAt = this.respawnKey !== '' ? S.utime + TAMPER.hintAfterRespawn : -1;
     }));
     ctx.debug.register('enemies', createExt(S, this));
   }
@@ -162,7 +189,9 @@ class Enemies implements EnemySystem, DebugHost {
     S.sightLeft = CAPS.sightRaysPerTick;
     if (this.ringHintAt >= 0 && S.utime >= this.ringHintAt) {
       this.ringHintAt = -1;
-      if (this.ctx.data.story.lines[TAMPER.hintKey] !== undefined) S.say(TAMPER.hintKey);
+      if (this.respawnKey === TAMPER.hintKey) { if (!this.ringSaid) { this.ringSaid = true; S.say(TAMPER.hintKey); } }
+      else if (this.respawnKey === TAMPER.backKey) { if (!this.backSaid) { this.backSaid = true; S.say(TAMPER.backKey); } }
+      this.respawnKey = '';
     }
     // round robin: a different body gets the first of the four sight rays each tick
     const first = S.tick % MAX_ACTORS;
@@ -175,6 +204,7 @@ class Enemies implements EnemySystem, DebugHost {
     this.stakes.tick(dt);
     this.vignettes.tick(dt);
     this.bossImpl.tick(dt);
+    S.rings.commit();
     const used = CAPS.sightRaysPerTick - S.sightLeft;
     if (used > this.sightUsedPeak) this.sightUsedPeak = used;
   }
@@ -371,9 +401,34 @@ class Enemies implements EnemySystem, DebugHost {
     this.bossImpl.reset();
     this.bossImpl.parleyHeard = false;
     this.bossImpl.deaths = 0;
-    this.bossImpl.retryOf = ''; this.bossImpl.teachSaidIn = '';
+    this.bossImpl.retryOf = '';
     this.deathsPhase = 'idle';
+    this.forgetRun();
+    this.S.rings.clear();
+  }
+  /** What is said or given once per run of a fight is owed again: a new run, or everything cleared. */
+  private forgetRun(): void {
+    this.bossImpl.forgetRun();
     this.slamDeath = false; this.ringHintAt = -1;
+    this.tamperDeaths = 0; this.tamperDeath = false; this.ringSaid = false; this.backSaid = false; this.respawnKey = '';
+    this.S.tamperHelp = 0;
+  }
+  /** Is a Tamper up and fighting (not the pounding one behind the bulkhead)? */
+  private tamperAwake(): boolean {
+    const S = this.S;
+    for (let i = 0; i < MAX_ACTORS; i++) { const e = S.actors[i] as Actor; if (e.used && e.alive && e.awake && e.kind === 'tamper' && e.state !== 'vignette') return true; }
+    return false;
+  }
+  /** tests: the Tamper's help as it stands */
+  tamperHelpState(): Record<string, unknown> {
+    return { deaths: this.tamperDeaths, help: this.S.tamperHelp, ringSaid: this.ringSaid, backSaid: this.backSaid, rings: this.S.rings.mask };
+  }
+  setTamperDeaths(n: number): void { this.tamperDeaths = n; this.S.tamperHelp = Math.min(TAMPER.helpMax, n); }
+  /** `TAMPER.hintKey` from the Tamper itself (its second slam): once per run of the fight. */
+  private sayRing(): void {
+    if (this.ringSaid || this.ctx.data.story.lines[TAMPER.hintKey] === undefined) return;
+    this.ringSaid = true;
+    this.S.say(TAMPER.hintKey);
   }
   private wipe(): void {
     const S = this.S;
@@ -421,7 +476,7 @@ class Enemies implements EnemySystem, DebugHost {
   setAiEnabled(on: boolean): void { this.S.ai = on; }
 
   // ---- DebugHost ----------------------------------------------------------------------------------------
-  setBossPhase(phase: BossPhase): void { this.bossImpl.teachSaidIn = ''; this.bossImpl.startPhase(phase); }   // a debug jump is a fresh timeline: its first haul teaches
+  setBossPhase(phase: BossPhase): void { this.bossImpl.forgetRun(); this.bossImpl.startPhase(phase); }   // a debug jump is a fresh timeline: its first haul teaches
   killAll(freed: boolean): number {
     const S = this.S;
     let n = 0;
@@ -436,7 +491,7 @@ class Enemies implements EnemySystem, DebugHost {
     return n;
   }
   bossState(): Record<string, unknown> { return this.bossImpl.debugState(); }
-  setBossDeaths(n: number): void { this.bossImpl.deaths = n; }
+  setBossDeaths(n: number, lastKind?: DamageKind | ''): void { this.bossImpl.deaths = n; if (lastKind !== undefined) this.bossImpl.lastDeath = lastKind; }
   /** tests (pass i3): has an asking been heard in this page (a shot in the next one skips instead of refusing)? */
   setBossAsked(v: boolean): void { this.bossImpl.askedBefore = v; }
   lobCanister(x: number, y: number, z: number): boolean {

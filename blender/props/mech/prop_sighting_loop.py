@@ -65,15 +65,17 @@ def build(args):
     vcol.darken_contact(ob, height=0.12, factor=0.75)
     ob = mc.overlay_join(ob, [post], gradient=(0.80, 0.98))
     lamp = []
-    r0, r1 = RI + 0.004, RI + 0.017
+    # pass i4 (the visual reviewer wants a rim "that survives at distance"): the line is 22 mm on the face the step sees and
+    # 24 mm on the far face (they were 13 mm: under a pixel from 30 m down the gallery)
+    r0, r1 = RI + 0.004, RI + 0.026
     for k in range(SEG):
         a0 = mc.TAU * k / SEG + mc.TAU / (2 * SEG); a1 = a0 + mc.TAU / SEG
         y = T + 0.0015                                                          # the hairline annulus on the face the step sees
         q = [(math.cos(a0) * r0, y, ZC + math.sin(a0) * r0), (math.cos(a1) * r0, y, ZC + math.sin(a1) * r0),
              (math.cos(a1) * r1, y, ZC + math.sin(a1) * r1), (math.cos(a0) * r1, y, ZC + math.sin(a0) * r1)]
         lamp.append(q[::-1])
-    for k in range(6):                                                          # the far face: the same line in six chords, kept on the ring's face
-        a0 = mc.TAU * k / 6; a1 = a0 + mc.TAU / 6; y = -T - 0.0015; s0, s1 = RI + 0.041, RI + 0.054
+    for k in range(SEG):                                                        # the far face: the same line, on the ring's own chords
+        a0 = mc.TAU * k / SEG + mc.TAU / (2 * SEG); a1 = a0 + mc.TAU / SEG; y = -T - 0.0015; s0, s1 = RI + 0.010, RI + 0.034
         lamp.append([(math.cos(a0) * s0, y, ZC + math.sin(a0) * s0), (math.cos(a1) * s0, y, ZC + math.sin(a1) * s0),
                      (math.cos(a1) * s1, y, ZC + math.sin(a1) * s1), (math.cos(a0) * s1, y, ZC + math.sin(a0) * s1)])
     zone.lamp_set("loop_rim", [lamp], colour="aqua", flicker_group=1.0, origin=(0, 0, ZC))

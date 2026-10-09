@@ -10,9 +10,9 @@ let srv;
 before(async () => { srv = await startServer({}); });
 after(async () => { await srv.close(); });
 
-test('the asking, real Windlass: its first line as the line on screen ends and nothing else before it, the roll-call ONE line held 4.5 s (closing of pass i3), the inspection 17 s in, phase 1 at 22 s; she walked in with nothing waiting', async () => {
+test('the asking, real Windlass: its first line as the line on screen ends and nothing else before it, the roll-call ONE line held 4.5 s, FOUR lines (pass i4), the inspection 12.75 s in, phase 1 at 17.75 s; she walked in with nothing waiting', async () => {
   const T = LAYOUT.markers.find((m) => m.id === 'trg_enc_windlass'), stand = LAYOUT.markers.find((m) => m.id === 'trg_pz_asking').params.standSpot;
-  assert.deepEqual(T.params.parley, ['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_4']);
+  assert.deepEqual(T.params.parley, ['stn_parley_1', 'rv_ask', 'stn_parley_2', 'stn_parley_4']);
   const bot = await openBot(srv, { piece: 'code-world', tier: 'low', allowErrors: true });
   try {
     await bot.startFromTitle();
@@ -47,10 +47,10 @@ test('the asking, real Windlass: its first line as the line on screen ends and n
     // 3.5 + 4 + 4 + 4.5 s and four breaths to the inspection, 5 s more to phase 1
     assert.deepEqual(roll.map((e) => [e.k, e.s]), [['stn_parley_2', 4.5]], 'the roll-call is one line, held 4.5 s');
     const held = Object.fromEntries(out.ev.filter((e) => e.n === 'story/line').map((e) => [e.k, e.s]));
-    assert.deepEqual([held.stn_parley_1, held.nar_parley, held.rv_ask, held.stn_parley_4], [3.5, 4, 4, 5], 'the first line 3.5 s, the two spoken ones 4 s each; the line that states the rule keeps its 5');
+    assert.deepEqual([held.stn_parley_1, held.nar_parley, held.rv_ask, held.stn_parley_4], [3.5, undefined, 4, 5], 'the first line 3.5 s, her question 4 s, the narrator\'s line gone from the asking (pass i4); the line that states the rule keeps its 5');
     const insp = at('boss/parley', 'inspection') - first, p1 = at('boss/phase', 'p1') - first;
-    assert.ok(Math.abs(insp - 17) <= 0.5, `the inspection opens 17 s after the first line (${insp.toFixed(2)} s; it was 19.25 in pass i3, 22.75 in pass i2 and 31.7 before)`);
-    assert.ok(Math.abs(p1 - 22) <= 0.5, `phase 1 at 22 s (${p1.toFixed(2)} s; it was 24.25 in pass i3, 27.75 in pass i2 and 36.7 before)`);
+    assert.ok(Math.abs(insp - 12.75) <= 0.5, `the inspection opens 12.75 s after the first line (${insp.toFixed(2)} s; it was 17 after pass i3, 19.25 in pass i3, 22.75 in pass i2 and 31.7 before)`);
+    assert.ok(Math.abs(p1 - 17.75) <= 0.5, `phase 1 at 17.75 s (${p1.toFixed(2)} s; it was 22 after pass i3, 24.25 in pass i3, 27.75 in pass i2 and 36.7 before)`);
     assert.equal(at('story/line', 'stn_parley_4'), at('boss/parley', 'inspection'), 'the six stand open on the tick the line that says so appears');
   } finally { await bot.close(); }
 });

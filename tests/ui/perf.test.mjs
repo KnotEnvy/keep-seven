@@ -208,12 +208,16 @@ test('every sandbox state: no red anywhere, and every word on screen is story.js
       return false;
     };
     let colours = 0, texts = 0, states = 0;
-    const reds = [], strangers = [];
+    const reds = [], strangers = [], HURT_COLOURS = ['236,104,118', '172,38,84'];
+    let flares = 0;
     const sweep = async (name) => {
       states++;
       for (const c of await game.page.evaluate(COLOURS)) {
         colours++;
         const { h, s } = hsl(c);
+        // pass i5 (ruling R20, visual reviewer b): the one red the UI has is the flare on the side a hit came from (ui.css `.hurt`:
+        // two colours, on the shadows of its four sides and nowhere else)
+        if (/^[trbl] on\.boxShadow$/.test(c[4]) && HURT_COLOURS.includes(c.slice(0, 3).join(','))) { flares++; continue; }
         if (s > 0.4 && (h <= 20 || h >= 340)) reds.push(`${name}: rgb(${c.slice(0, 3)}) hue ${h.toFixed(0)} sat ${s.toFixed(2)} on ${c[4]}`);
       }
       for (const [t, where] of await game.page.evaluate(TEXTS)) { texts++; if (!explained(t)) strangers.push(`${name}: "${t}" in ${where}`); }
@@ -233,8 +237,9 @@ test('every sandbox state: no red anywhere, and every word on screen is story.js
       if (name === 'screen/death') await game.page.evaluate(() => window.__dbg.ext.core.stepAsync(130, true));
     }
     assert.deepEqual(reds.slice(0, 5), [], `${reds.length} red colours`);
+    assert.ok(flares > 0, 'the flare of a hit was among the states swept');
     assert.deepEqual(strangers.slice(0, 8), [], `${strangers.length} texts that are not from story.json`);
-    console.log(`sweep: ${states} states, ${colours} computed colours (none within 20 degrees of red above 40 % saturation), ${texts} texts (all from story.json, key names or numbers)`);
+    console.log(`sweep: ${states} states, ${colours} computed colours (none within 20 degrees of red above 40 % saturation but the flare of a hit, ${flares} times), ${texts} texts (all from story.json, key names or numbers)`);
   } finally { await game.close(); }
 });
 

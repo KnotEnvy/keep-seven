@@ -150,7 +150,10 @@ export function cellBudget(M, L, cell) {
     }
     // dressing in proportion to the share of the zone's chunks that is visible
     const share = (z) => visible.filter((u) => U[u].zone === z && U[u].box).reduce((n, u) => n + U[u].tris, 0) / zoneChunkTris(z);
-    const dressTris = Math.round(zonesSeen.reduce((n, z) => n + M.zones[z].dressing.tris * share(z), 0));
+    // (pass i4) the cell's OWN zone is counted whole: a zone's instanced dressing is one batch per asset and is submitted
+    // whole from every cell of the zone (a hidden instance is a zero-scale one, and its triangles are still submitted). The
+    // real game drew 56 280 triangles from cell_gallery_stair against a ledger of 55 190 for that reason (closer, pass i3).
+    const dressTris = Math.round(zonesSeen.reduce((n, z) => n + M.zones[z].dressing.tris * (z === cell.zone ? 1 : share(z)), 0));
     const dressCalls = zonesSeen.reduce((n, z) => n + M.zones[z].dressing.drawCalls, 0);
     // enemies: an encounter of another zone counts only if one of its spawn markers stands in a visible chunk
     const relevant = zonesSeen.flatMap(encountersOf).filter((e) => e.zone === cell.zone || e.waves.some((w) => w.spawns.some((id) => { const m = markerById.get(id); return m && seen(m.zone, m.pos); })));

@@ -46,13 +46,24 @@ const BESIDE_LIFT = 0.08;
  * `BELL_RINGS` times a run, `BELL_AGAIN` seconds apart, while she stays near; and a faint knot-violet glow lies in the
  * foot of the seam of a shut door that a knot holds over a secret (the cold bay), on the side she walks past.
  */
-export const BELL_NEAR = 22, BELL_AGAIN = 30, BELL_RINGS = 3;
+export const BELL_NEAR = 12, BELL_AGAIN = 30, BELL_RINGS = 3;
+/**
+ * Pass i4 (the playthrough review again: "nothing in play points at the two secrets"; every one of eleven runs ended
+ * with none found). The two pointers were there and too faint to be taken for one: the bell rang once from 22 m as she
+ * stepped through the gate posts, under the movement card and the town's name line, and the seam's glow was a still
+ * smudge at the foot of a door. Now: the bell rings when she is within `BELL_NEAR` = 12 m (under the loft, its open door
+ * in view) and a glint stands on it for `BELL_GLINT` seconds with each ring, so the eye finds what the ear heard; and
+ * the knot behind a secret's door glints through its inspection slot every `SEAM_GLINT_EVERY` seconds while she is
+ * within `SEAM_NEAR` metres out of a fight, and the seam's glow breathes (`SEAM_LOW` to `SEAM_LEVEL`). Wordless, and
+ * gone when the secret is found. (A hum for the knot is the audio team's: docs/requests/world.md.)
+ */
+export const BELL_GLINT = 1.5, SEAM_NEAR = 14, SEAM_GLINT_EVERY = 4, SEAM_GLINT = 1.2, SEAM_LOW = 0.25, SEAM_BREATH = 2.4;
 const BELL_CUE = 'step_chime', BELL_GAIN = 0.8, BELL_PITCH = 0.75, BELL_CAPTION = 'cap_loft_bell';
 /** the seam's glow: the level of the pooled halo card (0.4 m, additive), and how far out of the door's plane it lies */
 export const SEAM_LEVEL = 0.55;
 const SEAM_OUT = 0.3, SEAM_UP = 0.06;
 interface Ringer { loose: Loose; rings: number; wait: number }
-interface Seam { secret: SecretId; zone: ZoneId; x: number; y: number; z: number; card: FxHandle | null }
+interface Seam { secret: SecretId; zone: ZoneId; x: number; y: number; z: number; card: FxHandle | null; kx: number; ky: number; kz: number; t: number; glints: number }
 /** pickups are walked over (producer ruling 10) */
 const PICKUP_RADIUS = 0.9;
 const PICKUP_RETRY = 30;
@@ -112,7 +123,23 @@ export const SPRINT_QUIET = 3, SPRINT_HINT_SECONDS = 8, SPRINT_AGAIN = 40, SPRIN
  * since the hint was first owed (the top of the gully) it is shown beside a line, though still never under a movement
  * card, in a fight or in a puzzle. A showing cut short of `SPRINT_SHOWN_MIN` seconds does not count.
  */
-export const SPRINT_WALKED = 15, SPRINT_SHOWN_MIN = 2;
+export const SPRINT_WALKED = 3, SPRINT_SHOWN_MIN = 2;
+/**
+ * Pass i4 (story reviewer a: still 16.9 s into play, past the middle of the 100 m gully it is for; the two cards at the
+ * mouth of the overhang, 7.5 s of them, held it back). The hint is owed from the mouth of the overhang (`trg_glare`) and
+ * is shown once she has walked `SPRINT_WALKED` = 3 metres from there (it was 15), beside a line, and under the movement
+ * card ("I. The Lip") too: only the game's own title card keeps a clean frame (`TITLE_CARD`, four seconds). So it is up
+ * a little over four seconds after she steps out, with four fifths of the walk ahead. It goes at her first run, and after
+ * `SPRINT_HINT_SECONDS` in any case.
+ *
+ * The fire hint (the playthrough review: "LEFT CLICK TO FIRE" stood from 1.6 s to the end of a 400 s stand at the gate,
+ * and on after the gate had opened by itself): it is about the jug gate. It stands `FIRE_HINT_SECONDS`, comes back once
+ * `FIRE_AGAIN` seconds later if she still has not fired (`FIRE_HINT_SHOWS` in all), and is taken down when the gate's
+ * puzzle is solved or she walks out of its volume.
+ */
+export const TITLE_CARD = 'card_title';
+export const FIRE_HINT_SECONDS = 8, FIRE_AGAIN = 40, FIRE_HINT_SHOWS = 2;
+const HINT_FIRE = 1;
 /**
  * Pass i1 (both story reviewers: nothing pointed at the first note). The spent case his note lies under glints like
  * the cases on the last stone, every `CASE_GLINT_EVERY` seconds from the line that names it (`CASE_LINE`) until she
@@ -181,6 +208,8 @@ class Interact implements InteractApi, ShotOwner {
   private reloadRest = 0;
   /** seconds until the run hint may come back */
   private sprintRest = 0;
+  /** seconds until the fire hint may come back (FIRE_AGAIN) */
+  private fireRest = 0;
   /** metres walked since the run hint was first owed (SPRINT_WALKED) */
   private sprintWalk = 0;
   private readonly puzzleVolumes: LayoutMarker[] = [];
@@ -247,7 +276,7 @@ class Interact implements InteractApi, ShotOwner {
       if (n > 0) { ox = d.pos[0] - ix / n; oz = d.pos[2] - iz / n; }
       // (out of the door's plane only: along the normal of its leaf)
       const yaw = d.rotY * DEG2RAD, nx = Math.sin(yaw), nz = Math.cos(yaw), side = ox * nx + oz * nz >= 0 ? 1 : -1;
-      this.seams.push({ secret: secret as SecretId, zone: d.zone, x: d.pos[0] + nx * side * SEAM_OUT, y: d.pos[1] + SEAM_UP, z: d.pos[2] + nz * side * SEAM_OUT, card: null });
+      this.seams.push({ secret: secret as SecretId, zone: d.zone, x: d.pos[0] + nx * side * SEAM_OUT, y: d.pos[1] + SEAM_UP, z: d.pos[2] + nz * side * SEAM_OUT, card: null, kx: knot.pos[0], ky: knot.pos[1], kz: knot.pos[2], t: 0, glints: 0 });
     }
     const bore = data.markersOfType('puzzle_element').find((m) => m.params.role === 'bore_opening');
     if (bore) this.addLoose(bore, BORE, 'bore');
@@ -360,10 +389,26 @@ class Interact implements InteractApi, ShotOwner {
       if (dx * dx + dz * dz > BELL_NEAR * BELL_NEAR || s.director.live) continue;
       r.rings++; r.wait = BELL_AGAIN;
       s.cue(BELL_CUE, l.shot.x, l.shot.y, l.shot.z, true, BELL_GAIN, BELL_PITCH);
+      s.glint(l.shot.x, l.shot.y, l.shot.z, BELL_GLINT);
       s.story.say(BELL_CAPTION);
       const bell = s.build.instance(paramString(l.marker, 'secret'));
       const ring = this.clipOf(bell, 'ring');
       if (ring) s.playClip(bell, ring);
+    }
+  }
+  /** pass i4: a secret's seam breathes and its knot glints through the slot while she is near, out of a fight */
+  private tickSeams(): void {
+    const { s } = this;
+    const p = s.ctx.player.position;
+    for (let i = 0; i < this.seams.length; i++) {
+      const m = this.seams[i] as Seam;
+      if (!m.card) continue;
+      const dx = p.x - m.x, dz = p.z - m.z;
+      if (dx * dx + dz * dz > SEAM_NEAR * SEAM_NEAR || Math.abs(p.y - m.y) > 4 || s.director.live) { if (m.t !== 0) { m.t = 0; m.card.setLevel(SEAM_LEVEL); } continue; }
+      const was = m.t;
+      m.t += FIXED_DT;
+      m.card.setLevel(SEAM_LOW + (SEAM_LEVEL - SEAM_LOW) * (0.5 - 0.5 * Math.cos((m.t / SEAM_BREATH) * Math.PI * 2)));
+      if (Math.floor(m.t / SEAM_GLINT_EVERY) !== Math.floor(was / SEAM_GLINT_EVERY) || was === 0) { m.glints++; s.glint(m.kx, m.ky, m.kz, SEAM_GLINT); }
     }
   }
   detach(zone: ZoneId): void {
@@ -815,7 +860,16 @@ class Interact implements InteractApi, ShotOwner {
     // what is needed
     const h = this.hints;
     (h[0] as LazyHint).needed = true;                                                   // move: from first control
-    if (this.firstPuzzleVolume && inVolume(this.firstPuzzleVolume, p.x, p.y, p.z)) (h[1] as LazyHint).needed = true;
+    // fire (pass i4, FIRE_HINT_SECONDS above): at the jug gate while it is shut; eight seconds, once more, then never
+    const fire = h[HINT_FIRE] as LazyHint;
+    const atGate = this.firstPuzzleVolume !== undefined && inVolume(this.firstPuzzleVolume, p.x, p.y, p.z) && !s.puzzles[PUZZLES[0] as (typeof PUZZLES)[number]].view.solved;
+    if (fire.shown) {
+      fire.shownFor += FIXED_DT;
+      if (!atGate || fire.shownFor >= FIRE_HINT_SECONDS) { this.showHint(fire, false); fire.needed = false; fire.timer = 0; this.fireRest = FIRE_AGAIN; }
+    } else if (atGate && fire.shows < FIRE_HINT_SHOWS && !s.flags.has(fire.flag)) {
+      // (after its rest the hint is due at once: the four seconds it first waits have long been waited)
+      if (this.fireRest > 0) { this.fireRest -= FIXED_DT; fire.needed = false; fire.timer = this.fireRest > 0 ? 0 : HINT_AFTER; } else fire.needed = true;
+    } else { fire.needed = false; fire.timer = 0; }
     // reload (pass i1, RELOAD_LOW above): when the key would help and no reload is running
     const reload = h[HINT_RELOAD] as LazyHint;
     const w = pl.weapon;
@@ -836,8 +890,10 @@ class Interact implements InteractApi, ShotOwner {
     // (pass i3, SPRINT_WALKED: after fifteen metres at a walk the hint no longer waits for the narrator to fall silent)
     if (s.needSprint && !s.flags.has(sprint.flag) && this.sprintWalk < SPRINT_WALKED) this.sprintWalk += Math.sqrt(pl.velocity.x * pl.velocity.x + pl.velocity.z * pl.velocity.z) * FIXED_DT;
     const walked = this.sprintWalk >= SPRINT_WALKED;
-    const open = !s.story.cardUp && !s.director.live && !inPuzzle;
-    const quiet = open && s.story.current === '';
+    // (pass i4: the game's title card alone keeps the hint back; a movement card does not)
+    const titled = s.story.cardUp && (s.story.cardKey === '' || s.story.cardKey === TITLE_CARD);
+    const open = !titled && !s.director.live && !inPuzzle;
+    const quiet = open && !s.story.cardUp && s.story.current === '';
     if (sprint.shown) {
       sprint.shownFor += FIXED_DT;
       if (inPuzzle || sprint.shownFor >= SPRINT_HINT_SECONDS) {
@@ -913,6 +969,7 @@ class Interact implements InteractApi, ShotOwner {
     this.tickLooks();
     this.tickKnotHints();
     this.tickRingers();
+    this.tickSeams();
     this.tickHints();
     this.tickCase();
     // out of lead altogether in the boss room: the cartridge points that can give call her (a glint every 2.5 s, their
@@ -953,7 +1010,7 @@ class Interact implements InteractApi, ShotOwner {
     for (const r of this.ringers) { r.rings = 0; r.wait = 0; }
     this.syncSeams();
     for (const h of this.hints) { if (h.shown) this.showHint(h, false); h.needed = false; h.timer = 0; h.shownFor = 0; h.shows = 0; }
-    this.reloading = false; this.lowT = 0; this.reloadRest = 0; this.sprintRest = 0; this.sprintWalk = 0; this.endCase(); this.bayBonus = false; this.boreSaid = ''; this.openKey = ''; this.openThing = null; this.keptMark = '';
+    this.reloading = false; this.lowT = 0; this.reloadRest = 0; this.sprintRest = 0; this.sprintWalk = 0; this.fireRest = 0; this.endCase(); this.bayBonus = false; this.boreSaid = ''; this.openKey = ''; this.openThing = null; this.keptMark = '';
     this.setFocus(null, false);
   }
   capture(save: WorldSave): void {
@@ -985,7 +1042,7 @@ class Interact implements InteractApi, ShotOwner {
       hints: this.hints.filter((h) => h.shown).map((h) => h.key), caseGlint: this.caseT >= 0,
       stone: this.things.filter((t) => t.role === STONE || this.stoneNotes.has(t.id)).map((t) => [t.id, Math.round(t.x * 100) / 100, Math.round(t.y * 100) / 100, Math.round(t.z * 100) / 100, t.live]),
       pair: this.pairDebug.map((v) => Math.round(v * 10) / 10),
-      bell: this.ringers.map((r) => r.rings), seams: this.seams.map((m) => [m.secret, m.card !== null, Math.round(m.x * 100) / 100, Math.round(m.y * 100) / 100, Math.round(m.z * 100) / 100]),
+      bell: this.ringers.map((r) => r.rings), seams: this.seams.map((m) => [m.secret, m.card !== null, Math.round(m.x * 100) / 100, Math.round(m.y * 100) / 100, Math.round(m.z * 100) / 100, m.glints]),
     };
   }
 }

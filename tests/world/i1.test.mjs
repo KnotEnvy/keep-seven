@@ -305,7 +305,8 @@ test('the rim: at the ledge\'s edge the thread of light and the Rule\'s lean are
     const left = (await game.events(seq, 'ending/stone'))[0];
     const tail = (await lines(game, seq)).filter((l) => l.tick >= left.tick).map((l) => l.key);
     const leave = STORY.meta.rules.ending_branch.leave;
-    assert.deepEqual(tail, [...leave.slice(0, -2), 'nar_rim_2', 'nar_rim_3', ...leave.slice(-2)], `after the leave: its own lines, the thread and the Rule, the fire's (${tail.join(' ')})`);
+    // (pass i4: the scenery lines she is owed come BEFORE the branch's own; nothing stands between "Six, then." and the fire)
+    assert.deepEqual(tail, ['nar_rim_2', 'nar_rim_3', ...leave], `after the leave: the thread and the Rule, its own lines, the fire's (${tail.join(' ')})`);
   } finally { await game.close(); }
 });
 

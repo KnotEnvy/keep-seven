@@ -64,3 +64,66 @@ than a short "pip". If a listener dislikes it, `IR_CONFIRM_HOLD[4]` at 0.012 cos
 | Row | Decision |
 |---|---|
 | 4, 5 | **Mirrored**: GDD 6.8 (in place) and 23.10. Not listened to: `IR_CONFIRM_HOLD[4]` 0.02 stays |
+
+## Fixer, pass i4 (2026-10-08): what is ready for this team, and what is ruled
+
+
+| Item | State |
+|---|---|
+| Caption keys | none added: your table is pinned to the `cap_*` keys of `story.json` (`tests/audio/logic.spec.ts`). A new cue that needs a caption is a row here naming the key, the text and the table entry; the closer adds both together |
+
+## Team audio, pass i4 (2026-10-08): two issues of critic "combat" (regression review), and what the documents must say
+
+Both resolved in `src/audio/`; no other folder was touched. Numbers are the reviewer's own measures re-run on the real
+game (`scratch/i4-team-audio/measure.mjs`; `before.log` -> `after.log`), ambience and music on unless said.
+
+| # | Against | What changed in `src/audio/` | Document text to update |
+|---|---|---|---|
+| 6 | GDD 5 "Damage feedback" (line 274: "low thud"), GDD 17 | **Being hit is a three-layer cue that says what struck her** (`gun.ts` `hurt`, `engine.ts` `HURT_KIND`): the thud (kept, with a 190 Hz knock), a cloth-and-breath burst at 600-2000 Hz (110 ms, then 220 ms of breath), and a top layer by `DamageKind`: stake / fan / bullet = a hard knock and the rod ringing at 2.5 kHz; lunge = two tears at 4-6 kHz; slam / charge = a second blow at 150 -> 60 Hz and debris; canister / lance = a flat burst and a hiss above 5 kHz that burns out in 300 ms; a kill volume = none. It leans up to 0.5 to the side the blow came from (`HURT_PAN`), music and ambience step back 5 dB for 200 ms under it as under a shot, and two blows inside 3 ticks are one cue | 5: "low thud" -> "**a thud with a cloth-and-breath burst a small speaker plays, and a top layer by what struck her (stake: a ringing knock; lunge: two tears; slam: a second blow; canister: a hiss); it leans to the side the blow came from; music and ambience duck 5 dB for 200 ms**". 17: the same sentence in the mix paragraph |
+| 7 | GDD 6.8 and 23.x row "6.8 hit confirm" (line 2100: "**150 ms** after the click (the kill's thud stays at 190 ms)") | **Every confirm sounds 190 ms after the click** (`gun.ts` `CONFIRM_DELAY` 0.15 -> 0.19, now equal to `KILL_DELAY`): the report's tail is 3.6 dB lower there in the open and 5.2 dB lower in the gallery. The tail's step under a confirm moves with it (from 182 ms) | "tick, tink, parry, deflect, freed and the kill's thud sound **190 ms** after the click" |
+| 8 | GDD 6.8 / 17 row "tick, tink, parry and kill hold 12 ms (hall) / 20 ms (bore)" (line 2221), and line 468 | **The four short confirms hold in every room**: 6 ms in the open, the Tally House and the gallery (`reverb.ts` `IR_CONFIRM_HOLD` `[0.006, 0.006, 0.006, 0.012, 0.02]`). Because the kill's thud is held everywhere, **the tail steps back under a kill in the open too** (5 dB, 120 ms), which round 5 said it did not | "... hold **6 ms in the open, the Tally House and the gallery**, 12 ms (hall), 20 ms (bore); the kill's thud steps the tail back in every room" |
+| 9 | GDD 17 "deflect: flat clank with a skipping bell" (line 1766) | **The Tamper's plate rings at 960 Hz** (`creatures.ts` `tamper_clank`: two more bells an octave and a fifth over the plate's 320 Hz, a longer grain of noise; centroid 328 -> 536 Hz) and is pre-rendered at load like the other confirms (50 nodes a start otherwise). The gain of 3 on its start is unchanged: the reviewer's "+3 dB" would only have pushed the limiter | none needed (it is still a clank with a skipping bell); optional: "the Tamper's plate is the lower of the two, with a ring at 960 Hz" |
+
+Measured, the reviewer's measure (dB over the bed in the confirm's loudest 60 ms):
+
+| | hit | weak | kill | parry | Tamper's plate |
+|---|---|---|---|---|---|
+| Front Street, before | +2.5 | +2.0 | +8.5 | +3.3 | +1.8 |
+| Front Street, after | **+9.5** | **+7.5** | **+9.8** | **+8.3** | **+8.6** |
+| the Lip, before -> after | +2.7 -> +9.1 | +1.7 -> +7.2 | +8.1 -> +9.4 | +3.1 -> +8.0 | +1.6 -> +8.3 |
+| the gallery, before -> after | +1.0 -> +9.2 | -0.1 -> +7.2 | +8.0 -> +9.2 | +1.4 -> +8.7 | 0.0 -> +7.8 |
+| the Tally House, before -> after | +4.8 -> +15.2 | +3.7 -> +13.1 | +14.5 -> +15.9 | +4.7 -> +14.3 | +3.4 -> +13.1 |
+| lift hall, before -> after | +5.4 -> +7.7 | +4.0 -> +6.5 | +6.7 -> +6.7 | +4.3 -> +6.7 | +4.1 -> +6.5 |
+| the bore, before -> after | +5.9 -> +6.9 | +4.1 -> +5.3 | +6.5 -> +6.5 | +4.1 -> +4.9 | +2.2 -> +3.2 |
+
+The report is untouched (peak -2.1 dB) and every confirm's loudest 60 ms is still 3.7 dB or more under the report's first
+60 ms (tested, every room).
+
+The hurt cue, rendered alone through the game's graph (the reviewer's `buffer.mjs` measure plus a laptop speaker = two
+200 Hz high-passes, loudest 50 ms):
+
+| | peak | RMS | centroid | on a laptop speaker |
+|---|---|---|---|---|
+| 18 HP, before | -11.0 dB | -30.1 dB | 70 Hz | -35.8 dB |
+| 18 HP, after (plain / lunge) | -4.2 / -3.4 dB | -24.3 / -22.7 dB | 1375 / 2423 Hz | -19.7 / -16.6 dB |
+| 38 HP, before | -8.0 dB | -26.8 dB | 70 Hz | -32.9 dB |
+| 38 HP, after (plain / slam / canister) | -3.1 / -3.0 / -3.3 dB | -21.8 / -19.9 / -20.3 dB | 1365 / 658 / 6115 Hz | -17.7 / -16.9 / -15.7 dB |
+| the report | -2.2 dB | -15.0 dB | 309 Hz | -7.4 dB |
+
+In the street's mix on a laptop speaker it stood +0.2 dB (a lunge) to +3.1 dB (a slam) over the bed; now +14.4 to
++17.4 dB. The gun is still 7 dB over the loudest of them on a laptop speaker (tested at 6).
+
+**Captions.** No key is asked for. Being hit is drawn by the HUD (arc, vignette, the bar); a caption for every blow would
+bury the lines that matter. The Tamper's plate has no caption either, as before.
+
+**Not verified by ear** (no one can listen on this machine): that the four top layers read as "stake / claws / iron /
+heat" and not merely as four different sounds; that a tick 190 ms after the click still feels tied to the shot (the
+kill's thud has always sat there); that a 6 ms hold keeps the tick a tick. One-line retreats if a listener dislikes any:
+`HURT_MID` (gun.ts, 2.4: the level of the mid and top layers), `CONFIRM_DELAY` (0.19), `IR_CONFIRM_HOLD[0..2]` (0.006).
+
+## Closer, pass i4 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| rows 6 to 9 | Mirrored: GDD 5 in place, 6.8 / 17 annotated in place, GDD 23.19; ARCHITECTURE "Pass i4 (closer)" (what audio reads of `player/damaged`) |
+| Not verified by ear | In `docs/KNOWN_ISSUES.md` with the three one-line retreats |

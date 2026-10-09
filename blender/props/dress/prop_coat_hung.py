@@ -209,9 +209,19 @@ def shawl(name, seed, cell, colour):
     return [body, flap, knot]
 
 
+def _khaki(colour, k=0.85):
+    """Pass i5 (visual reviewer: "the coats are a saturated olive that sits outside the teal palette"): the dyes were
+    browns, and a brown under the stair's teal light turns olive green. Each is taken `k` of the way to the grey of its
+    own lightness (a hair warm), so the cloth takes the room's hue and sits in it. -> linear rgb."""
+    c = np.asarray(vcol.rgb(colour), np.float32)
+    y = float(0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2])
+    g = np.asarray((y * 1.05, y, y * 0.93), np.float32)
+    return tuple(float(v) for v in c * (1 - k) + g * k)
+
+
 def build(args):
-    specs = [("coat_long", coat("coat_long", args.seed + 1, 1.085, "linen", "#604A38", ((0.60, 0.0), (0.64, 0.5)))),
-             ("coat_short", coat("coat_short", args.seed + 2, 0.70, "linen", "workcloth_light", ((0.50, 1.0), (0.45, 0.0)))),
+    specs = [("coat_long", coat("coat_long", args.seed + 1, 1.085, "linen", _khaki("#604A38"), ((0.60, 0.0), (0.64, 0.5)))),
+             ("coat_short", coat("coat_short", args.seed + 2, 0.70, "linen", _khaki("workcloth_light"), ((0.50, 1.0), (0.45, 0.0)))),
              ("coat_shawl", shawl("coat_shawl", args.seed + 3, "linen", "#8C7A66"))]
     for name, parts in specs:
         if name == "coat_shawl":                                        # mark the border faces (by sheet row) before the join

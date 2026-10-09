@@ -118,7 +118,11 @@ const FIRE_DEPTH = 60;
 /** the last fire's flame is never drawn under this many pixels tall. Pass i2 (both story reviewers; the line is "Out on
  * the flat, one small fire. It was not moving."): 30 (a flame of about 18 px in its card), a point of light with a bloom and a hairline of smoke, where pass
  * i1's 92 px flame with its heavy column stood as tall as the line pylon and read as a bonfire at the edge of town */
-const FIRE_PX = 38;      // exterior look, pass i3: 30 -> 38 (the visual reviewer: "its fire is small"; still "one small fire", a twentieth of the frame's height)
+// exterior look, pass i4 (both visual reviewers: "a glow about 40 px wide in a 1280 px frame ... the eye goes to the two sky
+// beams and the pylon, not the fire", "about twice its size"): 38 -> 50. The flame's own body is about 30 px (a twentieth
+// of the frame's height: still one small fire on a plain half a kilometre wide); what grew with it is its light: the
+// tight glow (60 -> 104 px), the wide one (150 -> 230 px), the pool on the flat and the column of smoke over it
+const FIRE_PX = 50;      // exterior look, pass i3: 30 -> 38 (the visual reviewer: "its fire is small"; still "one small fire", a twentieth of the frame's height)
 /** a Transit's aim (GDD: 0.9 s): its thread brightens and thickens over this long */
 const THREAD_AIM_SECONDS = 0.9;
 /**
@@ -156,6 +160,8 @@ const PROVE_THREADS = 8, PROVE_THREAD_GAP = 0.06, PROVE_THREAD_RISE = 1.0, PROVE
  * trauma, PROVEN_TRAUMA; none under Reduce Motion). Nothing here spawns a particle or outlives STAND_FLARE.
  */
 const PROVE_HOLD = 0.28, PROVE_SHOCK_GAP = 0.16, PROVE_SHOCK_FROM = 3.7, PROVE_SHOCK_TO = 15.2, PROVE_CROWN_R = 3.3, PROVE_FRONT_WIDE = 2.0;
+/** pass i4: the contact shade is out while the flare is over PROVE_GLARE_TO and back when it is under PROVE_GLARE_FROM (proveGlare) */
+const PROVE_GLARE_IN = 0.1, PROVE_GLARE_FROM = 0.05, PROVE_GLARE_TO = 0.45;
 /** the standing line's flare, 0..1, `age` seconds after the seventh: whole for PROVE_HOLD, then falling as round 3 set it */
 function standFlare(age: number): number {
   if (age < PROVE_HOLD) return 1;
@@ -191,12 +197,23 @@ const CARD_POOL: Readonly<Record<CardKind, number>> = { sun_blade: MAX_BLADES, s
 const CARD_KINDS = Object.keys(CARD_POOL) as CardKind[];
 const RING_POOL: Readonly<Record<RingKind, number>> = { canister: 2, slam: 1 };
 export const BLOB_POOL = 16;
+/**
+ * Pass i5: a creature's blob in a building's shade outdoors. The blob multiplies the ground, and 45 % of ground that is
+ * already dark was a few grey levels: the feet floated. In shade (VfxHost.shadeAt) its opacity rises from BLOB_ALPHA to
+ * BLOB_ALPHA_SHADE and a tight core is laid under the feet (quads.ts SHAPE_BLOB, vE.y): BLOB_CORE on min and Low;
+ * BLOB_ALPHA_SHADE_HIGH and BLOB_CORE_HIGH on High, where the sun's map holds only the building there and the air's
+ * veil is drawn over the blob (measured: the same blob read weaker on High than on Low). In the sun and indoors nothing changes.
+ * One slot is probed per drawn frame (each of the 16 every 16 frames) and eased over BLOB_SHADE_EASE seconds.
+ */
+export const BLOB_ALPHA = 0.55, BLOB_ALPHA_SHADE = 0.8, BLOB_ALPHA_SHADE_HIGH = 0.9, BLOB_CORE = 0.4, BLOB_CORE_HIGH = 0.8, BLOB_SHADE_EASE = 0.25;
 
 /** A pooled persistent effect and its two alternating handles (a stale handle is a no-op until its turn comes again). */
 class Slot {
   active = false; persistent = false; visible = true;
   ax = 0; ay = 0; az = 0; bx = 0; by = 0; bz = 0;
   level = 1; levelSet = false;
+  /** a blob: how far it stands in outdoor shade (0..1, eased; -1 = not probed yet) and what the last probe said */
+  shade = -1; shadeTo = 0;
   t0 = 0; life = 0; hold = 0; fade = 0;
   radius = 0;
   gen = 0;
@@ -255,6 +272,8 @@ export interface VfxHost {
   high(): boolean;
   additiveCap(): number;
   bladeCards(): number;
+  /** pass i5: 1 where a point of the ground outdoors is in the shade of the fixed world, else 0 (absent: never) */
+  shadeAt?(x: number, y: number, z: number): number;
 }
 
 export class Vfx implements VfxApi {
@@ -269,6 +288,9 @@ export class Vfx implements VfxApi {
   private readonly cards: Record<CardKind, Slot[]>;
   private readonly rings: Record<RingKind, Slot[]>;
   private readonly blobs: Slot[] = [];
+  /** pass i5: the drawn time of the last fill and the slot whose shade is probed this frame */
+  private blobNow = 0;
+  private blobTurn = 0;
   private readonly allSlots: Slot[] = [];
   // pulse slots
   private readonly pulseT0 = [0, 0];
@@ -473,6 +495,7 @@ export class Vfx implements VfxApi {
       if (s.active) continue;
       const h = s.take(this.now(), true);
       s.ax = 0; s.ay = -1e4; s.az = 0;
+      s.shade = -1; s.shadeTo = 0;
       return h;
     }
     return null;
@@ -547,6 +570,19 @@ export class Vfx implements VfxApi {
     p.set(0, 0, 0, 1);
   }
   get ringRunning(): boolean { return this.ringT0 >= 0; }
+  /**
+   * Underground look, pass i4 (visual reviewer: "a ragged dark halo rings the plinth during the seventh's whiteout"): how
+   * much of the frame's light is the seventh's own, 0..1. It rises over PROVE_GLARE_IN, is whole while the column holds
+   * its white peak and is gone with the flare (about 1.5 s after the shot). The render system takes the High tier's
+   * contact shade out by it: a room flooded with light from the bore has no crease of shade under its kerb, and on the
+   * whitened dark skirt the shade's stipple was the one dirty thing in the frame. 0 under Reduce Flashes (no whiteout).
+   */
+  get proveGlare(): number {
+    const age = this.drawNow() - this.standT0;
+    if (age < 0 || age >= STAND_FLARE) return 0;
+    const f = clamp01((standFlare(age) - PROVE_GLARE_FROM) / (PROVE_GLARE_TO - PROVE_GLARE_FROM));
+    return clamp01(age / PROVE_GLARE_IN) * f * f * (3 - 2 * f);
+  }
   /** the standing line of a restored proven bore */
   standingLine(x: number, y: number, z: number, on: boolean): void {
     if (!this.ringRunning) this.standT0 = -1e9;
@@ -624,17 +660,30 @@ export class Vfx implements VfxApi {
     const cam = this.cam.copy(this.ctx.scene.camera.position);
     let o = 0;
     // blob shadows (darkening): not drawn outdoors on High, where the sun shadow map replaces them
+    // (pass i5) in outdoor shade the blob is stronger and has a contact core: one slot probed per frame, eased
+    const host = this.host, high = host.high(), core = high ? BLOB_CORE_HIGH : BLOB_CORE, deep = (high ? BLOB_ALPHA_SHADE_HIGH : BLOB_ALPHA_SHADE) - BLOB_ALPHA;
+    const ease = Math.min(1, Math.max(0, now - this.blobNow) / BLOB_SHADE_EASE);
+    this.blobNow = now;
+    this.blobTurn = (this.blobTurn + 1) % this.blobs.length;
     for (let i = 0; i < this.blobs.length; i++) {
       const s = this.blobs[i] as Slot;
       if (!s.active || !s.visible) continue;
       if (sunShadow && exteriorAt(s.ax, s.ay, s.az)) continue;
+      if (host.shadeAt && s.ay > -1e3) {
+        if (s.shade < 0) s.shade = s.shadeTo = host.shadeAt(s.ax, s.ay, s.az);
+        else {
+          if (i === this.blobTurn) s.shadeTo = host.shadeAt(s.ax, s.ay, s.az);
+          s.shade += (s.shadeTo - s.shade) * ease;
+        }
+      }
       if ((o = q.next()) < 0) return;
       const size = 1.1 * (s.levelSet ? Math.max(0.2, s.level) : 1);
+      const shade = s.shade > 0 ? s.shade : 0;
       d[o] = s.ax; d[o + 1] = s.ay + 0.025; d[o + 2] = s.az; d[o + 3] = MODE_PLANE;
       d[o + 4] = 0; d[o + 5] = 1; d[o + 6] = 0; d[o + 7] = size;
-      d[o + 8] = 0; d[o + 9] = 0; d[o + 10] = 0; d[o + 11] = 0.55;
+      d[o + 8] = 0; d[o + 9] = 0; d[o + 10] = 0; d[o + 11] = BLOB_ALPHA + deep * shade;
       d[o + 12] = 0; d[o + 13] = 0; d[o + 14] = 0; d[o + 15] = 0;
-      d[o + 16] = SHAPE_BLOB; d[o + 17] = 0; d[o + 18] = size; d[o + 19] = 0;
+      d[o + 16] = SHAPE_BLOB; d[o + 17] = core * shade; d[o + 18] = size; d[o + 19] = 0;
     }
     this.fillRings(this.rings.canister, now);
     this.fillRings(this.rings.slam, now);
@@ -844,7 +893,7 @@ export class Vfx implements VfxApi {
       if (lv <= 0.004) continue;
       gsl.ax = gs[i * 7] as number; gsl.ay = gs[i * 7 + 1] as number; gsl.az = gs[i * 7 + 2] as number;
       gsl.bx = gs[i * 7 + 3] as number; gsl.by = gs[i * 7 + 4] as number; gsl.bz = gs[i * 7 + 5] as number;
-      for (let c = 0; c < n; c++) { this.cw = 1.7; this.ch = c * Math.PI / n; this.ca = 0.15 * clamp01(lv); this.cl = 0; this.card(MODE_CARD, gsl, HUE.blade, SHAPE_BLADE, 0, -1, FLAG_ADD); }
+      for (let c = 0; c < n; c++) { this.cw = 2.2; this.ch = c * Math.PI / n; this.ca = 0.21 * clamp01(lv);      /* pass i6 (R16): 1.7 m at 0.15 */ this.cl = 0; this.card(MODE_CARD, gsl, HUE.blade, SHAPE_BLADE, 0, -1, FLAG_ADD); }
     }
     const patches = cards.sun_patch;
     for (let i = 0; i < patches.length; i++) {
@@ -926,7 +975,7 @@ export class Vfx implements VfxApi {
         const warm = Math.max(0, 1 - rise * 3.2) * (0.6 + 0.4 * flicker);
         d[o] = s.ax + rx * lean * sk * 30 * rise * rise; d[o + 1] = s.ay + sk * (4.2 + 23 * rise); d[o + 2] = s.az + rz * lean * sk * 30 * rise * rise; d[o + 3] = MODE_BILLBOARD;
         d[o + 4] = -lean; d[o + 5] = 0; d[o + 6] = pull; d[o + 7] = w;
-        d[o + 8] = 0.085 + 0.30 * warm; d[o + 9] = 0.062 + 0.12 * warm; d[o + 10] = 0.090 + 0.02 * warm; d[o + 11] = 0.36 * kindle * Math.sin(Math.PI * Math.sqrt(rise));
+        d[o + 8] = 0.085 + 0.30 * warm; d[o + 9] = 0.062 + 0.12 * warm; d[o + 10] = 0.090 + 0.02 * warm; d[o + 11] = 0.46 * kindle * Math.sin(Math.PI * Math.sqrt(rise));
         d[o + 12] = 0; d[o + 13] = 0; d[o + 14] = 0; d[o + 15] = 0;
         d[o + 16] = SHAPE_SOFT; d[o + 17] = 0; d[o + 18] = h; d[o + 19] = 0;
       }
@@ -940,7 +989,7 @@ export class Vfx implements VfxApi {
         const w = k === 0 ? 34 : 11, hh = k === 0 ? 3.0 : 1.9;
         d[o] = s.ax; d[o + 1] = s.ay - sk * 0.5; d[o + 2] = s.az; d[o + 3] = MODE_BILLBOARD;
         d[o + 4] = 0; d[o + 5] = hh * FIRE_PX / 3.4; d[o + 6] = pull; d[o + 7] = size * w;
-        d[o + 8] = c.r; d[o + 9] = c.g * (k === 0 ? 0.78 : 1); d[o + 10] = c.b * (k === 0 ? 0.6 : 1); d[o + 11] = (k === 0 ? 0.30 : 0.62) * kindle * (0.72 + 0.28 * flicker);
+        d[o + 8] = c.r; d[o + 9] = c.g * (k === 0 ? 0.78 : 1); d[o + 10] = c.b * (k === 0 ? 0.6 : 1); d[o + 11] = (k === 0 ? 0.36 : 0.75) * kindle * (0.72 + 0.28 * flicker);
         d[o + 12] = 0.1; d[o + 13] = 0; d[o + 14] = 0; d[o + 15] = 0;
         d[o + 16] = SHAPE_SOFT; d[o + 17] = 0; d[o + 18] = size * hh; d[o + 19] = FLAG_ADD;
       }
@@ -948,11 +997,11 @@ export class Vfx implements VfxApi {
       // 180 px): with the gun let down under the end card the fire is the frame's only warm point. Pass i1: the halo is
       // dimmer (it washed the flame to white) and the flame is larger and coloured (quads.ts SHAPE_FIRE).
       // pass i2: the bloom of a small far light: a wide dim one (130 px) and a tight one round the flame (52 px)
-      this.cw = size * 16.5; this.ch = size * 16.5; this.ca = 0.26 * kindle * (0.55 + 0.45 * flicker); this.cl = 0; this.cb = pull; this.cwhite = 0.1;
-      this.card(MODE_BILLBOARD, s, HUE.flame, SHAPE_SOFT, 150, -1, FLAG_ADD);      // pass i3: 130 -> 150 px (at 170 px and 0.30 it lifted the afterglow over the fire to the flame's own level: tests/render/polish3 counts 64 hot rows)
-      this.cw = size * 6; this.ch = size * 6; this.ca = 0.80 * kindle * (0.55 + 0.45 * flicker); this.cl = 0; this.cb = pull; this.cwhite = 0.25;
+      this.cw = size * 16.5; this.ch = size * 16.5; this.ca = 0.19 * kindle * (0.55 + 0.45 * flicker); this.cl = 0; this.cb = pull; this.cwhite = 0.1;
+      this.card(MODE_BILLBOARD, s, HUE.flame, SHAPE_SOFT, 230, -1, FLAG_ADD);      // pass i3: 130 -> 150 px (at 170 px and 0.30 it lifted the afterglow over the fire to the flame's own level: tests/render/polish3 counts 64 hot rows)
+      this.cw = size * 6; this.ch = size * 6; this.ca = 0.50 * kindle * (0.55 + 0.45 * flicker); this.cl = 0; this.cb = pull; this.cwhite = 0.12;      // pass i4: wider (104 px) and dimmer (0.80, white 0.25): light round the flame, not a white-hot ball
       s.ay += sk * 0.9;
-      this.card(MODE_BILLBOARD, s, HUE.flame, SHAPE_SOFT, 60, -1, FLAG_ADD);
+      this.card(MODE_BILLBOARD, s, HUE.flame, SHAPE_SOFT, 104, -1, FLAG_ADD);
       s.ay -= sk * 0.9;
       // the flame stands with its heart on the fire's own point (its foot 0.8 of a flame-metre under it, as the old 46 px flame's was)
       this.cw = size * 3.0; this.ch = size * 3.4; this.ca = 2.0 * kindle * (0.80 + 0.25 * flicker); this.cl = 0; this.cb = pull;
@@ -1108,6 +1157,14 @@ export class Vfx implements VfxApi {
   activeCards(kind: CardKind): number { return countActive(this.cards[kind]); }
   activeRings(): number { return countActive(this.rings.canister) + countActive(this.rings.slam); }
   activeBlobs(): number { return countActive(this.blobs); }
+  /** pass i5 (tests): every blob is probed again on its next fill */
+  blobReset(): void { for (const s of this.blobs) { s.shade = -1; s.shadeTo = 0; } }
+  /** pass i5 (tests): each active blob: where it is, how far in shade it is drawn, its opacity and its contact core */
+  blobStates(): { x: number; y: number; z: number; shade: number; alpha: number; core: number }[] {
+    const out = [], high = this.host.high(), core = high ? BLOB_CORE_HIGH : BLOB_CORE, deep = (high ? BLOB_ALPHA_SHADE_HIGH : BLOB_ALPHA_SHADE) - BLOB_ALPHA;
+    for (const s of this.blobs) if (s.active) { const k = Math.max(0, s.shade); out.push({ x: s.ax, y: s.ay, z: s.az, shade: s.shade, alpha: BLOB_ALPHA + deep * k, core: core * k }); }
+    return out;
+  }
 
   /** A restart or a warp: one-shot effects stop; handles their owners hold stay theirs. */
   clearTransient(): void {

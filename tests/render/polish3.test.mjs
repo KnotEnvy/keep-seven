@@ -185,7 +185,8 @@ test('R5 / R7: the far rim is a dark land under a lit sky; the fire is a flame w
   // ... and round the flame only: the town's windows flicker too, 450 px to its left
   let hx = 0; for (const p of hot) hx += p % W; hx /= Math.max(1, hot.length);
   let gx0 = W, gx1 = -1; for (const p of glow) { const x = p % W; if (Math.abs(x - hx) > 220) continue; if (x < gx0) gx0 = x; if (x > gx1) gx1 = x; }
-  assert.ok(gx1 - gx0 + 1 >= 90 && gx1 - gx0 + 1 < 400, `its glow is ${gx1 - gx0 + 1} px wide (90 or more)`);
+  // exterior look, pass i4 (both visual reviewers: "a glow about 40 px wide ... a warm light pool on the ground"): the pool on the flat is wider (it was held under 400 px of this 960 px frame; the flame's own hot body keeps its cap above)
+  assert.ok(gx1 - gx0 + 1 >= 90 && gx1 - gx0 + 1 < 500, `its glow is ${gx1 - gx0 + 1} px wide (90 or more)`);
   assert.ok(darker.length >= 60, `smoke stands over it (${darker.length} px darker than the sky behind)`);
   await page.evaluate(() => { window.__fire.release(); const R = window.__dbg.ext.render.system(); if (R.sky) { R.sky.cloudCover = 1; R.sky.starCover = 1; } });
   void before;

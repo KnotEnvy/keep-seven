@@ -200,10 +200,108 @@ def build_pylon(S):
             kit.add_cyl(p, (ex, y0 - 0.02, ez), 0.07, 0.6, "m_pellam", steel, segs=6)
         else:
             kit.add_prism(p, b, (b[0] + 0.15, b[1] - 1.9, b[2] + 0.1), 0.12, 0.12, "m_pellam", lin("cable"), segs=3)
+    # ---- pass i4 (the visual reviewer: "a lilac octagonal column on a square base with a smeared texture and one dark
+    # rectangle", passed at arm's length in the first minute). What a line crew would have had to reach is on it now:
+    # a bolted steel collar where the mast meets its foot, cover strips over four of the mast's joints to the second
+    # seam, a service hatch (frame, hinges, a dogged handle, a rust weep under it) on the side the path passes, a
+    # conduit from the hatch into the foot, and the holding-down bolts of the foot itself. All inside the layout's 2 m box.
+    dark = lin("steel_dark"); weep = mix(lin("rust"), stain, 0.35)
+    kit.add_cyl(p, (base[0], fy - 0.005, base[2]), rad(fy) + 0.10, 0.20, "m_pellam", mul(steel, 0.82), segs=n, r_top=rad(fy + 0.2) + 0.085, cap_top=True)
+    kit.add_cyl(p, (base[0], fy + 0.195, base[2]), rad(fy + 0.2) + 0.055, 0.07, "m_pellam", mul(rust, 1.15), segs=n, r_top=rad(fy + 0.27) + 0.02, cap_top=True)
+    for i in range(n):                                                    # the collar's bolts, one to a face
+        a_ = 2 * math.pi * (i + 0.5) / n; rr = (rad(fy) + 0.10) * math.cos(math.pi / n) + 0.012
+        kit.add_box(p, (base[0] + math.cos(a_) * rr, fy + 0.10, base[2] + math.sin(a_) * rr), (0.05, 0.075, 0.075), "m_pellam", mul(rust, 0.8), rot=-math.degrees(a_), sides="nsewt")
+    for i in (1, 3, 4, 6):                                                # cover strips over the joints, proud of the cladding
+        a_ = 2 * math.pi * i / n
+        q0 = (base[0] + math.cos(a_) * (rad(fy + 0.28) + 0.012), fy + 0.28, base[2] + math.sin(a_) * (rad(fy + 0.28) + 0.012))
+        q1 = (base[0] + math.cos(a_) * (rad(3.55) + 0.012), 3.55, base[2] + math.sin(a_) * (rad(3.55) + 0.012))
+        kit.add_prism(p, q0, q1, 0.085, 0.03, "m_pellam", mul(steel, 0.9 if i % 2 else 0.72), up=(math.cos(a_), 0.0, math.sin(a_)), caps="b", segs=2)
+    # the hatch, on the face that looks east-south-east (the path from the gully to the gate passes it at two paces)
+    ah = 2 * math.pi * 0.5 / n
+    hn = (math.cos(ah), 0.0, math.sin(ah)); ht = (-math.sin(ah), 0.0, math.cos(ah))
+    def on_face(u, y, out):
+        r_ = rad(y) * math.cos(math.pi / n) + out
+        return (base[0] + hn[0] * r_ + ht[0] * u, y, base[2] + hn[2] * r_ + ht[2] * u)
+    def slab(u0, u1, y0, y1, out, col):
+        """a plate lying on the hatch's face: its front and its four edges"""
+        f = [on_face(u0, y0, out), on_face(u1, y0, out), on_face(u1, y1, out), on_face(u0, y1, out)]
+        bk = [on_face(u0, y0, 0.0), on_face(u1, y0, 0.0), on_face(u1, y1, 0.0), on_face(u0, y1, 0.0)]
+        mid = on_face((u0 + u1) / 2, (y0 + y1) / 2, out / 2)
+        def look(pts, away):                                              # wound to look away from `away`
+            nn = kit.vcross(kit.vsub(pts[1], pts[0]), kit.vsub(pts[2], pts[0]))
+            return pts if kit.vdot(nn, kit.vsub(pts[0], away)) >= 0 else pts[::-1]
+        p.poly(look(f, on_face((u0 + u1) / 2, (y0 + y1) / 2, -1.0)), "m_pellam", flat_uv("m_pellam"), col)
+        for k in range(4):
+            j = (k + 1) % 4
+            p.poly(look([bk[k], bk[j], f[j], f[k]], mid), "m_pellam", flat_uv("m_pellam"), mul(col, 0.7))
+    hy0, hy1, hw_ = 1.42, 2.22, 0.19
+    slab(-hw_ - 0.045, hw_ + 0.045, hy0 - 0.045, hy1 + 0.045, 0.014, mul(steel, 0.62))          # the frame
+    slab(-hw_, hw_, hy0, hy1, 0.030, mul(mix(enamel, stain, 0.6), 0.8))                                  # the door
+    slab(-hw_ + 0.03, hw_ - 0.03, hy0 + 0.46, hy0 + 0.58, 0.036, mul(lin("livery"), 0.8))      # its livery strip
+    slab(-hw_ + 0.05, hw_ - 0.05, hy0 + 0.07, hy0 + 0.3, 0.036, mul(dark, 1.1))                 # the louvre
+    for yy in (hy0 + 0.12, hy0 + 0.185, hy0 + 0.25): slab(-hw_ + 0.06, hw_ - 0.06, yy - 0.012, yy + 0.012, 0.044, mul(steel, 0.75))
+    for yy in (hy0 + 0.1, hy1 - 0.1): slab(-hw_ - 0.04, -hw_ + 0.035, yy - 0.05, yy + 0.05, 0.05, mul(rust, 0.9))      # hinges
+    slab(hw_ - 0.075, hw_ - 0.035, hy0 + 0.33, hy0 + 0.47, 0.065, mul(dark, 1.3))                # the dog handle
+    for (uu, yy) in ((-hw_ - 0.022, hy0 - 0.022), (hw_ + 0.022, hy0 - 0.022), (-hw_ - 0.022, hy1 + 0.022), (hw_ + 0.022, hy1 + 0.022), (hw_ + 0.022, (hy0 + hy1) / 2), (0.0, hy1 + 0.022), (0.0, hy0 - 0.022)):
+        slab(uu - 0.014, uu + 0.014, yy - 0.014, yy + 0.014, 0.03, mul(rust, 0.7))               # the frame's bolts
+    slab(-0.07, 0.10, fy + 0.3, hy0 - 0.05, 0.004, weep)                                         # the weep under the hatch
+    # the conduit: from under the hatch down into the foot, off to one side, with two saddles
+    cu = hw_ + 0.11
+    kit.add_prism(p, on_face(cu, hy0 + 0.2, 0.035), on_face(cu, fy + 0.2, 0.035), 0.05, 0.05, "m_pellam", mul(dark, 1.25), chamfer=0.012, caps="a", segs=2)
+    kit.add_prism(p, on_face(hw_ + 0.03, hy0 + 0.2, 0.035), on_face(cu + 0.02, hy0 + 0.2, 0.035), 0.05, 0.05, "m_pellam", mul(dark, 1.25), caps="")
+    for yy in (hy0 - 0.05, fy + 0.5): slab(cu - 0.06, cu + 0.06, yy - 0.02, yy + 0.02, 0.07, mul(steel, 0.7))
+    # ---- pass i6 (the visual reviewer: "from 3 m it is still a primitive shape: a plain tapered prism with a flat white
+    # upper section on a slab"). The mast is BUILT of things now: a proud steel band over every module's seam as far up
+    # as the eye reads them, three broad dark bands and two lost cladding panels (the dark core shows, rust round the
+    # hole) in the white upper half, the line's cable bundle come down one face in its clamps to where it was cut, and
+    # a rust weep under every band and bolt on the faces the path passes.
+    def face_at(i):
+        a_ = 2 * math.pi * (i + 0.5) / n
+        fn_ = (math.cos(a_), 0.0, math.sin(a_)); ft_ = (-math.sin(a_), 0.0, math.cos(a_))
+        return lambda u, y, out: (base[0] + fn_[0] * (rad(y) * math.cos(math.pi / n) + out) + ft_[0] * u, y, base[2] + fn_[2] * (rad(y) * math.cos(math.pi / n) + out) + ft_[2] * u)
+    def plate(i, u0, u1, y0, y1, out, col, col_top=None):
+        """one quad lying on face i of the mast, looking outward"""
+        F_ = face_at(i)
+        pts = [F_(u0, y0, out), F_(u1, y0, out), F_(u1, y1, out), F_(u0, y1, out)]
+        nn = kit.vcross(kit.vsub(pts[1], pts[0]), kit.vsub(pts[2], pts[0]))
+        if kit.vdot(nn, kit.vsub(pts[0], (base[0], pts[0][1], base[2]))) < 0: pts = pts[::-1]; cols = [col_top or col, col_top or col, col, col]
+        else: cols = [col, col, col_top or col, col_top or col]
+        p.poly(pts, "m_pellam", flat_uv("m_pellam"), cols)
+    half_w = lambda y: rad(y) * math.sin(math.pi / n)                     # half a face's width at height y
+    for yb_ in (2.4, 3.6, 4.8, 6.0):                                      # seam bands (the first module's is the livery band)
+        kit.add_cyl(p, (base[0], yb_ - 0.04, base[2]), rad(yb_ - 0.04) + 0.028, 0.08, "m_pellam", mul(steel, 0.78), segs=n, r_top=rad(yb_ + 0.04) + 0.028, cap_top=True, cap_bottom=True)
+    for (yb_, hb_, cb_) in ((8.4, 0.34, mul(dark, 1.25)), (10.75, 0.22, mul(rust, 0.9)), (13.2, 0.34, mul(dark, 1.25))):
+        kit.add_cyl(p, (base[0], yb_, base[2]), rad(yb_) + 0.035, hb_, "m_pellam", cb_, segs=n, r_top=rad(yb_ + hb_) + 0.035, cap_top=True, cap_bottom=True)
+    for (i_, y0_, y1_) in ((6, 6.12, 7.1), (3, 9.7, 10.6), (7, 4.95, 5.6)):       # lost cladding: the core, a rusted lip round it, a shard hanging
+        w_ = half_w(y1_) * 0.86
+        plate(i_, -w_ - 0.03, w_ + 0.03, y0_ - 0.03, y1_ + 0.03, 0.006, mul(rust, 0.75))
+        plate(i_, -w_, w_ * 0.82, y0_, y1_, 0.010, mul(dark, 0.7), mul(dark, 0.45))
+        plate(i_, -w_ * 0.2, w_ * 0.5, y0_ + 0.06, y0_ + 0.3 * (y1_ - y0_), 0.016, mul(steel, 0.55))        # a cross-member of the frame behind
+        plate(i_, -0.05, 0.07, max(fy + 0.3, y0_ - 1.5), y0_ - 0.03, 0.004, mix(stain, weep, 0.7), weep)
+    # the cable bundle: three cables side by side down face 2 (it looks south-east, at the gully's mouth), clamped every module, cut at 2.9 m and hanging free
+    ci = 2; Fc = face_at(ci)
+    for (uo, cc_) in ((-0.065, mul(lin("cable"), 1.0)), (0.0, mul(lin("cable"), 1.35)), (0.065, mul(lin("cable"), 0.8))):
+        kit.add_prism(p, Fc(uo, Ht - 0.45, 0.035), Fc(uo, 3.3 + 3.0 * abs(uo), 0.035), 0.055, 0.055, "m_pellam", cc_, caps="b", segs=1)
+    Fo = Fc(-0.065, 3.3 + 0.195, 0.035)
+    kit.add_prism(p, Fo, (Fo[0] + 0.16, Fo[1] - 0.75, Fo[2] + 0.12), 0.05, 0.05, "m_pellam", lin("cable"), segs=2, caps="b")      # the cut end, sprung away
+    for yc_ in (4.8, 7.2, 9.6, 12.0, 14.4):
+        kit.add_box(p, Fc(0.0, yc_ + 0.14, 0.05), (0.26, 0.09, 0.075), "m_pellam", mul(steel, 0.7), rot=-math.degrees(2 * math.pi * (ci + 0.5) / n) + 90.0, sides="nsewtb")
+    for (i_, yy, ln_, off_) in ((1, 2.36, 0.85, 0.05), (2, 3.56, 0.7, -0.12), (0, 3.56, 1.1, 0.02), (7, 2.36, 0.6, -0.04), (5, 4.76, 0.9, 0.06), (4, 2.36, 0.75, 0.0), (1, 5.96, 1.3, -0.07), (6, 3.56, 0.5, 0.09)):
+        plate(i_, off_ - 0.035, off_ + 0.045, yy - ln_, yy, 0.004, mix(stain, weep, 0.25), weep)                 # rust weeps under the bands
     p.transform(lambda q: rot(q, tilt), start)
+    # the foot's holding-down bolts and a chipped corner (not tilted with the mast: the foot is in the ground)
+    for (sx, sz) in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+        bx = base[0] + sx * 0.66; bz = base[2] + sz * 0.66
+        kit.add_cyl(p, (bx, fy, bz), 0.075, 0.035, "m_pellam", mul(rust, 0.85), segs=6, cap_top=True)
+        kit.add_cyl(p, (bx, fy + 0.035, bz), 0.032, 0.07, "m_pellam", mul(dark, 1.2), segs=5, cap_top=True)
     kit.tessellate(p, 2.6)
     S.extra["lip"]["pylon"] = dict(base=base, rot=rot, tilt=tilt, rad=rad)
-    return [p]
+    # sand the wind has banked against the foot (pass i4): the foot stands IN the court's floor, not on it
+    import lip_dress, lip_parts
+    dp = Part("lip_pylon_drift", Z, smooth=40)
+    lip_dress.drift(dp, (base[0] - 0.35, base[2] - 1.22), 2.5, 1.25, 0.3, 150.0, "lip_dr_pylon_a", seed=571, ground_col=lip_parts.sand_colour)
+    lip_dress.drift(dp, (base[0] + 1.2, base[2] + 0.5), 2.0, 1.0, 0.24, 240.0, "lip_dr_pylon_b", seed=572, ground_col=lip_parts.sand_colour)
+    return [p, dp]
 
 
 BLANKET = dict(L=1.5, W=0.92)

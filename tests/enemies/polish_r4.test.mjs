@@ -106,16 +106,29 @@ test('polish round 4: an open vent takes lead only from its own side (the back v
       dbg.god(true);
       dbg.setOption('difficulty', 'normal');
       // ---- a charge at a player at the ramp foot from where the critics' proxies met it: the lane clips 0.13 m of the
-      // corner of rib n1. It used to end there in charge_stun (17 m from her, five times running); now it slides past
-      // and is stopped where the level means it to be, by the cabinet beside the ramp.
+      // corner of rib n1. It used to end there in charge_stun (17 m from her, five times running); now it slides past.
+      // Pass i4: it charges only down a clear lane and squares up to her (the cabinet beside the ramp closes the lane to
+      // the ramp foot), so she stands on that line in front of the cabinet and steps back to the ramp foot as it winds
+      // up. Squared up, its line now also clears the cabinet's corner by a graze, and it meets her.
       ctx.enemies.clearAll();
+      dbg.teleport(-13.8, -15, -6.8, -45, 0);
+      let t = dbg.spawnEnemy('tamper', -5.9, -15, -19.1, 90);
+      await H.until(() => e.actor(t).state === 'charge_windup', 600);
       dbg.teleport(-16.8, -15, -2.2, -45, 0);
-      const t = dbg.spawnEnemy('tamper', -5.9, -15, -19.1, 90);
       await H.until(() => e.actor(t).state === 'charge', 600);
       await H.until(() => e.actor(t).state !== 'charge', 300);
-      const a = e.actor(t);
+      let a = e.actor(t);
       out.graze = { state: a.state, x: a.x, z: a.z, vent: a.ventBack, fromHer: Math.hypot(a.x + 16.8, a.z + 2.2) };
-      // ---- stunned, its back vent open, facing her: lead from in front is plate; from behind it is the vent
+      // ---- stunned (baited into rib n2 by a step, tamper.test.mjs), its back vent open: lead from in front is plate;
+      // from behind it is the vent
+      ctx.enemies.clearAll();
+      dbg.teleport(-7.6, -15, -14.2, -90, 0);
+      t = dbg.spawnEnemy('tamper', 1.2, -15, -15.0, 90);
+      await H.until(() => e.actor(t).state === 'charge_windup', 400);
+      dbg.teleport(-7.6, -15, -18.5, -90, 0);
+      await H.until(() => e.actor(t).state === 'charge_stun', 500);
+      a = e.actor(t);
+      out.stun = { state: a.state, vent: a.ventBack };
       const eye = (p) => [p[0], -15 + 1.65, p[1]];
       const front = [a.x - Math.sin(a.yawDeg * Math.PI / 180) * 5, a.z - Math.cos(a.yawDeg * Math.PI / 180) * 5];
       const back = [a.x + Math.sin(a.yawDeg * Math.PI / 180) * 5, a.z + Math.cos(a.yawDeg * Math.PI / 180) * 5];
@@ -125,8 +138,12 @@ test('polish round 4: an open vent takes lead only from its own side (the back v
       const b = e.shootAt(t, 'vent_back', 'lead_round', eye(back));
       out.back = [b.outcome, b.damage, e.actor(t).state];
       out.hp = [hp0, e.actor(t).hp];
-      // ---- and out of that corner (the cabinet, the ramp's side, the plinth) it comes round to her: it used to walk
-      // into the cabinet for as long as she stood at the ramp foot, 4.8 m off, out of its slam's reach
+      // ---- and out of the dead corner (the cabinet, the ramp's side, the plinth: LEVEL.md has it at -14.7, -5.7) it
+      // comes round to her: it used to walk into the cabinet for as long as she stood at the ramp foot, 4.8 m off, out
+      // of its slam's reach
+      ctx.enemies.clearAll();
+      dbg.teleport(-16.8, -15, -2.2, -45, 0);
+      t = dbg.spawnEnemy('tamper', -12.6, -15, -6.6, 135);
       dbg.god(false);
       const seq = H.seq();
       out.reached = await H.until(() => H.events(seq, /^player\/damaged$/).length > 0, 900);
@@ -138,9 +155,9 @@ test('polish round 4: an open vent takes lead only from its own side (the back v
     console.log('tamper r4:', JSON.stringify(r));
     assert.ok(r.reached > 0 && r.reached <= 900, `out of the cabinet corner it reaches a player who stands at the ramp foot and hurts her within 15 s (tick ${r.reached}; before: never)`);
     assert.equal(r.by, 'tamper:slam');
-    assert.equal(r.graze.state, 'charge_stun');
-    assert.ok(r.graze.x < -12.5 && r.graze.fromHer < 6, `the charge passed the corner of rib n1 and ended at the cabinet, ${r.graze.fromHer.toFixed(1)} m from her (before: at the rib, 17 m off): ${r.graze.x.toFixed(1)}, ${r.graze.z.toFixed(1)}`);
-    assert.equal(r.graze.vent, true);
+    assert.equal(r.graze.state, 'advance', 'the charge was not stunned on the way');
+    assert.ok(r.graze.fromHer < 3, `it passed the corner of rib n1 and met her at the ramp foot (it ends ${r.graze.fromHer.toFixed(1)} m from her; before round 4: stunned at the rib, 17 m off): ${r.graze.x.toFixed(1)}, ${r.graze.z.toFixed(1)}`);
+    assert.deepEqual(r.stun, { state: 'charge_stun', vent: true });
     assert.deepEqual(r.front, ['deflected', 25, 'charge_stun'], 'the back vent from in front: plate');
     assert.deepEqual(r.back, ['weak', 200, 'stagger'], 'from behind: the vent');
   } finally { await game.close(); }

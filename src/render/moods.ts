@@ -60,7 +60,12 @@ export const BLOOM_T_DEFAULT = 1.15, BLOOM_K_DEFAULT = 0.9;
  * are glazed ceramic and satin plate: the gallery's walkway, the hall's floor under its pendants and the chamber's
  * plate carry their lamps as streaks toward the eye. Adobe, plank and sand have none. Low and min draw none of it.
  */
-export const SHEEN: Readonly<Partial<Record<MoodKey, number>>> = { L3: 2.2, L4: 3.0, L5: 2.2, L5c: 1.2, L5p: 2.2 };
+// render-tech, pass i4 (R9 / R16, the visual reviewer: the Windlass's chamber drew Low's frame, 3.7 of 255 apart from the catwalk; "floor sheen reflecting
+// the purple well and the six lamps, plus the air glow already used in the hall"): the chamber's plate takes the hall's sheen (L5 2.2, L5c 1.2, L5p 2.2 -> 3.0)
+// underground look, pass i5 (R16; the visual reviewer: the antechamber 4.3 of 255 from Low, "a visible lamp pool and floor sheen"): L5a 6. The room's slab is
+// worn concrete under two small lights, so its baked light is a fifth of the hall's and the term is squared in it: at the hall's 3 nothing showed, at 9 the
+// floor went pale and lost the embers' orange; at 6 the embers' pool and the cradle lamp's lie along the slab toward her (10.0 of 255 from the checkpoint)
+export const SHEEN: Readonly<Partial<Record<MoodKey, number>>> = { L3: 2.2, L4: 3.0, L5: 3.0, L5a: 6, L5c: 3.0, L5p: 3.0 };
 
 /**
  * High tier only (render-tech, pass i1, lead ruling R9): the air light of each mood (post.ts AirLightEffect): how much of
@@ -69,7 +74,10 @@ export const SHEEN: Readonly<Partial<Record<MoodKey, number>>> = { L3: 2.2, L4: 
  * this table. Low and min draw none of it.
  */
 // underground look, pass i1: L2 0.8 -> 1.0, L4 1.2 -> 1.5, L5 1.2 -> 1.5, L5a 1.4 -> 2.2 (the antechamber and the Tamper's aisle were 3 to 4 of 255 from Low)
-export const AIR: Readonly<Partial<Record<MoodKey, number>>> = { L2: 1.0, L3: 1.4, L4: 2.2, L5: 1.5, L5a: 2.2, L5c: 1.8, L5p: 1.2, L6: 0.8 };
+// render-tech, pass i4 (R16): the chamber's air carries its lamps as the hall's does (L5 1.5, L5c 1.8, L5p 1.2 -> 2.2, 2.4, 2.0), and the Tally House's lantern and panes more of theirs (L2 1.0 -> 1.6)
+// underground look, pass i5: L5a 2.2 -> 3.0 (with the sheen above and the motes below). L3 1.9 was tried for the view from the file door and reverted: the
+// lamp over her head veiled the wall above the door and the bay's wall (milk, not light)
+export const AIR: Readonly<Partial<Record<MoodKey, number>>> = { L2: 1.6, L3: 1.4, L4: 2.2, L5: 2.2, L5a: 3.0, L5c: 2.4, L5p: 2.0, L6: 1.8 };      // (exterior look, pass i6, R16: L6 0.8 -> 1.8: the cage's call lamp and sign light the air of the rock room she steps out of)
 /**
  * High tier only (render-tech, pass i3, R9: from the lift hall's gantry and on the rim High drew Low's frame, 3.7 and 3.3
  * of 255 apart). Two more shapes of the air light (post.ts AIR_CONE_ANGLE, AIR_GLOW_ANGLE), by mood:
@@ -83,15 +91,22 @@ export const AIR: Readonly<Partial<Record<MoodKey, number>>> = { L2: 1.0, L3: 1.
  *              far lamp that lost its place to one would go out at a stroke.
  * A mood without an entry has neither (and draws as before pass i3). The look teams' numbers; Low and min draw none of it.
  */
-export const AIR_CONE: Readonly<Partial<Record<MoodKey, number>>> = { L3: 6, L4: 8, L5: 4, L5a: 3, L5c: 4, L5p: 4 };
-export const AIR_GLOW: Readonly<Partial<Record<MoodKey, number>>> = { L6: 18 };
+// (pass i4: the chamber's cones at the hall's strength, L5 / L5c / L5p 4 -> 8)
+// underground look, pass i5: L4 8 -> 10 (the gantry's views: the pendants' shafts down the nave; at 12 the cage's own lamp filled the cage with mist),
+// L5a 3 -> 6 (the cradle's lamp throws its cone to the slab). L3 9 and L5c 12 were tried and reverted (the bay's wall veiled; the catwalk's tube went white)
+export const AIR_CONE: Readonly<Partial<Record<MoodKey, number>>> = { L3: 6, L4: 10, L5: 8, L5a: 6, L5c: 8, L5p: 8, L6: 6 };
+// exterior look, pass i6 (R16: "stronger glow on the town lamps"): L6 18 -> 22 (26: the panes lost their shape; in the mist a lit window is a pool of light on the air round it)
+export const AIR_GLOW: Readonly<Partial<Record<MoodKey, number>>> = { L6: 22 };
 /**
  * High tier only (underground look, pass i3, R9: "drifting dust in the lamp cones"). The level of the motes that hang
  * in the station's air (vfx/ambient.ts 'air': 400 additive points in a 16 x 5 x 16 m box round the eye, one draw call).
- * The works only: the Tally House has its own motes in the sun's blades, the antechamber is the embers'. A mood without
+ * The works, and since pass i5 the antechamber: the Tally House has its own motes in the sun's blades. A mood without
  * an entry has none; Low and min draw none of it.
  */
-export const AIR_DUST: Readonly<Partial<Record<MoodKey, number>>> = { L3: 0.7, L4: 0.8, L5: 0.6, L5c: 0.7, L5p: 0.8 };
+// underground look, pass i5: the antechamber too (L5a 0.5): the camp's dust hangs in the embers' light
+// exterior look, pass i6 (R16, the rim: "drifting dust catching the last light"): L6 / L6c 0.7. Out there the motes are the ledge's own dust on the evening
+// wind, in the afterglow's colour (system.ts sets ambient.ts uGround.z for them): they cross the dark rock and the cage's mouth and are nothing against the sky
+export const AIR_DUST: Readonly<Partial<Record<MoodKey, number>>> = { L3: 0.7, L4: 0.8, L5: 0.6, L5a: 0.5, L5c: 0.7, L5p: 0.8, L6: 0.7, L6c: 0.7 };
 /**
  * High tier only (render-tech, pass i3, R9: the rim). The glance of a light that stands low in the sky off the ground
  * (SharedUniforms.uGlance; materials.ts WORLD_LIGHT): [the light's strength as a DISPLAY level, in the mood's glow band's
@@ -100,7 +115,8 @@ export const AIR_DUST: Readonly<Partial<Record<MoodKey, number>>> = { L3: 0.7, L
  * teams' numbers; Low and min draw none of it.
  */
 // exterior look, pass i3: 1.6 -> 2.1 (R9, the rim: the ledge's ripples and the stone's top carry the afterglow from every place she stands on it)
-export const GLANCE: Readonly<Partial<Record<MoodKey, readonly [number, number]>>> = { L6: [2.1, 3], L6c: [2.1, 3] };
+// exterior look, pass i6 (R16): 2.1 -> 3.2 (from the cage and the ledge the sand between her and the afterglow is the largest thing in the frame, and it drew Low's)
+export const GLANCE: Readonly<Partial<Record<MoodKey, readonly [number, number]>>> = { L6: [3.2, 3], L6c: [3.2, 3] };
 /**
  * High tier only (render-tech, pass i1, R9): how strongly the relief of a surface's detail texture follows the mood's sun
  * (SharedUniforms.uRelief; materials.ts WORLD_LIGHT). Only moods with a sun in the sky: the fog's lean of an interior mood
@@ -124,12 +140,30 @@ export const RELIEF_SKY: Readonly<Partial<Record<MoodKey, number>>> = { L0: 1.6,
  * in the glow band's colour, at this share of the shafts' strength: the sky spills past the rock frame, the pylon and
  * the town's roofs, and the air over the ledge glows on the afterglow's side. The look teams' number.
  */
+// (exterior look, pass i6: 1.0 was tried for R16 and withdrawn: the sky's spill lifted the mesa behind the last fire and the flame lost its ground, R5)
 export const SHAFT_DUSK: Readonly<Partial<Record<MoodKey, number>>> = { L6: 0.6, L6c: 0.6 };
 /**
  * ... and the veil's share of them at dusk (post.ts VEIL_K is the Long Light's). The last image is dark shapes against a
  * lit sky: at the day's 0.85 the pylon, the windmill and the town's roofs were lifted to the sky's own level.
  */
 export const SHAFT_DUSK_VEIL = 0.12;
+/**
+ * High tier only (exterior look, pass i6; lead ruling R16, both visual reviewers: on the rim and in the last image High
+ * drew Low's frame, 5 of 255 apart: "ground mist over the flat", "a horizon glow band"). The blue hour's MIST on the plain
+ * under the rim: the Long Light's ground dust (post.ts SunShaftEffect, the DUST term) with the layer's own shape. It lies
+ * on the plain (`ground`, the plain's height: she stands 18 m over it and looks down into it), `h` metres deep, counted
+ * along a ray for `far` metres, so it is nothing on the ledge and the rock under it, a thin veil on the track below, a
+ * band round the town's feet and the foot of every far mesa, and whole where the plain meets the sky; what stands in it
+ * keeps its top clear. `k` is its density (per metre of the layer), `col` its own light as a display colour (the dusk's
+ * lavender; toward the afterglow the term's phase warms and lifts it), and it drifts as the day's dust does. A mood
+ * without an entry has none. Low and min draw none of it.
+ */
+export interface MistSpec { readonly k: number; readonly h: number; readonly ground: number; readonly far: number; readonly fade: readonly [number, number]; readonly col: readonly [number, number, number] }
+// (tried: k 0.0075 with [0.40, 0.33, 0.52]: the plain under the ledge went pale and the last image lost its dark third)
+// (tried: fade 650 .. 1000: the mist lay thickest on the far plain, where the last fire burns 520 m out, and took a third of the flame (R5): it
+// thins to a fifth between 180 and 320 m now: it pools round the town, the pylon line and the near swells, and the fire's horizon is clear)
+const MIST_RIM: MistSpec = { k: 0.0062, h: 3.0, ground: -0.6, far: 520, fade: [180, 320], col: [0.35, 0.29, 0.47] };
+export const DUSK_MIST: Readonly<Partial<Record<MoodKey, MistSpec>>> = { L6: MIST_RIM, L6c: MIST_RIM };
 /**
  * High tier only (render-tech, pass i1, R9: "real contact shadows from props and enemies" in every zone): where the ONE
  * shadow map of the tier looks in each mood. Outdoors by day it is the sun's (`dir` null: the mood's own sun direction);
@@ -170,7 +204,12 @@ export interface ShadowSpec {
 // exterior look, pass i3 (R9; the visual reviewer: "raise shadow darkness"): k 0.55 -> 0.60 (a cast shadow is darker), shade
 // 0.45 -> 0.40 (the bake's own shade is deepened a little LESS: at 0.50 and over, the yard, which is all shade, lost the
 // brick and plaster of its walls to one dark violet, and Low's wall was the richer of the two)
-const SHADOW_SUN: ShadowSpec = { dir: null, k: 0.60, half: 26, dist: 70, far: 160, lit: [0.40, 0.62], shade: 0.40, inShade: 0.5, statics: true, tint: [0.020, 0.028, 0.060] };
+// exterior look, pass i4 (R16): k 0.60 -> 0.64 and a bluer sky fill in the tint; shade 0.40 -> 0.36, inShade 0.5 -> 0.45 (what
+// the bake already has in shade takes both, and they add up). Tried and withdrawn: k 0.72 with shade 0.50, then 0.30: the
+// sighting's own frame went one flat blue-violet (the vertex-lit break of the wall in its foreground takes the map's
+// shadow whole and lost its brick; the drifts on the yard's floor were outlined again by their own baked light).
+// High's larger share out of doors is the air (post.ts DUST_*, GLOW_*), not a darker shade
+const SHADOW_SUN: ShadowSpec = { dir: null, k: 0.64, half: 26, dist: 70, far: 160, lit: [0.40, 0.62], shade: 0.36, inShade: 0.45, statics: true, tint: [0.018, 0.030, 0.075] };
 /** under the overhang everything stands in the roof's shade and the frame is the first image: the shade is the bake's own there, and nothing fixed casts */
 const SHADOW_ROOF: ShadowSpec = { ...SHADOW_SUN, shade: 0, statics: false };
 const SHADOW_ROOM: ShadowSpec = { dir: [0.16, 1, 0.10], k: 0.42, half: 13, dist: 7, far: 15 };
@@ -359,7 +398,13 @@ export const MOODS: Readonly<Record<MoodKey, Float32Array>> = {
     // grey. This is the one room whose every surface is lamp-orange and dark: the ambient is the boards' own bounce and
     // 0.72 of the share (the body of the steel falls to the room's level), the key is the lamp flame at 0.76 with most of
     // its hue, the rim follows the key (see vmRim). tests/render/moods.spec holds every OTHER mood at 0.85 of the floors.
-    vmK: 0.764, vmAmbK: 0.66, vmAmbSat: 0.7, vmKeySat: 0.8,   // was vmK 0.86 (r5); closer, pass i3: vmAmbK 0.72 -> 0.66 (after the final rebuild the room behind the gun measured L* 22.9, the steel 25.8: tests/art_weapons/i3_real holds it within 2)
+    // look team gun, pass i4: the Tally House is shown a stop over this mood's exposure (the world's ramp at its door,
+    // layout trg "+1 stop over 1.5 s"), and the rig, which is at display levels, was shown a stop over with it: every number
+    // here had been tuned at twice its face value, and on the hatch stair (the same zone, the gallery's rig) the steel was
+    // "bright chrome", twice the gallery's luminance. The rig is divided by the ramp now (materials.ts vmExposure) and these
+    // are the levels as they are seen: the key 1.4 (it was 0.764 x 2), the ambient 0.72 of it (0.66 x 2 x 0.764 = 1.4 x 0.72),
+    // and the rim one stop under what it was (it was the broad pale light on the barrel and the top strap)
+    vmK: 1.4, vmAmbK: 0.72, vmAmbSat: 0.7, vmKeySat: 0.8,   // (before pass i4: vmK 0.764, vmAmbK 0.66) was vmK 0.86 (r5); closer, pass i3: vmAmbK 0.72 -> 0.66 (after the final rebuild the room behind the gun measured L* 22.9, the steel 25.8: tests/art_weapons/i3_real holds it within 2)
     vmAmb: 0x784d3a, vmKey: 0xffaa66,   // was 0x8a6450, 0xffa866 (r5: the lamp-lit boards are this room's light)
     exposure: 2.5, tint: [1.05, 0.98, 0.90], lift: [0.012, 0.007, 0.009], saturation: 0.92, contrast: 1.16, vignette: 0.55, pulse: 1,
     // underground look, pass i1 (R9): the Tally House had no bloom of its own (the plain 1.15: only the Biders' lamps). The
@@ -382,6 +427,12 @@ export const MOODS: Readonly<Record<MoodKey, Float32Array>> = {
   }),
   L4: build({
     fogA: 0x0a1322, fogB: 0x122a36, mixDist: 1 / 40, density: 0.026, extra: 0,
+    // look team creatures-props, pass i4 (the playthrough reviewer: "at slam range the Tamper fills the frame as flat,
+    // unbroken shapes"): the hall lit a dynamic thing from straight above only, as the gallery did until pass i3, so the
+    // drum's wall (every upright face of the Tamper, the lever, the cage gate) had the ambient alone and its seams, plates
+    // and grime were a dark teal sheet. The teal fill on upright faces and the silhouette that L3 has, at half its level
+    // (0.5 was tried: the Tamper became the palest thing in the hall, a mint casting; it is the hall's dark mass)
+    rim: 0x7cf2e2, rimK: 0.12,
     ambient: 0x1e3a5c, ambientK: 0.40, key: 0x7cf2e2, keyK: 0.45, keyDir: [0, 1, 0],
     vmK: 1.25,   // look-dev r3: the gun's reflections are its light now; at 1 the hall left 12 % of it under L* 12
     exposure: 1.9, tint: [1.0, 1.0, 1.0], lift: [0.004, 0.007, 0.014], saturation: 0.80, contrast: 1.16, vignette: 0.50, pulse: 1,

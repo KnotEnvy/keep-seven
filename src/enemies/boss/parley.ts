@@ -1,7 +1,8 @@
 // src/enemies/boss/parley.ts: the asking (GDD 8.1; skipped on a retry). The written timeline, from the door sealing
 // (closing of pass i3: one roll-call line):
-//   stn_parley_1 0-3.5 s, nar_parley 3.5-7.5, rv_ask 7.5-11.5, stn_parley_2 (the whole roll-call) 11.5-16,
-//   stn_parley_4 16-20 with all six mouths open for 4.0 s from the tick the line appears, phase 1 at 21 s.
+// (pass i4: FOUR lines; the narrator's line has left the asking and the roll-call is six words)
+//   stn_parley_1 0-3.5 s, rv_ask 3.5-7.5, stn_parley_2 (the whole roll-call) 7.5-12,
+//   stn_parley_4 12-16 with all six mouths open for 4.0 s from the tick the line appears, phase 1 at 17 s.
 // A player who held fire gets a free cylinder into six open knots and nar_parley_kept. Any shot before the inspection:
 // a clank, stn_parley_refused, phase 1 at once. The clock is unscaled seconds of simulation.
 //
@@ -33,7 +34,7 @@ const P = BOSS.parley;
  * story data does not carry (a stub's data). The clock that runs is `parleyPlan`'s.
  */
 export const PARLEY_LINES: readonly (readonly [number, string])[] = [
-  [P.line1, 'stn_parley_1'], [P.narrator, 'nar_parley'], [P.ask, 'rv_ask'], [P.line2, 'stn_parley_2'], [P.line4, 'stn_parley_4'],
+  [P.line1, 'stn_parley_1'], [P.ask, 'rv_ask'], [P.line2, 'stn_parley_2'], [P.line4, 'stn_parley_4'],
 ];
 const INSPECTION = 'stn_parley_4';
 const EPS = 1e-6;

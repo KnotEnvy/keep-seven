@@ -73,13 +73,13 @@ function build(sb: Sandbox): void {
     });
   };
   /** damage from a compass direction relative to the view: 0 = ahead, 90 = her right */
-  const arc = (deg: number): void => {
+  const arc = (deg: number, amount = 8): void => {
     const p = ctx.player.position, f = ctx.player.forward;
     const a = (deg * Math.PI) / 180;
     const fl = Math.hypot(f.x, f.z) || 1, fx = f.x / fl, fz = f.z / fl;
     const rx = -fz, rz = fx;
     const dx = fx * Math.cos(a) + rx * Math.sin(a), dz = fz * Math.cos(a) + rz * Math.sin(a);
-    ev.emit('player/damaged', { amount: 8, health: ctx.player.health, kind: 'lunge', source: 'bider', fromX: p.x + dx * 5, fromY: p.y + 1, fromZ: p.z + dz * 5, graceUsed: false });
+    ev.emit('player/damaged', { amount, health: ctx.player.health, kind: 'lunge', source: 'bider', fromX: p.x + dx * 5, fromY: p.y + 1, fromZ: p.z + dz * 5, graceUsed: false });
   };
   const say = (key: StoryKey): void => {
     const l = ctx.data.line(key);
@@ -152,6 +152,13 @@ function build(sb: Sandbox): void {
   add('seventh', 'denied (shiver)', () => ev.emit('weapon/kept', { stage: 'denied', mark: '' }));
   for (const o of OUTCOMES) add('marker', o, () => hit(o));
   for (let d = 0; d < 360; d += 45) add('damage arc', String(d), () => arc(d));
+  // pass i4: a hit as hard as it was (the arc's width, the side's strength), one with no direction, and the scene a card stands aside for
+  for (const d of [0, 90, 180, 270]) add('hit', `heavy ${d}`, () => arc(d, 30));
+  add('hit', 'medium 135', () => arc(135, 18));
+  add('hit', 'no direction (a fall)', () => { const p = ctx.player.position; ev.emit('player/damaged', { amount: 20, health: ctx.player.health, kind: 'kill_volume', source: 'world', fromX: p.x, fromY: p.y, fromZ: p.z, graceUsed: false }); });
+  add('card', 'a vignette starts (the card stands aside)', () => ev.emit('vignette/state', { id: 'vig_tamper', stage: 'started' }));
+  add('card', 'the vignette ends', () => ev.emit('vignette/state', { id: 'vig_tamper', stage: 'ended' }));
+  add('variant', 'no mouse (a phone)', () => { const h = document.documentElement; if (h.getAttribute('data-input') === 'touch') h.removeAttribute('data-input'); else h.setAttribute('data-input', 'touch'); });
   for (const hp of [100, 80, 50, 30, 20, 8]) add('health', 'hp ' + hp, () => ctx.player.debug.setHealth(hp));
   add('health', 'regen on', () => { const hp = ctx.player.health; ev.emit('player/health_segment', { segment: hp > 67 ? 2 : hp > 34 ? 1 : 0, regenerating: true }); });
   add('health', 'regen off', () => { for (const segment of [0, 1, 2] as const) ev.emit('player/health_segment', { segment, regenerating: false }); });

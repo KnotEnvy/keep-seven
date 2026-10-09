@@ -129,7 +129,7 @@ test('real game, a first load with the files held back: the pre-boot page has th
       if (!s) continue;
       if (/title/.test(s.scr)) { done = true; break; }
       if (!/loading/.test(s.scr)) continue;
-      rows.push({ t: (Date.now() - t0) / 1000, bar: s.bar, target: s.target === '' ? -1 : Number(s.target), tail: s.tail, share: total > 0 ? before / 6791954 : 0, says: s.says });
+      rows.push({ t: (Date.now() - t0) / 1000, bar: s.bar, target: s.target === '' ? -1 : Number(s.target), tail: s.tail, share: total > 0 ? before / 7642948 : 0, says: s.says });
       if (!shot && s.bar > 0.3) { shot = true; await page.screenshot({ path: path.join(OUT, 'real_loading_mid.png') }); }
     }
     assert.ok(done, 'the title came');
@@ -143,14 +143,18 @@ test('real game, a first load with the files held back: the pre-boot page has th
     assert.equal(back, 0, 'the line never goes back');
     // the line is the bytes': at every look it is where the bytes handed over so far put it (0.8 of the line for the
     // files, at most 0.12 more for the decodes), give or take the 0.35 s ease
-    const off = rows.filter((r) => !r.tail && r.target >= 0).map((r) => r.target - 0.8 * Math.min(1, r.share));
-    assert.ok(off.length >= 5 && Math.min(...off) > -0.12 && Math.max(...off) < 0.25, `the line is within the decodes' share of the bytes in (${Math.min(...off).toFixed(3)} .. ${Math.max(...off).toFixed(3)})`);
+    // closer, pass i6: the page learns of a file from the browser's resource entry, which can arrive one look (0.2 s) after
+    // this test's route has handed the body over. A look that lands in between read the line as a whole file behind (a
+    // 2 MB file is 0.22 of the line). So the line may be as far as the bytes of the look before, never further back.
+    const off = rows.map((r, i) => ({ r, was: i > 0 ? rows[i - 1].share : r.share })).filter((o) => !o.r.tail && o.r.target >= 0).map((o) => o.r.target - 0.8 * Math.min(1, o.r.share, o.was));
+    const ahead = rows.filter((r) => !r.tail && r.target >= 0).map((r) => r.target - 0.8 * Math.min(1, r.share));
+    assert.ok(off.length >= 5 && Math.min(...off) > -0.12 && Math.max(...ahead) < 0.25, `the line is within the decodes' share of the bytes in (${Math.min(...off).toFixed(3)} .. ${Math.max(...off).toFixed(3)})`);
     const mid = rows.filter((r) => r.share > 0.3 && r.share < 0.7);
     assert.ok(mid.length > 0 && mid.every((r) => r.bar > 0.15 && r.bar < 0.75), 'with a third to two thirds of the bytes in, the line is in its middle (it was at a quarter after two thirds of the wait)');
     assert.equal(rows[rows.length - 1].tail || rows[rows.length - 1].bar > 0.85, true, 'at the end the files are in and the line eases on');
     assert.ok(rows[rows.length - 1].bar < 1, 'and it is not full before the title is there');
     // the size the line divides by is the size that came (a stale figure only bends the line: text.spec.ts holds it within 30 %)
-    console.log(`real cold load at ${RATE / 1e6} MB/s: ${total} bytes of assets (BOOT_FILE_BYTES 6791954), loading screen ${rows[0].t.toFixed(1)} .. ${rows[rows.length - 1].t.toFixed(1)} s, ${rows.length} looks, never back, longest stand-still ${still.toFixed(2)} s, line ${rows.map((r) => r.bar.toFixed(2)).filter((_, i) => i % 3 === 0).join(' ')}`);
+    console.log(`real cold load at ${RATE / 1e6} MB/s: ${total} bytes of assets (BOOT_FILE_BYTES 7642948), loading screen ${rows[0].t.toFixed(1)} .. ${rows[rows.length - 1].t.toFixed(1)} s, ${rows.length} looks, never back, longest stand-still ${still.toFixed(2)} s, line ${rows.map((r) => r.bar.toFixed(2)).filter((_, i) => i % 3 === 0).join(' ')}`);
     await ctx.close();
   } finally { await browser.close(); await server.close(); }
 });

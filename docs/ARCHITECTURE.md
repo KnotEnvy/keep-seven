@@ -2505,23 +2505,23 @@ whose `part` / `solids` rule) contains it.
 
 | Zone asset | Chunk | Triangles | Materials | What it holds |
 |---|---|---|---|---|
-| `env_the_lip` (29 000, 10 calls) | `chunk_lip_rock` | 8 000 | `m_frontier` | every rock face more than 3 m above the path, the overhang roof, the pylon mast above 3 m: the skyline, vertex-lit |
-| | `chunk_lip_upper` | 8 500 | `m_sand`, `m_frontier`, `m_mask` | overhang interior and the first two reaches (z ≥ 54), to 3 m |
-| | `chunk_lip_mid` | 6 000 | `m_sand`, `m_frontier` | the third reach (z 30..54), to 3 m |
-| | `chunk_lip_gate` | 6 500 | `m_sand`, `m_frontier`, `m_pellam`, `m_mask` | the last reach, forecourt, gate wall and piers, pylon foot (z < 30), to 3 m |
-| `env_plenty_street` (48 200, 16 calls) | `chunk_st_east` | 13 400 | `m_sand`, `m_frontier`, `m_pellam`, `m_mask` | Front Street east of x −37 (with the ceramic rib) |
-| | `chunk_st_west` | 15 700 | `m_sand`, `m_frontier`, `m_mask` | Front Street west of x −37 and the gate court |
-| | `chunk_st_yard` | 12 700 | `m_sand`, `m_frontier`, `m_mask` | yard ground, walls, stubs, shed, cart, the Tally House exterior |
-| | `chunk_st_works` | 6 400 | `m_frontier`, `m_pellam` | the yard's tall machinery: the whole drum, the wind-pump, the tank on its stilts (the skyline seen down the street) |
+| `env_the_lip` (31 000, 10 calls) | `chunk_lip_rock` | 9 200 | `m_frontier` | every rock face more than 3 m above the path, the overhang roof, the pylon mast above 3 m: the skyline, vertex-lit |
+| | `chunk_lip_upper` | 9 500 | `m_sand`, `m_frontier`, `m_mask` | overhang interior and the first two reaches (z ≥ 54), to 3 m |
+| | `chunk_lip_mid` | 5 000 | `m_sand`, `m_frontier` | the third reach (z 30..54), to 3 m |
+| | `chunk_lip_gate` | 7 300 | `m_sand`, `m_frontier`, `m_pellam`, `m_mask` | the last reach, forecourt, gate wall and piers, pylon foot (z < 30), to 3 m |
+| `env_plenty_street` (49 700, 16 calls) | `chunk_st_east` | 13 800 | `m_sand`, `m_frontier`, `m_pellam`, `m_mask` | Front Street east of x −37 (with the ceramic rib) |
+| | `chunk_st_west` | 16 000 | `m_sand`, `m_frontier`, `m_mask` | Front Street west of x −37 and the gate court |
+| | `chunk_st_yard` | 13 400 | `m_sand`, `m_frontier`, `m_mask` | yard ground, walls, stubs, shed, cart, the Tally House exterior |
+| | `chunk_st_works` | 6 500 | `m_frontier`, `m_pellam` | the yard's tall machinery: the whole drum, the wind-pump, the tank on its stilts (the skyline seen down the street) |
 | | drawn nodes | | | `pump_rotor`, `pump_tail`, `drum_lamp`, `plug_door_tally` |
-| `env_tally_house` (17 000, 4 calls) | `chunk_ty_hall` | 17 000 | `m_frontier`, `m_pellam`, `m_mask` | the hall; drawn node `strip_hatch` |
-| `env_the_gallery` (26 000, 10 calls) | `chunk_gl_stair` | 4 000 | `m_pellam`, `m_emis` | the three flights, landings, niche (the seam is in it) |
-| | `chunk_gl_bay` | 4 000 | `m_pellam`, `m_mask`, `m_emis` | the proving bay |
+| `env_tally_house` (17 200, 4 calls) | `chunk_ty_hall` | 17 200 | `m_frontier`, `m_pellam`, `m_mask` | the hall; drawn node `strip_hatch` |
+| `env_the_gallery` (24 400, 10 calls) | `chunk_gl_stair` | 3 200 | `m_pellam`, `m_emis` | the three flights, landings, niche (the seam is in it) |
+| | `chunk_gl_bay` | 3 200 | `m_pellam`, `m_mask`, `m_emis` | the proving bay |
 | | `chunk_gl_gallery` | 18 000 | `m_pellam`, `m_mask`, `m_emis` | the 62 m gallery; drawn nodes `strip_flicker`, `violet_hairline` |
 | `env_lift_hall` (26 900, 4 calls) | `chunk_lh_hall` | 26 900 | `m_pellam`, `m_mask`, `m_emis` | the hall, cage bay, cold bay; drawn node `diagram_lamps` |
 | `env_the_bore` (40 000, 10 calls) | `chunk_bo_ante` | 6 500 | `m_pellam`, `m_mask`, `m_emis` | antechamber and the stair down to it (z < 80.3) |
 | | `chunk_bo_chamber` | 33 500 | `m_pellam`, `m_mask`, `m_emis` | arrival bay, catwalk, chamber (six sectors), bore shaft, proving-lift room; drawn nodes `bore_glow`, `bay_lamps`, `mark_glows`, `ante_diagram_lamps` |
-| `env_far_rim` (16 000, 3 calls) | `chunk_rim_ledge` | 16 000 | `m_sand`, `m_frontier`, `m_mask` | the ledge and rock frame |
+| `env_far_rim` (19 000, 3 calls) | `chunk_rim_ledge` | 19 000 | `m_sand`, `m_frontier`, `m_mask` | the ledge and rock frame |
 
 Changes from the first manifest: `env_the_lip` 34 000 → 27 000 and `env_plenty_street`
 70 000 → 54 000 triangles (the art bible's own part lists sum to 25 000 and 50 000).
@@ -2536,18 +2536,18 @@ nodes of zones that have a visible chunk, and chunkless world-space assets.
 
 | Cell | Where | Always | While | Most triangles | Draw calls typ / worst |
 |---|---|---|---|---|---|
-| `cell_lip_gully` | `the_lip`, z ≥ 9 (overhang, four reaches) | the four lip chunks, `chunk_st_east`, `env_backdrop_day` | — | 91 356 | 56 / 63 |
-| `cell_lip_gate` | `the_lip`, the forecourt | the four lip chunks, `chunk_st_east`, `chunk_st_west`, `chunk_st_works`, `env_backdrop_day` | — | 119 507 | 66 / 73 |
-| `cell_street` | `plenty_street`, x > −80 | the four street chunks, `chunk_lip_rock`, `chunk_lip_gate`, `env_backdrop_day` | — | 119 788 | 73 / 80 |
-| `cell_yard_door` | `plenty_street`, x −97..−81, z < −4 (the strip before the Tally door) | `chunk_st_west`, `chunk_st_yard`, `chunk_st_works`, `chunk_lip_rock`, `env_backdrop_day` | `chunk_ty_hall` while `door_tally` is not closed; `chunk_st_east` while it is closed | 115 736 | 76 / 82 |
-| `cell_yard` | `plenty_street`, the rest of the yard | the four street chunks, `chunk_lip_rock`, `chunk_lip_gate`, `env_backdrop_day` | — | 119 788 | 73 / 80 |
-| `cell_tally_seam` | `tally_house`, y < −0.35 (the stair, surface resident) | `chunk_ty_hall` | `chunk_gl_stair` while flag `hatch_powered` | 80 848 | 50 / 58 |
-| `cell_tally` | `tally_house`, the hall | `chunk_ty_hall` | `chunk_st_yard`, `chunk_st_works`, `env_backdrop_day` while `door_tally` is not closed; `chunk_gl_stair` while `ia_hatch` is not closed | 108 813 | 78 / 86 |
-| `cell_gallery_stair` | `the_gallery`, the stair shaft | `chunk_gl_stair`, `chunk_gl_bay` | — | 57 175 | 42 / 50 |
-| `cell_gallery` | `the_gallery`, bay and gallery | the three gallery chunks | `chunk_lh_hall` while `door_gallery_far` is not closed | 118 700 | 84 / 92 |
-| `cell_hall` | `lift_hall` | `chunk_lh_hall` | `chunk_gl_gallery`, `chunk_gl_bay` while `door_gallery_far` is not closed | 110 792 | 81 / 89 |
-| `cell_bore` | `the_bore` | both bore chunks | — | 92 808 | 65 / 73 |
-| `cell_rim` | `far_rim` | `chunk_rim_ledge`, `rim_town_card`, `env_backdrop_dusk` | — | 41 324 | 22 / 27 |
+| `cell_lip_gully` | `the_lip`, z ≥ 9 (overhang, four reaches) | the four lip chunks, `chunk_st_east`, `env_backdrop_day` | — | 90 154 | 56 / 63 |
+| `cell_lip_gate` | `the_lip`, the forecourt | the four lip chunks, `chunk_st_east`, `chunk_st_west`, `chunk_st_works`, `env_backdrop_day` | — | 118 670 | 66 / 73 |
+| `cell_street` | `plenty_street`, x > −80 | the four street chunks, `chunk_lip_rock`, `chunk_lip_gate`, `env_backdrop_day` | — | 119 840 | 73 / 80 |
+| `cell_yard_door` | `plenty_street`, x −97..−81, z < −4 (the strip before the Tally door) | `chunk_st_west`, `chunk_st_yard`, `chunk_st_works`, `chunk_lip_rock`, `env_backdrop_day` | `chunk_ty_hall` while `door_tally` is not closed; `chunk_st_east` while it is closed | 116 445 | 77 / 83 |
+| `cell_yard` | `plenty_street`, the rest of the yard | the four street chunks, `chunk_lip_rock`, `chunk_lip_gate`, `env_backdrop_day` | — | 119 840 | 73 / 80 |
+| `cell_tally_seam` | `tally_house`, y < −0.35 (the stair, surface resident) | `chunk_ty_hall` | `chunk_gl_stair`, `chunk_gl_bay` (pass i4: the proving bay seen down flight 2) while flag `hatch_powered` | 82 343 | 65 / 73 |
+| `cell_tally` | `tally_house`, the hall | `chunk_ty_hall` | `chunk_st_yard`, `chunk_st_works`, `env_backdrop_day` while `door_tally` is not closed; `chunk_gl_stair` while `ia_hatch` is not closed | 105 562 | 79 / 87 |
+| `cell_gallery_stair` | `the_gallery`, the stair shaft | `chunk_gl_stair`, `chunk_gl_bay` | — | 58 960 | 42 / 50 |
+| `cell_gallery` | `the_gallery`, bay and gallery | the three gallery chunks | `chunk_lh_hall` while `door_gallery_far` is not closed | 115 700 | 84 / 92 |
+| `cell_hall` | `lift_hall` | `chunk_lh_hall` | `chunk_gl_gallery`, `chunk_gl_bay` while `door_gallery_far` is not closed | 108 589 | 81 / 89 |
+| `cell_bore` | `the_bore` | both bore chunks | — | 89 208 | 65 / 73 |
+| `cell_rim` | `far_rim` | `chunk_rim_ledge`, `rim_town_card`, `env_backdrop_dusk` | — | 41 620 | 22 / 27 |
 
 - **The numbers are computed, not estimated.** "Most triangles" is everything those rules
   allow to be drawn at once, whatever the camera faces: the visible chunks, the backdrop,
@@ -2952,6 +2952,40 @@ Low would reach 69.1: the fallback is then Low's buffer cap at 1280 × 720 (24.6
   - **Player (`src/player/system.ts`):** the view-model is let down on `ending/fire` and raised again by
     `weapon/fired` or a reload; `__dbg.ext.player.lowered()`. Enemies debug: `__dbg.ext.enemies.bossAsked(bool)`;
     `boss()` reports `askedBefore`, `parleySkipped`, `parleyKeys`, `parleyHolds`, `rollLit`.
+- **Pass i4 (2026-10-08; cross-cutting fixer).**
+  - **3.1, 11.1 the release build has no debug hook.** `vite.config.mts` defines `__KEEP7_HOOK__`: false in a plain
+    build (`npm run build`, the Pages workflow), where `src/main.ts` neither installs the hook nor reads `test`,
+    `debug`, `cp`, `autostart`, `stubs` or `assets` from the URL, and the bundler drops `installDebugHook` and its
+    driver. True in the dev server and in a build made with `KEEP7_HOOK=1`: `tests/harness.mjs`
+    `startServer({ mode: 'build' })` sets it (the tests that step a production build), `hook: false` asks for the
+    release bundle. `tools/release_check.mjs` fails a build whose script still names the driver.
+  - **3.1 the boot waits for the page.** `index.html` tells a visitor without a fine pointer or without pointer lock
+    that the game needs a mouse and a keyboard, sets `html[data-input="touch"]`, and leaves `window.__keep7Gate` (a
+    promise) for `src/main.ts`, which awaits it before `createContext`: no model or texture is asked for until the
+    visitor presses "Load it anyway". The same inline script shows one line with a reload button when the script or
+    the stylesheet fails to load (a capturing `error` listener), and "Still waiting on the connection." after 20 s.
+    Its words are `story.json` `system.*` (`tests/core/pageHead.spec.ts`).
+  - **9 (the asset store) asset URLs carry the build's version**: `assets/<category>/<name>?v=<8 hex>` (`__KEEP7_ASSETS__`: a hash of
+    the manifest and every file under `public/assets`; `AssetStoreDeps.version`). Empty in dev and tests: a test that
+    routes an asset of a BUILD by address must allow a query.
+  - **9 a stalled request**: `AssetStoreImpl.fetchOnce` reads a body as it arrives and aborts a request from which no
+    byte has come for `STALL_ABORT_MS` (30 s; `AssetStoreDeps.stallMs`); the abort is a transient failure (four tries).
+    `quietFor()` = ms with requests waiting and nothing arriving; `src/core/flow.ts` `watchConnection` shows
+    `system.waiting` (`#flow-waiting`) after `STALL_SAY_MS` (8 s) in the states `boot` and `loading`.
+  - **3.6 the next set is fetched ahead**: on `zone/entered`, when the next zone of `layout.zones` belongs to another
+    resident set, core prefetches that set (the Tally House: `underground`; the bore: `coda`). Not in test mode.
+  - **10.1 the run's time and deaths are the run's**: `Flow.carryStats` copies `world.stats.playSeconds` and `deaths`
+    into the save before every restore of the run she is in (a death, a restart, the net) and stores it.
+  - **7.5 the ledger counts a cell's own zone's dressing whole** (`tools/validate_assets.mjs` `cellBudget`): a zone's
+    instanced dressing is submitted whole from every cell of the zone. Other zones seen from a cell are still counted by
+    the share of their chunks that is visible.
+  - **11.3 the harness**: `tools/browser.mjs` kills this process's children and exits on SIGTERM / SIGINT / SIGHUP or
+    when its parent goes away (a suite cut off by a time limit left 62 browsers); `grantPointerLock(pageOrContext)`
+    (also exported by `tests/harness.mjs`) must be used by any script that clicks "Begin" on a page without the hook:
+    a real pointer lock in headless Chromium floods the page with synthetic mouse events. Time budgets at
+    `--test-concurrency=1` on this machine: `tests/render/` 11 minutes, `tests/world/` 7, `tests/ui/` 7: give a suite
+    15 minutes before calling it hung.
+  - **`__dbg.setAmmo`** refuses a non-finite argument by name, like the other cheats.
 
 ### 8.5 Tier detection and adaptive resolution (`core/quality.ts`)
 
@@ -3026,6 +3060,100 @@ went to half resolution for 50 frames two seconds in, and a fill-bound one climb
   active textures plus bone textures; `renderTargetBytes` from the buffers actually
   allocated (the same per-pixel figures as 8.4, at the current buffer size); `cell` is the
   visibility cell the frame was drawn from.
+- **Pass i4 (2026-10-08; closer): what the pass's code and look teams built.**
+  - **3.6 a line round holds its first body's height.** Once it has gone through a body the round runs level (same
+    heading) for the rest of its 60 m when the level run meets every receiver the aim ray would have met behind that
+    body and at least one body more; never when fired steeper than 30 degrees (`LINE_HOLD_MAX_SLOPE` 0.5).
+    `weapon/fired.end*` of a held round is the point where it met the first body (render draws muzzle to there); the
+    player asks `render.vfx.line('line_round', ...)` for the level run (two lines a shot, pool 4);
+    `combat/line_resolved.end*` is the true end. Hits of the level run carry that ray in `DamageInfo` (`ox..oz` the
+    bend, `dx..dz` level): a receiver that needs the shooter's eye uses the player's position.
+  - **3.6 the flinch** is added to the camera only, like the gun's kick: the stored aim never moves. The player's debug
+    snapshot gains `hurtPitchDeg`, `hurtYawDeg`, `hurtRollDeg`, `lineHolding`.
+  - **6 / 3.6 the static set of the surface holds the underground's solids too** (everything underground lies under
+    y = -2, the surface above y = -1): the swap on the peg stair builds no BVH; a restore or a warp straight
+    underground builds that set alone. The lift's dark still builds the coda's.
+  - **7.5 / 11.1 `cell_tally_seam` also draws `chunk_gl_bay`** while `hatch_powered` is set (closer; plan 82 343
+    triangles, 65 / 73 draw calls).
+  - **8.2 the warm-up of the tier below** is compiled at boot in slices behind the loading screen without
+    `KHR_parallel_shader_compile` too (`NEIGHBOUR_SLICE_MS` 8 ms or `NEIGHBOUR_SLICE_PROGRAMS` 4 programs a slice);
+    it is owed only when a warm-up falls in play.
+  - **8.4 the view-model.** The rig's ambient, key and rim are divided by the world's exposure ramp
+    (`materials.vmExposure`): a `setExposure` ramp no longer brightens the gun. `m_gun` and `m_hands` are held on the
+    screen through the frame's own grade (`keepHold`; `uObj[1].w` carries the frame's exposure for view-model draws;
+    no new uniform, texture or program): `GUN_HUE` 0.86 / 1.0 / 1.44, `GUN_BODY_SAT` 0.08, `GUN_CASE_SAT` 0.35,
+    `GUN_HOT` 0.10 to 0.40, `GUN_SHOW` 0.34 / 0.58, `HANDS_HUE` 1.50 / 0.89 / 0.55, `HANDS_BODY_SAT` 0.30,
+    `GUN_EDGE_ON` 0.2, `GUN_BAND_K` 5.8. Mood L2: `vmK` 1.4, `vmAmbK` 0.72. On High the hold does not see bloom, air
+    or the vignette.
+  - **8.4 High's tables.** Out of doors, in `post.ts` `SunShaftEffect` (same pass, same depth read, no new target;
+    under the Long Light only; they skip the view-model's depth range): `DUST_K` 0.036, `DUST_H` 0.9, `DUST_FAR` 150,
+    `DUST_SUN` 0.7, `DUST_HIDE` 0.6, `DUST_MAX` 0.5, `DUST_DARK` 0.7, `DUST_GULLY` 0.3, `DUST_WIND` 0.5; `GLOW_K` 1.0,
+    `GLOW_FALL` 11, `GLOW_NEAR` 0.3; `SHADOW_SUN` k 0.64, shade 0.36, inShade 0.45. Indoors (`moods.ts`): `SHEEN`
+    L5 / L5c / L5p 3.0; `AIR` L2 1.6, L5 2.2, L5c 2.4, L5p 2.0; `AIR_CONE` 8; `AIR_LAYOUT.bore_glow` 2.8 / 9 m. The
+    contact shade's strength is multiplied by `1 - proveGlare` (the seventh's whiteout). Mood L4 has a rim of 0.12.
+    `__dbg.ext.render.dust(on?)` switches the dust for a test.
+  - **8.4 instances.** `GLOW_SETS` is a record of glow specs (the stake's, and the kept round's violet band on the
+    stone); an instanced thing in mood L6 takes `INST_DUSK` (0.40, 0.38, 0.44 linear) instead of ambient + key / 2.
+  - **8.4 bones.** `quiet.ts` `quietBones` writes a moved skeleton's matrices straight to the texture three made,
+    through three's state cache (three's own path built a cache-key string per bone texture per frame). `src/core/assets.ts`
+    installs a per-instance `skeleton.update`, so a prototype patch of it is never called.
+  - **8.5 adaptive resolution.** On Low and High the canvas is allocated once per window size and tier, at the tier's
+    largest ratio; a step resizes only the composer's off-screen targets and the chain's last pass enlarges the
+    picture. `min` has no off-screen target and still steps its canvas. `PerfStats.width / height` are the CANVAS's;
+    `__dbg.ext.render.sizeState()` gives the scene buffer.
+  - **9 the seam's fog.** On the seam with the eye under y -0.3 (`UNDER_Y`) in mood L2, the far fog and the fog
+    behind everything are the gallery's two colours at the gallery's display level (`UNDER_FADE` 0.5 s).
+  - **The world adds one mesh at construction**: `world_sight_rock` under `scene.dynamic` (`src/world/sightRock.ts`).
+  - **Enemies' hint rings**: `render.setOutline` with the group `enemies_hint_rings` (an invisible material: nothing
+    in the frame's own pass, at most three draw calls of 200 triangles in the outline pass); the last caller of
+    `setOutline` wins. Test-only helpers under `__dbg.ext.enemies`: `tamperHelp()`, `tamperDeaths(n)`,
+    `bossDeaths(n, lastKind)`.
+  - **Audio reads `kind`, `source`, `fromX`, `fromZ` of `player/damaged`** (it read `amount` only): a blow whose
+    from-point is left at 0, 0 leans toward the world's origin. A new `DamageKind` needs a row in `HURT_KIND`.
+  - **UI**: a movement card stands aside while `vignette/state` is `started` or `enemies.threat > 0`;
+    `hud.debug().lineLabel` is true whenever a line round is held; `hud.debug().dial` flags the asking's volume.
+- **Pass i5 (2026-10-08; closer): what the pass's code and look teams built.**
+  - **8 the blob shadow's shade probe.** Out of doors only, `system.ts` `shadeAt` runs one `collision.lineOfSight`
+    per drawn frame (each of the 16 blob slots every 16 frames): from 1 m over the blob, 80 m toward the sun
+    (`uSunDir`), ignoring grilles and undrawn colliders; the answer is eased over 0.25 s (`BLOB_SHADE_EASE`). The
+    vfx reads it through the `VfxHost.shadeAt` hook: `BLOB_ALPHA` 0.55, `BLOB_ALPHA_SHADE` 0.8,
+    `BLOB_ALPHA_SHADE_HIGH` 0.9, `BLOB_CORE` 0.4, `BLOB_CORE_HIGH` 0.8 (`vfx/vfx.ts`); `SHAPE_BLOB` in
+    `vfx/quads.ts` has a core at 0.10 to 0.50 of the quad's radius. No quad, draw call, texture or program more;
+    nothing allocated; the simulation is not touched. The probe reads colliders, not the bake. Debug:
+    `__dbg.ext.render.blobs(on?)` (each blob's shade, opacity and core; `false` switches the probe off). A Transit's
+    blob is `setLevel(1.8)` in `src/enemies/pool.ts` (closer).
+  - **8.4 High's sun shadow.** The shadow twins use a constant polygon offset (`polygonOffsetFactor` 0,
+    `polygonOffsetUnits` -4; it was -1 / -1 and a slope-scaled offset brought the ground's twin through a drift
+    lying over it). `SHADOW_WALL_IN_SHADE` 0.27: in `keepShadowGate` a wall in baked shade takes that share of the
+    in-shade term by its own normal (`fn.y` 0.35 to 0.75), and up-facing ground (`fn.y` 0.80 to 0.93) always counts
+    as facing the light. A vertex-lit face in a building's shade still takes the shadow whole (its lightmap texel is
+    the neutral one): anything new placed there should be lightmapped (`ext_frontier.Isles`).
+  - **8.4 the overhang's motes.** `vfx/ambient.ts` `OUT_SIZE`, `OUT_ALPHA`, `OUT_SPREAD`, `OUT_FAR`: the motes
+    branch of the two shaders draws the outdoor mote when `uGround.w` is 1, which `system.ts` sets in `the_lip`.
+  - **8.4 the view-model.** `m_gun`: a `tx_gun` texel that is not steel and whose gloss is under 0.42 (the walnut) is
+    lifted to `WOOD_FLOOR` 0.70 of the level it would have under a white light of the room's luminance and held on
+    the screen to `WOOD_HUE` (2.20, 0.70, 0.46) with `WOOD_BODY_SAT` 0.40 of what the room made of it. `m_hands`: a
+    `tx_hands` texel whose blue is over its red (the oilcloth) is held to `SLEEVE_HUE` (0.95, 0.99, 1.16) with
+    `SLEEVE_BODY_SAT` 0.25; `VM_HANDS` 1.10 (it was 0.96; above 1.12 the hand's key under the overhang fails its
+    test). No new uniform, texture or program. **If the room behind the gun is made brighter, raise that mood's
+    `vmK`, not the hands' share** (`tests/render/polish3` R6: the view-model within L* 9 of what it covers).
+  - **8.4 the knot's emissive.** In the object shader a lobe's violet is `KNOT_BEAD_EDGE` 0.34 where a facet is seen
+    edge-on and `KNOT_BEAD_HEART` 1.30 where it faces the eye (one dot product; the livery bands of columns 6 and 7
+    stay even). Every knot in the game.
+  - **8.4 High indoors.** `SHEEN.L5a` 6, `AIR.L5a` 3.0, `AIR_CONE` L5a 6 and L4 10, `AIR_DUST.L5a` 0.5,
+    `AIR_LAYOUT.practical` 1.5 / 4.5 m (shared by the Tally House's lantern and the antechamber's embers).
+    `post.ts` `AO_THIN` stays 0.028 (0.035 was tried by the closer for the hung hats and reverted: the gallery lost its shade). A lamp still lights
+    only the air of the zone the player stands in (`gatherAir`).
+  - **7.5 built sizes.** `prop_rim_stone` 1 196 / 1 200 in two meshes (`m_prop`, `m_frontier`; the manifest lists
+    both, 2 draw calls; `blender/lib/zone.py` `embed_prop` reads one material a mesh, so a prop that needs two
+    brings two meshes), `env_far_rim` 12 340 / 19 000 in 3 draw calls, `boss_windlass` 8 375 / 8 400,
+    `weapon_revolver` 12 093 / 14 000, `env_the_bore` 39 849 / 40 000 (with the two thresholds' floor, below), `env_plenty_street` 49 051 / 49 700,
+    `env_backdrop_dusk` 2 857 / 3 200, `prop_wagon_tipped` 1 306 / 1 500, `prop_hat_hung` 108 / 110.
+  - **The world's sighting.** `src/world/director.ts`: `SIGHT_RISE` 0.35 s, `SIGHT_CLEAN_UNDER` 1.0,
+    `SIGHT_CLEAN_SIDE` 0.9, `SIGHT_CLEAN_EVERY` 4 ticks, `sightLineClean`, `sightUp`; the director's debug state
+    gained `sightUp` and `sightClean` (the playthrough's hash changed with it).
+  - **The UI's hit flare** is three box-shadows a lit side (`.hurt` in `src/ui/ui.css`, `--hurt`, `--hurt-hot`); its
+    colours are named in `tests/ui/i4.test.mjs` and `HURT_COLOURS` of `tests/ui/perf.test.mjs`.
 - **Perf overlay**: `F3`, or `?perf=1`. Shows `PerfStats`, the current cell and its computed
   bound from `assets.json`, the tier caps, and a 120-frame bar of `frameMs`. Red when over.
 - **Machine-readable**: `window.__dbg.perf()`, `perfPeak()`, `perfRun(ticks)` (section 11).
@@ -3243,7 +3371,7 @@ equivalent glob form (one process per file).
 | `cp=<checkpoint id>` | boot straight into a run at that checkpoint |
 | `autostart=1` | leave the title for `cp_lip_start` without a click |
 | `perf=1` | show the overlay |
-| `debug=1` | install the hook and overlay key in a production build |
+| `debug=1` | install the hook and overlay key in a production build **made with `KEEP7_HOOK=1`** (pass i4: a release build has no hook and reads neither this nor `test`, `cp`, `autostart`, `stubs`, `assets`) |
 | `persist=1` | use real `localStorage` in test mode |
 | `assets=none` | dev / test only: the asset store fetches nothing and synthesises every asset and texture from the manifest and the layout (how core is tested without the pipeline's files) |
 | `stubs=all`, `stubs=world,enemies` | dev / test, and a build with `?debug=1`: the named slots of the index page keep their core stub and that piece's module is not loaded. `src/main.ts` imports the six pieces dynamically; the build inlines them (`output.codeSplitting: false`), so the bundle is still one script |
@@ -3656,3 +3784,37 @@ the 256-sample vertex light; a skipped lightmap that exits 0; `nodePos` / `nodeP
 the weapon and the creatures in the manifest; the manifest's `props_dress` owner on the
 three shared texture scripts that production gave to `art-props-mech`; the 0.75 m chunk-box
 tolerance (level owner).
+
+## Pass i6 (closer, 2026-10-08): what the pass's teams changed in the contracts' neighbourhood
+
+No interface, event, node, clip or budget changed. Mirrored from the "pass i6" sections of the request files.
+
+- **7.4 interior lighting: painted dirt.** A zone may multiply its baked lightmap by dirt painted by world position:
+  `blender/env_interior/lm_paint.py` `texel_map` gives every texel of an atlas its game position and normal, and the
+  zone's own function darkens the light there (no triangle, texture or draw call). Only `env_lift_hall.py` and
+  `env_the_bore.py` import it. After editing `lm_paint.py` rebuild both zones with `--force`.
+- **7.5 sizes as built:** `boss_windlass` 8 371 of 8 400 (341.6 kB), `env_lift_hall` 25 506 of 26 900, `env_the_bore`
+  39 981 of 40 000 (19 free), `env_plenty_street` 49 177 of 49 700 (`chunk_st_yard` 13 282 of 13 400, `chunk_st_east`
+  13 400 of 13 800), `env_the_lip` 28 289 of 31 000, `env_backdrop_dusk` 3 069 of 3 200, `weapon_revolver` 12 093 of
+  14 000. `boss_windlass.py` imports `blender/tex/knot_atlas.py` (tracked: a change to the atlas rebuilds the boss).
+- **8.4 `m_gun`:** `GUN_BARE_0` / `GUN_BARE_1` are **0.045 / 0.140** (0.060 / 0.170): thinned blue starts to mirror a
+  little sooner. The steel's hue is where it was.
+- **8.4 the shadow twin (High):** a face whose UV1 lies in the neutral 4 x 4 block of a real lightmap is vertex-lit: it
+  takes `SHADOW_VERTEX_LIT` **0.22** of the map's shadow and none of the shade's deepening (`makeShadowMaterial`,
+  `keepShadowGate` in `src/render/system.ts`). Every embedded prop of every zone is under this rule.
+- **8.4 a lamp's hue** (`materials.ts` `lampInfoOf`) is its **highest UV0 column**, not the column of its first stored
+  vertex. A lamp on one palette cell reads as before. **A lamp's power in High's lit air is the mean of its COLOR_0 R**
+  and only the twelve strongest lamps in view are kept (`AirLights`): painting a lamp's vertex intensity for look can
+  put out a room's lit air. The Windlass's cores are held at a mean of 0.33 for this; rerun `tests/render/i4` test 4
+  after touching them.
+- **8.4 the ground dust (High):** the layer's height, reach and far fade are a uniform (`uShAir`, `PostChain.dustAir`,
+  `DustUniforms.air`); by day it holds the old constants (`DUST_H`, `DUST_FAR`, 160, 230). In the blue hour it is
+  `DUSK_MIST` (`MistSpec` in `moods.ts`: `k` 0.0062, `h` 3.0, `ground` -0.6, `far` 520, `fade` 180 to 320).
+  `DUST_ROOF` 0.8 draws the layer from under a roof; `DUST_GULLY` is 0.55 (0.3). The gully's shafts are 2.2 m at 0.21.
+- **8.4 the 'air' motes:** while `uGround.z` is 1 (the blue hour only; `system.ts` sets it in the 'air' branch, 0 in
+  every other mood) they drift at `DUSK_DRIFT` 0.22 m/s, `DUSK_SIZE` 1.5, `DUSK_COL`. Still the one ambient draw call.
+- **8.4 mood tables, L6 / L6c rows:** `AIR_DUST` 0.7, `AIR` 1.8 (0.8), `AIR_CONE` 6, `AIR_GLOW` 22 (18), `GLANCE` 3.2
+  (2.1). Tried and withdrawn: `SHAFT_DUSK` 1.0, `AIR_GLOW` 26, mist `k` 0.0075 with a far fade of 650 to 1 000 m.
+- **World:** `tickSighting` tries the clean line every tick while `sightUp` > 0 (every `SIGHT_CLEAN_EVERY` ticks
+  while he is down) and sets `sightUp` to 0 on the tick it is not clean. `sightUp` / `sightClean` are in the hashed
+  debug state: the playthrough's hash moved to `1938ee81` with the same ticks and stats.

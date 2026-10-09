@@ -1,6 +1,6 @@
 // The three enemies (GDD 7, the "Audio" line of each; 17 "Key SFX"). Every tell is a sound before it is a threat.
 import { BUS_FX } from './graph.ts';
-import { PRIO_CONFIRM, PRIO_OTHER, PRIO_TELEGRAPH, snd } from './sound.ts';
+import { PRIO_CONFIRM, PRIO_OTHER, PRIO_TELEGRAPH, baked, snd } from './sound.ts';
 import type { SoundTable } from './sound.ts';
 import { bell, click, noise, noiseHold, ticks, tone, toneHold, wobble } from './synth.ts';
 import { degree } from './tuning.ts';
@@ -88,12 +88,15 @@ export function creatureSounds(): SoundTable {
       ticks(g, out, t + 0.06, 9, 0.6, 1.6, 'bandpass', 1500, 2, 0.3, 0.03, 0.8);      // debris
     }, 40),
     // a round off the plate: a clank with a skipping bell
-    tamper_clank: snd(BUS_FX, PRIO_CONFIRM, 0.32, 0.35, (g, out, t) => {
+    // (pre-rendered at load, as the other confirms are: its five bells are 50 nodes a start)
+    tamper_clank: baked(snd(BUS_FX, PRIO_CONFIRM, 0.32, 0.35, (g, out, t) => {
       tone(g, out, t, 0.12, 'square', 232, 224, 0.2, 0.0008); tone(g, out, t, 0.1, 'square', 353, 340, 0.12, 0.0008);
-      noise(g, out, t, 0.04, 'bandpass', 1900, 1500, 2, 0.36, 0.0005);
+      noise(g, out, t, 0.07, 'bandpass', 1900, 1300, 2, 0.5, 0.0005);
       const f = degree(2, 4) * 0.972;
       bell(g, out, t + 0.014, f, 0.16, 0.24); bell(g, out, t + 0.07, f, 0.13, 0.14); bell(g, out, t + 0.112, f, 0.11, 0.08);
-    }, 30),
+      // the plate's ring an octave and a fifth up (960 Hz): over the report's tail, which lives where the clank does (330 Hz)
+      bell(g, out, t + 0.014, f * 3, 0.2, 0.2); bell(g, out, t + 0.07, f * 3, 0.14, 0.1);
+    }, 30)),
     // behind the bulkhead, every 2.6 s, until it dies or comes out
     tamper_pound: snd(BUS_FX, PRIO_OTHER, 0.6, 0.6, (g, out, t) => {
       const lp = g.filter('lowpass', 260, 0.8); lp.connect(out);

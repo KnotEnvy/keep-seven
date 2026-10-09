@@ -169,7 +169,7 @@ test('the mark stands lower left over the health bars at every shape of frame: c
       assert.ok(g.sv.b < g.health.t - 6, `${at}: the seventh ends ${(g.health.t - g.sv.b).toFixed(1)} px above the health bars`);
       assert.equal(overlap(g.mark, g.sub) || overlap(g.mark, g.capt), false, `${at}: clear of the longest subtitle at XL and of the caption`);
       // the revolver's corner: nothing of the gauges is in the right half below the middle any more
-      const right = await game.page.evaluate(() => [...document.querySelectorAll('.k7 .hud > *')].filter((n) => { if (n.classList.contains('xh') || n.classList.contains('lowf')) return false;   /* pass i3: .lowf is the low-health line round the whole frame, not a gauge */ const b = n.getBoundingClientRect(); return b.width > 0 && b.right > innerWidth * 0.5 && b.bottom > innerHeight * 0.5 && getComputedStyle(n).display !== 'none'; }).map((n) => n.getAttribute('class')));
+      const right = await game.page.evaluate(() => [...document.querySelectorAll('.k7 .hud > *')].filter((n) => { if (n.classList.contains('xh') || n.classList.contains('lowf') || n.classList.contains('hurt')) return false;   /* pass i3: .lowf is the low-health line round the whole frame, not a gauge; pass i4: nor is .hurt, the four sides a hit lights */ const b = n.getBoundingClientRect(); return b.width > 0 && b.right > innerWidth * 0.5 && b.bottom > innerHeight * 0.5 && getComputedStyle(n).display !== 'none'; }).map((n) => n.getAttribute('class')));
       assert.deepEqual(right, [], `${at}: no gauge in the lower right`);
       // sizes (story-ux): 15 x 36 px and 13 px at 720p before
       assert.ok(g.sv.w >= 19 && g.sv.h >= 47, `${at}: the seventh ${g.sv.w.toFixed(1)} x ${g.sv.h.toFixed(1)} px`);

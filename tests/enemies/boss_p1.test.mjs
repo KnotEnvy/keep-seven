@@ -177,7 +177,7 @@ test('shoot what glows (polish round 3, R2): a lit knot in an open mouth takes i
   } finally { await game.close(); }
 });
 
-test('the asking (GDD 8.1; closing of pass i3: one roll-call line of 4.5 s): the 21 s timeline, the mouths open at 16 s for 4.0 s or until the second free hit (the gift is two), nar_parley_kept; a shot before stn_parley_4 is a refusal and phase 1 begins at once', async () => {
+test('the asking (GDD 8.1; pass i4: four lines): the 17 s timeline, the mouths open at 12 s for 4.0 s or until the second free hit (the gift is two), nar_parley_kept; a shot before stn_parley_4 is a refusal and phase 1 begins at once', async () => {
   const game = await openScene('bore');
   try {
     const r = await inPage(game, async (dbg, e, core) => {
@@ -195,7 +195,7 @@ test('the asking (GDD 8.1; closing of pass i3: one roll-call line of 4.5 s): the
         const b = e.boss();
         if (b.mouths.join('') === '111111' && b.phase === 'parley') open++;
         // one early in the window, the second 0.15 s before it ends (polish round 3: the gift is two, and the lids shut on the second)
-        if (b.phase === 'parley' && b.mouths.join('') === '111111' && hits.length < 6 && ctx.clock.tick - t0 > (hits.length < 1 ? 975 : 1190)) {
+        if (b.phase === 'parley' && b.mouths.join('') === '111111' && hits.length < 6 && ctx.clock.tick - t0 > (hits.length < 1 ? 735 : 950)) {
           hits.push(e.shootBoss('knot', hits.length).outcome);
           if (hits.length === 2) { out.shutOnFourth = e.boss().mouths.join(''); out.fifth = e.shootBoss('knot', 4).outcome; }
         }
@@ -221,17 +221,18 @@ test('the asking (GDD 8.1; closing of pass i3: one roll-call line of 4.5 s): the
       return out;
     });
     assert.deepEqual(r.start, ['parley', 1]);
-    assert.deepEqual(r.lines.slice(0, 6).map((x) => x[1]), ['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_4', 'nar_parley_kept']);
-    const at = r.lines.slice(0, 6).map((x) => x[0] / 60);
-    for (const [i, want] of [0, 3.5, 7.5, 11.5, 16, 20].entries()) assert.ok(Math.abs(at[i] - want) <= 1 / 30, `line ${i} at ${at[i].toFixed(3)} s (want ${want})`);
+    // (pass i4: four lines; the narrator's line has left the asking)
+    assert.deepEqual(r.lines.slice(0, 5).map((x) => x[1]), ['stn_parley_1', 'rv_ask', 'stn_parley_2', 'stn_parley_4', 'nar_parley_kept']);
+    const at = r.lines.slice(0, 5).map((x) => x[0] / 60);
+    for (const [i, want] of [0, 3.5, 7.5, 12, 16].entries()) assert.ok(Math.abs(at[i] - want) <= 1 / 30, `line ${i} at ${at[i].toFixed(3)} s (want ${want})`);
     assert.deepEqual(r.stages.map((x) => x[1]), ['start', 'inspection', 'kept', 'end']);
-    assert.ok(Math.abs(r.stages[1][0] / 60 - 16) < 0.05);
-    assert.ok(r.open >= 228 && r.open <= 234, `all six mouths open from 16 s until the second hit 3.85 s later (${r.open} ticks)`);
+    assert.ok(Math.abs(r.stages[1][0] / 60 - 12) < 0.05);
+    assert.ok(r.open >= 228 && r.open <= 234, `all six mouths open from 12 s until the second hit 3.85 s later (${r.open} ticks)`);
     assert.deepEqual(r.hits, ['weak', 'weak'], 'two free hits');
     assert.equal(r.shutOnFourth, '000000', 'the lids shut on the second');
     assert.equal(r.fifth, 'deflected');
     assert.deepEqual(r.phase.map((x) => x[1]), ['parley', 'p1']);
-    assert.ok(Math.abs(r.phase[1][0] / 60 - 21) < 0.05, `phase 1 at 21 s (${r.phase[1][0] / 60})`);
+    assert.ok(Math.abs(r.phase[1][0] / 60 - 17) < 0.05, `phase 1 at 17 s (${r.phase[1][0] / 60})`);
     assert.deepEqual(r.after, ['p1', 24], 'two of phase 1\'s ten hits taken in the asking');
     assert.ok(r.refused.lines.includes('stn_parley_refused'));
     assert.deepEqual(r.refused.stages, ['start', 'refused']);

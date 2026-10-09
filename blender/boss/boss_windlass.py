@@ -49,8 +49,10 @@ import math
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
-from lib import scene, mesh, uv, material, vcol, rig, anim, export, zone, brand, knot
+from lib import scene, mesh, uv, material, vcol, rig, anim, export, zone, brand, knot, manifest
 import windlass_geo as wg
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tex"))
+import knot_atlas                                           # pass i6: the crystals' light (the painted glass of tx_palette / tx_palette_emis)
 from windlass_geo import Geo, gb, frame, circle
 
 ASSET = "boss_windlass"
@@ -67,6 +69,9 @@ CHAMFER = 0.04
 R_MOUTH = 1.7; MOUTH_R = 0.45; RECESS_R = 0.50; LIP_R = 0.62; LIP_H = 0.015; LID_R = 0.48; LID_T = 0.08
 KNOT_R = 0.38; KNOT_Z = 2.8                                 # hit centre: 0.3 m behind the face
 LAMP_R = 2.35; BEZEL_R = 0.11; LAMP_DISC_R = 0.08
+MOUTH_SEG = 24; LAMP_SEG = 12                               # sides of a chamber's lip, recess and lid; of a lamp and its bezel (pass i5: 16 and 8)
+R_HUBSEAM = 1.00                                            # pass i6: the ring seam between the six hub plates and the six chamber plates
+LID_BOSS_R = 0.26; LID_BOSS_H = 0.03                        # pass i6: the turned boss on each lid
 PIVOT_T = 0.494; PIVOT_R = 0.305                            # the lid's hinge pin from the mouth centre (tangential, radial)
 LID_POP = 0.10; LID_SWING = 110.0
 PAWL = (1.6, 6.0, 3.95); PAWL_KNOT_R = 0.30                 # the hit centre: in FRONT of the guard's travel (polish round 2; see build_arm)
@@ -144,32 +149,69 @@ def build_drum(parts):
     # the face: six enamel panels with a 30 mm seam on each flute's centre line, one mouth recess each
     cw = drum_profile(face=True)
     gap = 0.015
-    g = Geo(MD)
+    g = Geo(MD); gh = Geo(MD)
     for k in range(6):
         a = 60.0 * k
         def seam_pt(rho, f, side):                                           # a point `gap` off the seam at angle f
             return tuple((er(f) * math.sqrt(max(rho * rho - gap * gap, 0.0)) + et(f) * (side * gap))[:2])
         deep = RC - math.sqrt(RF * RF - gap * gap) - FLUTE_INSET[3]
         outer = [seam_pt(deep, a - 30.0, +1)] + [cw[(8 * k - 4 + i) % 48] for i in range(1, 8)] + [seam_pt(deep, a + 30.0, -1)]
-        inner = [seam_pt(0.60, a + 30.0, -1)] + [tuple((er(a + s) * 0.60)[:2]) for s in (15.0, 0.0, -15.0)] + [seam_pt(0.60, a - 30.0, +1)]
+        # pass i6 (both visual reviewers: "large smooth single-tone surfaces ... an unfinished casting"): each sixth is TWO
+        # plates, a hub plate (r 0.6 .. 1.0) and the chamber plate, with a 30 mm ring seam between them; bolts along
+        # every seam; the plates differ in value (paint_face)
+        def arc(rho, back=False):
+            pts = [seam_pt(rho, a + 30.0, -1)] + [tuple((er(a + s) * rho)[:2]) for s in (15.0, 0.0, -15.0)] + [seam_pt(rho, a - 30.0, +1)]
+            return list(reversed(pts)) if back else pts
         c = mouth_centre(k + 1)
-        g.fill([outer + inner, circle(LIP_R, 16, c.x, c.y)], W_FACE)
+        g.fill([outer + arc(R_HUBSEAM + gap), circle(LIP_R, MOUTH_SEG, c.x, c.y)], W_FACE)
+        gh.fill([arc(R_HUBSEAM - gap, back=True) + arc(0.60)], W_FACE)
     parts["drum_spin"].append(g.done("drum_face", "enamel"))
     wg.set_mark(parts["drum_spin"][-1], FACE_MARK)
+    parts["drum_spin"].append(gh.done("drum_hubplates", "enamel"))
+    wg.set_mark(parts["drum_spin"][-1], FACE_MARK, HUB_PLATE)
     g = Geo(MD)                                                              # what shows in the seams
     for k in range(6):
         f = 60.0 * k + 30.0
-        g.face(g.ring([(-0.04, 0.56), (0.04, 0.56), (0.04, RC - RF - 0.02), (-0.04, RC - RF - 0.02)], W_FACE - 0.03, wg.rot_z(-f)))
+        g.face(g.ring([(-0.04, R_HUBSEAM), (0.04, R_HUBSEAM), (0.04, RC - RF - 0.02), (-0.04, RC - RF - 0.02)], W_FACE - 0.03, wg.rot_z(-f)))
+    g.face(g.ring(circle(R_HUBSEAM + 0.045, 18), W_FACE - 0.03))            # under the hub plates and the ring seam
     parts["drum_spin"].append(g.done("drum_seams", "steel_dark"))
+    # the bolts: three along each side of every radial seam, one at each end of every hub plate's arc; a stain thrown
+    # outward from every other one (the drum spins: what weeps from a bolt runs to the rim, not down)
+    g = Geo(MD); gt = Geo(MD)
+    def stud(p, f, r=0.040, h=0.024):                                        # a square-headed bolt, set square to its seam
+        ax = (er(f), et(f), -er(f), -et(f))
+        q = [g.vert((p.x + d.x * r, p.y + d.y * r, W_FACE)) for d in ax]
+        ap = g.vert((p.x, p.y, W_FACE + h))
+        for i in range(4): g.face((q[i], q[(i + 1) % 4], ap))
+    n_st = 0
+    for k in range(6):
+        f = 60.0 * k + 30.0
+        for side in (-1, 1):
+            for i, rho in enumerate(STUD_R):
+                p = er(f) * rho + et(f) * (side * 0.085)
+                stud(p, f + 45.0); n_st += 1
+                if (i + k + (side > 0)) % 2 == 0:
+                    d = er(f) * 0.44 + et(f) * (side * 0.05)
+                    t = et(f) * 0.03
+                    gt.face((gt.vert((p.x + t.x + d.x * 0.1, p.y + t.y + d.y * 0.1, W_FACE + 0.003)), gt.vert((p.x - t.x + d.x * 0.1, p.y - t.y + d.y * 0.1, W_FACE + 0.003)), gt.vert((p.x + d.x, p.y + d.y, W_FACE + 0.003))))
+            stud(er(f) * (R_HUBSEAM - 0.10) + et(f) * (side * 0.085), f + 45.0, r=0.034)
+    for f_ in g.bm.faces: orient(g, f_, (0, 0, 1))
+    for f_ in gt.bm.faces: orient(gt, f_, (0, 0, 1))
+    parts["drum_spin"].append(g.done("drum_studs", "steel", shade=150, smooth=80))     # (one normal a vertex: a domed head, and 250 fewer vertices in the file)
+    parts["drum_spin"].append(gt.done("drum_streaks", "enamel_stain", shade=60))
     # mouths: lid recess, lip, bore and back wall; the lamp bezel; the hinge pin
     g = Geo(MD); gz = Geo(MD); gp = Geo(MD); gl = Geo(MD)
     for n in range(1, 7):
         c = mouth_centre(n); a = mouth_angle(n)
         zb = KNOT_Z - HUB[2] - 0.27                                          # the knot's collar sits on this wall
-        gl.lathe([(LIP_R, W_FACE), (RECESS_R, W_FACE + LIP_H)], 16, Matrix.Translation(c))     # the dark bezel: a raised lip
-        g.lathe([(RECESS_R, W_FACE + LIP_H), (RECESS_R, W_FACE - LID_T), (MOUTH_R, W_FACE - LID_T), (MOUTH_R, zb), (0.0, zb)], 16, Matrix.Translation(c))
+        gl.lathe([(LIP_R, W_FACE), (RECESS_R, W_FACE + LIP_H)], MOUTH_SEG, Matrix.Translation(c))     # the dark bezel: a raised lip
+        # pass i5 (visual reviewer, from the mark under the drum: "its chamber rings are visibly 16-sided"): the lip, the
+        # recess and the lid are 24-sided; the bore behind the step stays coarse (12), a hair wider than the step's hole
+        # so that no gap opens between the two rings
+        g.lathe([(RECESS_R, W_FACE + LIP_H), (RECESS_R, W_FACE - LID_T), (MOUTH_R, W_FACE - LID_T)], MOUTH_SEG, Matrix.Translation(c))
+        g.lathe([(MOUTH_R * 1.04, W_FACE - LID_T - 0.002), (MOUTH_R * 1.02, zb), (0.0, zb)], 12, Matrix.Translation(c))
         lc = er(a) * LAMP_R
-        gz.lathe([(BEZEL_R, W_FACE), (BEZEL_R, W_FACE + 0.05), (LAMP_DISC_R, W_FACE + 0.04)], 8, Matrix.Translation(lc), phase=math.pi / 8)
+        gz.lathe([(BEZEL_R, W_FACE), (BEZEL_R, W_FACE + 0.05), (LAMP_DISC_R, W_FACE + 0.04)], LAMP_SEG, Matrix.Translation(lc), phase=math.pi / LAMP_SEG)
         pv = mouth_pivot(n)
         gp.lathe([(0.07, W_FACE), (0.07, W_FACE + 0.16), (0.0, W_FACE + 0.16)], 6, Matrix.Translation(pv))
     parts["drum_spin"].append(gl.done("drum_lips", "steel_dark", shade=105, smooth=50))
@@ -193,9 +235,9 @@ def build_drum(parts):
     g = Geo(MD); gp = Geo(MD)
     for n in range(1, 7):
         c = mouth_centre(n); F = back @ Matrix.Translation((c.x, -c.y, 0))
-        g.lathe([(0.50, 0.0), (0.50, 0.07), (0.42, 0.10), (0.0, 0.10)], 12, F)
+        g.lathe([(0.50, 0.0), (0.50, 0.07), (0.42, 0.10), (0.0, 0.10)], 8, F)                 # (pass i6: 8 sides, was 12: the back of the drum pays for the face)
         gp.lathe([(0.13, 0.10), (0.13, 0.135), (0.0, 0.135)], 6, F)
-    parts["drum_spin"].append(g.done("drum_heads", "steel", shade=138, smooth=40))
+    parts["drum_spin"].append(g.done("drum_heads", "steel", shade=138, smooth=50))
     parts["drum_spin"].append(gp.done("drum_primers", "brass", smooth=70))
     star = []
     for k in range(12):                                                      # twelve saw teeth: it only ever turns one way
@@ -211,6 +253,7 @@ def build_drum(parts):
 
 
 FACE_MARK = "ks_face"
+HUB_PLATE = 10; LID_BOSS = 11; PLATE_VALUE = (1.0, 0.86, 0.95, 0.83, 0.98, 0.90); STUD_R = (1.24, 1.84)
 ARM_POST, DRUM_SHELL, DRUM_CAP = 6, 7, 9                     # FACE_MARK values (1 face, 2 lid, 3-5 and 8 the guard)
 POST_COLLARS = (6.65, 7.45, 9.75)                            # undersides of the neck and the two splices on the king post
 
@@ -228,7 +271,9 @@ def paint_steel(body):
     r = np.hypot(pos[:, 0] - HUB[0], pos[:, 2] - HUB[1])
     sh = pm == DRUM_SHELL
     k = np.clip((r - 2.02) / 0.46, 0.0, 1.0)
-    a[sh, :3] = np.clip(a[sh, :3] * (0.90 + 0.60 * k[sh] ** 2)[:, None], 0.0, 1.0)
+    # pass i6 (visual reviewer: "a swollen dome intersects the lobed plate"): a flute is a scoop, and a scoop is dark at its
+    # bottom. At x 0.90 its smooth pale wall read as a ball standing proud of the face; the lands keep their rubbed edge
+    a[sh, :3] = np.clip(a[sh, :3] * (0.40 + 1.10 * k[sh] ** 1.6)[:, None], 0.0, 1.0)
     po = pm == ARM_POST
     f = np.ones(len(pos), np.float32)
     for yb in POST_COLLARS:
@@ -266,14 +311,26 @@ def paint_face(body):
     one = np.ones((1, 3), np.float32)
     lip = (d < LIP_R + 0.01)[:, None]
     edge = np.clip((r - 1.95) / 0.5, 0.0, 1.0)[:, None]                      # 0 at the flute bottoms, 1 at the lands' rim
-    hubr = (r < 0.62)[:, None]
-    col = np.where(lip, 0.86 * soot, np.where(hubr, 0.74 * soot, (1.0 - 0.22 * (1.0 - edge)) * one))
+    # pass i6: the six chamber plates are not one casting: each has its own value (the same six on every build), the
+    # ring seam's edge holds a little soot, and the hub plates are the stained enamel of a part that is never wiped
+    ang = (np.degrees(np.arctan2(u, v)) + 30.0) % 360.0
+    plate = np.asarray(PLATE_VALUE, np.float32)[np.clip((ang // 60.0).astype(np.int64), 0, 5)][:, None]
+    seam = (r < R_HUBSEAM + 0.03)[:, None]
+    col = np.where(lip, 0.84 * soot, np.where(seam, 0.80 * soot, (1.0 - 0.26 * (1.0 - edge)) * one)) * plate
     a[sel, :3] = np.clip(col[sel], 0.0, 1.0)
-    # the lids: clean in the middle, soot at the rim and down the edge, so the 20 mm shadow gap reads as a drawn line
+    hub = pm == HUB_PLATE
+    hk = np.clip((r - 0.60) / (R_HUBSEAM - 0.60), 0.0, 1.0)[:, None]         # 0 at the cap, 1 at the ring seam
+    hcol = (0.62 + 0.20 * hk) * soot * (0.94 + 0.06 * plate)
+    a[hub, :3] = np.clip(hcol[hub], 0.0, 1.0)
+    # the lids: a machined cap. Its flat is stained toward the rim (the 20 mm shadow gap reads as a drawn line); the
+    # turned boss in its middle is clean on top with a dark shoulder
     k = (d > LID_R * 0.5)[:, None]
-    a[lid, :3] = np.clip(np.where(k, 0.50 * soot, one), 0.0, 1.0)[lid]
+    a[lid, :3] = np.clip(np.where(k, 0.50 * soot, 0.86 * one), 0.0, 1.0)[lid]
+    boss = pm == LID_BOSS
+    kb = (d > LID_BOSS_R - 0.015)[:, None]
+    a[boss, :3] = np.clip(np.where(kb, 0.55 * soot, one), 0.0, 1.0)[boss]
     # the hub cap: a pale boss with a dark shoulder
-    kc = np.clip((r - 0.30) / 0.285, 0.0, 1.0)[:, None]
+    kc = np.clip((r - 0.50) / 0.085, 0.0, 1.0)[:, None]                      # (pass i6: the top is flat and pale to its edge; the gradient from r 0.30 drew a dome)
     a[cap, :3] = np.clip(1.0 - kc * (1.0 - 0.45 * soot), 0.0, 1.0)[cap]
     vcol.set_colors(body, a)
     me.attributes.remove(me.attributes[FACE_MARK])
@@ -284,9 +341,16 @@ def build_mouths(parts, lamps, cores):
     for n in range(1, 7):
         c = mouth_centre(n); a = mouth_angle(n); F = Matrix.Translation(c)
         g = Geo(MD)                                                          # the ceramic lid, flush in its recess
-        g.lathe([(0.0, W_FACE - LID_T), (LID_R, W_FACE - LID_T), (LID_R, W_FACE - 0.015), (LID_R - 0.015, W_FACE), (0.0, W_FACE)], 16, F)
+        # (pass i5: 24 sides; the 15 mm chamfer paid for them. Pass i6: no underside (the lid lifts 0.1 m and swings in
+        # its own plane: its underside always faces the drum); a turned boss in the middle, so a shut chamber is a
+        # machined cap with a step in it, not a smooth dish)
+        g.lathe([(LID_R, W_FACE - LID_T), (LID_R, W_FACE), (0.0, W_FACE)], MOUTH_SEG, F)
         parts[f"mouth_{n}"].append(g.done(f"lid_{n}", "enamel", smooth=40))
         wg.set_mark(parts[f"mouth_{n}"][-1], FACE_MARK, 2)
+        g = Geo(MD)
+        g.lathe([(LID_BOSS_R, W_FACE), (LID_BOSS_R - 0.03, W_FACE + LID_BOSS_H), (0.0, W_FACE + LID_BOSS_H)], 18, F, phase=math.pi / 18)
+        parts[f"mouth_{n}"].append(g.done(f"lid_boss_{n}", "enamel", smooth=40))
+        wg.set_mark(parts[f"mouth_{n}"][-1], FACE_MARK, LID_BOSS)
         g = Geo(MD)                                                          # the hinge strap from the lid to its pin
         d = mouth_pivot(n) - c; L = d.length; d.normalize()
         ang = math.atan2(d.y, d.x)
@@ -294,25 +358,95 @@ def build_mouths(parts, lamps, cores):
         g.lathe([(0.12, W_FACE + 0.005), (0.12, W_FACE + 0.05), (0.07, W_FACE + 0.05)], 6, Matrix.Translation(mouth_pivot(n)))
         parts[f"mouth_{n}"].append(g.done(f"lid_strap_{n}", "steel_dark", shade=125, smooth=70))
         # the knot: the hex collar rides the drum, the lobes ride knot_n, the white core is lamp 6 + (n - 1)
-        kn = knot.build_knot(KNOT_R, collar='hex', seed=10 + n, lobes=6, name=f"k{n}")
+        kn = crystal_knot(KNOT_R, 10 + n, f"k{n}")
         back = game((c.x, c.y, 0.0)); back = (back[0], back[1], KNOT_Z - 0.27)
         cores.append(place_knot(kn, back, a, parts, f"knot_{n}", "drum_spin"))
         lc = er(a) * LAMP_R                                                  # the lamp beside the mouth: lamp n - 1
-        lamps.append([gb(game((p[0], p[1], W_FACE + 0.035))) for p in circle(LAMP_DISC_R + 0.004, 8, lc.x, lc.y, math.pi / 8)])
+        # pass i6 (visual reviewer, Low: "a white disc inside a yellow octagon ring"): the lamp is a LENS, a low cone of
+        # twelve faces whose light falls from its heart to its rim (build_lamps), not a flat disc
+        rim = [gb(game((p[0], p[1], W_FACE + 0.035))) for p in circle(LAMP_DISC_R + 0.004, LAMP_SEG, lc.x, lc.y, math.pi / LAMP_SEG)]
+        mid = gb(game((lc.x, lc.y, W_FACE + 0.058)))
+        lamps.append([[mid, rim[i], rim[(i + 1) % LAMP_SEG]] for i in range(LAMP_SEG)])
+
+
+KNOT_RAY = 147.0                                             # the ray of the painted knot that runs clean from the heart to the glass's rim, between two lashings
+
+
+def crystal_knot(radius, seed, name):
+    """Pass i6 (both visual reviewers: "flat hexagon petals ... paper cut-outs", "a white disc"): the Windlass's knot is a
+    CLUSTER OF CRYSTAL POINTS on the library's hex collar: one thick six-sided point in the middle (its faces come first:
+    they carry the core's lamp), six leaning points round it (five- and four-sided, no two alike) and two splinters
+    between them. Every point is a prism with a pointed termination, so it has a lit and an unlit side from any angle,
+    and its UV0 runs along one clean ray of the painted knot (blender/tex/knot_atlas.py): white-violet at the tip,
+    violet down the shaft, deep violet at the root. Same collar, same footprint (the points stay inside 1.0 x radius),
+    same height, same hit sphere; 117 triangles (the lobes were 140). Faces Blender -Y, collar back at the origin, as
+    lib.knot.build_knot. -> {'lobes', 'collar', 'core_n'}"""
+    import random, bmesh
+    kn = knot.build_knot(radius, collar='hex', seed=seed, lobes=6, name=name)
+    scene.remove(kn["lobes"])
+    rng = random.Random(seed * 7 + 3)
+    R = radius; FWD = Vector((0.0, -1.0, 0.0)); y0 = 0.20 * R              # the roots stand inside the collar's plate (its face is 0.275 R out)
+    bm = mesh.new_bmesh(); rho = bm.verts.layers.float.new("ks_rho")
+    def point(base, axis, r, L, tip, sides, lean=0.0, rho_at=(0.68, 0.55, 0.28), flare=1.0, tip_first=False):
+        a = axis.normalized(); u = a.cross(Vector((0.3, 0.2, 1.0))).normalized(); v = a.cross(u)
+        ph = rng.uniform(0, 6.28)
+        ring0 = []; ring1 = []
+        for i in range(sides):
+            t = ph + 2 * math.pi * i / sides; d = u * math.cos(t) + v * math.sin(t)
+            w = r * rng.uniform(0.88, 1.10)
+            b = bm.verts.new(base + d * w); b[rho] = rho_at[0]; ring0.append(b)
+            s_ = bm.verts.new(base + a * (L * rng.uniform(0.90, 1.08)) + d * (w * flare)); s_[rho] = rho_at[1]; ring1.append(s_)
+        ap = bm.verts.new(base + a * (L + tip) + u * (lean * r)); ap[rho] = rho_at[2]
+        def shaft():
+            for i in range(sides):
+                j = (i + 1) % sides
+                bm.faces.new((ring0[i], ring0[j], ring1[j])); bm.faces.new((ring0[i], ring1[j], ring1[i]))
+        if not tip_first: shaft()
+        for i in range(sides):
+            bm.faces.new((ring1[i], ring1[(i + 1) % sides], ap))
+        if tip_first: shaft()
+    # the heart: a thick point straight out of the plate, 46 % of the knot's diameter at its girdle
+    point(FWD * y0, FWD + Vector((rng.uniform(-0.04, 0.04), 0, rng.uniform(-0.04, 0.04))), 0.37 * R, 0.52 * R, 0.40 * R, 6, lean=rng.uniform(-0.3, 0.3), flare=1.22, tip_first=True, rho_at=(0.68, 0.50, 0.30))
+    core_n = 6                                                                 # its crown: the six faces of the termination carry the core's lamp
+    for i in range(6):
+        t = 2 * math.pi * (i + 0.25 + rng.uniform(-0.14, 0.14)) / 6                # (a quarter step round: a point within 25 degrees of each of the knot's four sides, so it is 2 radii across both ways)
+        rad = Vector((math.cos(t), 0.0, math.sin(t))); tan = Vector((-math.sin(t), 0.0, math.cos(t)))
+        tilt = math.radians(rng.uniform(36.0, 54.0))
+        axis = FWD * math.cos(tilt) + rad * math.sin(tilt) + tan * rng.uniform(-0.22, 0.22)
+        r = R * rng.uniform(0.17, 0.215); reach = 0.50 * R / max(math.sin(tilt), 0.5) * rng.uniform(0.92, 1.04)
+        point(FWD * y0 + rad * (0.50 * R), axis, r, reach * 0.60, reach * 0.40, 5 if i % 2 == 0 else 4, lean=rng.uniform(-0.5, 0.5))
+    for i in range(2):                                                         # (two splinters, not three: the file's share of the download)
+        t = 2 * math.pi * (3 * i + 0.5 + rng.uniform(-0.3, 0.3)) / 6
+        rad = Vector((math.cos(t), 0.0, math.sin(t)))
+        tilt = math.radians(rng.uniform(18.0, 30.0))
+        point(FWD * y0 + rad * (0.74 * R), FWD * math.cos(tilt) + rad * math.sin(tilt), 0.10 * R, 0.22 * R, 0.16 * R, 3, rho_at=(0.68, 0.58, 0.36))
+    ob = mesh.new_mesh_object(name + "_live", bm)
+    mesh.finish(ob, bevel=0.0, smooth_angle=20, weighted=False)                # faceted: every edge stays sharp
+    material.assign(ob, "m_prop")
+    me = ob.data
+    rv = np.zeros(len(me.vertices), dtype=np.float32); me.attributes["ks_rho"].data.foreach_get("value", rv)
+    li = np.empty(len(me.loops), dtype=np.int32); me.loops.foreach_get("vertex_index", li)
+    uv.ensure_layers(ob)
+    uv.put(ob, np.array([knot_atlas.top_uv(float(rv[k]), KNOT_RAY) for k in li], dtype=np.float32))
+    me.attributes.remove(me.attributes["ks_rho"])
+    vcol.tint(ob, "#FFFFFF")                                                   # the painted glass is the albedo: COLOR_0 is shade only
+    vcol.compose_vertex_color(ob, mode='ratio', gradient=(0.8, 1.05), jitter=0.10, seed=seed)
+    return {"lobes": ob, "collar": kn["collar"], "core_n": core_n}
 
 
 def place_knot(kn, back, turn_deg, parts, bone, collar_bone):
-    """Stand a library knot (facing game +Z) with its collar's back at game point `back`; -> the core's lamp polygons."""
+    """Stand a knot (facing game +Z) with its collar's back at game point `back`; -> the core's lamp polygons."""
     lobes, collar = kn["lobes"], kn["collar"]
     for o in (lobes, collar):
         o.rotation_euler = (0.0, turn_deg * D2R, 0.0); o.location = gb(back)
         mesh.apply_transform(o)
         wg.shade_from_color(o)
-    core_n = 20                                                              # the central lobe's faces come first
-    centre = sum((lobes.data.vertices[v].co for p in lobes.data.polygons[:core_n] for v in p.vertices), Vector()) / (3 * core_n)
-    polys = [[centre + (lobes.data.vertices[v].co - centre) * 1.05 for v in p.vertices] for p in lobes.data.polygons[:core_n]]
+    core_n = kn["core_n"]                                                    # the heart's faces come first
+    pts = [lobes.data.vertices[v].co for p in lobes.data.polygons[:core_n] for v in p.vertices]
+    centre = sum(pts, Vector()) / len(pts)
+    polys = [[centre + (lobes.data.vertices[v].co - centre) * 1.05 for v in (list(p.vertices)[2:] + list(p.vertices)[:2])] for p in lobes.data.polygons[:core_n]]   # the point first: the renderer reads a lamp's hue at its first vertex
     uv.map_to_palette(lobes, "husk", faces=range(core_n))                    # under the lamp: husk, so a dark core IS dark
-    vcol.tint(lobes, "husk"); vcol.tint(collar, "steel_dark")
+    vcol.tint(lobes, "#FFFFFF"); vcol.tint(lobes, "husk", faces=range(core_n)); vcol.tint(collar, "steel_dark")
     parts[bone].append(lobes); parts[collar_bone].append(collar)
     return polys
 
@@ -382,7 +516,7 @@ def build_arm(parts, lamps, cores):
         g = Geo()
         g.prism([(s * px, py) for px, py in ((2.30, 6.61), (2.30, 6.36), (2.04, 6.05), (2.04, 5.80), (1.82, 5.56), (1.38, 5.56), (1.16, 5.80), (1.16, 6.40), (1.38, 6.61))], zb - 0.06, zb)
         A.append(g.done("arm_pawl_plate", "steel", shade=84))
-        kn = knot.build_knot(PAWL_KNOT_R, collar='hex', seed=30 + s, lobes=6, name=f"p{bone[-1]}")
+        kn = crystal_knot(PAWL_KNOT_R, 30 + s, f"p{bone[-1]}")
         cores.append(place_knot(kn, (x, PAWL[1], zb), 0.0, parts, bone, "arm_yaw"))
         g = Geo()
         Fl = Matrix.Translation((x, 6.50, zb))
@@ -669,6 +803,51 @@ def build_lamps(arm, lamps, cores):
         owner += [i] * sum(len(p) for p in polys)
     core_faces = [p.index for p in ob.data.polygons if owner[p.vertices[0]] >= 6]
     vcol.emis_attr(ob, 1.0, 0.0, 1.0, faces=core_faces)                      # violet cores die with the seventh
+    # pass i5 (visual reviewer, Low, a cell open at 3 m: "a cluster of flat unlit hexagons ... paper petals"): a core is
+    # hottest at its heart and falls off to its rim (COLOR_0 R is the lamp's intensity per vertex: m_emis fades toward
+    # the shader's dark), so the middle lobe reads as a bead with depth, not a cut-out. No cost at run time.
+    # Pass i6: the core is the CROWN of the knot's middle crystal (six facets that meet in a point): white-hot at the point,
+    # and every facet falls to its own level at the girdle, so the heart is a cut stone and not a white disc.
+    # UV0 runs from the `violet` cell at the girdle to the `violet_core` cell beside it at the point (both wrong_fade
+    # with the mesh's B flag): the stone is violet where it leaves its shaft and white where its light is.
+    me = ob.data; col = vcol.get_colors(ob); uvs = uv.get(ob)
+    # The levels: the renderer's air light (High) takes a lamp's MEAN COLOR_0 R as its power and keeps the twelve strongest
+    # lamps in view (materials.ts lampInfoOf / emitAir, post.ts AirLights). The old core's mean was 0.34; at 0.8 the eight
+    # cores pushed the chamber's own lamps out of the twelve and the lit air of the whole room went out. Point 0.72, the
+    # girdle 0.09 to 0.20: mean 0.33. (A lit core is drawn at several times its level: 0.72 is white, 0.1 a full violet.)
+    TIP = 0.72; FACET = (0.20, 0.10, 0.16, 0.09, 0.18, 0.12)
+    uv_v = manifest.palette_uv("violet"); uv_c = manifest.palette_uv("violet_core")
+    edge = (uv_v[0] + uv_c[0]) / 2.0                                         # the two cells' common edge: the white begins 35 % of the way up a facet
+    uv_v = (edge - 0.35 * 0.02, uv_v[1]); uv_c = (edge + 0.65 * 0.02, uv_c[1])
+    for i in range(6, len(all_l)):
+        vs = [v.index for v in me.vertices if owner[v.index] == i]
+        ys = [me.vertices[k].co.y for k in vs]; y0, y1 = min(ys), max(ys)      # the knot faces Blender -Y
+        k = 0
+        for pl in me.polygons:
+            if owner[pl.vertices[0]] != i: continue
+            for li in pl.loop_indices:
+                t = (y1 - me.vertices[me.loops[li].vertex_index].co.y) / max(1e-6, y1 - y0)
+                tip = t > 0.8
+                col[li, 0] = TIP if tip else FACET[k % 6]
+                uvs[li] = uv_c if tip else uv_v
+            k += 1
+    uv.put(ob, uvs)
+    # The six lenses: UV0 runs from `aqua_core` at the heart to `aqua` at the rim (the two cells stand side by side), at
+    # FULL intensity everywhere: the renderer's air light reads a lamp's mean COLOR_0 R as its power (materials.ts
+    # lampInfoOf), and a lens dimmed toward its rim halved the lit air of the whole chamber on High.
+    ua = manifest.palette_uv("aqua"); uc = manifest.palette_uv("aqua_core"); edge = (ua[0] + uc[0]) / 2.0
+    ua = (edge - 0.45 * 0.02, ua[1]); uc = (edge + 0.55 * 0.02, uc[1])
+    for i in range(6):
+        vs = [v.index for v in me.vertices if owner[v.index] == i]
+        c = sum((me.vertices[k].co for k in vs), Vector()) / len(vs)
+        far = max((me.vertices[k].co - c).length for k in vs)
+        for pl in me.polygons:
+            if owner[pl.vertices[0]] != i: continue
+            for li in pl.loop_indices:
+                d = (me.vertices[me.loops[li].vertex_index].co - c).length / max(far, 1e-6)
+                uvs[li] = uc if d < 0.5 else ua
+    uv.put(ob, uvs)
+    vcol.set_colors(ob, col)
     rig.skin_rigid(ob, arm, lambda v: bones[owner[v.index]])
     quads = []
     for i in range(26):

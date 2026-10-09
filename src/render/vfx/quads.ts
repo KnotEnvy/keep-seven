@@ -196,8 +196,10 @@ void main() {
 		o = vec4( c * a, a ) * vCol.a;
 	} else if ( shape < 4.5 ) {
 		// a blob shadow: a dark core under the feet, a soft edge
-		float a = 1.0 - smoothstep( 0.3, 1.0, r );
-		o = vec4( 0.0, 0.0, 0.0, a * vCol.a );
+		float a = ( 1.0 - smoothstep( 0.3, 1.0, r ) ) * vCol.a;
+		// pass i5: vE.y = a tight contact core over it, for feet in a building's shade (0 in the sun and indoors: the blob as it was)
+		float c = ( 1.0 - smoothstep( 0.10, 0.50, r ) ) * vE.y;
+		o = vec4( 0.0, 0.0, 0.0, a + ( 1.0 - a ) * c );
 	} else if ( shape < 5.5 ) {
 		// mouth glow: a disc growing with vE.y, white core, six radial ticks
 		float lv = max( vE.y, 0.02 ) * 0.62;

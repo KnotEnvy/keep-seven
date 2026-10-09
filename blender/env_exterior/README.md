@@ -335,3 +335,108 @@ machine, almost all of it the 2048² `lm_surface` bake on the GPU (170 to 250 s)
   `src/world/director.ts` `SIGHT_SINK` stands his card 5 % of its height into the rock.
 - **A FAST build is taken as current by the driver**: finish with
   `node tools/build-assets.mjs --only env_the_lip,env_plenty_street,lm_surface,env_backdrop_day --force` (141 s).
+
+## What pass i4 changed (ten carried-over issues of the visual reviewers; lead rulings R16, R18, R19)
+
+- **Loose sand casts nothing in the lightmap bake** (`bake_surface.py`): a drift, a sand wedge at a wall's foot and the
+  swept ring at the trough (now its own part, `st_swept_drift`) lie ON a ground sheet. They shut the sun and the sky out
+  of the texels under them, and the lightmap's filter drew those as a dark rim round every patch ("outlined patches that
+  read as decals"). Objects whose name matches `_sd`, `dune`, `drift` or `rib_sand` get `visible_shadow = False` and
+  `visible_diffuse = False` for the bake (the log prints `LOOSE SAND: n objects`). `fr.sand_wedge` gives its toe the
+  colour of the ground under it (`ext_frontier._ground_colour`).
+- **`ground_paint.py`**: `paint_street` (nothing was painted on Front Street: the packed middle, both ruts as dark lines
+  with a pale shoulder, his prints, banked sand along both rows, damp patches), `breakup` (crusted pans and blown sheets:
+  the floor is no longer one value from wall to wall) and `stones` (pebbles as the light sees them: a dark body, a long
+  shadow away from the sun, a lit edge) on the Lip, the street and the yard. Low and High alike: it is in the lightmap.
+- **`wall_paint.py`**: rock gets THICK beds (a pace to a man's height, each its own tone), ledges between them (the
+  undercut's shade below the joint, the lit lip above it) and long leaning fractures; adobe a darker stained base and
+  broader tones; the drum a tide line with its wet skirt, dirt run from every rivet row and dented plates. `GAIN` is
+  1.75 / 1.5 / 1.7 / 1.4 (adobe, rock, ceramic, timber).
+- **Broken wall ends** (`ext_frontier.ruin_wall(ragged=True)`, `_wall_from_profile(courses=True)`): a break follows the
+  bond: teeth of one course, some two, treads tipped outward, one brick left proud; the end face is laid in courses, each
+  its own tone, every other one a finger proud or set back. All five cover stubs; the ends and drops are unchanged, so the
+  body is still the layout's cover (`tests/art_env_exterior/openings.test.mjs` holds 90 %). The well-house's north wall
+  ends in a ragged break.
+- **The gate pylon** (`lip_built.build_pylon`): a bolted steel collar at the mast's foot, cover strips over four joints,
+  a service hatch (frame, door, livery strip, louvre, hinges, dog handle, bolts, a rust weep), a conduit with saddles, the
+  foot's holding-down bolts, and two drifts banked against the foot (`lip_pylon_drift`). Inside the layout's 2 m box.
+- **The land under the rim** (`env_backdrop_dusk.py`): a second family of ribs between the fins, benches across the
+  slope, a 2.1 x 3.1 m grid under the last image's view, and a crest term: where the ground stands over its neighbours it
+  holds the afterglow as a thin apricot edge, the hollows go to black, the gully's floor is a paler thread toward the
+  fire. 2 369 of 3 200 triangles.
+- Triangles as built: `env_the_lip` 27 777 / 31 000 (gate chunk 6 843 / 7 300), `env_plenty_street` 48 799 / 49 700.
+- The rimrock the pursued man stands on is NOT in a backdrop: it is `src/world/sightRock.ts` (it has to be unfogged and
+  scaled with his card). `env_backdrop_day.py` is unchanged.
+
+## What pass i5 changed (the stub beside the sighting, the last image's foreground; rulings R7, R18, R19)
+
+- **A cover stub's breaks are brickwork** (`ext_frontier.break_wall`, called by `street_parts.stub_wall(ragged=True)`:
+  the three yard stubs and the street's two). The body is a plaster skin (two lightmapped faces whose top under each
+  rake is a ragged diagonal). The core stands a finger inside it: at each end a rake of single bricks (one or two courses
+  to a tooth; where `lanes` is set, two wythes that broke at different places, with the inner face between them), under
+  the rake the wall's end in 0.19 m courses that stand toothed out of the break (2 to 16 cm proud, one gone, one
+  hanging), and a brick or two lying on the top. **Every brick face is lightmapped**: `ext_frontier.Isles` lays many
+  small planar faces as islands of ONE chart (`<solid id>_k`, 2.5 to 3 times the atlas density), and the loose bricks at
+  the foot (`rubble_bricks`, chart `<solid id>_q`) and the fan of melted adobe (`rubble_fan`, charts `<id>_fan0/1`, in
+  the loose-sand part so it casts nothing) are lightmapped too. Nothing of a stub is vertex-lit any more: on High a
+  vertex-lit face in the yard's shade takes the sun map's shadow whole and goes dark blue.
+  `yd_cover_stub_1` (the one in the sighting's frame) has both wythes at both ends and the densest charts.
+- **`wall_paint.py`**: a new kind `brick` (charts `*_cover_stub_?_k`): `_bond` lays bed joints every course, the perpend
+  between the wythes (it changes side every course), stretchers 0.42 m long breaking joint, each brick its own tone, an
+  arris, chipped corners; `stub_break` continues the same bond onto a stub's plastered sides near its breaks (the render
+  ends at an edge with a shadow line). The bond is a function of the stub's own frame (its layout solid), so it runs
+  round the corners.
+- **The atlas** is 15.56 texels a metre (it was 16.0): the stubs' charts took 3 % of it.
+- **`ground_paint.sheets`**: the wind's low transverse sheets on the gully's floor, the street and the yard (a pale
+  crest line beside a dark slip face every 4 to 5 m, coming and going); `breakup` and the walls' feet are stronger.
+- **The land under the rim** (`env_backdrop_dusk.build_foot`): the foot is BENCHED RIMROCK built from the height field
+  `foot_h`: for each of `FOOT_LEVELS` the bed's contour is solved in every column of `FOOT_X`; a bed is a level tread
+  ending in a lip (`LIPC`, brightest where it faces the north-west, broken along its length), its riser is built only
+  where an eye on the ledge can see it, the wash is a strip of sand a hand over each tread it crosses and runs on over
+  the plain toward the fire as a faint line, sixteen loose blocks. Flat tones with hard edges, no gradient wider than a
+  lip. The apron reaches the plain 60 m out (78). 2 857 of 3 200 triangles. The plain's inner disc has a hole 2 m round
+  `CENTRE`: an octagon shuts it. `build_foot` prints the bench under the dead pylon; `rim_town_card.py` `y0_` is that
+  height (2.0).
+- Tried and withdrawn: a second run of longer bedrock shelves in the gully (`lip_dress`): a 3 m plate is one flat
+  vertex-lit facet and read as a pale board on the sand (`shots/i5-team-exterior-look/w_shelves/`).
+- Triangles as built: `env_the_lip` 27 777 / 31 000, `env_plenty_street` 48 945 / 49 700 (yard chunk 13 164 / 13 400),
+  `env_backdrop_dusk` 2 857 / 3 200, `rim_town_card` 349 / 1 200. `collider_terrain` is byte-identical.
+- Rebuild: `node tools/build-assets.mjs --only lm_surface,env_plenty_street,env_the_lip --force` (one run: the atlas is
+  shared), `--only env_backdrop_dusk,rim_town_card --force`.
+
+## What pass i6 changed (the gate pylon, the stubs, the floors, the last image's foreground; rulings R7, R16, R18, R19)
+
+- **The gate pylon is a built mast** (`lip_built.build_pylon`, the pass-i6 block before the tilt): a proud steel band over
+  the seam of every module to 6 m, three broad dark bands and three lost cladding panels (the dark core, a rusted lip, a
+  cross-member behind, a weep under each) in the white upper half, the line's cable bundle down face 2 in five clamps to
+  where it was cut at 3.3 m (its end sprung away), rust weeps under the bands on the faces the path passes. `face_at(i)`
+  and `plate(i, ...)` lay a quad on any of the mast's eight faces. `chunk_lip_gate` 6 891 / 7 300, `env_the_lip`
+  28 289 / 31 000.
+- **A stub's rake is not a staircase** (`ext_frontier.break_wall.stair`): one tooth in three is short, one in four long,
+  and one or two bricks are gone from each rake (that tread drops to the one below, the next stands two or three
+  courses over it; a riser of no height is not built). The ends, drops and the body between the rakes are unchanged
+  (`openings.test.mjs` holds).
+- **The painted bond is half the size of the built teeth** (`wall_paint.BOND_H` 0.095, `BOND_L` 0.26; `_bond`): a mud brick
+  with its joint, two courses to a tooth, each course's perpends shifted a little. `BRICK_H / BRICK_L` (0.19 / 0.42) are
+  still what `paint_adobe` shows under a wall's fallen render. The stubs' charts are denser to carry it:
+  `street_parts.stub_wall` `dens` 2.8, `kdens` 3.6 (2.0 / 2.5); `yd_cover_stub_1` 3.2 / 4.2 (2.5 / 3.0). **The atlas is
+  14.58 texels a metre** (15.56): the stubs take about 7 % of it.
+- **The yard's own walls** (`paint_adobe(yard=True)`, charts `yd_wall*`): the render has come away in more and larger
+  patches (threshold 0.60, it is 0.665 elsewhere) and the foot is a darker damp course to the knee (0.58 over
+  0.30 .. 0.66 m plus the ragged term).
+- **`ground_paint.drifts`**: the floor's LARGE shapes on the Lip, the street and the yard: fields a dozen paces across,
+  long pale tongues of blown sand down the wind, darker scoured lanes between them (amount 0.14 to 0.15, halved on the
+  packed middle). `door_scuff` (a trodden fan at a sill and prints out to the street's middle) at six fronts of the
+  street (`STREET_DOORS`: eyeballed sills at z -6.9 / +6.9, not read from the buildings) and at the Tally House's door;
+  the trough's spill is a ragged dark patch (0.24 over 3.3 m, it was a round blot of 0.13).
+- **The land under the rim** (`env_backdrop_dusk.py`): a lip is a soft rim light ACROSS a bed's top (`LIP_W`: 0.85 m plus
+  up to 0.75, feathered to the tread's tone; `LIP_PEAK` 0.58 of pass i5's; a lip is dim, not absent, where it was
+  "dead"), not a drawn line. On the plain: three more low swells (two east of the gully's line, one west of the apron),
+  a dry wash that leaves the track under the apron's toe and wanders east (pale where its bed is swept, coming and
+  going), scrub in twos and threes along it and off the track (`tuft`), and the track to the fire is plainer
+  (`THREAD` x 0.42 at 0.80). `TRACK_X(z)` repeats `build_foot`'s `xw`. 3 069 of 3 200 triangles.
+- The rimrock the pursued man stands on is still `src/world/sightRock.ts`: it is a mesa's rim thirteen of his heights
+  long now, with level beds (`STRATA`), not a knob.
+- Rebuild: `node tools/build-assets.mjs --only lm_surface,env_plenty_street,env_the_lip --force` (141 s),
+  `--only env_backdrop_dusk --force`.
+

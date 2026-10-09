@@ -13,6 +13,7 @@ import type { AudioCue } from '../core/contracts.ts';
 import { HINT_ECHO, URGENT_READ } from './story.ts';
 import { ENCOUNTERS, PUZZLES, inVolume, lampNode, namedLine, paramList, paramNumber, paramString } from './internals.ts';
 import type { DirectorApi, State } from './internals.ts';
+import { SIGHT_ROCK_FRONT, buildSightRock } from './sightRock.ts';
 
 // =====================================================================================================
 // Pure: the wave scheduler
@@ -157,6 +158,8 @@ export const FILE_REAR = 4;
  * overlapped the alley's Biders: scratch/p0-team-world/NOTES.md), so the waves are as the layout says.
  */
 export const ENTRY_PACKET_IN = 1.9;
+/** pass i4: seconds between the Tally House's two risers */
+export const TALLY_STAGGER = 2.5;
 /** polish round 5: a latch knot's line said on the burst starts within this many seconds of it, or is dropped */
 export const KNOT_LINE_LATE = 1.5;
 /** polish round 5: a vignette trigger's first line is about the place while she is within this many metres of it; its later lines within VIGNETTE_GONE */
@@ -166,6 +169,11 @@ interface WaveRule {
   nearTimeout?: number; delay?: number; burst?: number;
   /** p0: a packet of six on the way in when the fight starts (ENTRY_PACKET_IN) */
   entryPacket?: boolean;
+  /**
+   * pass i4: the wave's dormant members do not wake together: the one nearest her at once, each next one `stagger`
+   * seconds after the one before (a chair scrapes again as each stands)
+   */
+  stagger?: number;
 }
 const WAVE_RULES: Readonly<Record<string, WaveRule>> = {
   // polish round 3 (R3): B and C come sooner, so two groups are on the street at once (it cost a plain player nothing)
@@ -173,7 +181,19 @@ const WAVE_RULES: Readonly<Record<string, WaveRule>> = {
   // polish round 4 (R3): C two seconds after B (it was six), so the file of two is on the street with the alleys
   'enc_street/C': { left: 2, timeout: 2 },
   'enc_street/D': { left: 0 },
+  // Pass i4 (R3; the playthrough review: "the Tally House rising is over in under two seconds and costs nothing":
+  // started 0:56.0, cleared 0:57.6, both shot as they stood up together in her sights). The two do not stand together:
+  // the one nearer her at once, the other `TALLY_STAGGER` seconds on, with its own scrape of a chair, while she is busy
+  // with the first. Nine still keep their seats (the count, the lamps and "Nine kept their seats" stand on it), so no
+  // third rises; a faster first lunge is the enemies' number (docs/requests/world.md).
+  'enc_tally/A': { stagger: TALLY_STAGGER },
   'enc_yard/A': { entryPacket: true },
+  // Pass i4 (the combat review: the mid-skill proxy died in the yard in two of three runs, stakes 141 and 104). Its
+  // advice was tried again: the third Transit four seconds behind the second (`stagger: 4`). Three mid proxies, the
+  // same seeds: 0 / 3 deaths / 0, stakes 106 / 383 / 44, against 2 / 0 / 0 and 152 / 22 / 44 as it stands
+  // (scratch/i4-team-world/ys4_m*.log, yb_m*.log): a longer fight under two guns is worse than a short one under three,
+  // as pass p0 found. The waves stay. (A canteen from the first enemy put down under 34 health was tried too, for the
+  // yard and the file: it changed no run of either, scratch/i4-team-world/yc_m*.log, fc_m*.log, fn_m*.log, and is not in.)
   'enc_yard/B': { left: 0, timeout: 14 },                 // polish round 3: was 40 s
   'enc_yard/B2': { afterSpawnOf: 'B' },
   'enc_yard/B3': { afterSpawnOf: 'B', aliveAtMost: 3 },
@@ -269,7 +289,7 @@ export function decideDrop(o: { bider: boolean; counted: boolean; bossAdd: boole
 // =====================================================================================================
 
 const NONE = 0, DORMANT = 1, DUE = 2, ALIVE = 3, DOWN = 4;
-interface Member { marker: LayoutMarker; wave: number; id: EntityId; state: number; kind: SpawnRequest['kind']; counted: boolean; order: number }
+interface Member { marker: LayoutMarker; wave: number; id: EntityId; state: number; kind: SpawnRequest['kind']; counted: boolean; order: number; /** pass i4: seconds until a dormant member of a released wave wakes (0: not waiting) */ wakeIn: number }
 interface Enc {
   id: EncounterId;
   data: EncounterData;
@@ -285,11 +305,13 @@ interface Enc {
   vignette: VignetteId | '';
   /** the Tamper's mercy packet has been given in this attempt (the ammo floor, below) */
   mercy: boolean;
+  /** pass i4: the member of the first wave whose chair scraped at the start: it stands first (`stagger`) */
+  staggerFirst: Member | null;
   /** seconds until the Tamper's ammo floor may give again (polish round 4: it repeats, `TAMPER_MERCY_EVERY`) */
   mercyWait: number;
   /** this encounter holds a Tamper (the floor below is its own) */
   tamper: boolean;
-  /** polish round 5: rounds turned by the Tamper's plate in a row (a vent or line hit starts the count again), and the hint said for it in this attempt */
+  /** polish round 5: rounds turned by the Tamper's plate in a row (a vent or line hit starts the count again), and the hint said for it in this run of the fight (pass i4: it was once an attempt) */
   plateRun: number;
   plateHinted: boolean;
   /** a door to open once the build has nothing pending (the hatch waits for the staged gallery) */
@@ -341,6 +363,20 @@ const SIGHT_LOOKED = 1, SIGHT_AWAY = 2;
  * not started is dropped there.
  */
 const SIGHT_AWAY_OPEN = 0.5;
+/**
+ * Pass i4 (GDD 23.18; story reviewer a: with him held in the middle of her view he was taken off the mesa at 12 s under
+ * "When she looked again there was only rim": she had never looked away, and the pop was seen). He is never taken away
+ * inside her view. "Away" is out of the frame, not merely off its middle: more than `SIGHT_OFF` degrees from the middle
+ * of her view (the corner of a 21:9 frame at the widest field of view is 65 degrees out; a constant, not a reading of the
+ * display). Looked at for a second and then out of the frame for 2 s (0.5 s once the door has opened), he is gone and
+ * the line is true. The beat's 12 s clock no longer takes him. Held in view for `SIGHT_STAYS` seconds he turns and goes
+ * down behind the skyline over `SIGHT_DOWN` seconds, in view, under `SIGHT_DOWN_LINE` ("He turned and went down the far
+ * side."). And when she walks into the Tally House with him still standing in her frame (backwards through the door),
+ * the card stays until it is out of it.
+ */
+export const SIGHT_OFF = 66, SIGHT_STAYS = 40, SIGHT_DOWN = 1.5;
+const SIGHT_OFF_COS = Math.cos(SIGHT_OFF * DEG2RAD);
+const SIGHT_DOWN_LINE = 'nar_dowser_down';
 /**
  * Pass i1 (story reviewer: "One sat in the niche, apart from the rest. It turned its hood to watch her." was said as
  * she crossed a 2 m trigger abreast of the niche, with no figure in the frame). A vignette trigger with a figure of
@@ -434,6 +470,37 @@ const SIGHT_MIN_PX = 62;                               // of the card: the drawn
 const SIGHT_SINK = 0.05;                              // of the card's height: how far its foot line stands under the rim's top (exterior look, pass i3)
 const BREADCRUMB_AFTER = 20;
 /**
+ * Pass i5 (both visual reviewers, a major each; lead rulings R4 and R18: "he stands ON something, in scale with it,
+ * never in the sky"). His card went up the moment the yard was clear and is drawn SIGHT_MIN_PX tall from wherever she
+ * stands: from the yard gate and the east half of the yard the line to him passes 1.8 degrees over the pump tank's roof,
+ * and a figure a tenth of the frame tall whose boots end on a roof 15 m away IS a man on that roof
+ * (shots/i5-visual-a/close_high/yd_enter.png); further west he slid behind the tank and came out beside it in the air.
+ *
+ * He stands on the skyline only where the skyline is his: where the line from her eye to him is CLEAN. Six lines are
+ * tried against the yard's own collision, measured in his drawn heights (one height = the nine tenths of SIGHT_MIN_PX
+ * that are figure, at his distance and her field of view): his middle, his feet `SIGHT_CLEAN_SIDE` heights to either
+ * side, and the rock `SIGHT_CLEAN_UNDER` heights under his feet in the middle and to either side. All six clear = there
+ * is at least that much of his own rimrock between his boots and the nearest roof, wall or tank and nothing of the yard
+ * stands beside him. That is the strip before the tally door (trg_dowser, all but its north edge beside the tank) and
+ * the north third of the yard, where he is seen over the 3 m west wall as from the vista; never the gate, the east
+ * half, or the tank's lee.
+ *
+ * He does not pop ON: where the line is clean he comes UP over the rim in `SIGHT_RISE` seconds (the skyline gives him
+ * back from the hat down: the crop of SIGHT_DOWN run backwards). Where she leaves it he is gone AT ONCE (pass i6: the
+ * third of a second he took to step down was a third of a second of a man on the tank), tried every tick while he shows.
+ * Motion on a still skyline is also what draws her eye, with the rod's glint. A player who has looked AT him for
+ * her second and then walks out of the clean strip has seen him go: that IS the end of the beat ("He turned and went
+ * down the far side."), not a card switched off. The beat itself (the line, the look, the door) only ever runs while
+ * he is up.
+ */
+export const SIGHT_RISE = 0.35, SIGHT_CLEAN_UNDER = 1.0, SIGHT_CLEAN_SIDE = 0.9, SIGHT_CLEAN_EVERY = 4;
+/** [up, to her right] in his heights from his feet: the six lines of the rule above */
+const SIGHT_CLEAN_AT: readonly (readonly [number, number])[] = [
+  [0.5, 0], [0, -SIGHT_CLEAN_SIDE], [0, SIGHT_CLEAN_SIDE], [-SIGHT_CLEAN_UNDER, 0], [-SIGHT_CLEAN_UNDER, -SIGHT_CLEAN_SIDE], [-SIGHT_CLEAN_UNDER, SIGHT_CLEAN_SIDE],
+];
+/** while he is not up his card stands this far under the world (its glint is a card of the renderer's that follows it) */
+const SIGHT_HIDDEN_Y = -4000;
+/**
  * the health each phase of the Windlass begins with at least: two full segments (src/player/defs.ts SEGMENT_TOPS; the
  * respawn's own floor, RESPAWN_MIN_HEALTH 60, lies inside the second)
  */
@@ -479,10 +546,19 @@ interface LookGate {
   at?: readonly [number, number, number];
   /** crossing the trigger says its lines at once, as an ungated trigger does (the look only brings them forward) */
   cross?: boolean;
+  /**
+   * pass i4: a door. Once it is no longer shut the trigger's lines are not said at all (she has gone on; what the lines
+   * are about is behind her). The trigger still does everything else it does.
+   */
+  until?: MarkerId;
 }
 export const LOOK_GATES: Readonly<Record<MarkerId, LookGate>> = {
   trg_windlass_seen: { subject: 'vista_windlass', up: 0, cos: Math.cos(30 * DEG2RAD), frameCos: Math.cos(50 * DEG2RAD), range: 30, level: 1.5, leave: 8.5, after: 0, last: 0, cue: 'ratchet', caption: 'cap_ratchet' },
-  trg_ante_enter: { subject: 'prop_camp_three', up: 0.3, cos: Math.cos(35 * DEG2RAD), frameCos: Math.cos(50 * DEG2RAD), range: 8, level: 2, leave: 0, after: 6, last: 20, cue: '', caption: '' },
+  // Pass i4 (story reviewer a: "Embers, still orange" was said at 20 s to a player facing the panelling, the camp behind
+  // her). No fallback says it to a wall any more (`last` 0): looked at, it is said; in frame for six seconds, it is
+  // said; a player who goes to the dial and through the bore door without a glance at the camp is not told of embers
+  // she never saw (`until`; the cradle's note already says "An hour, now").
+  trg_ante_enter: { subject: 'prop_camp_three', up: 0.3, cos: Math.cos(35 * DEG2RAD), frameCos: Math.cos(50 * DEG2RAD), range: 8, level: 2, leave: 0, after: 6, last: 0, cue: '', caption: '', until: 'door_bore' },
   // "Coats on pegs, all the way down": from the Tally House floor, the moment she looks down the open hatch at the first
   // flight's coats (the point `at`, a clear line through the hatch); else on the stair itself (ALSO_AT). A second and
   // more gained on the two lines' ten seconds: the second begins on the stair for a player who never breaks step
@@ -529,6 +605,26 @@ export const RULE_COS = Math.cos(38 * DEG2RAD), RULE_SIGHT = 120;      // (38: i
  * line is not said twice within HINT_ECHO seconds.
  */
 export const TEACH_MOVE = 'hint_boss_move', TEACH_HAUL = 'hint_boss_haul', TEACH_AFTER = 0.5;
+/**
+ * Pass i4 (story reviewer a: "His cup on their hearthstone... She had gained a day." was said while she read the ledger
+ * at the far end of the table; asked for at the hearth, it had waited its turn for eight seconds). A line about one
+ * small thing is said only while the thing is within `near` metres and inside `cos` of the middle of her view. Until
+ * then it keeps its place in line and the lines behind it go ahead (it does not go stale waiting); it is dropped
+ * unheard when she leaves the thing's zone. The design data is frozen for the world: docs/requests/world.md asks for
+ * the field on the prop.
+ */
+export const PLACE_LINES: Readonly<Record<StoryKey, { subject: MarkerId; near: number; cos: number; up: number }>> = {
+  nar_tally_hearth: { subject: 'prop_cup_two', near: 8, cos: Math.cos(60 * DEG2RAD), up: 0 },
+};
+/**
+ * Pass i4 (the playthrough review: a player who reads the proving plate and fires the line round at once heard two of
+ * the plate's three lines during the file fight and the third after it). The lines a readable makes the narrator say
+ * (`params.lines` of a readable: the cast plate's three) are one set (`READ_SETS`):
+ *  - if a fight is live before the first of them has begun, all of them wait until no fight is (they are lines the
+ *    story stands on: they are said in the quiet after it, together);
+ *  - if the first has begun, the set is heard out: the lines that announce the fight's waves are then next in line
+ *    behind the set instead of going between its lines.
+ */
 
 class Director implements DirectorApi {
   private readonly encs: Enc[] = [];
@@ -565,6 +661,15 @@ class Director implements DirectorApi {
   private sightCrumb = false;
   /** the tally door has been let go (the sighting's line, or its 12 s clock): he may still be standing there */
   private sightDoorOpen = false;
+  /** pass i4: seconds he has been going down behind the skyline (-1: he is not); the line said as he went (the door waits for it) */
+  private sightDown = -1;
+  private sightGoneLine: StoryKey = '';
+  /** pass i4: the sighting is over but his card still stands in her frame: it is taken away once it is out of it */
+  private sightGhost = false;
+  /** pass i5 (SIGHT_RISE): how far he has come up over the rim (0 behind it, 1 standing), and whether her line to him is clean */
+  private sightUp = 0;
+  private sightClean = false;
+  private sightCleanIn = 0;
   /** R4 (SIGHT_MIN_PX): the group the far card stands in, the card's root, its authored height and the shader's floor */
   private sightWrap: THREE.Group | null = null;
   private sightCard: THREE.Object3D | null = null;
@@ -588,7 +693,7 @@ class Director implements DirectorApi {
       const members: Member[] = [];
       waves.forEach((w, wi) => w.spawns.forEach((sp, k) => {
         const m = data.layout.markers.find((x) => x.id === sp) as LayoutMarker;
-        members.push({ marker: m, wave: wi, id: '', state: NONE, kind: paramString(m, 'enemy') as SpawnRequest['kind'], counted: m.params.counted !== false, order: paramNumber(m, 'order', k + 1) });
+        members.push({ marker: m, wave: wi, id: '', state: NONE, kind: paramString(m, 'enemy') as SpawnRequest['kind'], counted: m.params.counted !== false, order: paramNumber(m, 'order', k + 1), wakeIn: 0 });
       }));
       const first = waves[0] ? data.layout.markers.find((x) => x.id === (waves[0] as (typeof waves)[number]).spawns[0]) : undefined;
       const trigger = data.layout.markers.find((x) => x.id === d.trigger);
@@ -596,7 +701,7 @@ class Director implements DirectorApi {
       const enc: Enc = {
         id, data: d, state: 'idle', boss, sched: new WaveScheduler(boss ? [] : planWaves(d, enemyOf)), waves, members,
         view: { id, state: 'idle', wave: '', alive: 0, spawned: 0, seconds: 0 }, freed: 0, felled: 0, lastAnnounced: false, slowDone: false,
-        vignette: vig, mercy: false, mercyWait: 0, tamper: members.some((m) => m.kind === 'tamper'), plateRun: 0, plateHinted: false, openWhenBuilt: '', openLeft: 0, lockLater: [],
+        vignette: vig, mercy: false, staggerFirst: null, mercyWait: 0, tamper: members.some((m) => m.kind === 'tamper'), plateRun: 0, plateHinted: false, openWhenBuilt: '', openLeft: 0, lockLater: [],
         gates: [], burstDoor: '', burstIn: -1,
       };
       enc.sched.plans.forEach((p, wi) => {
@@ -626,6 +731,16 @@ class Director implements DirectorApi {
         const vista = data.layout.markers.find((x) => x.id === m.params.vista);
         const target = vista?.params.target as [number, number, number] | undefined;
         if (target) { this.sightTarget[0] = target[0]; this.sightTarget[1] = target[1]; this.sightTarget[2] = target[2]; }
+        // exterior look, pass i4: the rimrock he stands on is in the scene from the start (the boot's warm-up compiles it for
+        // this tier and the one below: added on the first frame of play it was one program linked at a tier's step down)
+        if (target && s.ctx.scene && s.ctx.scene.dynamic) {
+          const rock = this.sightRock = buildSightRock();
+          // (it stands SIGHT_ROCK_FRONT metres nearer than his card: lowered by that much of the line of sight's own slope,
+          // 12 degrees up from the yard, its top is drawn ON his foot line and not five pixels over it)
+          rock.position.set(target[0] + SIGHT_ROCK_FRONT, target[1] - SIGHT_ROCK_FRONT * Math.tan(12 * DEG2RAD), target[2]);
+          rock.scale.setScalar(23.3);
+          s.ctx.scene.dynamic.add(rock);
+        }
         const light = data.markersOfType('light').find((x) => x.params.kind === 'breadcrumb' && paramString(x, 'litWhen').includes(this.sightDoor));
         this.sightLight = light ? light.id : '';
       }
@@ -666,6 +781,26 @@ class Director implements DirectorApi {
       const enc = this.encs.find((e) => e.data.trigger === id);
       // the line is about a figure that kneels: not said once it has gone down, or the fight is over
       if (enc) s.story.unless(h.line, () => enc.state === 'cleared' || (enc.members[0] as Member | undefined)?.state === DOWN);
+    }
+    // (pass i4, PLACE_LINES) a line about one small thing waits for the thing to be in her view, and is dropped when she
+    // has left its room
+    for (const key of Object.keys(PLACE_LINES)) {
+      const pl = PLACE_LINES[key] as (typeof PLACE_LINES)[string];
+      const sub = data.layout.markers.find((x) => x.id === pl.subject);
+      if (!sub || data.story.lines[key] === undefined) continue;
+      s.story.waitWhile(key, () => {
+        const p = s.ctx.player.position, dx = sub.pos[0] - p.x, dz = sub.pos[2] - p.z;
+        return dx * dx + dz * dz > pl.near * pl.near || s.lookCos(sub.pos[0], sub.pos[1] + pl.up, sub.pos[2]) < pl.cos;
+      });
+      s.story.unless(key, () => s.zone !== sub.zone && !s.zoneHeld);
+    }
+    // (pass i4, READ_SETS) what a readable makes the narrator say is one set: it does not begin inside a fight
+    for (const m of data.markersOfType('readable')) {
+      const set = paramList(m, 'lines');
+      if (set.length === 0) continue;
+      this.readSets.push(set);
+      const first = set[0] as string;
+      for (const key of set) s.story.waitWhile(key, () => this.live && !s.story.heard(first));
     }
     this.ruleVista = data.layout.markers.find((x) => x.id === RULE_VISTA);
     if (this.ruleVista && data.story.lines[RULE_LINE] !== undefined) {
@@ -794,7 +929,7 @@ class Director implements DirectorApi {
       this.pipLeft = e.remaining;
     });
     events.on('combat/hit', (e) => { if (e.entityKind === 'tamper') this.onTamperHit(e.entityId, e.outcome, e.x, e.y, e.z); });
-    events.on('shootable/hit', (e) => { if (e.kind === 'dowser' && (this.sight === 1 || this.sight === 2)) s.story.sayFront(namedLine(this.sightTrigger, 'lines', 'shot')); });
+    events.on('shootable/hit', (e) => { if (e.kind === 'dowser' && (this.sight === 1 || this.sight === 2) && this.sightUp >= 0.5) s.story.sayFront(namedLine(this.sightTrigger, 'lines', 'shot')); });
     events.on('combat/line_resolved', (e) => {
       // one line round that frees three or more of the File: they sit down in order
       const file = this.linesEnc;
@@ -868,6 +1003,24 @@ class Director implements DirectorApi {
   private readonly watched = new Set<StoryKey>();
   private readonly shown = new Set<StoryKey>();
   private readonly nearLines: NearLine[] = [];
+  /** pass i4, READ_SETS: the narrator's lines of each readable, in order */
+  private readonly readSets: (readonly StoryKey[])[] = [];
+  /** the readable's set that has begun and is not over (its first line has started, one of its lines is on screen or waiting), or null */
+  private readSetRunning(): readonly StoryKey[] | null {
+    const { s } = this;
+    for (let i = 0; i < this.readSets.length; i++) {
+      const set = this.readSets[i] as readonly StoryKey[];
+      if (!s.story.heard(set[0] as string)) continue;
+      for (let k = 0; k < set.length; k++) if (s.story.holds(set[k] as string)) return set;
+    }
+    return null;
+  }
+  /** a line that announces a fight or a wave: about this second (urgent), but never between the lines of a readable's set */
+  private announce(key: StoryKey): void {
+    if (key === '') return;
+    const set = this.readSetRunning();
+    if (set) this.s.story.sayBehind(key, set); else this.s.story.sayUrgent(key);
+  }
   // ---- pass i3
   private ruleVista: LayoutMarker | undefined;
   /** the trigger whose encounter waits for her to come near its first figure (HELD_START) */
@@ -937,6 +1090,7 @@ class Director implements DirectorApi {
         const clear = cos >= g.frameCos && s.ctx.collision.lineOfSight(p.x, ey, p.z, t.sx, t.sy, t.sz, SIGHT_THROUGH);
         t.lookT = clear && cos >= g.cos ? t.lookT + dt : 0;
         if (t.lookT >= LOOK_DWELL) { t.lookT = 0; t.inside = inside; this.fire(t, true); continue; }
+        if (g.until !== undefined && s.doors.state(g.until) !== 'closed') { t.inside = inside; this.fire(t, false, true); continue; }
         if (inside && g.cross) { t.inside = inside; this.fire(t); continue; }
         if (inside && !t.crossed) {
           t.crossed = true; t.crossT = 0;
@@ -1023,8 +1177,8 @@ class Director implements DirectorApi {
     // watcher was looked at 5.2 s in and named 13.9 s in, in the proving bay, behind "The low pegs were bare")
     for (let i = 0; i < lines.length; i++) s.story.sayPresent(lines[i] as string, true, m.zone);
   }
-  /** `looked`: she is looking at the trigger's figure (a vignette of its own) */
-  private fire(t: Trig, looked = false): void {
+  /** `looked`: she is looking at the trigger's figure (a vignette of its own); `unsaid`: its lines are not said (LookGate.until) */
+  private fire(t: Trig, looked = false, unsaid = false): void {
     const { s } = this;
     const m = t.marker;
     s.flags.add(t.flag);
@@ -1034,7 +1188,8 @@ class Director implements DirectorApi {
     // (the rim's lamps and stone: next in line, in their order; R5: the stone's lines are not left behind six others)
     // (a vignette of its own, the watcher in the niche: tied to the moment she passes it, round 5)
     const hold = HELD_START[m.id];
-    if (m.params.vignette !== undefined && m.params.encounter === undefined) {
+    if (unsaid) { /* (pass i4) nothing is said of a thing she went past without a look */ }
+    else if (m.params.vignette !== undefined && m.params.encounter === undefined) {
       // (pass i1) the figure's first line is about this second (pass i2: said only on a look, LOOK_DWELL; a vignette
       // trigger with no figure of its own in the layout speaks as she crosses it)
       this.endWatchGlint(); this.speak(m);
@@ -1106,7 +1261,9 @@ class Director implements DirectorApi {
     e.sched.reset();
     for (const m of e.members) if (m.state === DOWN) e.sched.memberDown(m.wave);
     e.state = e.boss || !first || first.delay <= 0 || replay ? 'active' : 'vignette';
-    e.lastAnnounced = false; e.slowDone = false; e.view.wave = ''; e.mercy = false; e.mercyWait = 0; e.burstDoor = ''; e.burstIn = -1; e.plateRun = 0; e.plateHinted = false;
+    e.lastAnnounced = false; e.slowDone = false; e.view.wave = ''; e.mercy = false; e.mercyWait = 0; e.burstDoor = ''; e.burstIn = -1; e.plateRun = 0;
+    // pass i4 (closer; docs/requests/enemies.md 2.1): `plateHinted` is NOT owed again by a new attempt: the plate's line is
+    // said once per run of the fight (it was once a try: 10 / 41 / 68 / 96 s in the playthrough reviewer's log); `reset()` (a new run) owes it again
     // a vignette never replays: on a second attempt the first wave does not wait for it
     if (replay && first) e.sched.clock = first.delay;
     const trigger = s.ctx.data.layout.markers.find((m) => m.id === e.data.trigger);
@@ -1150,7 +1307,8 @@ class Director implements DirectorApi {
       return;
     }
     // the chairs scrape before anybody moves (the spawn marker's cueLead)
-    const lead = e.members[0];
+    // (pass i4: the chair of the one who will stand first, when the wave's members stand one after the other)
+    const lead = this.firstOf(e, 0) ?? e.members[0];
     if (lead && lead.marker.params.cueLead !== undefined) s.cueAt('chairs_scrape', lead.marker);
     this.stationLamp(e, true);
   }
@@ -1169,6 +1327,21 @@ class Director implements DirectorApi {
     m.id = id;
     m.state = dormant ? DORMANT : ALIVE;
     return true;
+  }
+  /** pass i4, `stagger`: the member of wave `w` that stands first: of seated ones the nearest to her, else the layout's first; null without the rule */
+  private firstOf(e: Enc, w: number): Member | null {
+    const wave = e.waves[w];
+    if (!wave || !((WAVE_RULES[e.id + '/' + wave.id]?.stagger ?? 0) > 0)) return null;
+    const p = this.s.ctx.player.position;
+    let first: Member | null = null, best = Infinity;
+    for (let i = 0; i < e.members.length; i++) {
+      const m = e.members[i] as Member;
+      if (m.wave !== w || (m.state !== DORMANT && m.state !== NONE)) continue;
+      const dx = m.marker.pos[0] - p.x, dz = m.marker.pos[2] - p.z, d = m.state === DORMANT ? dx * dx + dz * dz : i;
+      if (d < best) { best = d; first = m; }
+    }
+    if (w === 0) e.staggerFirst = first;                   // (the one whose chair scraped as the fight began is the one who stands)
+    return first;
   }
   private aliveNow(e: Enc): number {
     let n = 0;
@@ -1193,19 +1366,31 @@ class Director implements DirectorApi {
       s.story.say(AMBUSH_CAPTION);
     }
     else if (wave.opensDoor) s.doors.open(wave.opensDoor, false, true);
+    // (pass i4, `stagger`: the dormant ones wake one after the other, the nearest to her first)
+    const stagger = WAVE_RULES[e.id + '/' + wave.id]?.stagger ?? 0;
+    let later = 0;
+    if (stagger > 0) {
+      const first = e.staggerFirst && e.staggerFirst.wave === w ? e.staggerFirst : this.firstOf(e, w);
+      e.staggerFirst = null;
+      for (let i = 0; i < e.members.length; i++) {
+        const m = e.members[i] as Member;
+        if (m.wave === w && (m.state === DORMANT || m.state === NONE) && m !== first) m.wakeIn = stagger * ++later;
+      }
+    }
     for (let i = 0; i < e.members.length; i++) {
       const m = e.members[i] as Member;
       if (m.wave !== w) continue;
       const bursts = paramString(m.marker, 'burstsDoor');
       if (bursts !== '') s.doors.open(bursts, false, true);
-      if (m.state === DORMANT) { s.ctx.enemies.wake(m.id); m.state = ALIVE; } else if (m.state === NONE) m.state = DUE;
+      if (m.state === DORMANT) { if (m.wakeIn <= 0) { s.ctx.enemies.wake(m.id); m.state = ALIVE; } } else if (m.state === NONE && m.wakeIn <= 0) m.state = DUE;
     }
     if (WAVE_RULES[e.id + '/' + wave.id]?.entryPacket) this.entryPacket(e);
     // a wave's lines are about what is happening now: next in line, not behind a room's description
     // (p0: urgent. Next in line was up to 8 s late behind the proving plate's lines: "Two more on the stair behind her"
     // was read with the pair already on her, and "Four more" as the last of them sat down)
-    if (wave.lines) for (let i = 0; i < wave.lines.length; i++) s.story.sayUrgent(wave.lines[i] as string);
-    if (e === this.linesEnc && w === 0) s.story.sayUrgent(namedLine(this.fileLines(), 'lines', 'seen'));
+    // (pass i4, READ_SETS: behind the lines of a plate she has just read, if those have begun)
+    if (wave.lines) for (let i = 0; i < wave.lines.length; i++) this.announce(wave.lines[i] as string);
+    if (e === this.linesEnc && w === 0) this.announce(namedLine(this.fileLines(), 'lines', 'seen'));
     if (e === this.encs[0] && w === 1) s.needSprint = true;                  // the first fight's second wave: sprint is first needed
   }
   /**
@@ -1337,7 +1522,7 @@ class Director implements DirectorApi {
     if (e.lastAnnounced || e.sched.pending !== 0 || e.sched.totalAlive !== 1) return;
     e.lastAnnounced = true;
     let last: EntityId = '';
-    for (let i = 0; i < e.members.length; i++) { const m = e.members[i] as Member; if (m.state === ALIVE || m.state === DUE) last = m.id; }
+    for (let i = 0; i < e.members.length; i++) { const m = e.members[i] as Member; if (m.state === ALIVE || m.state === DUE || m.wakeIn > 0) last = m.id; }
     this.lastPayload.id = e.id; this.lastPayload.enemy = last;
     this.s.ctx.events.emit('encounter/last_enemy', this.lastPayload);
   }
@@ -1393,7 +1578,7 @@ class Director implements DirectorApi {
     const force = s.forcers.get(e.data.trigger);
     if (force) force();
     s.ctx.enemies.clearEncounter(id);
-    for (const m of e.members) { m.state = NONE; m.id = ''; }
+    for (const m of e.members) { m.state = NONE; m.id = ''; m.wakeIn = 0; }
     for (const w of e.waves) if (w.opensDoor) s.doors.open(w.opensDoor, true, true);
     for (const m of e.members) { const bursts = paramString(m.marker, 'burstsDoor'); if (bursts !== '') s.doors.open(bursts, true, true); }
     if (e.vignette !== '') s.vignettesSeen.add(e.vignette);
@@ -1464,23 +1649,60 @@ class Director implements DirectorApi {
     const { s } = this;
     this.sight = 1;
     this.sightClear = 0; this.sightEntered = false; this.sightEnter = 0; this.sightBeat = 0; this.sightLooked = 0; this.sightAway = 0; this.sightCrumb = false;
-    this.sightDoorOpen = false;
+    this.sightDoorOpen = false; this.sightDown = -1; this.sightGoneLine = ''; this.sightGhost = false;
+    this.sightUp = 0; this.sightClean = false; this.sightCleanIn = 0;
     const vig = this.sightTrigger?.params.vignette as { id?: VignetteId } | undefined;
     if (vig && vig.id) s.ctx.enemies.playVignette(vig.id);
+  }
+  /**
+   * Pass i5 (SIGHT_CLEAN_AT): is the skyline under and beside him his own from where she stands? Six sight lines against
+   * the yard's collision (everything blocks: a grille beside him is a thing beside him), each `RULE_SIGHT` metres long
+   * (nothing that can stand in the way is further off). Allocates nothing.
+   */
+  private sightLineClean(): boolean {
+    const { s } = this;
+    const t = this.sightTarget, p = s.ctx.player.position;
+    const ex = p.x, ey = p.y + PLAYER_EYE, ez = p.z;
+    const dx = t[0] - ex, dy = t[1] - ey, dz = t[2] - ez;
+    const flat = Math.sqrt(dx * dx + dz * dz) || 1, dist = Math.sqrt(flat * flat + dy * dy);
+    // one of his drawn heights, in metres at his distance (the rule of presentSighting and presentSightRock)
+    const h = 0.9 * SIGHT_MIN_PX * 2 * dist * Math.tan(s.ctx.scene.camera.fov * DEG2RAD / 2) / 720;
+    // to her right as she faces him, level
+    const rx = -dz / flat, rz = dx / flat;
+    const col = s.ctx.collision;
+    for (let i = 0; i < SIGHT_CLEAN_AT.length; i++) {
+      const a = SIGHT_CLEAN_AT[i] as readonly [number, number];
+      const qx = dx + rx * a[1] * h, qy = dy + a[0] * h, qz = dz + rz * a[1] * h;
+      const k = RULE_SIGHT / (Math.sqrt(qx * qx + qy * qy + qz * qz) || 1);
+      if (!col.lineOfSight(ex, ey, ez, ex + qx * k, ey + qy * k, ez + qz * k, 0)) return false;
+    }
+    return true;
+  }
+  /** his card is taken off the mesa (the enemies' vignette hides it on this event) */
+  private takeSightCard(): void {
+    const vig = this.sightTrigger?.params.vignette as { id?: VignetteId } | undefined;
+    this.sightGhost = false;
+    this.uncropSight();
+    if (vig && vig.id) { this.vignettePayload.id = vig.id; this.vignettePayload.stage = 'ended'; this.s.ctx.events.emit('vignette/state', this.vignettePayload); }
   }
   private crumb(): void {
     if (this.sightCrumb || this.sightLight === '') return;
     this.sightCrumb = true;
     this.s.lamp(this.sightLight, 1, 1);
   }
-  private endSighting(silent: boolean): void {
+  private endSighting(silent: boolean, linger = false): void {
     const { s } = this;
     const vig = this.sightTrigger?.params.vignette as { id?: VignetteId } | undefined;
-    if (this.sight === 1 || this.sight === 2) {
-      // he was still standing there: he goes without a word
-      if (vig && vig.id) { this.vignettePayload.id = vig.id; this.vignettePayload.stage = 'ended'; s.ctx.events.emit('vignette/state', this.vignettePayload); }
+    if (this.sight === 1 || this.sight === 2 || (this.sight === 3 && this.sightDown >= 0)) {
+      // he was still standing there: he goes without a word (pass i4: not while he is in her frame, `linger`)
+      const t = this.sightTarget;
+      if (linger && this.sightUp > 0 && s.lookCos(t[0], t[1], t[2]) >= SIGHT_OFF_COS) this.sightGhost = true;
+      else this.takeSightCard();
     }
+    this.sightDown = -1;
     this.sight = 4;
+    // (a card that lingers in her frame is the man she was looking at: it stays as it stands)
+    if (!this.sightGhost) this.sightUp = 0;
     if (vig && vig.id) s.vignettesSeen.add(vig.id);
     this.openSightDoor(silent);
   }
@@ -1500,8 +1722,14 @@ class Director implements DirectorApi {
    */
   presentSighting(): void {
     const { s } = this;
+    this.presentSightRock();
     const wrap = this.sightWrap;
-    if (this.sight < 1 || this.sight > 3) {
+    // (pass i5) how much of him the skyline has: going down the far side (SIGHT_DOWN), or not yet up / stepped back (SIGHT_RISE)
+    const up = this.sightUp, rise = up * up * (3 - 2 * up);
+    let gone = 1 - rise;
+    if (this.sightDown >= 0) { const dn = Math.min(1, this.sightDown / SIGHT_DOWN); gone = Math.max(gone, dn * dn * (3 - 2 * dn)); }
+    if (gone <= 0 && this.sightGeo) this.uncropSight();
+    if ((this.sight < 1 || this.sight > 3) && !this.sightGhost) {
       if (wrap && wrap.parent && wrap.children.length === 0) { wrap.removeFromParent(); this.sightCard = null; }
       return;
     }
@@ -1534,6 +1762,13 @@ class Director implements DirectorApi {
     }
     const g = this.sightWrap as THREE.Group;
     const cam = s.ctx.scene.camera;
+    const t = this.sightTarget;
+    // (pass i5) behind the rim he is not drawn at all, and the rod's glint (it follows the card's node) is under the world with him
+    const shown = gone < 1;
+    if (g.visible !== shown) g.visible = shown;
+    const gy = shown ? t[1] : t[1] + SIGHT_HIDDEN_Y;
+    if (g.position.y !== gy) g.position.y = gy;
+    if (!shown) return;
     const dx = cam.position.x - g.position.x, dy = cam.position.y - g.position.y, dz = cam.position.z - g.position.z;
     const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
     // pixels of a 720-line frame per metre at his distance; the shader's floor is in pixels of the drawing buffer
@@ -1544,7 +1779,80 @@ class Director implements DirectorApi {
     // (pass i3) ... and SIGHT_SINK of his drawn height under the foot line, in the wrap's own metres (the card's scale and the
     // shader's floor enlarge the drawing about the card's origin, not the card's place in the wrap)
     card.position.y = -SIGHT_SINK * drawn / perMetre;
+    // (pass i4, SIGHT_DOWN) going down the far side: the skyline takes him from the boots up over SIGHT_DOWN seconds, eased
+    // (pass i5, SIGHT_RISE) ... and gives him back the same way where her line to him is clean
+    if (gone > 0) this.cropSight(card, gone);
     if (Math.abs(g.scale.x - k) > 1e-3) g.scale.setScalar(k);
+  }
+  /**
+   * Exterior look, pass i4 (R4, R18): the rimrock he stands on (sightRock.ts), there whenever his zone is built. It is
+   * measured in his drawn heights and scaled about his feet by the rule that scales him: SIGHT_MIN_PX of a 720-line
+   * frame per height, whatever the field of view. Nothing here allocates once the mesh exists.
+   */
+  private sightRock: THREE.Mesh | null = null;
+  private presentSightRock(): void {
+    const { s } = this;
+    const m = this.sightTrigger, r = this.sightRock;
+    if (!r) return;
+    const on = m !== undefined && s.build.isBuilt(m.zone);
+    if (r.visible !== on) r.visible = on;
+    if (!on) return;
+    const dynamic = s.ctx.scene.dynamic;
+    const t = this.sightTarget;
+    if (r.parent !== dynamic) dynamic.add(r);
+    const cam = s.ctx.scene.camera;
+    const dx = cam.position.x - t[0], dy = cam.position.y - t[1], dz = cam.position.z - t[2];
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+    const perMetre = 720 / (2 * dist * Math.tan(cam.fov * DEG2RAD / 2));
+    // the card's drawing is nine tenths figure: one of his heights is 0.9 of SIGHT_MIN_PX
+    const k = 0.9 * SIGHT_MIN_PX / perMetre;
+    if (Math.abs(r.scale.y - k) > 1e-3 * k) r.scale.setScalar(k);
+  }
+  /**
+   * Pass i4, SIGHT_DOWN. His card is one quad, drawn in front of the mesa's face (it stands 250 m off, the backdrop
+   * behind it): sunk as it is, it slid down over the rock (shots/i4-team-world/dowser_41s2_before.png). So the skyline is
+   * made to take him: the quad's top edge comes down to its foot line while its picture is cropped from the boots up,
+   * and what is left of him is always the part above the rim. `c` = how much of him is gone (0 to 1). The quad is a
+   * copy made for the descent; the asset's own geometry is put back when he is gone (`uncropSight`), also when the
+   * enemies have taken the card back in the meantime. The rod's glint goes down with his hand.
+   */
+  private sightMesh: THREE.Mesh | null = null;
+  private sightGeo0: THREE.BufferGeometry | null = null;
+  private sightGeo: THREE.BufferGeometry | null = null;
+  private sightGlint: THREE.Object3D | null = null;
+  private sightGlintY = 0;
+  private cropSight(card: THREE.Object3D, c: number): void {
+    if (!this.sightGeo) {
+      let mesh: THREE.Mesh | null = null;
+      card.traverse((o) => {
+        const m = o as THREE.Mesh, g = m.geometry as THREE.BufferGeometry | undefined;
+        if (!mesh && m.isMesh && g && g.attributes.position && g.attributes.uv && g.attributes.position.count === 4) mesh = m;
+        if (o.name === 'glint' || o.userData.name === 'glint') { this.sightGlint = o; this.sightGlintY = o.position.y; }
+      });
+      if (!mesh) return;
+      this.sightMesh = mesh;
+      this.sightGeo0 = (mesh as THREE.Mesh).geometry;
+      this.sightGeo = this.sightGeo0.clone();
+      (mesh as THREE.Mesh).geometry = this.sightGeo;
+    }
+    const from = this.sightGeo0 as THREE.BufferGeometry, to = this.sightGeo;
+    const p0 = from.attributes.position as THREE.BufferAttribute, u0 = from.attributes.uv as THREE.BufferAttribute;
+    const p = to.attributes.position as THREE.BufferAttribute, u = to.attributes.uv as THREE.BufferAttribute;
+    let top = -Infinity, foot = Infinity, vTop = 0, vFoot = 0;
+    for (let i = 0; i < p0.count; i++) { const y = p0.getY(i); if (y > top) { top = y; vTop = u0.getY(i); } if (y < foot) { foot = y; vFoot = u0.getY(i); } }
+    const mid = (top + foot) / 2;
+    for (let i = 0; i < p0.count; i++) {
+      if (p0.getY(i) > mid) p.setY(i, top - (top - foot) * c);
+      else u.setY(i, vFoot + (vTop - vFoot) * c);
+    }
+    p.needsUpdate = true; u.needsUpdate = true;
+    if (this.sightGlint) { this.sightGlint.position.y = Math.max(foot, this.sightGlintY - (top - foot) * c); this.sightGlint.updateMatrix(); }
+  }
+  private uncropSight(): void {
+    if (this.sightMesh && this.sightGeo0) this.sightMesh.geometry = this.sightGeo0;
+    if (this.sightGeo) this.sightGeo.dispose();
+    if (this.sightGlint) { this.sightGlint.position.y = this.sightGlintY; this.sightGlint.updateMatrix(); }
+    this.sightMesh = null; this.sightGeo0 = null; this.sightGeo = null; this.sightGlint = null;
   }
   /** a far card of the renderer under `o`: its authored height and the shader's smallest size go to the fields */
   private readFarCard(o: THREE.Object3D): boolean {
@@ -1557,14 +1865,29 @@ class Director implements DirectorApi {
   private tickSighting(dt: number): void {
     const { s } = this;
     const m = this.sightTrigger;
+    if (this.sightGhost && m) {
+      // the sighting is over and his card is still in her frame: it goes when it is out of it, or with the street
+      const t = this.sightTarget;
+      // (pass i6: or the moment her line to him is not clean. From inside the door he would stand on the yard's roofs)
+      if (s.lookCos(t[0], t[1], t[2]) < SIGHT_OFF_COS || !s.build.isBuilt(m.zone) || !this.sightLineClean()) this.takeSightCard();
+    }
     if (!m || this.sight === 0 || this.sight === 4) return;
     const p = s.ctx.player.position;
     this.sightClear += dt;
+    // (pass i5) he is up only where the skyline under him is his own; tried every SIGHT_CLEAN_EVERY ticks
+    // (pass i6) ... and on EVERY tick while anything of him shows: the line is tried before the frame that would draw him
+    if (--this.sightCleanIn <= 0 || this.sightUp > 0) { this.sightCleanIn = SIGHT_CLEAN_EVERY; this.sightClean = s.build.isBuilt(m.zone) && this.sightLineClean(); }
+    // (pass i6, visual reviewer b: "briefly visible above the tank's rim from the yard gate, which looks like a man standing
+    // on the tank ... hide him at once"): he comes UP over SIGHT_RISE, but where the line stops being clean he is not drawn
+    // from that tick on. Stepping down as slowly as he rose left up to 4 + 21 ticks of a man on the tank's roof
+    // (shots/i6-visual-b/close_low/yd_door.png). The seen walk-down (SIGHT_DOWN, 1.5 s) is the stared-at case's alone
+    this.sightUp = this.sightClean ? Math.min(1, this.sightUp + dt / SIGHT_RISE) : 0;
+    const up = this.sightUp >= 1;
     const inside = inVolume(m, p.x, p.y, p.z);
     if (inside && !this.sightEntered) { this.sightEntered = true; this.sightEnter = 0; }
     if (this.sightEntered) this.sightEnter += dt;
     const cos = s.lookCos(this.sightTarget[0], this.sightTarget[1], this.sightTarget[2]);
-    const seen = cos >= SIGHT_COS, looked = cos >= LOOK_COS;
+    const seen = up && cos >= SIGHT_COS, looked = up && cos >= LOOK_COS;
     if (this.sight === 1 && inside && seen) {
       // the beat starts only when he is in the view cone: nothing is narrated off screen
       this.sight = 2;
@@ -1572,19 +1895,31 @@ class Director implements DirectorApi {
       s.story.sayFront(namedLine(m, 'lines', 'seen'));
     } else if (this.sight === 2) {
       this.sightBeat += dt;
-      if (looked) { this.sightLooked += dt; this.sightAway = 0; } else if (this.sightLooked >= SIGHT_LOOKED) this.sightAway += dt;
+      // (pass i4, SIGHT_OFF: away is OUT OF HER FRAME; anywhere in it he stands, and the away clock starts over)
+      const out = cos < SIGHT_OFF_COS;
+      if (looked) this.sightLooked += dt;
+      if (!out) this.sightAway = 0; else if (this.sightLooked >= SIGHT_LOOKED) this.sightAway += dt;
       const awayFor = this.sightDoorOpen ? SIGHT_AWAY_OPEN : SIGHT_AWAY;
-      // R4: he is held until she has looked AT him for a second; only then may the clock or her turning away take him
-      if (this.sightLooked >= SIGHT_LOOKED && (this.sightBeat >= paramNumber(m, 'clockSeconds', 12) || this.sightAway >= awayFor)) {
+      // R4: he is held until she has looked AT him for a second; only then may her turning away take him
+      if (this.sightLooked >= SIGHT_LOOKED && this.sightAway >= awayFor) {
         this.sight = 3;
-        const vig = m.params.vignette as { id?: VignetteId } | undefined;
-        if (vig && vig.id) { this.vignettePayload.id = vig.id; this.vignettePayload.stage = 'ended'; s.ctx.events.emit('vignette/state', this.vignettePayload); }
-        s.story.sayFront(namedLine(m, 'lines', 'gone'));
+        this.takeSightCard();
+        this.sightGoneLine = namedLine(m, 'lines', 'gone');
+        s.story.sayFront(this.sightGoneLine);
+      } else if (this.sightLooked >= SIGHT_LOOKED && (this.sightBeat >= SIGHT_STAYS || !this.sightClean)) {
+        // held in view all this time: he turns and goes down the far side, seen, and the line says so
+        // (pass i5: or she has looked at him and walks out of the strip where the skyline is his: he goes down for good)
+        this.sight = 3; this.sightDown = 0;
+        this.sightGoneLine = s.ctx.data.story.lines[SIGHT_DOWN_LINE] !== undefined ? SIGHT_DOWN_LINE : '';
+        if (this.sightGoneLine !== '') s.story.sayFront(this.sightGoneLine);
       }
+    } else if (this.sight === 3 && this.sightDown >= 0) {
+      this.sightDown += dt;
+      if (this.sightDown >= SIGHT_DOWN) { this.sightDown = -1; this.takeSightCard(); }
     }
     // the tally door: when "gone" has played, or 12 s after the volume was first entered, whichever is first
-    const gone = namedLine(m, 'lines', 'gone'), seenLine = namedLine(m, 'lines', 'seen');
-    if (this.sight === 3 && s.story.finished(gone)) { this.endSighting(false); return; }
+    const gone = this.sightGoneLine !== '' ? this.sightGoneLine : namedLine(m, 'lines', 'gone'), seenLine = namedLine(m, 'lines', 'seen');
+    if (this.sight === 3 && this.sightDown < 0 && (this.sightGoneLine === '' || s.story.finished(gone))) { this.endSighting(false); return; }
     // the door's own clock opens the way on; he stays on the mesa until he has been looked at, or she has gone in.
     // Polish round 4: never while the line that names him is still being said (the door opened under it, and a brisk
     // player read "On the far rim, a man..." inside the Tally House, under its card)
@@ -1593,7 +1928,7 @@ class Director implements DirectorApi {
       // she has gone in: what was being said about the rim is behind her
       // (pass i1: "gone", once it is on screen, is heard to its end)
       s.story.drop(seenLine); if (s.story.current !== gone) s.story.drop(gone);
-      this.endSighting(true);
+      this.endSighting(true, true);
       return;
     }
     if (!this.sightEntered && this.sightClear >= BREADCRUMB_AFTER) this.crumb();
@@ -1629,6 +1964,18 @@ class Director implements DirectorApi {
       }
       let w = e.sched.update(dt);
       while (w >= 0) { this.releaseWave(e, w); w = e.sched.update(0); }
+      // (pass i4, `stagger`) the members of a released wave that were held back stand in their turn
+      for (let k = 0; k < e.members.length; k++) {
+        const m = e.members[k] as Member;
+        if (m.wakeIn <= 0) continue;
+        if (m.state !== DORMANT && m.state !== NONE) { m.wakeIn = 0; continue; }
+        m.wakeIn -= dt;
+        if (m.wakeIn > 0) continue;
+        m.wakeIn = 0;
+        if (m.state === NONE) { m.state = DUE; continue; }  // (it comes in by its door: spawned below, under the alive cap)
+        s.ctx.enemies.wake(m.id); m.state = ALIVE;
+        if (m.marker.params.cueLead !== undefined) s.cueAt('chairs_scrape', m.marker);
+      }
       // spawn what is due, never past the alive cap; a refused spawn is tried again next tick
       let alive = this.aliveNow(e);
       for (let k = 0; k < e.members.length && alive < e.data.maxAlive; k++) {
@@ -1690,7 +2037,7 @@ class Director implements DirectorApi {
     const e = this.find(id, '');
     if (!e || e.boss || e.state !== 'active') return;
     // Polish round 5 (the combat critic: 29 rounds off the plate over three attempts, two deaths to the slam): the
-    // fourth round in a row that the plate turns says where the lead belongs, once an attempt. Not on Hard; not with
+    // fourth round in a row that the plate turns says where the lead belongs, once a run of the fight (pass i4; it was once an attempt). Not on Hard; not with
     // hints off.
     if (outcome !== 'deflected') e.plateRun = 0;
     else if (++e.plateRun === TAMPER_PLATE_HINT && !e.plateHinted && s.hintsOn() && s.ctx.options.value.difficulty !== 'hard') { e.plateHinted = true; s.story.say(TAMPER_HINT_KEY); }
@@ -1729,14 +2076,15 @@ class Director implements DirectorApi {
   reset(): void {
     this.knotAt.clear();
     for (const e of this.encs) {
-      e.state = 'idle'; e.freed = 0; e.felled = 0; e.lastAnnounced = false; e.slowDone = false; e.mercy = false; e.mercyWait = 0; e.plateRun = 0; e.plateHinted = false; e.view.wave = ''; e.openWhenBuilt = ''; e.lockLater.length = 0; e.burstDoor = ''; e.burstIn = -1;
+      e.state = 'idle'; e.freed = 0; e.felled = 0; e.lastAnnounced = false; e.slowDone = false; e.mercy = false; e.staggerFirst = null; e.mercyWait = 0; e.plateRun = 0; e.plateHinted = false; e.view.wave = ''; e.openWhenBuilt = ''; e.lockLater.length = 0; e.burstDoor = ''; e.burstIn = -1;
       e.sched.reset();
-      for (const m of e.members) { m.state = NONE; m.id = ''; }
+      for (const m of e.members) { m.state = NONE; m.id = ''; m.wakeIn = 0; }
     }
     for (const t of this.triggers) { t.inside = false; t.lookT = 0; t.crossed = false; t.crossT = 0; }
     this.heldTrig = null; this.teachIn = -1;
     for (const l of this.nearLines) l.t = 0;
-    this.sight = 0; this.sightDoorOpen = false; this.glareLeft = 0; this.vigId = ''; this.vigLeft = 0; this.turnWatch = ''; this.turnLine = ''; this.turnEnc = '';
+    this.sight = 0; this.sightDoorOpen = false; this.sightDown = -1; this.sightGoneLine = ''; this.sightGhost = false; this.glareLeft = 0;
+    this.uncropSight(); this.vigId = ''; this.vigLeft = 0; this.turnWatch = ''; this.turnLine = ''; this.turnEnc = '';
     this.pipLeft = 0;
     this.s.needSprint = false; this.endWatchGlint();
   }
@@ -1817,6 +2165,8 @@ class Director implements DirectorApi {
     out.sight = this.sight;
     out.watch = { glint: this.watchCard !== null, level: this.watchLevel, held: false };
     out.sightLooked = Math.round(this.sightLooked * 100) / 100;
+    out.sightAway = Math.round(this.sightAway * 100) / 100; out.sightDown = Math.round(this.sightDown * 100) / 100; out.sightGhost = this.sightGhost;
+    out.sightUp = Math.round(this.sightUp * 100) / 100; out.sightClean = this.sightClean;
     return out;
   }
 }

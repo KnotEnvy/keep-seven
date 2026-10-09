@@ -24,7 +24,7 @@ test('health: regeneration of the current segment after 4 s at 12 HP/s, the last
     assert.deepEqual(hurt.map((e) => [e.payload.amount, e.payload.health, e.payload.kind, e.payload.source, e.payload.graceUsed]), [[30, 70, 'lunge', 'bider', false], [15, 55, 'stake', 'transit', false]]);
     assert.deepEqual([hurt[0].payload.fromX, hurt[0].payload.fromY, hurt[0].payload.fromZ], [OX + 3, OY + 1, OZ], 'the source position for the HUD arc');
     const calls = await ext(game, 'range', 'renderCalls');
-    assert.ok(calls.some((c) => c.startsWith('addTrauma:0.5')) && calls.some((c) => c.startsWith('addTrauma:0.35')), `damage trauma 0.3 .. 0.6 by damage: ${calls.filter((c) => c.startsWith('addTrauma'))}`);
+    assert.ok(calls.includes('addTrauma:0.8') && calls.includes('addTrauma:0.6125'), `damage trauma 0.55 .. 0.9 by damage (30 HP: 0.8, 15 HP: 0.6125): ${calls.filter((c) => c.startsWith('addTrauma'))}`);
     await game.step(239);
     assert.equal(await hp(game), 55, 'nothing for 4 s');
     await game.step(31);                                    // tick 240 starts it; 30 more ticks = 0.5 s

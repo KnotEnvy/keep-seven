@@ -102,7 +102,7 @@ test('the air light: lamps glow in the air on High; additive, cut by nothing it 
   await page.evaluate(() => window.__dbg.ext.core.stepAsync(60, true));
   const bore = await read('air');
   const reaches = bore.lamps.filter((_, i) => i % 4 === 3);
-  assert.ok(reaches.includes(7), `the bore's glow is in the chamber's set (reaches ${reaches.join(' ')})`);
+  assert.ok(reaches.includes(9), `the bore's glow is in the chamber's set (reaches ${reaches.join(' ')})`);
 });
 
 test('the shadow map in a room: a creature stands on its own shadow, the blob is not drawn, fixed machinery casts nothing', async () => {

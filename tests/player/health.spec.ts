@@ -17,6 +17,8 @@ class Rig {
   readonly life = new Health(this);
   difficulty(): Difficulty { return this.level; }
   trauma(a: number): void { this.traumas.push(a); }
+  flinches: [number, number, number][] = [];
+  flinch(strength: number, fromX: number, fromZ: number): void { this.flinches.push([strength, fromX, fromZ]); }
   hit(amount: number, kind: DamageKind = 'lunge'): number {
     const d: DamageInfo = { amount, kind, source: 'bider', sourceId: 'bider#1', ammo: null, shotId: 0, ox: 1, oy: 2, oz: 3, dx: 0, dy: 0, dz: -1 };
     return this.life.applyDamage(d);
@@ -98,13 +100,29 @@ describe('applyDamage', () => {
     b.hit(38);
     expect(b.life.alive).toBe(false);
   });
-  it('trauma is +0.3 at 10 HP and +0.6 at 38, linear', () => {
+  it('trauma is +0.55 at 10 HP and +0.9 at 38, linear (pass i4: it was 0.3 to 0.6, a shake too small to see)', () => {
     const r = new Rig();
     r.hit(10); r.hit(24); r.life.set(100); r.hit(38); r.life.set(100); r.hit(4);
-    expect(r.traumas[0]).toBeCloseTo(0.3, 9);
-    expect(r.traumas[1]).toBeCloseTo(0.45, 9);
-    expect(r.traumas[2]).toBeCloseTo(0.6, 9);
-    expect(r.traumas[3]).toBeCloseTo(0.3, 9);
+    expect(r.traumas[0]).toBeCloseTo(0.55, 9);
+    expect(r.traumas[1]).toBeCloseTo(0.725, 9);
+    expect(r.traumas[2]).toBeCloseTo(0.9, 9);
+    expect(r.traumas[3]).toBeCloseTo(0.55, 9);
+    // render squares it: every hit that takes health shakes the view by a third of a degree or more
+    for (const t of r.traumas) expect(1.2 * t * t).toBeGreaterThan(0.36);
+  });
+  it('every hit that takes health asks for a flinch: its strength by the health taken, and where the blow came from', () => {
+    const r = new Rig();
+    r.hit(10); r.hit(24); r.life.set(100); r.hit(38);
+    expect(r.flinches.map((f) => +f[0].toFixed(9))).toEqual([0, 0.5, 1]);
+    expect(r.flinches[0]?.slice(1)).toEqual([1, 3]);       // DamageInfo.ox, .oz
+    // nothing taken, nothing asked: god mode, the immunity of the grace, a kill volume (it is not a hit)
+    const g = new Rig();
+    g.life.god = true; g.hit(20);
+    g.life.god = false; g.life.set(30); g.hit(38); g.hit(38);
+    expect(g.flinches.length).toBe(1);
+    const k = new Rig();
+    k.hit(0, 'kill_volume');
+    expect(k.flinches.length).toBe(0);
   });
   it('god mode takes nothing; the dead take nothing', () => {
     const r = new Rig();

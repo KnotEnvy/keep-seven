@@ -306,3 +306,110 @@ Six reviewer issues (story-a, story-b), all resolved in `src/ui/`, `index.html #
 | 2.2 `VERSION` / `REPOSITORY` | Checked: `1.0.0` = `package.json`; the repository is the `origin` remote |
 | 2.3 `public/share.jpg` | Remade from this pass's title frame; `tests/ui/i3_real.test.mjs` re-run in the gate |
 | 2.4, 2.5 | Noted; the playthrough's figures are the closer's (INTEGRATION_REPORT Part P) |
+
+## Fixer, pass i4 (2026-10-08): what is ready for this team, and what is ruled
+
+
+| Item | State |
+|---|---|
+| A visitor without a mouse (ruling R20) | **Done before the game**: `index.html` shows "KEEP SEVEN needs a mouse and a keyboard. Open it on a computer." with "Load it anyway" and asks for no model or texture until that button is pressed (`src/main.ts` waits on `window.__keep7Gate`); `tests/e2e/i4.test.mjs`. It leaves **`html[data-input="touch"]`** set. **Yours:** the same line on the title for that visitor: `ui_needs_input` is in `story.json` |
+| A refused pointer lock | `ui_lock_refused` is in `story.json` ("The browser will not give the game the mouse. Open the page in its own tab."). Counting refusals needs nothing new from core: `ctx.input.pointerLocked` and your own click count on the click-to-resume plate |
+| The pause legend's line for a held line round | `ui_legend_line` ("A line round, held. {line} seats it under the hammer.") |
+| The three keys | are listed in `tests/ui/text.spec.ts` `INTENTIONALLY_UNUSED` so the tree is green before you start: **take each out as you use it** |
+| The loading screen | core now draws "Waiting on the connection." (`#flow-waiting`, bottom left under the bar, `z-index` 900) after 8 s without a byte in the states `boot` and `loading`. If you would rather host it in `loadMeter`, hide `#flow-waiting` in `ui.css` and read `story.system.waiting`; say so here |
+| The end card's Time | is now the whole run (core carries time and deaths across a restore): no change needed in the card |
+| Being hit (ruling R20) | yours (the arc, the edge darkening); the camera's part is the player team's and the sound the audio team's |
+
+## UI team, pass i4 (2026-10-08)
+
+Eleven carry-over issues (`scratch/lead/carryover-issues.json`, team `ui`). Working log: `scratch/i4-team-ui/NOTES.md`;
+images (opened): `shots/i4-team-ui/` (`before_*` = the tree as the fixer left it, `after_*` / `real_*` / the rest = now);
+tests: `tests/ui/i4.test.mjs` (six, beside the stubs) and `tests/ui/i4_real.test.mjs` (three, the real game).
+
+### 1. What changed, for the closer to mirror into the documents (rulings R1, R20)
+
+| # | Was (document) | Is now (code) | Why |
+|---|---|---|---|
+| 1 | GDD 6.x "Damage feedback" (line 274) and 12.2 "Damage arc" (line 1325): "directional arc on the HUD for 0.6 s" | **1.0 s** (`hud.ts ARC_SECONDS`, whole 0.6 s, fading 0.4 s), radius 78 units (was 46), stroke 7 (was 3), **58 / 74 / 92 degrees wide by damage** (8 .. 30 points); **and the side of the frame the hit came from is inked in under a pale bar for 0.9 s** (`EDGE_SECONDS`; `ui.css .hurt`). A hit from a quarter lights two sides, one with no direction all four. Still pale on ink, no red, never the whole screen. Everything is counted in fixed ticks (it was a keyframe on the wall clock). Reduce flashes: the side rises over 0.2 s to 60 % | ruling R20; combat reviewer (major) |
+| 2 | GDD 23.x (pass i2): "the dot is named for six seconds when the first line round is taken, and while its hint is drawn" | **named for as long as a line round is held** (`LINE_LABEL_ALWAYS`); the pause screen adds one sentence with the key (`ui_legend_line`) | story reviewer b |
+| 3 | GDD 12.x / polish round 5: "a movement card never stands over a fight" (cut to 1 s + 0.3 s at a threat) | that rule stands; **added: a card STANDS ASIDE** (one row in the checkpoint numeral's place, "V · 1  THE WEIGHT", the name in brass; nothing in the middle of the frame; the work at hand does not wait for it) **while a vignette plays (`vignette/state`), an enemy is awake (`enemies.threat > 0`), an encounter is live or the Windlass is fighting** (`hud.ts CARD_ASIDE`). `visibleText().card` still reports the card's words while it is aside | combat reviewer: the card over the Tamper's entrance after "Go on" |
+| 4 | ART_BIBLE 10: "no panels" for prompts | every row of the talk column (the interact prompt, a key hint) stands on the ink ground of the kept-round prompt (ink at 62 %); the death line stands on the subtitle's ground (the option's opacity, never under 45 %) | story reviewers a and b |
+| 5 | ART_BIBLE 10 / pass i2: the left column at 7 % of the width | **in a frame narrower than 3:2 the column (name, menu, question, loading line) stands at 3.5 %**, the items carry an ink halo and the column's ground is ink at 74 % reaching 48 units right | story reviewer b |
+| 6 | GDD 12.2: boss name 15 units | never under 10 px | story reviewer b |
+| 7 | pass i2: the work at hand fades as one box in 0.6 s | the words go first (0.3 s) on the ground at full strength (ink at 50 %, was 42 %), then the ground (0.2 s) | story reviewer b |
+| 8 | (new) | at the asking's dial, in a frame narrower than 3:2, the work at hand is a column of at most 300 units / 23 vw on a thin ground: it ends at 237 px of 960, short of the stencilled "LIFT STATION 4" at 280 | story reviewer b |
+| 9 | (new, ruling R20) | the title shows `ui_needs_input` above its column when the visitor has no fine pointer or no pointer lock (`system.ts needsInput()`: `html[data-input="touch"]`, or the same two questions index.html asks); the click-to-resume plate shows it too; the plate shows `ui_lock_refused` from its second showing with no lock in between (`PLATE_REFUSED`) | robustness reviewer (major, minor) |
+
+### 2. For other teams
+
+| To | What |
+|---|---|
+| **core (index.html)** | Edited by the UI team (core is not active in this pass): one rule in the page's style, `@media (max-aspect-ratio: 3/2) { #preload .head { left: 3.5%; } #preload .line { left: calc(3.5% + var(--u) * 24); bottom: 5.5%; } }`, so the pre-boot page and the loading screen still coincide at 4:3. `tests/ui/i2.test.mjs` and `i4.test.mjs` pin it. `#pre-note` (the fixer's notice) is untouched and still at 7 % |
+| **player** | The second half of "at 4:3 the muzzle crowds port 4" is the view-model's: apply the dial tuck from the asking's volume (`trg_pz_asking`), not only at close range. In `shots/i4-team-ui/after_dial_4x3_walked.png` (taken while your edits were in the tree) the gun is already lowered at the volume's edge; the UI's own flag for that volume is `hud.debug().dial` |
+| **player / audio** | Being hit (ruling R20): the UI's part is done (the arc, the side of the frame). The camera's kick and the hurt sound are yours. `player/damaged` with `fromX/fromZ` equal to her own position is drawn as a hit with no direction (all four sides) |
+| **enemies / world** | The card's stand-aside reads `enemies.threat` and `vignette/state`. A vignette that is `started` and never `ended` / `skipped` keeps every later card aside until the next restore (`hud.reset`) |
+| **closer** | (1) `debug().lineLabel` is now true whenever a line round is held: the playthrough's hash moves with it. (2) `tests/ui/i2_real.test.mjs` "the loading line follows the bytes in" failed once in this pass's first full run of the suite (the line 0.2 behind the bytes while other teams' suites ran beside it) and is not touched by this pass: see the note under 3 |
+| **look teams** | Yours to tune: the pale bar's weight and length (`ui.css .hurt`: `--w`, the 27 % / 21 % insets), the ink band's depth (the `box-shadow` of `.hurt i`), the 4:3 title ground (`.title > .menu::before`: 74 %) |
+
+### 3. Declined, and why
+
+| Item | Why |
+|---|---|
+| "hold the death line 0.5 s before the world fades back in" (story reviewer a) | Core hands control back 1.8 s after the death and the ink fades off the game in 0.5 s; holding the ink longer would cover half a second of a fight that is already running (the Tamper is advancing, the Windlass is firing). The plate does what the hold was for: the line is read over the picture from the first frame, for 1.4 s |
+| "do not offer Begin" to a visitor without a mouse | The fixer's pre-boot notice already stands in front of the download with "Load it anyway"; a tablet with a keyboard and mouse attached, or a browser that misreports its pointer, can still play. The title says the line above the column and leaves the choice |
+| Counting refused lock requests in `core/input` | Not needed (and core is frozen): the plate's own count of showings with no lock in between is the same fact |
+
+## Closer, pass i4 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| 1 rows 1 to 9 | Mirrored: GDD 5 and 12.2 in place, GDD 23.19, ART_BIBLE "Amendments, pass i4 (closer)" |
+| 2 core: the `index.html` rule | Kept; `tests/core/pageHead.spec.ts` and the release check pass with it |
+| 3 the three declined items | **Upheld** |
+| The load-meter test under load | Run alone in the closer's gate (one suite at a time): see INTEGRATION_REPORT Part R |
+
+# Pass i5 (UI team)
+
+One issue (visual reviewer b, minor): being hit was drawn as hard cream bars that read like progress bars.
+
+## What changed (`src/ui/ui.css` `.hurt`, `--hurt`, `--hurt-hot`; `src/ui/hud.ts` comment only)
+
+The pale bar on the side of the frame a hit came from is gone. That side is now a **soft flare**: three blurred outer
+shadows of one ellipse lying wholly outside the frame (a hot rim `rgb(236 104 118 / 0.9)`, the warm red-violet
+`rgb(172 38 84 / 0.84)`, and ink at 86 % under them). Nothing in it has an edge or a fill; it is deepest at the middle
+of the side and tapers toward the corners; it never reaches the middle of the frame. The arc by the crosshair, the
+timing (whole 0.35 s, fading 0.55 s, `EDGE_SECONDS` 0.9), the strength by damage, the two-sides and four-sides rules
+and the reduce-flashes behaviour (rising over 0.2 s to 60 %) are unchanged.
+
+## For the closer: documents to mirror (ruling R20 and the reviewer outrank the numbers)
+
+| # | Document | Was | Is |
+|---|---|---|---|
+| 1 | ART_BIBLE 10 (`ui_pale` row, line 1431: "No red anywhere in the UI"), line 1657, line 2296 (row "10 being hit"); `ui.css` header | no red anywhere in the UI; the frame's side inked under a pale bar | **one exception**: the flare of a hit, warm red-violet `#AC2654` with a rim `#EC6876` over ink, blurred, on the side(s) the hit came from. Everything else in the UI is still brass, bone and ink; the seventh's violet `#B24BFF` is still only the seventh's |
+| 2 | GDD 6.x "Damage feedback" (line 274) and 12.2 "Damage arc" | "... the side of the frame the hit came from inked in under a pale bar for 0.9 s" | "... the side of the frame the hit came from flares warm red-violet over an ink bruise, soft-edged, for 0.9 s (whole 0.35 s, fading 0.55 s)"; the arc stays "pale, not red" |
+
+## Evidence
+
+- The reviewer's own place and hit (street, 30 from the front-left), real game, Low and High:
+  `shots/i5-team-ui/real_{low,high}_street_before.png`, `..._hit_t01 / t04 / t10 / t25 / t40 / t60.png`.
+  Low: top of the frame `147,177,159 -> 144,63,84`, left `74,60,66 -> 131,47,71`; the hardest step of luma from one
+  line to the next going inward is 1.6 (top) and 2.5 (left) of 255 (the bar stepped by more than 150).
+- Dark room (the gantry, 18 from behind): `shots/i4-team-ui/real_gantry_hit_behind_02.png` (rewritten by the test).
+- Sandbox, glare and dark: `shots/i5-team-ui/flare_glare_heavy_right.png`, `flare_dark_heavy_right.png`,
+  `flare_mid_no_direction.png`; the hardest step the flare draws anywhere in its third of the frame is <= 14 of 255.
+- Tests: `tests/ui/i5.test.mjs`, `tests/ui/i5_real.test.mjs` (`KEEP7_I5_TIER=high` runs it on High); amended
+  `tests/ui/i4.test.mjs`, `i4_real.test.mjs` (no bar) and `perf.test.mjs` (the sweep's "no red" exempts exactly the
+  flare's two colours on `.hurt`'s shadows).
+
+## Known gaps
+
+- On a dark frame the flare lights the side (the red-violet shows) and on a bright one it bruises it (the ink shows):
+  by design, but the look teams may want to tune `--hurt` / `--hurt-hot`; they are two custom properties in `ui.css`.
+- A light hit (8 points) is drawn at 60 % strength: visible, deliberately modest.
+
+## Closer, pass i5 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| Documents rows 1 and 2 | **Mirrored**: ART_BIBLE 10 (`ui_pale` row and line 35 in place; "Amendments, pass i5 (closer)"), GDD section 5 and 12.2 in place, 23.20 |
+| GPU paint cost of three blurred shadows | Not measurable here (no GPU): in `docs/KNOWN_ISSUES.md` |

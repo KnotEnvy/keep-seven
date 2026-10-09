@@ -8,7 +8,10 @@ import { fileURLToPath } from 'node:url';
 import { build, createServer, preview } from 'vite';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
-import { launchBrowser } from '../tools/browser.mjs';
+import { grantPointerLock, launchBrowser } from '../tools/browser.mjs';
+
+// (pass i4) for scripts that drive a page WITHOUT the debug hook through "Begin": see tools/browser.mjs
+export { grantPointerLock };
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CONFIG = path.join(ROOT, 'vite.config.mts');
@@ -83,7 +86,7 @@ function withNodeEnv(value, fn) {
  * cannot break your page or your production bundle. (On the dev index page `openGame`'s `stubs` already keeps the other
  * modules from being requested; `pieces` is what makes a BUILD, and a sandbox page of another slot, independent too.)
  */
-export async function startServer({ mode = 'dev', pieces } = {}) {
+export async function startServer({ mode = 'dev', pieces, hook = true } = {}) {
   const real = pieceList(pieces);
   const plugin = real ? stubPieces(real) : null;
   const plugins = plugin ? [plugin] : [];
@@ -129,7 +132,18 @@ export async function startServer({ mode = 'dev', pieces } = {}) {
   const outDir = fs.mkdtempSync(path.join(cache, 'dist-'));
   const remove = () => fs.rmSync(outDir, { recursive: true, force: true });
   try {
-    await withNodeEnv('production', () => build({ configFile: CONFIG, mode: 'production', logLevel: 'error', plugins, build: { outDir, emptyOutDir: true } }));
+    // (pass i4) a release build has no debug hook (vite.config.mts __KEEP7_HOOK__). The tests that step a production build
+    // ask for it with `?test=1` / `?debug=1`, so a build made here HAS the hook unless `hook: false` asks for the bundle
+    // exactly as the Pages workflow makes it.
+    // (the variable is set INSIDE the queued job: two test files of one process ask for their builds at the same time,
+    // and one with `hook: false` took the variable away from under the other's build)
+    await withNodeEnv('production', async () => {
+      const hadHook = Object.prototype.hasOwnProperty.call(process.env, 'KEEP7_HOOK'), hookBefore = process.env.KEEP7_HOOK;
+      if (hook) process.env.KEEP7_HOOK = '1'; else delete process.env.KEEP7_HOOK;
+      try {
+        return await build({ configFile: CONFIG, mode: 'production', logLevel: 'error', plugins, build: { outDir, emptyOutDir: true } });
+      } finally { if (hadHook) process.env.KEEP7_HOOK = hookBefore; else delete process.env.KEEP7_HOOK; }
+    });
     const server = await preview({ configFile: CONFIG, logLevel: 'error', build: { outDir }, preview: { host: '127.0.0.1', port: 0, strictPort: true } });
     const { port } = server.httpServer.address();
     return {

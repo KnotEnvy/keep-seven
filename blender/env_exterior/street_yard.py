@@ -534,7 +534,7 @@ def build_drum(S):
     rng = random.Random(191)
     half = R + 0.09
     zn = C[1] - half; zs = C[1] + half; xw = C[0] - half
-    fr.stepped_wall((lm, vl), (C[0] - 3.1, zn), (C[0] + 3.4, zn), [(0.0, 0.4, 1.3), (0.4, 0.9, 2.2), (0.9, 2.3, 3.15), (2.3, 3.2, 2.7), (3.2, 4.6, 3.2), (4.6, 5.4, 2.95), (5.4, 6.0, 2.1), (6.0, 6.5, 1.15)],
+    fr.stepped_wall((lm, vl), (C[0] - 3.1, zn), (C[0] + 3.4, zn), [(0.0, 0.4, 1.3), (0.4, 0.9, 2.2), (0.9, 2.3, 3.15), (2.3, 3.2, 2.7), (3.2, 4.45, 3.2), (4.45, 4.85, 2.72), (4.85, 5.2, 2.9), (5.2, 5.5, 2.28), (5.5, 5.8, 1.72), (5.8, 6.05, 1.9), (6.05, 6.3, 1.2), (6.3, 6.5, 0.62)],      # pass i4: the east end is the sighting's foreground: a ragged break (it was four even steps)
                     0.3, "yd_well_n", seed=194, density=1.0, batter=0.015, fallen=1.0)
     fr.stepped_wall((lm, vl), (xw, C[1] - 3.3), (xw, C[1] + 1.3), [(0.0, 0.45, 1.5), (0.45, 1.0, 2.6), (1.0, 2.6, 3.5), (2.6, 3.4, 3.2), (3.4, 4.1, 2.3), (4.1, 4.6, 1.2)],
                     0.3, "yd_well_w", seed=195, density=1.0, batter=0.015, fallen=1.0)
@@ -973,9 +973,9 @@ def build_dress(S):
 def build(S):
     import street_parts as sp
     parts = build_ground(S) + build_walls(S) + build_tally(S) + build_drum(S) + build_derrick(S) + build_tank(S) + build_shed(S) + build_dress(S)
-    parts += sp.stub_wall(S, "yd_cover_stub_1", 251, extra=-0.02)             # no taller than 2.3 m: the Dowser line
-    parts += sp.stub_wall(S, "yd_cover_stub_2", 253)
-    parts += sp.stub_wall(S, "yd_cover_stub_3", 255)
+    parts += sp.stub_wall(S, "yd_cover_stub_1", 251, extra=-0.02, ragged=True, lanes=(True, True), dens=3.2, kdens=4.2)           # no taller than 2.3 m: the Dowser line (pass i5: the stub in the sighting's own frame, both wythes)
+    parts += sp.stub_wall(S, "yd_cover_stub_2", 253, ragged=True)
+    parts += sp.stub_wall(S, "yd_cover_stub_3", 255, ragged=True)
     return parts
 
 

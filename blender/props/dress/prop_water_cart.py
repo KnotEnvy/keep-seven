@@ -54,11 +54,40 @@ def build(args):
             w = dc.box(f"wedge{i}{s}", (0.10, 0.20, 0.13), (x, s * 0.43, BED_Z + 0.20), rot=(s * 0.5, 0, j(0.1)), taper=(1.0, 0.25), drop=("-z",))
             dc.paint(w, "linen", "board", shade=0.9); parts.append(w)
     # ---- the barrel: staved, four iron hoops, sunk heads
-    barrel, hoop_z = dc.staved("barrel", B_LEN, B_END, B_BELLY - 0.016, hoops=(0.31, 0.69), seg=8, head_inset=0.045, hoop_w=0.075, hoop_h=0.016, edge=0.005, chime=(False, False))
+    # Pass i6 (visual reviewer, from the middle of the yard: "a flat dark plum hexagon with a single lighter bevel, with no
+    # planks, grain or shading"): the barrel is twelve-sided (eight) and its two heads are BOARDED: four boards a head,
+    # each its own part (its own value and grey), where there was one flat eight-sided cap.
+    SEG = 12
+    barrel, hoop_z = dc.staved("barrel", B_LEN, B_END, B_BELLY - 0.016, hoops=(0.31, 0.69), seg=SEG, head_inset=0.045, hoop_w=0.075, hoop_h=0.016, edge=0.005, chime=(False, False))
+    dc.drop_faces(barrel, lambda c, n: abs(n.z) > 0.9 and math.hypot(c.x, c.y) < 0.03)        # the two flat caps
     dc.smooth(barrel, angle=42)
     dc.place(barrel, (B_X0, 0.0, B_Z), (0, math.radians(90), 0))
     dc.paint(barrel, "linen", "board")
     parts.append(barrel)
+    rh = B_END * 0.86
+    def band(pts, lo, hi):
+        """The polygon [(x, y)] clipped to lo <= y <= hi."""
+        for sgn, lim in ((1.0, lo), (-1.0, -hi)):
+            out = []
+            for i, q in enumerate(pts):
+                r_ = pts[(i + 1) % len(pts)]
+                dq = sgn * q[1] - lim; dr = sgn * r_[1] - lim
+                if dq >= 0: out.append(q)
+                if (dq >= 0) != (dr >= 0):
+                    t = dq / (dq - dr); out.append((q[0] + (r_[0] - q[0]) * t, q[1] + (r_[1] - q[1]) * t))
+            pts = out
+        return pts
+    disc = [(rh * math.cos(2 * math.pi * k / SEG), rh * math.sin(2 * math.pi * k / SEG)) for k in range(SEG)]
+    for h, (z, cuts, shades) in enumerate(((0.045, (-rh, -0.20, 0.03, 0.24, rh), (0.80, 1.0, 0.70, 0.92)),
+                                           (B_LEN - 0.045, (-rh, -0.16, 0.13, rh), (0.94, 0.72, 1.0)))):       # (the nose end, toward the shafts: three boards)
+        for i in range(len(cuts) - 1):
+            pl = band(disc, cuts[i], cuts[i + 1])
+            if len(pl) < 3: continue
+            pts = [(x, y, z) for x, y in pl]
+            if h == 0: pts = list(reversed(pts))                         # the head at z = 0 looks along -Z
+            bd = dc.poly(f"head{h}_{i}", pts)
+            dc.place(bd, (B_X0, 0.0, B_Z), (0, math.radians(90), 0))
+            dc.paint(bd, "linen", ("board", "board_bleached")[(i + h) % 2], shade=shades[i]); parts.append(bd)
     # the bung hole on top of the belly (dark), and a spigot low in the rear head
     bx = B_X0 + B_LEN * 0.52
     hole = dc.poly("bung_hole", [(bx + 0.035 * math.cos(a), 0.035 * math.sin(a) + 0.02, B_Z + B_BELLY - 0.02) for a in [math.radians(72 * k) for k in range(5)]])
@@ -95,8 +124,8 @@ def build(args):
         on = (ax > -0.01) & (ax < B_LEN + 0.01) & (rad > B_END * 0.3) & (rad < B_BELLY + 0.03) & (np.abs(loc[:, 1]) < 0.65) & (p.col[:, 0] > 0.1)
         body = on & (rad > B_END * 0.9)
         ang = np.arctan2(loc[:, 2] - B_Z, loc[:, 1])
-        stave = np.floor((ang + math.pi) / (2 * math.pi) * 16).astype(np.int64) % 16     # two staves a facet
-        table = np.random.default_rng(args.seed + 5).uniform(0.82, 1.08, 16).astype(np.float32)
+        stave = np.floor((ang + math.pi) / (2 * math.pi) * 12 + 0.5).astype(np.int64) % 12     # (pass i6) one stave a facet: every flat of the barrel is a board with its own value
+        table = np.random.default_rng(args.seed + 5).uniform(0.70, 1.10, 16).astype(np.float32)
         p.mul(body, 1.0); p.col[body] *= table[stave[body]][:, None]
         hoop = np.zeros(len(ax), dtype=bool)
         for z0, z1 in hoop_z: hoop |= (ax > z0 - 0.004) & (ax < z1 + 0.004)
@@ -108,7 +137,7 @@ def build(args):
             below = wood & (ax > z1) & (ax < z1 + 0.12) & (loc[:, 2] < B_Z)
             p.mix(below * 0.18, "rust")
         head = on & (rad < B_END * 0.9)
-        p.mul(head, 0.8)
+        p.mul(head, 0.9)                                                # (pass i6: 0.8; the boards carry their own values now)
         # the wet that ran from the bung and from the spigot, long dried: a dark tongue
         p.mul(wood * np.clip(1.0 - np.abs(ax - B_LEN * 0.52) / 0.12, 0, 1) * (loc[:, 2] > B_Z), 0.75)
         p.mix(hoop * 0.94, "#43271C")                                   # the iron hoops last: dark brown rust, not orange

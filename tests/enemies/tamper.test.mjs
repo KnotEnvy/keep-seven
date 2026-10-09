@@ -238,11 +238,15 @@ test('Tamper (test 5): a charge into a rib ends in charge_stun with the back ven
       const runs = [];
       for (let i = 0; i < 20; i++) {
         ctx.enemies.clearAll();
-        // she stands so that the corner of rib n2 lies 0.3 to 0.5 m inside the lane: baited
-        dbg.teleport(-7.6 + rnd() * 0.3, -15, -18.5 + rnd() * 0.3, -90, 0);
+        // Pass i4: it charges only down a lane its body fits through (GDD 7.3 "with a clear lane"), so the bait is
+        // footwork: she stands in the open nave, and as it winds up she steps to where the corner of rib n2 lies
+        // 0.3 to 0.5 m inside the lane (until this pass she could stand there from the start and it obliged).
+        const bx = -7.6 + rnd() * 0.3, bz = -18.5 + rnd() * 0.3;
+        dbg.teleport(-7.6, -15, -14.2, -90, 0);
         const t = dbg.spawnEnemy('tamper', 1.2 + rnd() * 0.3, -15, -15.0 + rnd() * 0.3, 90);
         const seq = H.seq();
         const windup = await H.until(() => e.actor(t).state === 'charge_windup', 400);
+        dbg.teleport(bx, -15, bz, -90, 0);
         const w = await H.until(() => e.actor(t).state === 'charge', 200);
         const c = await H.until(() => e.actor(t).state !== 'charge', 300);
         const end = e.actor(t).state;
@@ -250,6 +254,14 @@ test('Tamper (test 5): a charge into a rib ends in charge_stun with the back ven
         const stun = end === 'charge_stun' ? await H.until(() => e.actor(t).state !== 'charge_stun', 300) : -1;
         runs.push({ windup, w, c, end, vent, stun, after: e.actor(t).state, tele: H.events(seq, /enemy\/telegraph/).map((x) => x.payload.attack).join() });
       }
+      // ---- pass i4: standing where the rib's corner is in the lane no longer draws a charge at all: it walks round to her
+      ctx.enemies.clearAll();
+      dbg.teleport(-7.6, -15, -18.5, -90, 0);
+      const tb = dbg.spawnEnemy('tamper', 1.2, -15, -15.0, 90);
+      const sb = H.seq();
+      let nearest = 99;
+      for (let i = 0; i < 60 * 6 && e.actor(tb).state !== 'slam_windup'; i++) { await core.stepAsync(1); const a = e.actor(tb), p = dbg.player(); nearest = Math.min(nearest, Math.hypot(a.x - p.x, a.z - p.z)); }
+      const blocked = { tele: H.events(sb, /enemy\/telegraph/).map((x) => x.payload.attack).join(), state: e.actor(tb).state, nearest };
       // ---- a charge down the open nave meets her: 35 once
       ctx.enemies.clearAll();
       dbg.god(false);
@@ -260,7 +272,7 @@ test('Tamper (test 5): a charge into a rib ends in charge_stun with the back ven
       let ticks = 0;
       while (e.actor(t).state === 'charge' && ticks < 300) { await core.stepAsync(1); ticks++; }
       const speed = (x0 - e.actor(t).x) / (ticks / 60);
-      return { runs, hp: dbg.player().health, after: e.actor(t).state, speed, max: e.stats().maxHit };
+      return { runs, blocked, hp: dbg.player().health, after: e.actor(t).state, speed, max: e.stats().maxHit };
     });
     const stunned = r.runs.filter((x) => x.end === 'charge_stun' && x.vent === true).length;
     assert.equal(stunned, 20, `charge_stun in ${stunned} of 20 runs: ${JSON.stringify(r.runs.filter((x) => x.end !== 'charge_stun'))}`);
@@ -270,6 +282,7 @@ test('Tamper (test 5): a charge into a rib ends in charge_stun with the back ven
       assert.ok(Math.abs(x.stun - 120) <= 1, `charge_stun lasts 2.0 s (${x.stun} ticks)`);
       assert.equal(x.after, 'advance');
     }
+    assert.equal(r.blocked.tele, 'slam', `with the rib's corner in the lane it does not charge: it walks to her and slams (${JSON.stringify(r.blocked)})`);
     assert.equal(r.hp, 65, 'a charge that meets her does 35');
     assert.equal(r.after, 'advance');
     assert.ok(Math.abs(r.speed - 9) < 0.5, `it charges at 9 m/s (${r.speed})`);

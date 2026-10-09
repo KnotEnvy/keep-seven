@@ -165,6 +165,7 @@ class ProvingLine implements Puzzle, ShotOwner {
     d.ox = e.ox; d.oy = e.oy; d.oz = e.oz; d.dx = e.dx; d.dy = e.dy; d.dz = e.dz; d.shotId = e.shotId;
     if (!this.assisted(k, d)) return;
     this.assistedShot = e.shotId;
+    this.lineShot = e.shotId;
     this.burst(k);
     for (let i = 1; i < this.knots.length; i++) { const o = this.knots[i] as Knot; if (!o.burst && o.pending < 0) o.pending = ASSIST_GAP * i; }
   }
@@ -179,6 +180,7 @@ class ProvingLine implements Puzzle, ShotOwner {
       this.assistedShot = damage.shotId;
       // the three burst as one line: a now, the rest 40 ms apart, as the round would have met them
       out.outcome = 'broke'; out.stops = true;
+      this.lineShot = damage.shotId;
       this.burst(k);
       for (let i = 1; i < this.knots.length; i++) { const o = this.knots[i] as Knot; if (!o.burst && o.pending < 0) o.pending = ASSIST_GAP * i; }
       return;
@@ -186,8 +188,17 @@ class ProvingLine implements Puzzle, ShotOwner {
     // the volume may be larger than the knot (the assist): a round that does not meet the knot itself passes
     if (k.burst || rayDistance(damage, k.shot.x, k.shot.y, k.shot.z) > k.radius) { out.outcome = 'passed'; out.stops = false; return; }
     out.outcome = 'broke'; out.stops = !line;
+    this.lineShot = line ? damage.shotId : -1;
     this.burst(k);
   }
+  /**
+   * Pass i4 (story reviewer b; R12): the end card's "Lines of three or more" stood at 0 after the one line the stage
+   * teaches. The player's own count (`combat/line_resolved`) sees the knots the round itself met: one or two, since the
+   * assist bursts the rest 40 ms apart from this file. The shot id of the last line round that burst a knot here: when
+   * the puzzle is solved by it (all three inside TOGETHER), it is a line of three unless the player's count already
+   * said so for that shot (`State.lineCounted`).
+   */
+  private lineShot = -1;
   private burst(k: Knot): void {
     const { s } = this;
     if (k.burst || this.view.solved) return;
@@ -201,6 +212,7 @@ class ProvingLine implements Puzzle, ShotOwner {
     if (this.door) s.lamp(this.door, n, this.knots.length);
     this.view.step = n;
     s.progress(this.view, k.marker.id);
+    if (solved && this.lineShot >= 0 && s.lineCounted !== this.lineShot) { s.lineCounted = this.lineShot; s.stats.linesOfThree++; }
     if (solved) this.finish(false);
   }
   private finish(instant: boolean): void {

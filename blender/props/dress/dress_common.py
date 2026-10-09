@@ -332,7 +332,7 @@ IRON_TYRE = "#43271C"        # a rusted iron tyre / nave band: dark brown, not o
 
 
 def wheel(name, centre, normal, rng, R=0.6, spokes=12, shade=1.0, rim_segs=12, wood=("board", "board_bleached", "board_dark"), inner_cap=True,
-          tyre=IRON_TYRE, spoke_sides=4, hub_seg=6, felloes=6):
+          tyre=IRON_TYRE, spoke_sides=4, hub_seg=6, felloes=6, tyre_band=0.0, form=0.0, ridge=False):
     """A wagon wheel as a LIST of parts (join them with the rest after the AO bake). Pass i1 (the visual reviewer: "the
     wheel rims are ten straight segments and the hub a plain block"): the rim is `rim_segs` segments (18 to 20 reads as
     a circle from a pace away) made of `felloes` sawn felloes, each its own part (its own value under `compose`'s part
@@ -340,25 +340,42 @@ def wheel(name, centre, normal, rng, R=0.6, spokes=12, shade=1.0, rim_segs=12, w
     `spokes` spokes that taper from the nave to the rim (spoke_sides 3 = a flat face outward and a ridge behind: six
     triangles a spoke, for a wheel seen from its outside); the hub is a turned nave with an iron-banded nose. Built
     flat, then turned so its axle lies along `normal` at `centre` (local +Z = the wheel's outside). The spokes take no
-    AO (their only vertices are in the hub and in the rim)."""
+    AO (their only vertices are in the hub and in the rim).
+    Pass i5 (visual reviewer, the wagon's wheel from a pace away: "flat untextured spokes ... a single fill"):
+    tyre_band > 0 turns that much of the rim's FRONT face into the tyre's edge (one more ring: the iron shows from in
+    front of the wheel, not only from its tread); form > 0 gives the faces their own value by where they look, as a
+    carpenter's drawing does: a spoke's and a felloe's face a step paler, their flanks and the rim's inside darker by
+    `form` (a vertex-lit wheel in shade has no light of its own to show which way a face looks).
+    Pass i6 (both visual reviewers: "flat dark slabs for spokes", "add spoke bevels"): ridge=True turns a four-sided spoke
+    on its edge, as a spoke is shaved: a ridge down its face, one flank of the ridge a step paler and the other a step
+    darker (the same triangles)."""
     out = []
     N = rim_segs; ro, ri, hw = R, R - 0.085, 0.036
     bm = mesh.new_bmesh(); rings = []
     for k in range(N):
         a = 2 * math.pi * k / N; c, s_ = math.cos(a), math.sin(a)
-        rings.append([bm.verts.new((c * r, s_ * r, z)) for r, z in ((ro, hw), (ro, -hw), (ri, -hw), (ri, hw))])    # outer front, outer back, inner back, inner front
-    f_tyre = []; f_fel = [[] for _ in range(felloes)]; fi = 0
+        sec = [(ro, hw), (ro, -hw), (ri, -hw), (ri, hw)] + ([(ro - tyre_band, hw)] if tyre_band > 0 else [])
+        rings.append([bm.verts.new((c * r, s_ * r, z)) for r, z in sec])    # outer front, outer back, inner back, inner front (, the tyre's edge on the front)
+    M_ = len(rings[0])
+    f_tyre = []; f_fel = [[] for _ in range(felloes)]; f_in = []; fi = 0
     for k in range(N):
         a, b = rings[k], rings[(k + 1) % N]
-        for j in range(4):
-            j2 = (j + 1) % 4
+        for j in range(M_):
+            j2 = (j + 1) % M_
             bm.faces.new((a[j], a[j2], b[j2], b[j]))
-            (f_tyre if j == 0 else f_fel[(k * felloes) // N]).append(fi); fi += 1
+            (f_tyre if j in (0, 4) else f_fel[(k * felloes) // N]).append(fi)
+            if j == 2: f_in.append(fi)
+            fi += 1
     rim = _obj(name + "_rim", bm); _outward(rim)
     if tyre is None: f_fel[0] += f_tyre
     else: paint(rim, "linen", tyre, faces=f_tyre, shade=shade)
     for g in f_fel:
-        if g: paint(rim, "linen", wood[0], faces=g, shade=0.9 * shade * rng.uniform(0.86, 1.06))
+        if not g: continue
+        sh = 0.9 * shade * rng.uniform(0.86, 1.06)
+        paint(rim, "linen", wood[0], faces=g, shade=sh)
+        if form > 0:
+            gi = [f for f in g if f in set(f_in)]
+            if gi: paint(rim, "linen", wood[0], faces=gi, shade=sh * (1.0 - form), part=False)
     out.append(rim)
     r0, r1 = 0.085, ri + 0.012
     for k in range(spokes):
@@ -372,9 +389,21 @@ def wheel(name, centre, normal, rng, R=0.6, spokes=12, shade=1.0, rim_segs=12, w
                              bm.verts.new(c + Vector((0, 0, -0.030 * k_)))])
             for j in range(3): bm.faces.new((secs[0][j], secs[0][(j + 1) % 3], secs[1][(j + 1) % 3], secs[1][j]))
             sp = _obj(f"{name}_spoke{k}", bm); _outward(sp)
+        elif ridge:
+            sp = beam(f"{name}_spoke{k}", tuple(d * r0), tuple(d * r1), 0.062, 0.062, up=tuple(t + Vector((0, 0, 1))), cap=(False, False), taper=0.62)
         else:
             sp = beam(f"{name}_spoke{k}", tuple(d * r0), tuple(d * r1), 0.066, 0.052, up=(0, 0, 1), cap=(False, False), taper=0.68)
-        paint(sp, "linen", wood[1], shade=rng.uniform(0.7, 0.86) * shade, ao=False); out.append(sp)
+        sh = rng.uniform(0.7, 0.86) * shade
+        paint(sp, "linen", wood[1], shade=sh * (1.0 + 0.45 * form), ao=False)
+        if ridge:
+            lee = [pl.index for pl in sp.data.polygons if pl.normal.z > 0.2 and pl.normal.dot(t) < 0]
+            back = [pl.index for pl in sp.data.polygons if pl.normal.z <= 0.2]
+            if lee: paint(sp, "linen", wood[1], faces=lee, shade=sh * (1.0 - 0.6 * form), part=False, ao=False)
+            if back: paint(sp, "linen", wood[1], faces=back, shade=sh * (1.0 - form), part=False, ao=False)
+        elif form > 0:
+            flank = [pl.index for pl in sp.data.polygons if abs(pl.normal.z) < 0.6]
+            if flank: paint(sp, "linen", wood[1], faces=flank, shade=sh * (1.0 - form), part=False, ao=False)
+        out.append(sp)
     nave = lathe(name + "_hub", [(0.080, -0.12), (0.118, -0.035), (0.118, 0.045)] if hub_seg >= 8 else [(0.086, -0.12), (0.118, 0.045)], seg=hub_seg, cap_first=inner_cap, cap_last=False)
     smooth(nave, angle=40); paint(nave, "linen", wood[2], shade=1.1 * shade); out.append(nave)
     nose = lathe(name + "_nose", [(0.104, 0.045), (0.090, 0.115), (0.050, 0.150)], seg=hub_seg, cap_first=False, cap_last=True)

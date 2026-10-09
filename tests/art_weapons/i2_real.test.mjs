@@ -29,7 +29,10 @@ test('in the Tally House the view-model is warm and sits at the level of what it
   console.log(`Tally House: view-model mean L* ${l.toFixed(1)} over ${bg.toFixed(1)}, mean R / B ${(r / b).toFixed(2)}, over L* 60 ${(100 * hi / n).toFixed(1)} %, under L* 12 ${(100 * lo / n).toFixed(1)} % (pass i1: 30.4 over 24.1)`);
   assert.ok(l <= bg + 4, `mean L* ${l.toFixed(1)} is no more than 4 over the room behind it (${bg.toFixed(1)})`);
   assert.ok(l >= 20, `and it is lit (mean L* ${l.toFixed(1)} >= 20)`);
-  assert.ok(r / b > 1.5, `its mean red is over 1.5 x its blue (${(r / b).toFixed(2)}): the lamp room's light is in it`);
+  // pass i4 (ruling R17: one steel in every room, the glove keeps its own colour): the bound was 1.5, held by a bronze steel
+  // and an orange glove (the reviewers' "warm bronze-nickel in the Tally House"). The steel's body is the street's blue-black
+  // here now (tests/art_weapons/i4_real.test.mjs); the lamp is in its highlights, the walnut and the brown glove: 1.42
+  assert.ok(r / b > 1.25, `its mean red is over 1.25 x its blue (${(r / b).toFixed(2)}): the lamp room's light is in it`);
   assert.ok(hi / n >= 0.01 && lo / n < 0.04, 'highlights at least 1 %, under L* 12 less than 4 %');
 });
 

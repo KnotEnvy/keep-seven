@@ -84,10 +84,10 @@ test('every visibility cell is inside its computed bound and the Low caps, over 
 test('assertBudget fails a frame that is over, and the tier caps differ', () => {
   const ok = { drawCalls: 60, triangles: 50000, textureBytes: 30 * MiB, renderTargetBytes: 20 * MiB, cell: 'cell_street' };
   assertBudget(ok, { zone: 'plenty_street', tier: 'low' });
-  assert.throws(() => assertBudget({ ...ok, drawCalls: 77 }, { zone: 'plenty_street', tier: 'low' }), /draw calls 77/);   // the zone's typical bound + 1 (76 since release pass p0: the view-model's third draw call, R14)
-  assertBudget({ ...ok, drawCalls: 77 }, { zone: 'plenty_street', tier: 'low', worst: true });
-  assert.throws(() => assertBudget({ ...ok, drawCalls: 83 }, { zone: 'plenty_street', tier: 'low', worst: true }), /draw calls 83/);
-  assert.throws(() => assertBudget({ ...ok, triangles: 119789 }, { zone: 'plenty_street', tier: 'low' }), /triangles 119789/);   // the zone's bound + 1 (119 788 since pass i3; 119 930 from release pass p0)
+  assert.throws(() => assertBudget({ ...ok, drawCalls: 78 }, { zone: 'plenty_street', tier: 'low' }), /draw calls 78/);   // the zone's typical bound + 1 (77 since pass i4: the packet at the bell post is one more instanced batch in cell_yard_door; 76 since release pass p0)
+  assertBudget({ ...ok, drawCalls: 78 }, { zone: 'plenty_street', tier: 'low', worst: true });
+  assert.throws(() => assertBudget({ ...ok, drawCalls: 84 }, { zone: 'plenty_street', tier: 'low', worst: true }), /draw calls 84/);
+  assert.throws(() => assertBudget({ ...ok, triangles: 119841 }, { zone: 'plenty_street', tier: 'low' }), /triangles 119841/);   // the zone's bound + 1 (119 840 since pass i4; 119 788 in pass i3; 119 930 from release pass p0)
   assert.throws(() => assertBudget({ ...ok, triangles: 120001 }, { tier: 'low' }), /tier cap 120000/);
   assert.throws(() => assertBudget({ ...ok, renderTargetBytes: 35 * MiB }, { zone: 'plenty_street', tier: 'low' }), /65\.0 MiB > 64/);
   assertBudget({ ...ok, drawCalls: 200, triangles: 300000, renderTargetBytes: 90 * MiB }, { tier: 'high' });

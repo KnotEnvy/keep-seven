@@ -484,7 +484,7 @@ test('a production build made after a dev server in the same process is a produc
     assert.deepEqual(ok.errors, []);
     await ok.page.close();
     // ---- one manifest file answers 404: a production page does not synthesise it; the boot fails, and says so on the page
-    const bad = await open((page) => page.route('**/assets/env/env_plenty_street.glb', (route) => route.fulfill({ status: 404, body: '' })));
+    const bad = await open((page) => page.route('**/assets/env/env_plenty_street.glb*', (route) => route.fulfill({ status: 404, body: '' })));
     await bad.page.waitForFunction(() => document.getElementById('boot-failure') !== null, null, { timeout: 90000 });
     const shown = await bad.page.evaluate(() => ({ line: document.getElementById('boot-failure').textContent, title: document.title, visible: document.getElementById('boot-failure').getBoundingClientRect().height > 0 }));
     // plain words only (polish round 3): no asset id, no path, no exception text; those are in the console line below

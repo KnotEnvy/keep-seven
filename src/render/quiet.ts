@@ -41,3 +41,43 @@ export function quietFrustum(): void {
     return this;
   };
 }
+
+/**
+ * Pass i4 (performance: "play still allocates 5 kB per tick and drawn frame"). The profile's largest site was not in the
+ * frame nor in the tick but between them: every skeleton that moved since the last frame marks its bone texture for an
+ * upload (core's quiet update, assets.ts), and three's upload path builds the texture's cache key first: a
+ * fourteen-element array joined into a string, 690 B a skeleton a frame (the hands alone in the yard; 2.0 kB with the
+ * file's Biders: scratch/i4-team-render-tech/allocprof_before_low.log). `quietBones` hands the new matrices to the
+ * texture three already made, itself: the same `texSubImage2D` three would issue (a float RGBA texture of the same
+ * size, no flip, no premultiply), through three's own state cache, and marks the texture's version as uploaded. It is
+ * called from a dynamic material's onBeforeRender: after three has updated the skeleton, before it binds the texture.
+ * The FIRST upload of a bone texture (and any after a lost context or a dispose) is still three's: only then is there
+ * no GL texture to write to. The shadow pass's depth materials have no such hook: a caster's bones go three's way.
+ */
+export function quietBones(renderer: THREE.WebGLRenderer, skeleton: THREE.Skeleton): void {
+  const texture = skeleton.boneTexture;
+  if (texture === null || !bonesOn) return;
+  const props = (renderer.properties as unknown as { get(o: object): { __webglTexture?: WebGLTexture; __version?: number } }).get(texture);
+  const version = texture.version;
+  if (props.__version === version || props.__version === undefined || props.__webglTexture === undefined) return;
+  const gl = renderer.getContext() as WebGL2RenderingContext, image = texture.image as { width: number; height: number };
+  const data = skeleton.boneMatrices as Float32Array;
+  if (data.length !== image.width * image.height * 4) return;
+  if (typeof (renderer.state as unknown as { pixelStorei?: unknown }).pixelStorei !== 'function') return;   // another three: its own way
+  renderer.state.bindTexture(gl.TEXTURE_2D, props.__webglTexture);
+  // (through three's cache of the pixel store: a store set behind its back would leave the next image upload flipped)
+  const state = renderer.state as unknown as { pixelStorei(name: number, value: number | boolean): void };
+  state.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, texture.flipY);
+  state.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, texture.premultiplyAlpha);
+  state.pixelStorei(gl.UNPACK_ALIGNMENT, texture.unpackAlignment);
+  state.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, image.width, image.height, gl.RGBA, gl.FLOAT, data);
+  props.__version = version;
+  bonesWritten++;
+}
+let bonesWritten = 0;
+let bonesOn = true;
+/** a test's switch: off, every bone texture goes three's own way again */
+export function quietBonesSwitch(on: boolean): void { bonesOn = on; }
+/** bone textures written by quietBones since the page loaded (tests) */
+export function quietBonesWritten(): number { return bonesWritten; }

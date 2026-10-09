@@ -19,7 +19,9 @@ function figure(file) {
   const at = (x, y) => { const i = (y * png.width + x) * 4; return [png.data[i], png.data[i + 1], png.data[i + 2]]; };
   const luma = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
   let minX = 1e9, maxX = -1, minY = 1e9, maxY = -1, n = 0; const sum = [0, 0, 0]; let skyLuma = 0;
-  for (let y = 280; y <= 372; y++) {
+  // exterior look, pass i4 (R18): he stands on a dark rimrock now (src/world/sightRock.ts) whose shaded beds are as dark as
+  // his coat: the window ends three rows over his foot line (row 360: the frame is aimed at his feet's height), on the sky
+  for (let y = 280; y <= 357; y++) {
     const bg = luma(at(672, y));                             // the sky (or the mesa) of this row, clear of him
     for (let x = 680; x <= 760; x++) {
       if (Math.abs(x - 640) <= 12 && Math.abs(y - 360) <= 12) continue;

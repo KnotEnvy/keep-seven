@@ -109,13 +109,24 @@ def _inset(poly, c):
     return out
 
 
-def prism(bm, outline, hw, chamfer=0.0, holes=(), x0=0.0):
+def prism(bm, outline, hw, chamfer=0.0, holes=(), x0=0.0, round2=False):
     """A side profile [(y, z)] extruded along X to half-width hw about x0, the outer contour chamfered by `chamfer`
-    (the caps are the inset outline). holes = [(y, z) loops] cut straight through."""
+    (the caps are the inset outline). holes = [(y, z) loops] cut straight through. round2: the chamfer is a quarter
+    round in two facets (pass i4: one 45 degree facet along the frame's top and rear drew as a hard lit plate)."""
     if _area(outline) < 0: outline = list(reversed(outline))
     holes = [list(reversed(h)) if _area(h) > 0 else list(h) for h in holes]
-    xs = [hw, hw - chamfer, -(hw - chamfer), -hw] if chamfer > 0 else [hw, -hw]
-    loops = [(_inset(outline, chamfer) if chamfer > 0 and abs(x) > hw - 1e-9 else outline) for x in xs]
+    if chamfer > 0 and round2:
+        # two facets at 36 and 63 degrees off the flank: the first edge is over the 35 degree smoothing angle (the flank
+        # stays a FLAT face: shaded smooth into the round it mirrored the room as one pale sheet), the next two are under it
+        # (the round runs smooth into the outline's face)
+        a, b = 0.566, 0.221
+        steps = [(hw, chamfer), (hw - chamfer * a, chamfer * b), (hw - chamfer, 0.0), (-(hw - chamfer), 0.0), (-(hw - chamfer * a), chamfer * b), (-hw, chamfer)]
+    elif chamfer > 0:
+        steps = [(hw, chamfer), (hw - chamfer, 0.0), (-(hw - chamfer), 0.0), (-hw, chamfer)]
+    else:
+        steps = [(hw, 0.0), (-hw, 0.0)]
+    xs = [x for x, _ in steps]
+    loops = [(_inset(outline, c) if c > 0 else outline) for _, c in steps]
     rings = [[bm.verts.new((x0 + x, p[0], p[1])) for p in lp] for x, lp in zip(xs, loops)]
     n = len(outline)
     for a, b in zip(rings[:-1], rings[1:]):
@@ -213,7 +224,7 @@ def barrel():
     R = 9.5 / math.cos(math.radians(22.5))
     bm = _new()
     lathe(bm, [(16.0, R), (110.0, R), (110.0, 0.0)], 8, a0=22.5, a1=382.5)
-    out.append(_finish(bm, "g_barrel_oct", "gun", "barrel_oct", chart="cyl", dens=1.3, bevel=0.7, cyl=(0.0, 0.0), seam=157.5, sym=4))
+    out.append(_finish(bm, "g_barrel_oct", "gun", "barrel_oct", chart="cyl", dens=1.3, bevel=0.7, cyl=(0.0, 0.0), seam=157.5, sym=2))     # pass i6: sym 4 -> 2 (the upper left flat carries the struck line of tx_gun; its one copy lies on the flat against the ejector housing)
     # turned round front with a shoulder ring, a recessed crown and a dark bore 14 mm deep
     bm = _new()
     prof = [(109.6, 9.3), (111.4, 9.3), (112.3, 8.85), (187.6, 8.85), (189.4, 7.9), (190.0, 7.0), (188.7, 5.7), (176.0, 5.7), (176.0, 0.0)]
@@ -298,16 +309,26 @@ def cylinder():
 
 FRAME_HW = 9.5
 # (y, r) about the cylinder's axis, rear -> rim: the recoil shield's rear face and chamfer (pass i1)
-SHIELD_FLARE = [(-51.8, 8.6), (-51.8, 19.3), (-50.6, 20.9), (-49.0, SHIELD_R)]
+# Pass i4 (the visual reviewer: "soften the recoil-shield facet into a rounded shield"): the flat rear face met its rim in
+# one crisp chamfer. The face is crowned a millimetre and rolls into the rim over three steps: a rounded shield, still a
+# turned flange and not pass i1's dome (it stands 8 mm off the frame, not 12, and the cylinder is still proud of it).
+SHIELD_FLARE = [(-52.9, 8.6), (-52.7, 13.0), (-52.2, 16.6), (-51.3, 19.2), (-50.1, 20.7), (-48.6, SHIELD_R)]
 # Polish round 4 (both critics: "an open wrench jaw"): the frame's rear is a high rounded hump (the ears either side of the
 # hammer slot) instead of a slope that fell away under the cocked hammer; the hammer nests in its notch.
 # Pass i1 (both visual reviewers: "a domed back", "closer to a ray gun than a classic revolver"): that hump carried the top
 # strap's line 45 mm behind the cylinder and hid all but 4 mm of the cocked hammer: seen from behind-left the rear of the
 # gun was one helmet. The frame now falls away behind the window as a single action's does (the standing breech, then the
 # ears sloping to the back strap), and the slim hammer of round 4 stands 10 to 18 mm proud of it: the spur is a spur.
-FRAME_OUT = [(20.0, 15.5), (-47.6, 15.5), (-52.6, 14.4), (-57.6, 11.2), (-63.5, 7.0), (-71.0, 3.2), (-79.0, 0.0), (-87.0, -3.2), (-94.0, -7.0),
-             (-99.6, -12.0), (-103.6, -19.0), (-102.6, -32.0), (-99.0, -36.5), (-74.0, -47.0), (-50.0, -43.4), (-2.0, -42.0),
-             (5.0, -41.0), (11.0, -37.4), (16.0, -31.0), (19.0, -23.5), (20.0, -15.0)]
+# Pass i5 (the visual reviewer: "a wide arched band that merges top strap, recoil shield and hammer shroud ... a spanner
+# jaw"): in profile the frame behind the window was one slab that carried the top strap's height 30 mm back and then
+# sloped to the grip, and the strap itself was 6.9 mm thick. A single action's frame DROPS behind the recoil shield: the
+# strap is now 5.2 mm (its top at 13.8, it was 15.5), the frame falls 12 mm in the first 12 mm behind the shield and runs
+# low to the back strap's knuckle (a concave sweep), so the cocked hammer's neck stands clear of the steel with air under
+# the spur, and the round shield is the tallest thing behind the cylinder. The frame's toe under the barrel is swept back.
+FRAME_TOP = 13.8
+FRAME_OUT = [(20.0, FRAME_TOP), (-47.0, FRAME_TOP), (-50.5, 12.4), (-53.5, 8.0), (-56.5, 2.5), (-61.5, -2.5), (-69.0, -5.5), (-78.0, -7.5), (-87.0, -9.5),
+             (-94.5, -12.0), (-103.4, -19.6), (-102.6, -32.0), (-99.0, -36.5), (-74.0, -47.0), (-50.0, -43.4), (-6.0, -42.0),
+             (2.0, -40.4), (9.0, -36.0), (14.5, -29.0), (18.2, -21.0), (20.0, -12.0)]
 WINDOW = [(-1.2, 8.6), (0.0, 7.4), (0.0, -33.8), (-1.2, -35.0), (-43.4, -35.0), (-44.6, -33.8), (-44.6, 7.4), (-43.4, 8.6)]
 
 
@@ -316,12 +337,12 @@ def frame():
     bm = _new()
     # release pass p0 (R14): the hump and the tail are rounded once more (their facets showed along the skyline)
     outline = FRAME_OUT[:1] + chaikin(FRAME_OUT[1:15], 1) + FRAME_OUT[15:]
-    prism(bm, outline, FRAME_HW, chamfer=2.4, holes=[WINDOW])     # polish round 4: 1.5 -> 2.4, the top strap reads rounded, not as a flat plate
+    prism(bm, outline, FRAME_HW, chamfer=3.0, holes=[WINDOW], round2=True)     # pass i4: 2.4 in one facet -> 3.0 in two (a quarter round: the strap's shoulder and the fall behind the cylinder carry a soft gradient, not a lit plate) <- polish round 4: 1.5 -> 2.4
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
     bmesh.ops.scale(bm, vec=(MM, MM, MM), verts=bm.verts[:])
     ob = mesh.new_mesh_object("g_frame", bm)
     _cut(ob, [((-3.3, -110.0, -31.0), (3.3, -48.6, 30.0)),                 # the hammer slot through the standing breech
-              ((-1.15, -56.0, 13.9), (1.15, 26.0, 20.0))])                 # the sighting groove along the top strap
+              ((-1.15, -56.0, FRAME_TOP - 1.5), (1.15, 26.0, 20.0))])      # the sighting groove along the top strap (pass i5: it follows the thinner strap)
     b2 = bmesh.new(); b2.from_mesh(ob.data)                                 # coplanar cap triangles -> clean polygons
     bmesh.ops.remove_doubles(b2, verts=b2.verts[:], dist=1e-6)
     bmesh.ops.dissolve_limit(b2, angle_limit=math.radians(0.6), verts=b2.verts[:], edges=b2.edges[:])
@@ -504,8 +525,15 @@ def bmesh_clean(ob):
 # Pass i1: with the frame's hump gone the cocked hammer is in the skyline. Its face is cut down (the nose lies inside the
 # slot; at full cock it leaves the frame at the standing breech) and its top is one arc from the nose to the spur, the
 # spur thickening into the body: a horn, not the two prongs the tall face and the thin spur bar made.
-HAMMER = [(-48.8, -8.0), (-48.8, 0.5), (-50.6, 4.6), (-54.2, 8.8), (-58.8, 12.6), (-64.0, 16.0), (-69.5, 18.8), (-75.0, 20.4), (-79.6, 21.0),
-          (-81.4, 19.6), (-80.4, 17.6), (-75.0, 15.2), (-70.0, 11.8), (-66.6, 7.4), (-65.0, 2.4), (-65.0, -3.0), (-67.0, -10.0), (-76.0, -19.0), (-77.0, -29.0), (-66.0, -30.0), (-57.5, -20.0)]
+# Pass i4 (the visual reviewer: "a large ridged hammer spur dominates the silhouette ... reduce it by about a fifth"): the spur
+# is a fifth shorter (its tip 78.3 mm behind the breech face line, it was 81.4) and a tenth lower; its pad is 7.6 mm wide (8.6).
+# Pass i6 (the visual reviewer: "an oversized ribbed hammer spur shaped like a horn ... shrink the spur by about a third"): at
+# full cock the hammer is the nearest steel to the eye, and it was a sail: a neck 16 mm deep under an arc that stood 41 mm
+# off its screw. The neck is 10 mm (its back at -58.6, it was -65), the arc lies 37 mm off the screw, the spur ends 70.5 mm
+# behind the breech face line (78.3) and is 3.3 mm thick (4.7); the pad is 6.6 mm wide (7.6). HAMMER[7] is still its crest.
+HAMMER = [(-48.8, -8.0), (-48.8, 0.5), (-50.4, 4.4), (-53.2, 8.0), (-56.8, 11.0), (-60.6, 13.1), (-63.8, 14.4), (-66.8, 15.2), (-69.4, 15.4),
+          (-70.5, 14.5), (-70.0, 13.3), (-66.6, 11.9), (-62.6, 9.6), (-59.8, 5.8), (-58.6, 1.6), (-58.6, -3.4), (-61.5, -10.0), (-76.0, -19.0), (-77.0, -29.0), (-66.0, -30.0), (-57.5, -20.0)]
+PAD_HW = 3.3               # the thumb-piece's half width (pass i6: 3.8)
 HAMMER_HW = 2.9            # 5.8 mm in a 6.6 mm slot (it was 9 in 9.6: the slot split the frame's rear into two thin prongs)
 
 
@@ -526,10 +554,10 @@ def hammer():
         if nrm.y < 0: nrm = -nrm
         k = 0.55 if i in (0, len(path) - 1) else 1.0                        # the pad thins at both ends
         up.append(Vector(q) + nrm * 0.38 * k); dn.append(Vector(q) - nrm * 0.75)
-    prism(bm, [(v.x, v.y) for v in up] + [(v.x, v.y) for v in reversed(dn)], 4.3, chamfer=0.7)
+    prism(bm, [(v.x, v.y) for v in up] + [(v.x, v.y) for v in reversed(dn)], PAD_HW, chamfer=0.6)
     # the fixed firing pin on the face
     lathe(bm, [(-48.9, 1.5), (-46.6, 0.7), (-46.6, 0.0)], 6, cx=0.0, cz=0.6)
-    ob = _finish(bm, "g_hammer", "hammer", "hammer", dens=1.5, bevel=0.0, recalc=True, smooth=40.0, mirror=1)
+    ob = _finish(bm, "g_hammer", "hammer", "hammer", dens=2.2, bevel=0.0, recalc=True, smooth=40.0, mirror=1)
     piv = Vector((0.0, HAMMER_PIVOT[0] * MM, HAMMER_PIVOT[1] * MM))
     ob.data.transform(Matrix.Translation(piv) @ Matrix.Rotation(HAMMER_COCK, 4, 'X') @ Matrix.Translation(-piv))
     return [ob]

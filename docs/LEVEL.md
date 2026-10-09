@@ -649,3 +649,47 @@ carry a note that says where their new behaviour lives (it is constants in `src/
 | The proving bay | `prop_sighting_loop` is an instrument stand (pedestal, post, forked cradle); the ring and the sight line are where they were |
 | The rim | the eased last view looks 12 degrees over the fire |
 | The peg stair's chunks | `chunk_gl_stair` and `chunk_gl_bay` are 4 000 triangles each again (the fixer had cut them to 3 200), paid by `chunk_lh_hall` 28 500 -> 26 900 (built 25 380). The real game drew 56 280 triangles from `cell_gallery_stair` against a ledger of 55 190: the gallery's instanced dressing is submitted whole from every cell of the zone and the 28 coats are 184 triangles each. The cell's ledger is 57 175; the Low cap is 120 000 |
+
+## 19. Pass i4 (cross-cutting fixer and closer, 2026-10-08): the level as built by the pass's teams
+
+No solid, marker position, nav node or encounter changed. `design/layout.json` differs from pass i3 in: the asking's
+list (`trg_enc_windlass.params.parley` is four keys), one more pickup (`pk_rounds_6_yard_bell` at the foot of the bell
+post), and the notes of `trg_dowser`, `vista_dowser` (`visibleSeconds` 40), `trg_ante_enter` and `prop_cup_two`, which
+say where their new behaviour lives (constants in `src/world/`, not layout fields).
+
+| Where | As built |
+|---|---|
+| The sighting (`trg_dowser`, `vista_dowser`) | the pursued man stands on a rimrock at his own scale (`src/world/sightRock.ts`: one mesh, 9 m nearer than his card, shown while the street is built). He goes only when out of her frame (66 degrees off the middle of her view) for 2 s after a second of being looked at; stared at for 40 s he walks down behind the skyline over 1.5 s under `nar_dowser_down`; the 12 s clock only opens the door |
+| `trg_ante_enter` | the embers' lines wait for a look at the camp and are never said to a wall; not said once the bore door is no longer shut |
+| `prop_cup_two` | `nar_tally_hearth` only with the cup within 8 m and inside 60 degrees of the middle of her view; dropped when she leaves the Tally House |
+| The Tally House rising (`enc_tally` wave A) | the riser nearer her at once, the other 2.5 s later, each with its own chair scrape |
+| The secrets | the loft bell is rung from 12 m with a glint at each ring; the cold bay's seam breathes and its knot glints through the slot every 4 s within 14 m, out of a fight |
+| The peg stair (`cell_tally_seam`) | the cell also draws `chunk_gl_bay` while `hatch_powered` is set: from landing 1 she sees the lit proving bay down flight 2 (it was the sky's fog in the stair's mouth until `trg_set_swap`). Plan 82 343 triangles, 65 / 73 draw calls. The shaft's wall over the mouth belongs to `chunk_gl_stair` |
+| The stair swap | the surface's static collider set holds the underground's solids from the surface build on (everything underground lies under y = -2): the swap on the stair builds no BVH |
+| The Tamper's lane | a charge is begun only down a clear lane (two lines 0.55 m to each side of the sight line, 0.45 m over the floor): the ramp cabinet and the ribs stun a charge only for a player who steps behind them once it winds up |
+| The rim | the stone that holds the round is an outcrop (apron, bed, capstone with the seven seats; `prop_rim_stone` 1 199 triangles, embedded in `env_far_rim`); the layout's `rim_stone` collider is unchanged (the bed's top is 3 cm above it). The last view comes to rest level (1.25 degrees above the horizon) |
+| Budgets (ruling R14) | INTEGRATION_REPORT Part Q.2 and Part R; ARCHITECTURE 7.5 |
+
+## 20. Pass i5 (closer, 2026-10-08): the level as built by the pass's teams
+
+No solid, marker position, nav node, collider or encounter changed. `design/layout.json` differs from pass i4 only in
+two notes of `trg_dowser` (`startsWhen`, `drawsEye`).
+
+| Where | As built |
+|---|---|
+| The sighting (`trg_dowser`, `vista_dowser`) | the pursued man and the rod's glint exist only where her line to him is clean of the tank, the roofs and the wall stump: the strip before the tally door (z -10 to -12 for x -99 to -81; z -8 and -13 west of x -88) and the north yard (z 2 to 8). There he comes up over the rim in 0.35 s; elsewhere (the gate, the east half, the yard's middle, the tank's lee) nothing of him is drawn. The wall stump north of the vista line hides him from z -9, x -93 to -85 (it would stand under him there). The rimrock (`world_sight_rock`) stands whenever the street is built; from the gate its cap is behind the tank. **If the stump, the tank or the west wall is moved, the clean strip moves with the collision**: `tests/world/i5.test.mjs` names eight places that must stay clean |
+| The cover stubs (yard and street) | the drawn bricks of a break reach up to 0.18 m past the cover solid's end; no collider there. Cover extents, colliders and nav are unchanged |
+| The rim | the mesa's foot under the ledge is benched rimrock and a stepped wash; the apron reaches the plain 60 m out (it was 78). The dead pylon stands on its bench |
+| The bore | no livery band on the two facets with an opening (the bore door at z 81, the proving-lift gate at z 111) |
+
+## 21. Pass i6 (closer, 2026-10-08): the level as built by the pass's teams
+
+No solid, marker position, nav node, collider or encounter changed. `design/layout.json` is unchanged.
+
+| Where | As built |
+|---|---|
+| The sighting (`trg_dowser`, `vista_dowser`) | he comes up over the rim in 0.35 s; **where her line to him stops being clean he is not drawn from that tick** (the line is tried every tick while anything of him shows). The card left standing after she enters the Tally House needs a clean line too, which the house never gives. The clean places of section 20 are unchanged |
+| The sighting's rock (`world_sight_rock`, `src/world/sightRock.ts`) | **a mesa's rim, not a knob**: a level caprock thirteen of his heights long, cliffs at both ends out of the gap's sight, level beds in the face; about 600 triangles in `cell_yard`, one draw call. He stands on its one proud slab; **the caprock beside the slab must stay about 0.09 of his height below his feet** (`tests/world/sighting.test.mjs` counts rock level with his feet as part of the figure). From the yard's west side, where no man shows, it is a plain long bar over the wall |
+| The gate pylon | a built mast (bands, lost panels, a cut cable bundle); same footprint and collider |
+| The lift hall | a cable tray along each long wall 3.1 m up; on the north wall one run is down between lines 3 and 4, never more than 0.34 m from the wall (no collider). Bay numbers on the ribs: 11 to 15 north, 21 to 25 south |
+| The bore's stair | a handrail on the outer walls of both flights and round the turn (0.95 m over the nosing line; drawn only), a cable run on the inner walls; the turn's lamp is a pale pool and the flights fall darker between the lamps |

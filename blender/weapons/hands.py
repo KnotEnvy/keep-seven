@@ -30,7 +30,10 @@ LENGTH = {"index": (43.0, 26.0, 23.0), "middle": (47.0, 29.0, 24.0), "ring": (43
 # Polish round 5 (both critics: "a fingerless mitten", "two brown lumps", "both gloves large and mitten-like"): the fingers
 # were 22 mm thick and lay against each other as one mass. They are a tenth slimmer (so a gap shows between two of them),
 # each joint carries a crease in COLOR_0 and the sides of a finger are darker than its back (SIDE_SHADE, CREASE).
-RADIUS = {"index": (10.1, 9.2, 8.4, 7.0), "middle": (10.3, 9.4, 8.6, 7.1), "ring": (9.9, 9.0, 8.2, 6.9), "pinky": (8.9, 8.0, 7.3, 6.2)}     # gloved: a millimetre of leather all round (round 5: x 0.9)
+# Pass i6 (the visual reviewer: "the glove's fingers and thumb are thick, smooth sausages ... slim them slightly"): x 0.93 again,
+# the thumb with them (Hand.thumb_r); the creases and the piped seams are tx_hands' (hands_tex.py).
+SLIM = 0.93
+RADIUS = {k: tuple(round(r * SLIM, 2) for r in v) for k, v in {"index": (10.1, 9.2, 8.4, 7.0), "middle": (10.3, 9.4, 8.6, 7.1), "ring": (9.9, 9.0, 8.2, 6.9), "pinky": (8.9, 8.0, 7.3, 6.2)}.items()}     # gloved: a millimetre of leather all round (round 5: x 0.9)
 SIDE_SHADE, CREASE = 0.36, 0.66
 # Release pass p0 (ruling R14; both final reviewers: "two smooth sausage fingers", "two brown lumps"): the hands are now
 # m_hands, with their own texture set (tx_hands: albedo + gloss, tx_hands_detail: height; blender/weapons/hands_tex.py
@@ -88,6 +91,7 @@ def _ring(bm, c, t, up, ru, rs, n, seam=0.0, phase=0.0, dors=0.0, palm=0.0):
 
 class Part:
     """A bmesh under construction with per-vertex weights and UV0 on the hands' sheet (LAYOUT)."""
+    TONE = 1.0                      # set by Hand.build: every part of that hand is shaded by it in COLOR_0 (pass i5)
     def __init__(self, name, rect="palm"):
         self.name = name; self.bm = bmesh.new(); self.uvl = self.bm.loops.layers.uv.new("UVMap")
         self.rect = rect
@@ -146,7 +150,7 @@ class Part:
         bm = self.bm
         bm.verts.index_update(); bm.faces.index_update()
         wv = [self.w.get(v, {}) for v in bm.verts]
-        sv = [self.shade.get(v, 1.0) for v in bm.verts]
+        sv = [self.shade.get(v, 1.0) * Part.TONE for v in bm.verts]
         af = [self.ao_from[v].index if v in self.ao_from else -1 for v in bm.verts]
         am = [self.ao_min.get(v, 0.0) for v in bm.verts]
         for f in bm.faces: f.smooth = True
@@ -223,10 +227,11 @@ def digit_path(src, stations, radii, frac=CUT_FRAC, tip=(0.42, 0.74, 0.90, 0.985
 class Hand:
     """side: 'r' | 'l'. curls: {finger: (spread deg, mcp, pip, dip flex deg)}. thumb: four hand-space points
     (cmc, mcp, ip, tip) for a RIGHT hand layout (mirrored for the left)."""
-    def __init__(self, side, curls, thumb, thumb_r=(11.3, 9.8, 8.8, 7.0), forearm=(0.0, -1.0, 0.0), forearm_up=(0.0, 0.0, 1.0), loop=False, web_through=None):
+    def __init__(self, side, curls, thumb, thumb_r=(11.3, 9.8, 8.8, 7.0), forearm=(0.0, -1.0, 0.0), forearm_up=(0.0, 0.0, 1.0), loop=False, web_through=None, tone=1.0):
+        self.tone = tone            # pass i5: the off hand is a shade under the gun hand (the two overlapped into one mass in the loading pose)
         self.side = side; self.s = "_" + side
         self.web_through = None if web_through is None else Vector(web_through)     # pass i3: a hand-space point the web's middle passes through (the right hand: behind the back strap)
-        self.curls = curls; self.thumb = [Vector(p) for p in thumb]; self.thumb_r = thumb_r
+        self.curls = curls; self.thumb = [Vector(p) for p in thumb]; self.thumb_r = tuple(r * SLIM for r in thumb_r)
         self.forearm = Vector(forearm).normalized(); self.forearm_up = Vector(forearm_up)
         self.mx = -1.0 if side == "l" else 1.0
         self.loop = loop
@@ -285,14 +290,18 @@ class Hand:
         s = self.s; hand = "hand" + s; arm = "arm" + s
         grip = "grip_r" if self.side == "r" else "fingers_l"
         M = M @ Matrix.Scale(1.0, 4)
+        Part.TONE = self.tone
         parts = []
         flip = self.side == "l"
         Zv = Vector((0, 0, 1))
         # ---------------- palm: a block of rounded sections from the wrist to the knuckle row
         P = Part("h_palm" + s, "palm")
         #        y     x     z    half width  half thickness
-        secs = [(-6.0, 0.0, 0.0, 29.0, 20.5), (8.0, -1.0, -0.8, 30.0, 20.0), (28.0, -3.0, -2.0, 36.0, 19.5), (52.0, -2.5, -2.0, 40.5, 17.0),
-                (74.0, -1.0, -2.0, 41.5, 14.5), (90.0, 0.0, -2.5, 40.0, 12.0), (100.0, 0.5, -3.0, 36.5, 9.0)]
+        # pass i5 (the visual reviewer: "the off hand's wrist ends in a floating square cuff"): the block began at the wrist
+        # in a flat cap as broad as the hand; with the wrist bent (the loading pose) that cap and the gauntlet's open end
+        # stood out of the bend as a sawn-off end. The heel is rounded off in two sections, inside the gauntlet's neck.
+        secs = [(-15.0, 0.0, 0.0, 17.0, 10.5), (-11.5, 0.0, 0.0, 24.5, 16.5), (-6.0, 0.0, 0.0, 29.0, 20.5), (8.0, -1.0, -0.8, 30.0, 20.0), (28.0, -3.0, -2.0, 36.0, 19.5), (52.0, -2.5, -2.0, 40.5, 17.0),
+                (74.0, -1.0, -2.0, 41.5, 14.5), (88.0, 0.0, -2.5, 40.0, 12.4), (95.0, 0.3, -3.0, 37.6, 10.0), (99.0, 0.5, -3.2, 33.0, 7.0), (100.5, 0.5, -3.3, 26.0, 3.6)]
         rings = []
         N = 16
         for (y, x, z, hw, ht) in secs:
@@ -306,11 +315,17 @@ class Hand:
                     pz *= 1.0 + 0.22 * max(0.0, 1.0 - abs(y - 26.0) / 36.0) * (1.0 if px < 0 else 0.55)
                 else:                                                       # the back of the hand: flatter, falling toward the little finger
                     pz *= 0.94 - 0.10 * max(0.0, px) / hw
-                yy = y - 5.0 * max(0.0, px) / hw * (1.0 if y > 60 else 0.0)  # the knuckle row slants back toward the little finger
+                # the knuckle row slants back toward the little finger. Pass i5: by 13 mm at its end (5 until now), a little
+                # toward the forefinger too, and the block ends in a rounded edge: with the fingers bent at the knuckles (the
+                # off hand in the loading pose, seen edge-on) its end stood 13 mm beyond the little finger's knuckle as the
+                # sawn end of a board (the reviewer's "floating square cuff")
+                kk = min(1.0, max(0.0, (y - 60.0) / 30.0))
+                yy = y - kk * (13.0 * (max(0.0, px) / hw) ** 1.3 + 4.0 * (max(0.0, -px) / hw) ** 2)
                 v = P.bm.verts.new(self.v((x + px, yy, z + pz)))
                 P.w[v] = {hand: 1.0} if y > 4 else {hand: 0.8, arm: 0.2}
-                P.s[v] = (y - PALM_Y[0]) / (PALM_Y[1] - PALM_Y[0])
+                P.s[v] = max(0.0, (y - PALM_Y[0]) / (PALM_Y[1] - PALM_Y[0]))
                 if y > 80: P.ao_min[v] = 0.62
+                if self.tone < 1.0 and ca < -0.2: P.shade[v] = 0.80           # pass i5: the off hand's palm side, a shade deeper again (it is what the loading pose turns to the eye)
                 ring.append(v)
             rings.append(ring)
         P.rev = flip                                                          # the mirrored hand's rings run the other way round
@@ -394,14 +409,18 @@ class Hand:
         # ---------------- gauntlet, cord, wrist, cuff, sleeve (along the forearm)
         fa = self.v(self.forearm); fu = self.v(self.forearm_up); fu = (fu - fa * fu.dot(fa)).normalized()
         def at(d, lift=0.0): return fa * d + fu * lift
-        def gs(d): return (d - GAUNTLET_D[0]) / (GAUNTLET_D[1] - GAUNTLET_D[0]) * 0.86
+        def gs(d): return max(0.0, (d - GAUNTLET_D[0]) / (GAUNTLET_D[1] - GAUNTLET_D[0]) * 0.86)
         G = Part("h_gauntlet" + s, "gauntlet")
         N = 16
-        g_sec = [(-4.0, 31.0, 20.0, {hand: 1.0}), (9.0, 29.0, 19.5, {hand: 0.75, arm: 0.25}), (18.0, 30.6, 21.6, {hand: 0.55, arm: 0.45}), (26.0, 34.0, 25.0, {hand: 0.4, arm: 0.6}),
-                 (36.0, 37.6, 28.6, {hand: 0.25, arm: 0.75}), (44.0, 40.0, 31.0, {hand: 0.15, arm: 0.85})]
+        # pass i5: the neck of the glove turns IN over the heel of the hand (two rings toward the fingers, inside the palm:
+        # its end was an open hoop that stood off the bent wrist), the wrist's turn is spread over the whole gauntlet
+        # (the hand kept 0.75 of the second ring and 0.15 of the last: one ring took the bend), and the flare is a
+        # fifth less (40 x 31 -> 37 x 30: seen from the elbow side it was a board)
+        g_sec = [(-17.0, 22.0, 13.0, {hand: 1.0}), (-11.0, 28.6, 18.4, {hand: 1.0}), (-4.0, 31.0, 20.6, {hand: 1.0}), (9.0, 29.0, 20.0, {hand: 0.85, arm: 0.15}), (18.0, 30.4, 22.0, {hand: 0.68, arm: 0.32}), (26.0, 33.0, 25.0, {hand: 0.5, arm: 0.5}),
+                 (36.0, 35.6, 28.0, {hand: 0.32, arm: 0.68}), (44.0, 37.0, 30.0, {hand: 0.18, arm: 0.82})]
         rings = [G.ring(at(d), fa, fu, ht, hw, N, w, s=gs(d)) for d, hw, ht, w in g_sec]
         for A, B in zip(rings[:-1], rings[1:]): G.strip(A, B)
-        lip = G.ring(at(45.2), fa, fu, 29.6, 38.6, N, {hand: 0.15, arm: 0.85}, s=0.93)     # the rolled edge
+        lip = G.ring(at(45.2), fa, fu, 28.8, 35.8, N, {hand: 0.18, arm: 0.82}, s=0.93)     # the rolled edge
         G.strip(rings[-1], lip)
         deep = G.ring(at(37.0), fa, fu, 20.4, 28.4, N, {hand: 0.3, arm: 0.7}, s=1.0)        # the inside of the flare, down to the wrist: seen from the elbow
         G.strip(lip, deep)                                                           # side the gauntlet was a hoop round the arm (nothing is two-sided)

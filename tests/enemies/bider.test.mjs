@@ -257,7 +257,7 @@ test('fix round 1: a lunge at a standing player stops short of her (never inside
     assert.ok(g.lookingDown.maxGap < 132, `looking at its feet is still in view (${g.lookingDown.maxGap} ticks)`);
     assert.ok(g.away.minGap >= 150, `behind her: half frequency (${g.away.minGap} ticks between wind-ups)`);
     assert.ok(g.facing.attacks >= g.away.attacks * 1.5, `the rule separates the two: ${g.facing.attacks} facing, ${g.away.attacks} away in 20 s`);
-    assert.ok(Math.abs(r.hardSeen - 0.45) < 1e-6, `Hard, in view: 0.45 s (${r.hardSeen})`);
+    assert.ok(Math.abs(r.hardSeen - 0.4) < 1e-6, `Hard, in view: 0.4 s (${r.hardSeen}; pass i4: Hard's tells are 20 % shorter, it was 0.45)`);
     assert.ok(Math.abs(r.hardBehind - 0.5) < 1e-6, `Hard, from behind within 6 m: the cue is not shortened (${r.hardBehind})`);
     console.log(`lunge: nearest end ${Math.min(...r.ends).toFixed(2)} m; wind-ups in 20 s: facing ${g.facing.attacks} (gap <= ${g.facing.maxGap} ticks), looking down ${g.lookingDown.attacks}, away ${g.away.attacks} (gap >= ${g.away.minGap})`);
   } finally { await game.close(); }

@@ -181,7 +181,7 @@ function slamDamage(S: Shared, e: Actor): boolean {
   e.slamsLanded++; e.slamsRun++;
   const pause = e.slamsRun >= 2 ? Math.max(TAMPER.slamAfterHit, TAMPER.slamAfterRun[S.difficultyId]) : TAMPER.slamAfterHit;
   e.quietUntil = S.time + (TAMPER.slam - e.t) + TAMPER.slamRecoverBy[S.difficultyId] + pause;
-  if (e.slamsLanded === TAMPER.hintAfterSlams && S.ctx.data.story.lines[TAMPER.hintKey] !== undefined) S.say(TAMPER.hintKey);
+  if (e.slamsLanded === TAMPER.hintAfterSlams) S.hooks.sayRing();          // (pass i4: once per run of the fight, index.ts)
   return true;
 }
 
@@ -202,6 +202,9 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
     return;
   }
   if (!S.ai) return;
+  // pass i4: to a player who has died to it twice and more, an outline ring pulses on a vent for as long as it stands open
+  // (the state of the tick before: the lids are a tick behind the state anyway)
+  if (S.tamperHelp >= TAMPER.ringFromHelp && (e.ventChest || e.ventBack)) ringVents(S, e);
   const think = ((S.tick + e.index) % CAPS.thinkEveryTicks) === 0;
   const dxp = S.px - e.x, dzp = S.pz - e.z;
   const dist = Math.sqrt(dxp * dxp + dzp * dzp);
@@ -221,7 +224,7 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
           let facing = (want - e.yaw) % (Math.PI * 2);
           if (facing > Math.PI) facing -= Math.PI * 2; else if (facing < -Math.PI) facing += Math.PI * 2;
           if (Math.abs(facing) < 0.6 && S.pool.takeToken(e, 'heavy')) { startSlam(S, e); break; }
-        } else if (S.pAlive && level && e.sees && dist >= TAMPER.chargeMin && dist <= TAMPER.chargeMax && S.time - e.chargedAt > TAMPER.chargeEvery) {
+        } else if (S.pAlive && level && e.sees && dist >= TAMPER.chargeMin && dist <= TAMPER.chargeMax && S.time - e.chargedAt > TAMPER.chargeEvery && laneClear(S, e, dxp / dist, dzp / dist, dist)) {
           if (S.pool.takeToken(e, 'heavy')) {
             e.unseen = !S.inViewFlat(e.x, e.z);
             const scale = S.tellScale(e.unseen, e.x, e.z);
@@ -262,7 +265,8 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
     case 'slam_windup': {
       // polish round 3 (R3): the chest vent opens only for the last `slamVentLate` of the wind-up. Open from its first
       // tick, a round on sight staggered it every time and the arm never came down (13 to 19 s, no damage).
-      e.ventChest = e.t >= e.timer - TAMPER.slamVentLateBy[S.difficultyId];   // polish round 4: by difficulty (defs.ts)
+      // (pass i4: `e.helpSeconds` is the help's share of this wind-up, startSlam: the vent stands open through all of it too)
+      e.ventChest = e.t >= e.timer - TAMPER.slamVentLateBy[S.difficultyId] - e.helpSeconds;   // polish round 4: by difficulty (defs.ts)
       if (e.t >= e.timer) {
         e.struck = false; e.count = 0;
         S.pool.setState(e, 'slam');
@@ -293,7 +297,13 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
       break;
     }
     case 'charge_windup': {
-      S.ang = want; S.turn = TAMPER.turnWalk * RAD * dt; turnBody(S, e);
+      // Pass i4: it faces her squarely by the end of the wind-up, however far round it stood when the wind-up began
+      // (at 90 degrees a second it could be 70 degrees and more short, and ran where that left it: past a player who
+      // had not moved). The turn left is spread over the time left, never slower than its walking turn.
+      let left = (want - e.yaw) % (Math.PI * 2);
+      if (left > Math.PI) left -= Math.PI * 2; else if (left < -Math.PI) left += Math.PI * 2;
+      const need = Math.abs(left) / Math.max(dt, e.timer - e.t);
+      S.ang = want; S.turn = Math.max(TAMPER.turnWalk * RAD, need) * dt; turnBody(S, e);
       if (e.t >= e.timer) {
         // the direction is fixed here
         e.dirX = faceX(e.yaw); e.dirZ = faceZ(e.yaw);
@@ -337,6 +347,7 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
       if (res.hitWall && e.timer > TAMPER.grazeDepth && ((res.wallFlags & ColFlag.STUNS_CHARGE) !== 0 || res.wallNx * e.dirX + res.wallNz * e.dirZ < -0.5)) {
         S.pool.dropToken(e);
         e.ventBack = true;
+        e.helpSeconds = TAMPER.helpTiming[S.difficultyId] ? S.tamperHelp * TAMPER.stunHelp : 0;
         S.pool.setState(e, 'charge_stun');
         S.pool.play(e, 'charge_stun', 0.03);
         break;
@@ -350,7 +361,8 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
     }
     case 'charge_stun': {
       e.ventBack = true;
-      if (e.t >= TAMPER.chargeStun) { e.ventBack = false; S.pool.setState(e, 'advance'); S.pool.play(e, 'walk', 0.2, TAMPER_WALK_RATE); }
+      // (pass i4: longer by `stunHelp` for each step of help, fixed when the stun began)
+      if (e.t >= TAMPER.chargeStun + e.helpSeconds) { e.ventBack = false; S.pool.setState(e, 'advance'); S.pool.play(e, 'walk', 0.2, TAMPER_WALK_RATE); }
       break;
     }
     case 'stagger': {
@@ -367,11 +379,31 @@ export function tickTamper(S: Shared, e: Actor, dt: number): void {
   }
 }
 
+/** The outline rings over the open vents (hintring.ts): each floats `ringOut` off its knot, on the side that vent faces. */
+function ringVents(S: Shared, e: Actor): void {
+  const p = S.v2, fx = faceX(e.yaw), fz = faceZ(e.yaw);
+  if (e.ventChest && S.pool.objectPos(e.volNode[0] ?? null, p)) S.rings.place(0, p.x + fx * TAMPER.ringOut, p.y, p.z + fz * TAMPER.ringOut, fx, fz, TAMPER.ringRadius);
+  if (e.ventBack && S.pool.objectPos(e.volNode[1] ?? null, p)) S.rings.place(1, p.x - fx * TAMPER.ringOut, p.y, p.z - fz * TAMPER.ringOut, -fx, -fz, TAMPER.ringRadius);
+}
+
+/**
+ * Pass i4: is the lane to her wide enough for its body? Two sight lines `laneHalf` to each side of the line to her,
+ * low over the floor, from it to `laneShort` short of her (dx, dz: the unit direction to her; dist: how far). They
+ * come out of the tick's ray budget; with the budget spent the answer is no and it asks again on its next think.
+ */
+function laneClear(S: Shared, e: Actor, dx: number, dz: number, dist: number): boolean {
+  const sx = -dz * TAMPER.laneHalf, sz = dx * TAMPER.laneHalf, reach = dist - TAMPER.laneShort, y = e.y + TAMPER.laneHeight;
+  if (S.sight(e.x + sx, y, e.z + sz, e.x + sx + dx * reach, S.py + TAMPER.laneHeight, e.z + sz + dz * reach) !== 1) return false;
+  return S.sight(e.x - sx, y, e.z - sz, e.x - sx + dx * reach, S.py + TAMPER.laneHeight, e.z - sz + dz * reach) === 1;
+}
+
 function startSlam(S: Shared, e: Actor): void {
   e.unseen = !S.inViewFlat(e.x, e.z);
   const scale = S.tellScale(e.unseen, e.x, e.z);
   // polish round 5: the wind-up by difficulty (defs.ts slamWindupBy); the clip is authored for `slamWindup` seconds
-  const seconds = TAMPER.slamWindupBy[S.difficultyId] * scale;
+  // pass i4: each step of help (defs.ts `backKey`) makes it `slamHelp` seconds slower, with the chest vent open for all of that
+  e.helpSeconds = TAMPER.helpTiming[S.difficultyId] ? S.tamperHelp * TAMPER.slamHelp : 0;
+  const seconds = TAMPER.slamWindupBy[S.difficultyId] * scale + e.helpSeconds;
   e.timer = seconds;
   e.ventChest = false;
   e.ringX = e.x + faceX(e.yaw) * TAMPER.slamReach; e.ringY = e.y; e.ringZ = e.z + faceZ(e.yaw) * TAMPER.slamReach;

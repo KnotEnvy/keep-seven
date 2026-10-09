@@ -1,10 +1,11 @@
 // Event-level behaviour with no context (work order section 6): coverage, captions, music, voices, determinism.
 import { describe, expect, it } from 'vitest';
-import type { AudioCue, EnemyKind, GameEvents, HitOutcome, SurfaceType } from '../../src/core/contracts.ts';
+import type { AudioCue, DamageKind, EnemyKind, GameEvents, HitOutcome, SurfaceType } from '../../src/core/contracts.ts';
 import { AMB_EVENTS } from '../../src/audio/ambience.ts';
 import { CAPTIONS, CAPTION_KEYS } from '../../src/audio/captions.ts';
 import { cueSounds } from '../../src/audio/cues.ts';
-import { POUND_TICKS, RESERVED_VOICES, SHOT_JITTER, buildSounds } from '../../src/audio/engine.ts';
+import { HURT_KIND, HURT_PAN, POUND_TICKS, RESERVED_VOICES, SHOT_JITTER, buildSounds } from '../../src/audio/engine.ts';
+import { CONFIRM_DELAY, HURT_BLAST, HURT_LUNGE, HURT_PLAIN, HURT_SLAM, HURT_STAKE, KILL_DELAY } from '../../src/audio/gun.ts';
 import { MAX_VOICES } from '../../src/audio/graph.ts';
 import { WIRE_MAX, WIRE_MIN, intensityOf } from '../../src/audio/music.ts';
 import { blipHz, wordLength, wordLengths } from '../../src/audio/station.ts';
@@ -609,8 +610,9 @@ describe('fix round 3', () => {
 
   // polish round 5 (critic "combat"): the four confirms that peak at the limiter hold their level in the hall (12 ms) and
   // the bore (20 ms): the only way they gain level over the room's tail. Set from the zone, with or without a context.
-  it('hit, weak, parry and kill are held in the hall and the bore and nowhere else; the deflects and the freed bell are not', () => {
-    for (const [zone, hold] of [['the_lip', 0], ['plenty_street', 0], ['tally_house', 0], ['the_gallery', 0], ['lift_hall', 0.012], ['the_bore', 0.02], ['far_rim', 0]] as const) {
+  // pass i4 (critic "combat"): in the open, the Tally House and the gallery they hold 6 ms too (the street's tick stood 2.5 dB over the bed).
+  it('hit, weak, parry and kill are held in every room (6 ms in the thin ones, 12 ms in the hall, 20 ms in the bore); the deflects and the freed bell are not', () => {
+    for (const [zone, hold] of [['the_lip', 0.006], ['plenty_street', 0.006], ['tally_house', 0.006], ['the_gallery', 0.006], ['lift_hall', 0.012], ['the_bore', 0.02], ['far_rim', 0.006]] as const) {
       const r = rig(1, zone);
       r.step(2);
       const a: Record<string, number> = {};
@@ -634,5 +636,90 @@ describe('fix round 3', () => {
         expect(bk.pick({ ...makeParams(), a: hold })).toBe(bk.a.indexOf(hold));
       }
     }
+  });
+});
+
+// ---- pass i4 (critic "combat") ---------------------------------------------------------------------------------------
+describe('pass i4', () => {
+  const damaged = (kind: DamageKind, source: GameEvents['player/damaged']['source'], fromX = 0, fromZ = 0, amount = 20): GameEvents['player/damaged'] =>
+    ({ amount, health: 60, kind, source, fromX, fromY: 1.2, fromZ, graceUsed: false });
+  const spy = (r: ReturnType<typeof rig>): { name: string; a: number; b: number; pan: number; delay: number }[] => {
+    const seen: { name: string; a: number; b: number; pan: number; delay: number }[] = [];
+    const play = r.engine.play.bind(r.engine);
+    r.engine.play = (name, p) => { const slot = play(name, p); if (slot >= 0) seen.push({ name, a: p.a, b: p.b, pan: p.pan, delay: p.delay }); return slot; };
+    return seen;
+  };
+
+  // "The only sound for taking damage is a low thump": the cue now says what struck her
+  it('the hurt cue carries the amount and a top layer for every kind of damage of the contract', async () => {
+    const fs = await nodeFs();
+    const block = /export type DamageKind =([^;]+);/.exec(fs.readFileSync(ROOT + '/src/core/contracts.ts', 'utf8'));
+    const kinds = [...(block as RegExpExecArray)[1]!.matchAll(/'([a-z_]+)'/g)].map((m) => m[1] as DamageKind);
+    expect(kinds.sort()).toEqual((Object.keys(HURT_KIND) as DamageKind[]).sort());
+    const want: Record<DamageKind, number> = { bullet: HURT_STAKE, stake: HURT_STAKE, fan: HURT_STAKE, lunge: HURT_LUNGE, slam: HURT_SLAM, charge: HURT_SLAM, canister: HURT_BLAST, lance: HURT_BLAST, kill_volume: HURT_PLAIN };
+    expect(new Set([HURT_PLAIN, HURT_STAKE, HURT_LUNGE, HURT_SLAM, HURT_BLAST]).size).toBe(5);
+    for (const kind of kinds) {
+      const r = rig(1, 'plenty_street'), seen = spy(r);
+      r.step(2);
+      r.emit('player/damaged', damaged(kind, 'transit', 0, 0, 22));
+      expect(seen.map((s) => s.name), kind).toEqual(['hurt']);
+      expect(seen[0]!.a, kind).toBe(22);
+      expect(seen[0]!.b, kind).toBe(want[kind]);
+    }
+  });
+
+  it('it leans to the side the blow came from, never hard over, and not at all for the world\'s damage', () => {
+    const r = rig(1, 'plenty_street'), seen = spy(r);
+    r.engine.setListener(0, 1.65, 0, 0, 0, -1);       // looking down -Z: +X is her right
+    r.step(2);
+    r.emit('player/damaged', damaged('stake', 'transit', 8, 0)); r.step(10);
+    r.emit('player/damaged', damaged('stake', 'transit', -8, 0)); r.step(10);
+    r.emit('player/damaged', damaged('lunge', 'bider', 0, -3)); r.step(10);
+    r.emit('player/damaged', damaged('lunge', 'bider', 0, 3)); r.step(10);
+    r.emit('player/damaged', damaged('kill_volume', 'world', 8, 0)); r.step(10);
+    r.emit('player/damaged', damaged('lunge', 'bider', 0, 0)); r.step(10);     // from where she stands: no side
+    expect(seen.map((s) => s.name)).toEqual(['hurt', 'hurt', 'hurt', 'hurt', 'hurt', 'hurt']);
+    expect(seen[0]!.pan).toBeCloseTo(HURT_PAN, 5);
+    expect(seen[1]!.pan).toBeCloseTo(-HURT_PAN, 5);
+    expect(Math.abs(seen[2]!.pan)).toBeLessThan(1e-6);
+    expect(Math.abs(seen[3]!.pan)).toBeLessThan(1e-6);
+    expect(seen[4]!.pan).toBe(0);
+    expect(seen[5]!.pan).toBe(0);
+    expect(HURT_PAN).toBeGreaterThanOrEqual(0.3);
+    expect(HURT_PAN).toBeLessThanOrEqual(0.6);
+    // turned round: the same blow is on the other side
+    r.engine.setListener(0, 1.65, 0, 0, 0, 1);
+    r.emit('player/damaged', damaged('stake', 'transit', 8, 0));
+    expect(seen[6]!.pan).toBeCloseTo(-HURT_PAN, 5);
+  });
+
+  it('two blows on one tick are one cue; a blow of no amount is none; the next blow sounds again', () => {
+    const r = rig(1, 'the_bore'), seen = spy(r);
+    r.step(2);
+    r.emit('player/damaged', damaged('fan', 'windlass', 2, -6, 18));
+    r.emit('player/damaged', damaged('fan', 'windlass', -2, -6, 18));
+    expect(seen.length).toBe(1);
+    r.emit('player/damaged', damaged('fan', 'windlass', 0, -6, 0));
+    r.step(1);
+    r.emit('player/damaged', damaged('fan', 'windlass', 0, -6, -5));
+    expect(seen.length).toBe(1);
+    r.step(12);
+    r.emit('player/damaged', damaged('canister', 'windlass', 0, -6, 38));
+    expect(seen.length).toBe(2);
+    expect(seen[1]!.b).toBe(HURT_BLAST);
+  });
+
+  // "Delay hit_tick and hit_weak by a further 40-60 ms": every confirm now waits for the report as the kill's thud always did
+  it('every confirm sounds 190 ms after the click', () => {
+    expect(CONFIRM_DELAY).toBeCloseTo(0.19, 6);
+    expect(KILL_DELAY).toBeCloseTo(0.19, 6);
+    const r = rig(1, 'plenty_street'), seen = spy(r);
+    r.step(2);
+    for (const [outcome, kind] of [['hit', 'bider'], ['weak', 'transit'], ['parried', 'windlass'], ['deflected', 'windlass'], ['deflected', 'tamper'], ['kill', 'bider'], ['freed', 'bider']] as const) {
+      r.emit('combat/hit', hit(outcome, 'none', kind));
+      r.step(6);
+    }
+    expect(seen.map((s) => s.name)).toEqual(['hit_tick', 'hit_weak', 'hit_parry', 'hit_deflect', 'tamper_clank', 'hit_kill', 'hit_freed']);
+    for (const s of seen) expect(s.delay, s.name).toBeCloseTo(0.19, 6);
   });
 });

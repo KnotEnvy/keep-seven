@@ -13,8 +13,8 @@
 // only bends the line: it never goes back, never passes FILES_SHARE on bytes alone, and the sets' own reports end it.
 // With no byte seen (a browser without Resource Timing, a sandbox that loads no file) the line is the count's, as before.
 
-/** bytes of public/assets files in design/assets.json sets `always` (647 696) + `surface` (6 144 258) */
-export const BOOT_FILE_BYTES = 6_791_954;
+/** bytes of public/assets files in design/assets.json sets `always` + `surface`: closer, pass i5 (it was 7 367 836 in pass i4, 6 791 954 before) */
+export const BOOT_FILE_BYTES = 7_642_948;
 /** the line's share for bytes in, for files decoded, and where the stylesheet's ease ends */
 export const FILES_SHARE = 0.8;
 export const DECODE_SHARE = 0.12;

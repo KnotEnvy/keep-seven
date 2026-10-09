@@ -64,11 +64,12 @@ test('pass i3: the asking follows the holds its lines are shown with; the lamps 
       return out;
     });
     const near = (got, want, what) => assert.ok(Math.abs(got - want) <= 3, `${what}: ${got} ticks (want ${want})`);
-    // today: 3.5 + 4 + 4 + 4.5 s of text and four breaths: the inspection 17 s after the seal, phase 1 at 22 (22.75 and 27.75 before the merge)
-    assert.deepEqual(r.today.keys, ['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_4']);
+    // today (pass i4: four lines, the narrator's has left the asking): 3.5 + 4 + 4.5 s of text and three breaths: the
+    // inspection 12.75 s after the seal, phase 1 at 17.75 (17 and 22 in pass i3)
+    assert.deepEqual(r.today.keys, ['stn_parley_1', 'rv_ask', 'stn_parley_2', 'stn_parley_4']);
     assert.equal(r.today.shown.stn_parley_3, undefined, 'the second roll-call line is gone');
-    near(r.today.inspection, 17 * 60, 'today, the inspection');
-    near(r.today.p1, 22 * 60, 'today, phase 1');
+    near(r.today.inspection, 12.75 * 60, 'today, the inspection');
+    near(r.today.p1, 17.75 * 60, 'today, phase 1');
     assert.ok(Math.abs(r.today.shown.stn_parley_4 - r.today.inspection) <= 1, 'the six open on the tick the line appears');
     // the roll-call lamps: all dark from the seal, chamber k at the middle of its sixth of the line, all six lit before the inspection
     assert.equal(r.today.lampsAtStart, '000000', 'the six lamps are dark until they are named');
@@ -78,15 +79,15 @@ test('pass i3: the asking follows the holds its lines are shown with; the lamps 
     assert.equal(r.today.ticks.length, 6, `a tick for each lamp (${r.today.ticks})`);
     assert.ok(r.today.lampOn[5][0] < r.today.inspection, 'the sixth is lit before the six open');
     assert.equal(r.today.lampsAfter, '111111');
-    // held shorter by the world alone: 3 + 3.5 + 3.5 + 4 = 14 s and four breaths
-    near(r.held.inspection, 15 * 60, 'shorter holds, the inspection');
-    near(r.held.p1, 20 * 60, 'shorter holds, phase 1');
+    // held shorter by the world alone: 3 + 3.5 + 4 = 10.5 s and three breaths
+    near(r.held.inspection, 11.25 * 60, 'shorter holds, the inspection');
+    near(r.held.p1, 16.25 * 60, 'shorter holds, phase 1');
     near(r.held.lampOn[3][0], r.held.shown.stn_parley_2 + Math.round(3.5 / 6 * 240), 'shorter holds, lamp 4');
-    // no roll-call in the data: 3.5 + 4 + 4 and three breaths; the lamps are not put out
-    assert.deepEqual(r.bare.keys, ['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_4']);
+    // no roll-call in the data: 3.5 + 4 and two breaths; the lamps are not put out
+    assert.deepEqual(r.bare.keys, ['stn_parley_1', 'rv_ask', 'stn_parley_4']);
     assert.equal(r.bare.shown.stn_parley_2, undefined, 'a line the data does not carry is not asked for');
-    near(r.bare.inspection, 12.25 * 60, 'no roll-call, the inspection');
-    near(r.bare.p1, 17.25 * 60, 'no roll-call, phase 1');
+    near(r.bare.inspection, 8 * 60, 'no roll-call, the inspection');
+    near(r.bare.p1, 13 * 60, 'no roll-call, phase 1');
     assert.equal(r.bare.lampsAtStart, '111111', 'with no roll-call the lamps stand lit, as at rest');
   } finally { await game.close(); }
 });
@@ -171,8 +172,8 @@ test('pass i3: a second hearing can be cut short: once an asking has been heard 
     assert.ok(r.skipClock.inspection >= 120 && r.skipClock.inspection <= 123, `with no line box the six open at once (${r.skipClock.inspection})`);
     assert.deepEqual(r.skipClock.stages, ['start', 'inspection', 'kept', 'end']);
     // left alone it is whole
-    assert.deepEqual(r.patient.said.filter((k) => /parley|rv_ask/.test(k)), ['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_4', 'nar_parley_kept']);
-    assert.ok(Math.abs(r.patient.inspection - 17 * 60) <= 3, `${r.patient.inspection}`);
+    assert.deepEqual(r.patient.said.filter((k) => /parley|rv_ask/.test(k)), ['stn_parley_1', 'rv_ask', 'stn_parley_2', 'stn_parley_4', 'nar_parley_kept']);
+    assert.ok(Math.abs(r.patient.inspection - 12.75 * 60) <= 3, `${r.patient.inspection}`);
     assert.equal(r.afterRestore, true, 'a restore past the asking counts as having heard one');
   } finally { await game.close(); }
 });

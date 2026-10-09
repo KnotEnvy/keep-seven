@@ -21,6 +21,8 @@ import ext_kit as kit
 
 LIP_CHARTS = ("lip_g", "lip_dr", "lip_fdr", "lip_bdr", "lip_gate_drift", "lip_north_drift")
 YARD_CHARTS = ("yd_ground", "yd_drift", "yd_dr0", "yd_dr1", "yd_dr2", "yd_dr3", "yd_dr4", "yd_dr5", "st_g_court")
+# pass i4: the street's own sheets (the visual reviewer: "on the street the same even sand fills the lower half of every frame")
+STREET_CHARTS = ("st_g_street", "st_g_alley", "st_g_x", "st_g_saddlery", "st_g_swept")
 
 
 # ---------------------------------------------------------------------------------------------------- numpy noise
@@ -150,6 +152,121 @@ def blot(X, Z, c, r, depth, soft=0.6):
     return 1.0 - depth * (1.0 - sstep(r * (1.0 - soft), r, d))
 
 
+# ---------------------------------------------------------------------------------------------------- pass i4: value breakup
+SHADOW_DIR = (0.707, 0.707)        # where a thing's shadow lies on the ground: away from the sun (north-west, 14 degrees up)
+
+
+def stones(X, Z, seed=71, cell=0.8, share=0.3, size=(0.035, 0.085)):
+    """Pebbles and small stones lying on the sand, as the light sees them: a dark body a texel or two across, a long
+    soft shadow on the side away from the sun (four times the stone's height at 14 degrees) and a lit edge toward it.
+    One to a cell of `cell` metres in `share` of the cells; sparser on the trodden middle is the caller's (multiply)."""
+    ix = np.floor(X / cell); iz = np.floor(Z / cell)
+    m = np.ones_like(X)
+    for (ox, oz) in ((0, 0), (-1, 0), (0, -1), (-1, -1)):                 # a shadow may reach from the cell to the north-west
+        cx = ix + ox; cz = iz + oz
+        has = _hash(cx, cz, seed) < share
+        sx = (cx + 0.15 + 0.7 * _hash(cx, cz, seed + 1)) * cell; sz = (cz + 0.15 + 0.7 * _hash(cx, cz, seed + 2)) * cell
+        r = size[0] + (size[1] - size[0]) * _hash(cx, cz, seed + 3) ** 2
+        dx = X - sx; dz = Z - sz
+        d = np.hypot(dx, dz)
+        body = np.exp(-(d / r) ** 2)
+        along = dx * SHADOW_DIR[0] + dz * SHADOW_DIR[1]; across = -dx * SHADOW_DIR[1] + dz * SHADOW_DIR[0]
+        L = r * 5.0
+        sh = np.exp(-(across / (r * 0.9)) ** 2) * sstep(-r * 0.3, r * 0.6, along) * (1.0 - sstep(L * 0.45, L, along))
+        lit = np.exp(-(((along + r * 1.1) / (r * 0.7)) ** 2 + (across / (r * 1.1)) ** 2))
+        k = 1.0 - 0.50 * body - 0.34 * sh * (1.0 - body) + 0.16 * lit * (1.0 - body)
+        m = m * np.where(has, k, 1.0)
+    return m
+
+
+def breakup(X, Z, seed=81, amount=0.15):
+    """Fields of harder and looser sand a few paces across (dark crusted pans with a ragged edge, pale blown sheets),
+    and a finer mottle under them: the floor is no longer one value from wall to wall."""
+    f = fbm(X / 7.5, Z / 7.5, seed, 3)
+    pan = sstep(0.16, 0.34, fbm(X / 4.2, Z / 4.2, seed + 3, 3) + 0.25 * fbm(X / 0.9, Z / 0.9, seed + 4, 2))      # crusted pans
+    edge = np.exp(-((fbm(X / 4.2, Z / 4.2, seed + 3, 3) + 0.25 * fbm(X / 0.9, Z / 0.9, seed + 4, 2) - 0.16) / 0.03) ** 2)
+    return (1.0 + amount * f + 0.05 * fbm(X / 1.6, Z / 1.6, seed + 6, 2)) * (1.0 - 0.17 * pan) * (1.0 + 0.10 * edge * (1.0 - pan))      # pass i5: 0.13 / 0.07
+
+
+def sheets(X, Z, bearing_deg=135.0, seed=91, period=4.4, amount=0.10):
+    """Pass i5 (the visual reviewer: "the lower half of the frame is uniform mauve rippled sand"): the wind lays the loose
+    sand in low transverse SHEETS a few paces apart. Each has a long windward slope that pales toward its crest and a
+    short dark slip face behind it: a pale line beside a dark one, wandering, that comes and goes along its length. A
+    mid-size shape on the floor between the grain of the ripples and the pans of `breakup`, and no triangle."""
+    b = math.radians(bearing_deg); wx, wz = math.sin(b), -math.cos(b)
+    s_ = X * wx + Z * wz; c = -X * wz + Z * wx
+    s_ = s_ + 1.5 * fbm(c / 3.4, s_ / 9.0, seed, 2) + 0.30 * fbm(c / 0.7, s_ / 0.9, seed + 1, 2)
+    k = np.floor(s_ / period); f = s_ / period - k
+    live = sstep(0.30, 0.62, vnoise(k * 1.71 + 0.3, c / 5.5, seed + 2))
+    v = f ** 1.6 - 1.1 * np.exp(-((f - 0.07) / 0.055) ** 2) - 0.32
+    return 1.0 + amount * live * v
+
+
+def drifts(X, Z, bearing_deg=135.0, seed=101, amount=0.14):
+    """Pass i6 (the visual reviewer: "the street's lower half of the frame is one uniform texture with little tonal
+    variation"; "paint broader tonal drifts into the ground"): the floor's LARGE shapes. Fields a dozen paces across
+    where the sand lies deeper and paler or is scoured to the darker hardpan, long pale tongues of blown sand lying
+    down the wind (ten paces long, a pace wide, ragged), and darker scoured lanes between them. Above the size of the
+    pans and sheets, under the size of the street: what the eye reads at a glance from the gate."""
+    b = math.radians(bearing_deg); wx, wz = math.sin(b), -math.cos(b)
+    s_ = X * wx + Z * wz; c = -X * wz + Z * wx
+    big = fbm(X / 13.0, Z / 13.0, seed, 2)
+    tongue = sstep(0.57, 0.76, vnoise(s_ / 9.0, c / 1.25, seed + 1) + 0.16 * fbm(X / 0.8, Z / 0.8, seed + 2, 2))
+    lane = sstep(0.60, 0.80, vnoise(s_ / 6.5 + 3.1, c / 2.3, seed + 3) + 0.12 * fbm(X / 1.1, Z / 1.1, seed + 4, 2))
+    return (1.0 + 1.5 * amount * big) * (1.0 + 0.95 * amount * tongue * (1.0 - lane)) * (1.0 - 0.85 * amount * lane)
+
+
+def door_scuff(X, Z, door, to, seed=7):
+    """The ground a door's traffic kept: a darker trodden fan at the sill, prints from it out to `to` (pass i6)."""
+    d = np.hypot((X - door[0]) * 1.0, (Z - door[1]) * 1.25)
+    fan = (1.0 - sstep(0.5, 1.9 + 0.5 * fbm(X / 0.7, Z / 0.7, seed, 2), d))
+    line = chaikin([door, ((door[0] + to[0]) / 2 + 0.5, (door[1] + to[1]) / 2), to], 2)
+    return (1.0 - 0.13 * fan) * prints(X, Z, line, seed=seed + 1, depth=0.30)
+
+
+STREET_DOORS = (((-11.5, -6.9), (-10.0, -1.9)), ((-24.5, 6.9), (-26.0, 1.4)), ((-33.0, -6.9), (-31.0, -2.4)), ((-47.5, -6.9), (-45.8, -3.9)), ((-57.5, 6.9), (-59.5, 0.8)), ((-65.5, -6.9), (-64.0, -2.3)))
+
+
+def paint_street(X, Z):
+    """Front Street, its alleys and the swept ring (pass i4). Nothing was painted here: the ruts were geometry and a High
+    relief. Now Low has them too: the packed, darker middle the wheels kept, both ruts as dark lines with a pale shoulder,
+    his prints down the north side, pans and blown sheets, pale sand banked along both rows with the dark line at the
+    boards' feet, damp at the trough, and stones (fewer where wheels and feet go)."""
+    import street_parts
+    xs = np.linspace(-73.0, 0.0, 60)
+    centre = np.interp(X, xs, np.array([street_parts.rut_centre(float(x)) for x in xs]))
+    dz = Z - centre
+    m = wind(X, Z, 135.0, 59, 0.12) * breakup(X, Z, 83, 0.21)                                   # pass i5: 0.16
+    on_street = (np.abs(Z) < 7.8)
+    packed = (1.0 - sstep(1.5, 3.3, np.abs(dz) + 0.9 * fbm(X / 3.3, Z / 3.3, 57, 2))) * on_street
+    m = m * (1.0 - 0.17 * packed)
+    for g in (-0.67, 0.67):                                             # the two ruts (the sheet's own rows 5 and 9)
+        w = 0.5 + 0.5 * vnoise(X / 1.3, g * 3.0 + Z * 0, 58)
+        m = m * (1.0 - 0.30 * np.exp(-((dz - g) / 0.085) ** 2) * (0.55 + 0.45 * w) * on_street)
+        m = m * (1.0 + 0.10 * np.exp(-((np.abs(dz - g) - 0.2) / 0.07) ** 2) * on_street)
+    # the rows' feet: z = -7.5 (north row) and +7.5 (south row); pale banked sand, then the dark line at the boards
+    dw = np.minimum(np.abs(Z + 7.6), np.abs(Z - 7.6))
+    rag = 0.45 * fbm(X / 2.1, Z / 2.1, 60, 2)
+    m = m * (1.0 + 0.13 * (1.0 - sstep(0.7 + rag, 2.3 + rag, dw)) * on_street)
+    m = m * (1.0 - 0.17 * np.exp(-(dw / 0.38) ** 2))
+    walk = chaikin([(-0.5, -1.6), (-9.0, -2.3), (-19.0, -1.9), (-30.0, -2.6), (-41.0, -2.1), (-52.0, -2.9), (-63.0, -2.2), (-72.8, -1.2)], 2)
+    m = m * (1.0 - (1.0 - prints(X, Z, walk, seed=61)) * on_street)
+    t = street_parts.SOL["st_trough"]["pos"] if "st_trough" in street_parts.SOL else None
+    if t is not None:                                                    # pass i6: the trough's spill is a ragged dark patch a cart wide (it was a round blot of 0.13)
+        m = m * blot(X + 0.5 * fbm(X / 1.3, Z / 1.3, 66, 2), Z + 0.5 * fbm(X / 1.3 + 7.0, Z / 1.3, 67, 2), (t[0] + 0.5, t[2] + 0.5), 3.3, 0.24, 0.7)
+    m = m * (1.0 + (drifts(X, Z, 135.0, 103, 0.15) - 1.0) * (1.0 - 0.45 * packed))                # pass i6
+    for k_, (door, to) in enumerate(STREET_DOORS): m = m * (1.0 + (door_scuff(X, Z, door, to, 70 + 3 * k_) - 1.0) * on_street)
+    m = m * blot(X, Z, (-24.5, 5.6), 2.2, 0.13) * blot(X, Z, (-47.0, -5.9), 2.6, 0.12)        # damp where the eaves drip
+    m = m * (1.0 + (sheets(X, Z, 135.0, 93, 4.6, 0.21) - 1.0) * (1.0 - packed))                    # pass i5
+    m = m * (1.0 - (1.0 - stones(X, Z, 63, 0.8, 0.30)) * (1.0 - 0.75 * packed))
+    return m
+
+
+def _has_marker(mid):
+    try: layout.marker(mid); return True
+    except Exception: return False                                       # noqa: BLE001
+
+
 # ---------------------------------------------------------------------------------------------------- the two places
 def lip_lines(S):
     import lip_dress, lip_fields as lf
@@ -178,8 +295,8 @@ def paint_lip(S, X, Z):
     ix = fx.astype(np.int64); iz = fz.astype(np.int64); tx = fx - ix; tz = fz - iz
     Fd = (lf.FIELD[iz, ix] * (1 - tx) + lf.FIELD[iz, ix + 1] * tx) * (1 - tz) + (lf.FIELD[iz + 1, ix] * (1 - tx) + lf.FIELD[iz + 1, ix + 1] * tx) * tz
     rag = 0.25 * fbm(X / 2.2, Z / 2.2, 41, 2)
-    m = m * (1.0 - 0.20 * np.exp(-(np.maximum(Fd, 0.0) / (0.5 + rag)) ** 2))                 # damp and shade at the foot
-    m = m * (1.0 + 0.10 * np.exp(-((Fd - 1.35 - rag) / 0.55) ** 2))                           # the pale line where the drift ends
+    m = m * (1.0 - 0.27 * np.exp(-(np.maximum(Fd, 0.0) / (0.6 + rag)) ** 2))                 # damp and shade at the foot (pass i5: 0.20 over 0.5 m)
+    m = m * (1.0 + 0.14 * np.exp(-((Fd - 1.45 - rag) / 0.55) ** 2))                           # the pale line where the drift ends (pass i5: 0.10)
     import lip_dress
     m = m * wash(X, Z, chaikin(lip_dress.wash_points(), 2))
     if cart is not None: m = m * ruts(X, Z, cart, seed=11)
@@ -192,6 +309,13 @@ def paint_lip(S, X, Z):
         m = m * (1.0 - 0.42 * np.exp(-(np.hypot(ox, oz) / 0.11) ** 2))
     under_roof = sstep(98.6, 99.6, Z)
     m = m * (1.0 - (1.0 - prints(X, Z, walk, seed=13)) * (1.0 - under_roof))
+    # pass i4 (the visual reviewer: "an even purple-grey sand floor"): pans and blown sheets, and stones (fewest where she walks)
+    dP, _, _ = line_coords(X, Z, P)
+    off = sstep(0.6, 2.0, dP)
+    m = m * (1.0 + (breakup(X, Z, 85, 0.23) - 1.0) * (0.55 + 0.45 * off))                    # pass i5: 0.17
+    m = m * (1.0 + (sheets(X, Z, 150.0, 95, 4.2, 0.23) - 1.0) * (0.35 + 0.65 * off) * (1.0 - under_roof))      # pass i5
+    m = m * (1.0 - (1.0 - stones(X, Z, 65, 0.75, 0.34, (0.035, 0.10))) * (0.25 + 0.75 * off))
+    m = m * (1.0 + (drifts(X, Z, 150.0, 105, 0.15) - 1.0) * (1.0 - 0.6 * under_roof))                # pass i6
     return m
 
 
@@ -222,6 +346,11 @@ def paint_yard(S, X, Z):
     m = m * blot(X, Z, (-100.2, 12.9), 1.5, 0.16)                     # at the trough
     d = np.hypot(X + 101.0, Z + 3.0)
     m = m * (1.0 - 0.14 * np.exp(-((d - 4.25) / 0.5) ** 2))            # the drum's foot
+    m = m * (1.0 + (breakup(X, Z, 87, 0.19) - 1.0) * (1.0 - 0.5 * packed))        # pass i4 (pass i5: 0.15)
+    m = m * (1.0 + (sheets(X, Z, 135.0, 97, 4.4, 0.19) - 1.0) * (1.0 - packed))          # pass i5
+    m = m * (1.0 - (1.0 - stones(X, Z, 67, 0.8, 0.28)) * (1.0 - 0.7 * packed))
+    m = m * (1.0 + (drifts(X, Z, 135.0, 107, 0.14) - 1.0) * (1.0 - 0.45 * packed))                # pass i6
+    m = m * door_scuff(X, Z, (-89.0, -13.6), (-89.6, -9.0), 91)                                    # the Tally House's door
     return m
 
 
@@ -247,12 +376,12 @@ def apply(S, img):
         for cid in np.unique(lc):
             name = ids.get(int(cid))
             if name is None: continue
-            place = "lip" if name.startswith(LIP_CHARTS) else ("yard" if name.startswith(YARD_CHARTS) else None)
+            place = "lip" if name.startswith(LIP_CHARTS) else ("yard" if name.startswith(YARD_CHARTS) else ("street" if name.startswith(STREET_CHARTS) else None))
             if place is None: continue
             m = lc == cid
             d = data.setdefault(int(cid), {"uv": [], "xz": [], "place": place, "name": name})
             d["uv"].append(uv[m]); d["xz"].append(xz[m])
-    done = {"lip": 0, "yard": 0}
+    done = {"lip": 0, "yard": 0, "street": 0}
     for cid in sorted(data):
         d = data[cid]
         uv = np.concatenate(d["uv"]).astype(np.float64); xz = np.concatenate(d["xz"]).astype(np.float64)
@@ -266,9 +395,9 @@ def apply(S, img):
         if x1 <= x0 or y1 <= y0: continue
         uu, vv = np.meshgrid((np.arange(x0, x1) + 0.5) / W, (np.arange(y0, y1) + 0.5) / H)
         X = uu * M[0, 0] + vv * M[1, 0] + M[2, 0]; Z = uu * M[0, 1] + vv * M[1, 1] + M[2, 1]
-        k = paint_lip(S, X, Z) if d["place"] == "lip" else paint_yard(S, X, Z)
+        k = paint_lip(S, X, Z) if d["place"] == "lip" else (paint_street(X, Z) if d["place"] == "street" else paint_yard(S, X, Z))
         px[y0:y1, x0:x1, :3] *= np.clip(k, 0.45, 1.3)[:, :, None].astype(np.float32)
         done[d["place"]] += int(k.size)
     img.pixels.foreach_set(px.ravel())
-    print(f"GROUND PAINT: {done['lip']} texels of the Lip, {done['yard']} of the yard, in {len(data)} charts")
+    print(f"GROUND PAINT: {done['lip']} texels of the Lip, {done['yard']} of the yard, {done['street']} of the street, in {len(data)} charts")
     return done

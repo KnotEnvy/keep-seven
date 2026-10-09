@@ -108,6 +108,7 @@ export const AO_RADIUS = 0.55, AO_INTENSITY = 20, AO_FAR = 45, AO_TAPS = 16, AO_
  * stand far over it and keep their shade (AO_INTENSITY 15 -> 20: with the thin things gone the creases that are left carry
  * the term). And a pale lit wall (the cages' enamel) loses more of the shade, sooner (AO_LIT 0.7 / 0.30 / 0.85 -> 0.8 / 0.25 / 0.70).
  */
+// pass i5 (closer): 0.035 was tried for the hung hats' brims (28 mm off the stair's wall) and reverted: the gallery's shade as a whole fell under what tests/render/polish4_high asks (0.77 of 255, the floor is 0.8)
 export const AO_THIN = 0.028;
 /** the share of the depth range the view-model is drawn into where the world's depth is kept for the contact shade */
 export const VM_DEPTH_RANGE = 0.05;
@@ -213,6 +214,27 @@ export const VEIL_GULLY = 0.5;
 export const VEIL_K = 0.70, VEIL_FROM = 5, VEIL_TO = 28, VEIL_END_FROM = 70, VEIL_END_TO = 130, VEIL_FALL = 0.45;
 /** the veil on a dark thing as a share of itself, and the scene light (linear) between which a thing counts as dark or lit (exterior look, pass i3) */
 export const VEIL_DARK = 0.30, VEIL_LIT: readonly [number, number] = [0.06, 0.40];
+/**
+ * The Long Light's ground dust and the sun's glow (exterior look, pass i4; lead ruling R16: out of doors High drew Low's
+ * frame, 5 of 255 apart and 0.3 % of the pixels plainly different, "a layer of air (haze, drifting dust, heat)", "glow
+ * on the sun, sky"). The shafts and the veil need the sun in front of her; this is the air itself, whichever way she
+ * looks. A layer of dust lies on the ground (its density falls by e every DUST_H metres over her feet's level) and the
+ * low sun lights it: along each pixel's own ray, from the eye to what the ray ends on (or DUST_FAR), the dust in the
+ * way in closed form, so the layer is thin underfoot and across a yard, a band along the foot of everything in the
+ * middle distance, and nothing in the sky above a few degrees. It drifts: two slow sheets of thicker and thinner air
+ * cross it with the wind (still under Reduce Motion). Its light is the fog's own colour, warmer and stronger toward
+ * the sun (DUST_SUN), and it hides DUST_HIDE of what stands behind it. And the sun has a glow in the sky round it
+ * (GLOW_K of the shafts' strength, falling with GLOW_FALL): the disc was a disc in a flat sky. Same pass, same depth,
+ * no new sample. `PostChain.dustK` and `glowK` are the system's (0: none; Low and min have none of it).
+ */
+export const DUST_K = 0.036, DUST_H = 0.9, DUST_FAR = 150, DUST_SUN = 0.7, DUST_HIDE = 0.6, DUST_MAX = 0.5, DUST_WIND = 0.5;
+export const GLOW_K = 1.0, GLOW_FALL = 11.0, GLOW_NEAR = 0.3;
+export const DUST_DARK = 0.7;
+/** the dust between the gully's walls as a share of the street's (the sun does not reach that air), and its light as a share of the fog's colour */
+// (pass i6, R16: 0.3 -> 0.55: between the walls High was Low but for a veil; the layer lies along the far reaches of the floor and the walls' feet)
+export const DUST_GULLY = 0.55, DUST_LIGHT = 1.0;
+/** exterior look, pass i6 (R16): the share of the layer that is drawn from under the overhang (the mood's own 0 held it off: High drew Low's first image) */
+export const DUST_ROOF = 0.8;
 /** cosine of the angle between the view and the sun where the shafts start and where they are whole */
 export const SHAFT_FACE_FROM = 0.12, SHAFT_FACE_TO = 0.5;
 const SHAFT_FRAGMENT = /* glsl */`
@@ -221,12 +243,43 @@ uniform vec4 uShSun;   // the sun on screen (uv) x, y; strength; seed
 uniform vec3 uShCol;
 uniform vec2 uShProj;  // near, far
 uniform float uShVeil;
+uniform vec4 uShDust;  // strength (0: none); the ground's height (her feet); the clock; the sun's glow
+uniform vec3 uShEye;   // the camera in the world
+uniform vec3 uShRx;    // the view's right x tan(half fov x), up x tan(half fov y), and forward, in the world
+uniform vec3 uShUy;
+uniform vec3 uShFw;
+uniform vec3 uShSunW;  // the direction to the sun, in the world
+uniform vec3 uShDustCol;
+uniform vec4 uShAir;   // the layer (pass i6): its scale height (m); how far a ray is counted (m); the depths between which what stands far off keeps its dark
 ${HASH}
 void mainImage( const in vec4 inputColor, const in vec2 uv, out vec4 outputColor ) {
 	outputColor = inputColor;
-	if ( uShSun.z < 0.002 ) return;
+	if ( uShSun.z < 0.002 && uShDust.x <= 0.0 ) return;
 	float own = texture2D( uShDepth, uv ).r;
 	if ( own <= ${VM_DEPTH_RANGE_TEXT} ) return;
+	if ( uShDust.x > 0.0 ) {
+		// the ground dust (DUST_*): the pixel's ray in the world, one unit of view depth long
+		float skyPx = step( 0.99999, own );
+		float depth = ( uShProj.x * uShProj.y ) / ( uShProj.y - own * ( uShProj.y - uShProj.x ) );
+		vec3 ray = uShFw + ( uv.x * 2.0 - 1.0 ) * uShRx + ( uv.y * 2.0 - 1.0 ) * uShUy;
+		float T = mix( min( depth, uShAir.y ), uShAir.y, skyPx );
+		float h0 = max( ( uShEye.y - uShDust.y ) / uShAir.x, 0.0 );
+		float A = clamp( ray.y * T / uShAir.x, - h0 - 0.7, 40.0 );
+		float col = exp( - h0 ) * T * length( ray ) * ( abs( A ) < 1e-3 ? 1.0 : ( 1.0 - exp( - A ) ) / A );
+		// the sheets that drift through it: read where the ray is deepest in the layer (two thirds of the way, 60 m at most)
+		vec3 at = uShEye + ray * min( T * 0.66, 60.0 );
+		vec2 w = at.xz + vec2( - 1.0, 0.45 ) * ( uShDust.z * ${DUST_WIND.toFixed(2)} );
+		float n = sin( w.x * 0.115 + w.y * 0.071 + 1.3 * sin( w.y * 0.043 - w.x * 0.021 ) ) * 0.5 + sin( w.x * 0.047 - w.y * 0.139 + 2.1 ) * 0.3 + sin( w.x * 0.31 + w.y * 0.27 ) * 0.12;
+		float dust = min( 1.0 - exp( - col * uShDust.x * ( 1.0 + 0.85 * n ) ), ${DUST_MAX.toFixed(2)} );
+		dust *= mix( 1.0 - 0.8 * smoothstep( uShAir.z, uShAir.w, depth ), 1.0, skyPx );
+		// depth without milk: the dust glows where there is light behind it to carry (as the veil does); over a wall in
+		// shade or the dark of a doorway it is DUST_DARK of itself, and the frame keeps its dark anchor
+		dust *= mix( ${DUST_DARK.toFixed(2)}, 1.0, smoothstep( 0.05, 0.36, dot( inputColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) ) ) );
+		float toSun = dot( normalize( ray ), uShSunW );
+		float ph = 1.0 + ${DUST_SUN.toFixed(2)} * pow( max( toSun, 0.0 ), 3.0 ) + 0.2 * max( toSun, 0.0 );
+		outputColor.rgb = outputColor.rgb * ( 1.0 - dust * ${DUST_HIDE.toFixed(2)} ) + uShDustCol * ( dust * ph );
+	}
+	if ( uShSun.z < 0.002 ) return;
 	vec2 to = ( uShSun.xy - uv ) * vec2( aspect, 1.0 );
 	float len = max( length( to ), 1e-4 );
 	vec2 stp = to / len * ( min( len, ${SHAFT_REACH.toFixed(2)} ) / ${SHAFT_TAPS}.0 ) / vec2( aspect, 1.0 );
@@ -250,12 +303,22 @@ void mainImage( const in vec4 inputColor, const in vec2 uv, out vec4 outputColor
 	// doorway was milk. The dusty air glows where there is light BEHIND it to carry: a lit thing takes the veil whole
 	// (VEIL_LIT), a dark one VEIL_DARK of it; VEIL_K is 0.70 (0.85). The lit side warms, the shade keeps its depth.
 	veil *= mix( ${VEIL_DARK.toFixed(2)}, 1.0, smoothstep( ${VEIL_LIT[0].toFixed(2)}, ${VEIL_LIT[1].toFixed(2)}, dot( inputColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) ) ) );
-	outputColor.rgb += uShCol * ( ( k + uShVeil * veil ) * uShSun.z );
+	// the sun's glow in the sky round it (GLOW_*): whole on the sky, GLOW_NEAR of it over what stands in front
+	// (what stands far off against the sky keeps its dark, as under the veil: the figure on the rimrock, the pylon line)
+	float glow = uShDust.w * mix( ${GLOW_NEAR.toFixed(2)} * ( 1.0 - smoothstep( ${VEIL_END_FROM.toFixed(1)}, ${VEIL_END_TO.toFixed(1)}, dist ) ), 1.0, step( 0.99999, own ) ) / ( 1.0 + len * len * ${GLOW_FALL.toFixed(1)} );
+	outputColor.rgb = inputColor.rgb + ( outputColor.rgb - inputColor.rgb ) + uShCol * ( ( k + uShVeil * veil + glow ) * uShSun.z );
 }
 `;
+/** the ground dust's uniforms (exterior look, pass i4): PostChain owns them, finish() fills the camera's part */
+interface DustUniforms {
+  readonly k: THREE.Uniform<THREE.Vector4>; readonly eye: THREE.Uniform<THREE.Vector3>; readonly rx: THREE.Uniform<THREE.Vector3>; readonly uy: THREE.Uniform<THREE.Vector3>;
+  readonly fw: THREE.Uniform<THREE.Vector3>; readonly sun: THREE.Uniform<THREE.Vector3>; readonly col: THREE.Uniform<THREE.Vector3>;
+  readonly air: THREE.Uniform<THREE.Vector4>;
+}
 class SunShaftEffect extends Effect {
-  constructor(depth: THREE.Uniform<THREE.Texture | null>, sun: THREE.Uniform<THREE.Vector4>, col: THREE.Uniform<THREE.Vector3>, proj: THREE.Uniform<THREE.Vector2>, veil: THREE.Uniform<number>) {
-    super('KeepSunShafts', SHAFT_FRAGMENT, { blendFunction: BlendFunction.SRC, uniforms: new Map<string, THREE.Uniform>([['uShDepth', depth], ['uShSun', sun], ['uShCol', col], ['uShProj', proj], ['uShVeil', veil]]) });
+  constructor(depth: THREE.Uniform<THREE.Texture | null>, sun: THREE.Uniform<THREE.Vector4>, col: THREE.Uniform<THREE.Vector3>, proj: THREE.Uniform<THREE.Vector2>, veil: THREE.Uniform<number>, dust: DustUniforms) {
+    super('KeepSunShafts', SHAFT_FRAGMENT, { blendFunction: BlendFunction.SRC, uniforms: new Map<string, THREE.Uniform>([['uShDepth', depth], ['uShSun', sun], ['uShCol', col], ['uShProj', proj], ['uShVeil', veil],
+      ['uShDust', dust.k], ['uShEye', dust.eye], ['uShRx', dust.rx], ['uShUy', dust.uy], ['uShFw', dust.fw], ['uShSunW', dust.sun], ['uShDustCol', dust.col], ['uShAir', dust.air]]) });
   }
 }
 
@@ -570,6 +633,21 @@ export class PostChain {
   private readonly shaftProj = new THREE.Uniform(new THREE.Vector2(0.05, 2000));
   /** High: the sun's veil as a share of the shafts' strength (VEIL_K under the Long Light, 0 under the overhang); the system's */
   readonly shaftVeil = new THREE.Uniform(0);
+  /**
+   * High, exterior look pass i4: the ground dust and the sun's glow (DUST_*, GLOW_*). The system sets `dustK` (0 = none),
+   * `dustGround` (her feet's height), `dustTime`, `glowK` and `dustCol` (scene light); finish() puts the camera in.
+   */
+  dustK = 0; dustGround = 0; dustTime = 0; glowK = 0;
+  readonly dustCol = new THREE.Uniform(new THREE.Vector3(1, 0.8, 0.6));
+  /**
+   * Exterior look, pass i6 (R16, the rim): the layer's own shape, the system's. By day the Long Light's ground dust
+   * (DUST_H, DUST_FAR, 160 .. 230 m); in the blue hour the mist on the plain under the rim (moods.ts DUSK_MIST).
+   */
+  readonly dustAir = new THREE.Uniform(new THREE.Vector4(DUST_H, DUST_FAR, 160, 230));
+  private readonly dustU: DustUniforms = {
+    k: new THREE.Uniform(new THREE.Vector4(0, 0, 0, 0)), eye: new THREE.Uniform(new THREE.Vector3()), rx: new THREE.Uniform(new THREE.Vector3(1, 0, 0)), uy: new THREE.Uniform(new THREE.Vector3(0, 1, 0)),
+    fw: new THREE.Uniform(new THREE.Vector3(0, 0, -1)), sun: new THREE.Uniform(new THREE.Vector3(0, 1, 0)), col: this.dustCol, air: this.dustAir,
+  };
   /** High: the air light (AirLightEffect). The system fills `air` and sets `airK` (a display level; 0 = none) every frame; finish() puts the lamps into view space */
   readonly air = new AirLights();
   airK = 0;
@@ -643,7 +721,7 @@ export class PostChain {
       depth = new THREE.DepthTexture(1, 1);
       depth.name = 'keep_scene_depth';
       composer.inputBuffer.depthTexture = depth;
-      merged = new EffectPass(this.camera, new HeatShimmerEffect(this.aoDepth, this.shimmerU, this.shaftProj), new ContactShadeEffect(this.aoDepth, this.aoProj, this.aoK, this.exposure), new SunShaftEffect(this.aoDepth, this.shaftSun, this.shaftCol, this.shaftProj, this.shaftVeil), new AirLightEffect(this.aoDepth, this.aoProj, this.airPos, this.airCol, this.airU, this.airConeU, this.airDown), bloom, grade);
+      merged = new EffectPass(this.camera, new HeatShimmerEffect(this.aoDepth, this.shimmerU, this.shaftProj), new ContactShadeEffect(this.aoDepth, this.aoProj, this.aoK, this.exposure), new SunShaftEffect(this.aoDepth, this.shaftSun, this.shaftCol, this.shaftProj, this.shaftVeil, this.dustU), new AirLightEffect(this.aoDepth, this.aoProj, this.airPos, this.airCol, this.airU, this.airConeU, this.airDown), bloom, grade);
     } else {
       merged = new EffectPass(this.camera, grade);
     }
@@ -694,7 +772,7 @@ export class PostChain {
     if (this.current) for (const t of this.current.targets) t.dispose();
     this.current = null;
     this.composer = null; this.merged = null; this.fxaa = null; this.bloom = null;
-    this.aoDepth.value = null; this.aoK.value.w = 0; this.keepsDepth = false; this.shaftSun.value.z = 0; this.airU.value.x = 0; this.airConeU.value.x = 0; this.shimmerU.value.z = 0;
+    this.aoDepth.value = null; this.aoK.value.w = 0; this.keepsDepth = false; this.shaftSun.value.z = 0; this.dustU.k.value.x = 0; this.airU.value.x = 0; this.airConeU.value.x = 0; this.shimmerU.value.z = 0;
   }
   /** grain belongs to the last pass: the merged one on Low, the FXAA one on High */
   applyGrain(): void {
@@ -712,11 +790,25 @@ export class PostChain {
 
   get vignetteMaterial(): THREE.Material { return this.vignetteMesh.material as THREE.Material; }
 
-  /** after renderer.setPixelRatio / setSize: the composer's buffers follow the drawing buffer */
-  setSize(cssWidth: number, cssHeight: number): void {
-    if (this.composer) this.composer.setSize(cssWidth, cssHeight, false);
+  /**
+   * The chain's buffers and passes at `width` x `height` pixels: the scene's buffer, which an adaptive step makes smaller
+   * than the canvas (pass i4: the composer's own setSize resizes the renderer's canvas, which is what stalled). The last
+   * pass draws onto the canvas whatever its size and reads the smaller buffer through its linear filter.
+   */
+  setSize(cssWidth: number, cssHeight: number, width: number, height: number): void {
+    const c = this.composer;
+    if (c && (c.inputBuffer.width !== width || c.inputBuffer.height !== height || this.sizedChain !== this.current)) {
+      this.sizedChain = this.current;
+      c.inputBuffer.setSize(width, height);
+      c.outputBuffer.setSize(width, height);
+      for (const pass of c.passes) pass.setSize(width, height);
+    }
+    this.sceneHeight = height;
     this.vignetteAspect.value = cssWidth / Math.max(1, cssHeight);
   }
+  private sizedChain: Chain | null = null;
+  /** the height of the buffer the scene is drawn into (the canvas's on `min`) */
+  private sceneHeight = 540;
 
   /** where the scene is drawn: the composer's HalfFloat buffer, or the canvas on `min` */
   get sceneTarget(): THREE.WebGLRenderTarget | null { return this.composer ? this.composer.inputBuffer : null; }
@@ -736,10 +828,19 @@ export class PostChain {
       sh.z = this.shaftK * fw; sh.w = tick % 64;
       this.shaftProj.value.set(cam.near, cam.far);
       if (sh.z > 0) { sh.x = 0.5 + 0.5 * (vx / face) * (e[0] as number); sh.y = 0.5 + 0.5 * (vy / face) * (e[5] as number); }
-      // the heat shimmer: where the horizon stands on screen for this frame's pitch
+      // the ground dust (pass i4): the camera's frame in the world, the half field of view folded into right and up
+      const du = this.dustU, dk = du.k.value;
+      dk.x = this.dustK; dk.y = this.dustGround; dk.z = this.dustTime; dk.w = this.glowK;
+      if (dk.x > 0) {
+        const m = cam.matrixWorld.elements;
+        du.eye.value.set(m[12] as number, m[13] as number, m[14] as number);
+        du.rx.value.set(m[0] as number, m[1] as number, m[2] as number).multiplyScalar(p.x);
+        du.uy.value.set(m[4] as number, m[5] as number, m[6] as number).multiplyScalar(p.y);
+        du.fw.value.set(-(m[8] as number), -(m[9] as number), -(m[10] as number));
+        du.sun.value.set(sd.x, sd.y, sd.z);
+      }
       const hs = this.shimmerU.value;
-      r.getDrawingBufferSize(this.size);
-      hs.z = this.shimmer > 1e-3 ? this.shimmer * SHIMMER_PX / Math.max(1, this.size.y) : 0;
+      hs.z = this.shimmer > 1e-3 ? this.shimmer * SHIMMER_PX / Math.max(1, this.sceneHeight) : 0;
       if (hs.z > 0) {
         // the world's up in view space is (v[4], v[5], v[6]); a direction on the horizon straight ahead, (0, y, -1), is square to it: y = uz / uy
         const uy = v[5] as number, uz = v[6] as number;

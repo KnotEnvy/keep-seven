@@ -207,6 +207,8 @@ export function probe(ops: readonly ProbeOp[]): number[] {
       case 'firstAbove': return firstAbove(x, sr, c, a, b);
       case 'sample': return x[Math.round(a)] ?? 0;
       case 'length': return x.length;
+      // right over left in a span, dB (> 0: the sound leans right)
+      case 'balance': return toDb(rmsOf(r.right, sr, a, b)) - toDb(rmsOf(r.left, sr, a, b));
       default: throw new Error(`ext.audio.probe: unknown op '${op}'`);
     }
   });

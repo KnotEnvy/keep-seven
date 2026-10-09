@@ -15,7 +15,7 @@ describe('defs: the GDD numbers', () => {
   it('difficulty table (GDD 15)', () => {
     expect(DIFFICULTY.easy).toEqual({ damageTaken: 0.6, attackTokens: 1, telegraphScale: 1.2, biderDropChance: 0.4, crownKnotRadius: 0.26 });
     expect(DIFFICULTY.normal).toEqual({ damageTaken: 1, attackTokens: 2, telegraphScale: 1, biderDropChance: 0.25, crownKnotRadius: 0.22 });
-    expect(DIFFICULTY.hard).toEqual({ damageTaken: 1.4, attackTokens: 3, telegraphScale: 0.9, biderDropChance: 0.15, crownKnotRadius: 0.2 });
+    expect(DIFFICULTY.hard).toEqual({ damageTaken: 1.4, attackTokens: 3, telegraphScale: 0.8, biderDropChance: 0.15, crownKnotRadius: 0.2 });   // pass i4: Hard's tells are 20 % shorter (it was 10)
   });
   it('archetypes (GDD 7.1 to 7.3)', () => {
     expect([ENEMIES.bider.hp, ENEMIES.bider.moveSpeed, ENEMIES.bider.threat, ENEMIES.bider.attacks[0]?.damage]).toEqual([100, 5.8, 1, 18]);
@@ -152,11 +152,11 @@ describe('the Windlass: patterns, pips, the arm, the adds (GDD 8)', () => {
     expect(countHits(8, 10, 3)).toBe(2);
     expect(countHits(10, 10, 3)).toBe(0);
   });
-  it('the parley timeline (GDD 8.1; closing of pass i3: one roll-call line of 4.5 s): 21 s, the inspection from 16 to 20', () => {
-    expect(PARLEY_LINES.map((l) => l[0])).toEqual([0, 3.5, 7.5, 11.5, 16]);
-    expect(PARLEY_LINES.map((l) => l[1])).toEqual(['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_4']);
+  it('the parley timeline (GDD 8.1; pass i4: four lines, the narrator\'s has left the asking): 17 s, the inspection from 12 to 16', () => {
+    expect(PARLEY_LINES.map((l) => l[0])).toEqual([0, 3.5, 7.5, 12]);
+    expect(PARLEY_LINES.map((l) => l[1])).toEqual(['stn_parley_1', 'rv_ask', 'stn_parley_2', 'stn_parley_4']);
     expect(BOSS.parley.windowEnd - BOSS.parley.line4).toBe(4);
-    expect(BOSS.parley.phase1).toBe(21);
+    expect(BOSS.parley.phase1).toBe(17);
   });
   it('pass i3: the asking is as long as its lines are held in the story data; a line the data does not carry is not asked for', () => {
     const keys: string[] = [], holds: number[] = [];
@@ -164,20 +164,22 @@ describe('the Windlass: patterns, pips, the arm, the adds (GDD 8)', () => {
     // today's data (closing of pass i3: the roll-call is one line): five lines, and the written clock falls out of their seconds
     expect(parleyPlan(lines, keys, holds)).toBe(PARLEY_LINES.length);
     expect(keys).toEqual(PARLEY_LINES.map((l) => l[1]));
-    expect(holds.slice(0, -1)).toEqual([3.5, 4, 4, 4.5]);
+    expect(holds.slice(0, -1)).toEqual([3.5, 4, 4.5]);
     expect(holds.slice(0, -1).reduce((a, b) => a + b, 0)).toBe(BOSS.parley.line4);
+    expect('nar_parley' in lines).toBe(false);
     // other text: longer spoken lines. No code changes.
-    const merged: Record<string, { seconds?: number }> = { ...lines, nar_parley: { seconds: 4.5 }, rv_ask: { seconds: 4.5 } };
-    expect(parleyPlan(merged, keys, holds)).toBe(5);
-    expect(keys).toEqual(['stn_parley_1', 'nar_parley', 'rv_ask', 'stn_parley_2', 'stn_parley_4']);
-    expect(holds.slice(0, -1)).toEqual([3.5, 4.5, 4.5, 4.5]);
-    expect(holds.slice(0, -1).reduce((a, b) => a + b, 0)).toBe(17);
+    const merged: Record<string, { seconds?: number }> = { ...lines, stn_parley_1: { seconds: 4.5 }, rv_ask: { seconds: 4.5 } };
+    expect(parleyPlan(merged, keys, holds)).toBe(4);
+    expect(keys).toEqual(['stn_parley_1', 'rv_ask', 'stn_parley_2', 'stn_parley_4']);
+    expect(holds.slice(0, -1)).toEqual([4.5, 4.5, 4.5]);
+    expect(holds.slice(0, -1).reduce((a, b) => a + b, 0)).toBe(13.5);
     // a stub's data (no seconds, or no lines at all): the written times, and the inspection is always a stage
     expect(parleyPlan({}, keys, holds)).toBe(1);
     expect(keys).toEqual(['stn_parley_4']);
     parleyPlan({ stn_parley_1: {}, nar_parley: {}, rv_ask: {}, stn_parley_2: {}, stn_parley_3: {}, stn_parley_4: {} }, keys, holds);
     expect(keys).not.toContain('stn_parley_3');
-    expect(holds).toEqual([3.5, 4, 4, 4.5, 4]);
+    expect(keys).not.toContain('nar_parley');
+    expect(holds).toEqual([3.5, 4, 4.5, 4]);
     expect([BOSS.rollTickGain, BOSS.rollTickPitch]).toEqual([0.7, 0.75]);
   });
   it('bays: bay k is centred on 60 (k - 1) degrees; bearings are compass bearings from the axis', () => {
@@ -298,7 +300,7 @@ describe('polish round 2', () => {
     expect(BIDER.strikeAfter).toBeGreaterThanOrEqual(0.12);
     expect(BIDER.strikeAfter).toBeLessThan(BIDER.lunge);
     expect(BIDER.separateMin).toBeGreaterThanOrEqual(0.7);
-    expect(BOSS.chargeRepeat).toBe(20);
+    expect(BOSS.chargeRepeat).toBe(30);                  // pass i4 (story reviewer a: four times in 56 s): it was 20
     expect(TRANSIT.seekAfter).toBeGreaterThanOrEqual(TRANSIT.blindAfter);
     // the Windlass's damage numbers are the GDD's (8.2); the phase-2 haul was lengthened in polish round 3 (R2); the phase-1
     // haul is 3.0 s (5.0 for a while in that round, until glow hits counted and the head followed her in the haul)
@@ -329,5 +331,24 @@ describe('polish round 2', () => {
     expect([BOSS.parleyLineWait, BOSS.parleyKeptLead]).toEqual([14, 4.5]);
     expect([BOSS.retryLead, BOSS.moveDeaths, BOSS.retryLeadLate, BOSS.moveKey, BOSS.moveHintAt, BOSS.moveHintAgain, BOSS.moveRead, BOSS.retryLeadMax]).toEqual([4.0, 2, 6.5, 'hint_boss_move', 0.5, 3.0, 4.0, 11]);
     expect(BOSS.retryLeadLate).toBeGreaterThan(BOSS.retryLead);
+  });
+});
+
+describe('pass i4', () => {
+  it('the numbers this pass added', () => {
+    // the lane a charge needs is the body less the graze a charge slides past
+    expect(TAMPER.laneHalf).toBeCloseTo(0.8 - TAMPER.grazeDepth, 6);
+    expect(TAMPER.laneShort).toBeLessThan(TAMPER.chargeMin);
+    // three steps of help at most: the slowest slam is still under two seconds, the longest stun 3.5 s
+    expect(TAMPER.slamWindupBy.normal + TAMPER.helpMax * TAMPER.slamHelp).toBeLessThan(2);
+    expect(TAMPER.chargeStun + TAMPER.helpMax * TAMPER.stunHelp).toBe(3.5);
+    expect(TAMPER.helpTiming).toEqual({ easy: true, normal: true, hard: false });
+    expect(TAMPER.ringFromHelp).toBe(2);
+    expect([TAMPER.hintKey, TAMPER.backKey]).toEqual(['hint_tamper_ring', 'hint_tamper_back']);
+    // the Windlass: three lines a retry may owe, the guard's line after two hauls, the locker's ring after four
+    expect([BOSS.moveKey, BOSS.lobKey, BOSS.teachKey, BOSS.pawlsKey]).toEqual(['hint_boss_move', 'hint_boss_lob', 'hint_boss_haul', 'hint_boss_pawls']);
+    expect(BOSS.pawlHintHauls).toBe(2);
+    expect(BOSS.lockerHintHauls).toBeGreaterThan(BOSS.pawlHintHauls);
+    expect(BOSS.chargeMarkRadius).toBeGreaterThan(0.5);   // the mark's own radius (layout `ia_proving_mark_*`)
   });
 });

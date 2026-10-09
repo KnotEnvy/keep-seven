@@ -96,6 +96,7 @@ def build_ground(S):
     # the swept bare circle round the kneeler's trough: 3 m across, a low rim of swept-out sand (the wrong thing here)
     t = SOL["st_trough"]["pos"]
     ch = kit.chart("st_g_swept", 1.0)
+    sw = Part("st_swept_drift", Z, smooth=60)        # pass i4: its own part: it takes light but casts none on the sheet under it (bake_surface.py)
     n = 16
     ring = lambda r, y: [(t[0] + math.cos(2 * math.pi * k / n) * r, y, t[2] + math.sin(2 * math.pi * k / n) * r) for k in range(n)]
     r0 = ring(1.5, 0.022); r1 = ring(1.72, 0.06); r2 = ring(2.15, 0.012)
@@ -103,10 +104,10 @@ def build_ground(S):
     packed = mul(mix(lin("sand"), lin("adobe_base"), 0.3), 0.9)
     for k in range(n):
         j = (k + 1) % n
-        p.poly([c, r0[j], r0[k]], "m_sand", [sand_uv(a) for a in (c, r0[j], r0[k])], packed, ch, [(a[0], a[2]) for a in (c, r0[j], r0[k])], final=True)
-        p.poly([r0[k], r0[j], r1[j], r1[k]], "m_sand", [sand_uv(a) for a in (r0[k], r0[j], r1[j], r1[k])], [packed, packed, lin("sand_pale"), lin("sand_pale")], ch,
+        sw.poly([c, r0[j], r0[k]], "m_sand", [sand_uv(a) for a in (c, r0[j], r0[k])], packed, ch, [(a[0], a[2]) for a in (c, r0[j], r0[k])], final=True)
+        sw.poly([r0[k], r0[j], r1[j], r1[k]], "m_sand", [sand_uv(a) for a in (r0[k], r0[j], r1[j], r1[k])], [packed, packed, lin("sand_pale"), lin("sand_pale")], ch,
                [(a[0], a[2]) for a in (r0[k], r0[j], r1[j], r1[k])], final=True)
-        p.poly([r1[k], r1[j], r2[j], r2[k]], "m_sand", [sand_uv(a) for a in (r1[k], r1[j], r2[j], r2[k])], [lin("sand_pale"), lin("sand_pale"), street_sand(r2[j][0], r2[j][2]), street_sand(r2[k][0], r2[k][2])], ch,
+        sw.poly([r1[k], r1[j], r2[j], r2[k]], "m_sand", [sand_uv(a) for a in (r1[k], r1[j], r2[j], r2[k])], [lin("sand_pale"), lin("sand_pale"), street_sand(r2[j][0], r2[j][2]), street_sand(r2[k][0], r2[k][2])], ch,
                [(a[0], a[2]) for a in (r1[k], r1[j], r2[j], r2[k])], final=True)
     # integration (polish round 2): a dark underlay 16 cm under the ground of each chunk. A crack at a wall foot, between two
     # ground sheets or at the seam with the lip's ground (x = 0 in the gate) showed the SKY as bright dashes; it now shows
@@ -117,7 +118,7 @@ def build_ground(S):
         pts = [(ux0, -0.16, -15.0), (ux0, -0.16, 15.9), (ux1, -0.16, 15.9), (ux1, -0.16, -15.0)]      # under the deepest rut (-0.10)
         u.poly(pts, "m_sand", [sand_uv(a) for a in pts], mul(lin("sand"), 0.12), final=True)
         under.append(u)
-    return [p] + under
+    return [p, sw] + under
 
 
 # ====================================================================== a building
@@ -739,7 +740,7 @@ def b_saddlery(S):
 
 
 # ====================================================================== cover on the street
-def stub_wall(S, sid, seed, extra=0.12):
+def stub_wall(S, sid, seed, extra=0.12, ragged=False, lanes=(False, False), dens=2.8, kdens=3.6):      # pass i6: 2.0 / 2.5 (the painted bond is half the size: wall_paint.BOND_H)
     """A broken adobe wall stub: 0.5 m thick, the layout's cover height, stepped broken ends showing brick."""
     s = SOL[sid]
     along_z = s["size"][2] > s["size"][0]
@@ -753,16 +754,28 @@ def stub_wall(S, sid, seed, extra=0.12):
     e0 = rng.uniform(0.45, 0.62); e1 = rng.uniform(0.45, 0.62)
     lm = Part("st_" + sid.replace("st_cover_", "").replace("yd_cover_", "y") + "_lm", Z, paint=fr.paint(0.0, jitter=0.03))
     vl = Part("st_" + sid.replace("st_cover_", "").replace("yd_cover_", "y") + "_vl", Z, paint=fr.paint(0.0))
-    fr.ruin_wall((lm, vl), a, b, H, 0.52, sid, seed=seed, density=1.0, batter=0.025, ends=(e0, e1), drops=(rng.uniform(0.85, 1.0), rng.uniform(0.95, 1.15)))
+    drops = (rng.uniform(0.85, 1.0), rng.uniform(0.95, 1.15))
+    if ragged:
+        # pass i5: the breaks are brickwork (fr.break_wall: the same ends, drops and cover as before)
+        fr.break_wall((lm, vl), a, b, H, 0.52, sid, seed=seed, density=dens, batter=0.025, ends=(e0, e1), drops=drops, lanes=lanes, kdens=kdens)
+    else:
+        fr.ruin_wall((lm, vl), a, b, H, 0.52, sid, seed=seed, density=1.0, batter=0.025, ends=(e0, e1), drops=drops, ragged=False)
     sd = Part("st_" + sid.replace("st_cover_", "").replace("yd_cover_", "y") + "_sd", Z)
-    # sand banked on the north-west side
-    if along_z: fr.sand_wedge(sd, fr.Frame((a[0] - 0.26, 0.0, a[1]), (0.0, 1.0)), 0.1, L - 0.1, 0.9, 0.4, rng, 4, kit.chart(sid + "_sand", 1.0))      # west face
-    else: fr.sand_wedge(sd, fr.Frame((b[0], 0.0, b[1] - 0.26), (-1.0, 0.0)), 0.1, L - 0.1, 0.9, 0.4, rng, 4, kit.chart(sid + "_sand", 1.0))            # north face
-    # what fell from the broken ends: bricks and plaster lying where they dropped, half in the sand (none over 0.3 m)
+    # sand banked on the north-west side (pass i5, the brickwork stubs: lower and longer, six pieces: a bank, not a ramp)
+    wh, ww, wn = (0.27, 1.15, 6) if ragged else (0.4, 0.9, 4)
+    if along_z: fr.sand_wedge(sd, fr.Frame((a[0] - 0.26, 0.0, a[1]), (0.0, 1.0)), 0.1, L - 0.1, ww, wh, rng, wn, kit.chart(sid + "_sand", 1.0))      # west face
+    else: fr.sand_wedge(sd, fr.Frame((b[0], 0.0, b[1] - 0.26), (-1.0, 0.0)), 0.1, L - 0.1, ww, wh, rng, wn, kit.chart(sid + "_sand", 1.0))            # north face
+    # what fell from the broken ends: bricks and plaster lying where they dropped, half in the sand (none over 0.3 m).
+    # Pass i5, the brickwork stubs: bricks only (a flat slab on the sand read as a decal), on a low fan of adobe gone
+    # back to earth, and ALL of it lightmapped (vertex-lit, High's sun map shaded it whole in the yard's shade: dark blue)
     rb = Part("st_" + sid.replace("st_cover_", "").replace("yd_cover_", "y") + "_rb", Z)
     ux, uz = (0.0, 1.0) if along_z else (1.0, 0.0)
-    for (end, sgn) in ((a, -1.0), (b, 1.0)):
-        fr.rubble_heap(rb, (end[0] + sgn * ux * 0.45, end[1] + sgn * uz * 0.45), 0.6, rng, n=rng.choice((6, 7, 8)))
+    isl = fr.Isles(sid + "_q", 1.5) if ragged else None
+    for k_, (end, sgn) in enumerate(((a, -1.0), (b, 1.0))):
+        if ragged:
+            fr.rubble_fan(sd, (end[0] + sgn * ux * 0.38, end[1] + sgn * uz * 0.38), 0.8, rng, chart=kit.chart(sid + "_fan%d" % k_, 1.0))      # (in the loose-sand part: it casts nothing into the bake, bake_surface)
+            fr.rubble_bricks(isl, lm, (end[0] + sgn * ux * 0.45, end[1] + sgn * uz * 0.45), 0.6, rng, n=rng.choice((5, 6)))
+        else: fr.rubble_heap(rb, (end[0] + sgn * ux * 0.45, end[1] + sgn * uz * 0.45), 0.6, rng, n=rng.choice((6, 7, 8)))
     return [lm, vl, sd, rb]
 
 
@@ -962,8 +975,8 @@ def build_walls(S):
 
 def build_cover(S):
     out = []
-    out += stub_wall(S, "st_cover_stub_a", 91)
-    out += stub_wall(S, "st_cover_stub_b", 93)
+    out += stub_wall(S, "st_cover_stub_a", 91, ragged=True)
+    out += stub_wall(S, "st_cover_stub_b", 93, ragged=True)
     out += build_rib(S)
     out += build_pump_house(S)
     return out

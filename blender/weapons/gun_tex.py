@@ -94,6 +94,29 @@ def nearest(pos, mask, target):
 
 
 
+LINE_Y0 = 99.0            # gun-space y (mm) at which the barrel's struck line begins (it runs toward the frame)
+
+
+def _stamp(text, cap_mm, res=20):
+    """(coverage bitmap, width mm, cap height mm, px per mm) of a struck line in the pipeline's capitals, stems thickened
+    to what a steel stamp leaves (0.5 mm)."""
+    from lib import brand
+    tris, w, h = brand.text_triangles(text, cap_mm * 0.001, tracking=0.24, bridges=False, widen=1.0)
+    wpx = int(math.ceil(w * 1000 * res)) + 8; hpx = int(math.ceil(h * 1000 * res)) + 8
+    t = np.empty_like(tris); t[:, :, 0] = tris[:, :, 0] * 1000 * res + 4; t[:, :, 1] = (h - tris[:, :, 1]) * 1000 * res + 4
+    bmp = td.raster_triangles(t, wpx, hpx, ss=2)
+    bmp = np.clip(td.blur(bmp, 2, passes=2) * 2.4, 0.0, 1.0)
+    return bmp, w * 1000.0, h * 1000.0, res
+
+
+def _sample(bmp, res, h_mm, gx, gz):
+    """The bitmap of _stamp at gx mm from its left edge and gz mm above its baseline (0 outside it)."""
+    ix = np.floor(gx * res + 4).astype(np.int64); iy = np.floor((h_mm - gz) * res + 4).astype(np.int64)
+    ok = (ix >= 0) & (ix < bmp.shape[1]) & (iy >= 0) & (iy < bmp.shape[0])
+    out = np.zeros(gx.shape, dtype=np.float32); out[ok] = bmp[iy[ok], ix[ok]]
+    return out
+
+
 def _key():
     h = hashlib.sha1()
     with open(os.path.join(manifest.ROOT, "blender", "weapons", "assize.py"), "rb") as f: h.update(f.read())
@@ -197,7 +220,7 @@ def draw():
     # 35 % toward its own grey and a third darker: the shader tints what the steel mirrors with this hue), the worn steel a
     # touch brighter (the shader reads a bright texel as bare metal and lets it mirror three times as much), and the
     # walnut is an oiled red-brown the eye can tell from the steel in every mood
-    blue = (blue * 0.65 + blue.mean() * 0.35) * 0.60     # (pass i3: 0.625; the long edges are part-worn now and count in the mean)        # (pass i2: 0.64; the seam and panel lines are whole lines now and lifted the mean)
+    blue = (blue * 0.65 + blue.mean() * 0.35) * 0.58     # (pass i6: 0.60; the feathered bands' tails lie on the flats and count in the mean)    # (pass i3: 0.625; the long edges are part-worn now and count in the mean)        # (pass i2: 0.64; the seam and panel lines are whole lines now and lifted the mean)
     worn = worn * 1.15
     walnut, walnut_worn, brass = lin("walnut") * np.array([2.3, 1.9, 1.5], dtype=np.float32), lin("walnut_worn") * np.array([1.9, 1.6, 1.3], dtype=np.float32), lin("brass")
     dark = np.array([0.0030, 0.0036, 0.0052], dtype=np.float32)
@@ -209,16 +232,35 @@ def draw():
     # much: along every long straight edge (the top strap, the barrel's flats, the housing, the straps) the bilinear
     # steps of a full-bright line drew a row of lit dashes. Those edges keep a third to a half of their wear (a soft
     # lighter line); the short and round ones (cylinder, shield, hammer, sight) keep theirs.
-    for name, k in (("barrel_oct", 0.30), ("barrel_round", 0.55), ("sight", 1.0), ("ejector_housing", 0.22), ("ejector_head", 0.8), ("base_pin", 0.5),
-                    ("cylinder", 1.0), ("frame", 0.48), ("shield", 0.9), ("web", 0.1), ("gate", 0.9), ("screws", 0.9), ("guard", 0.6), ("straps", 0.55),
+    # pass i4 (the visual reviewer: "the rib along the barrel top still shows a row of small teeth at idle size"): the Low
+    # tier's scene buffer is coarser than the canvas, and a part-worn line on the octagon's top flats and on the strap's
+    # shoulders was still stepped into dashes. The barrel's flats 0.30 -> 0.14, the frame 0.48 -> 0.34, and the sighting
+    # groove's two lips (a third and a fourth line 2 mm apart on top of the strap) are not worn at all: a plain rib
+    for name, k in (("barrel_oct", 0.14), ("barrel_round", 0.55), ("sight", 1.0), ("ejector_housing", 0.22), ("ejector_head", 0.8), ("base_pin", 0.5),
+                    ("cylinder", 1.0), ("frame", 0.34), ("shield", 0.9), ("web", 0.1), ("gate", 0.9), ("screws", 0.9), ("guard", 0.6), ("straps", 0.55),
                     ("hammer", 0.85), ("trigger", 0.8)):
         k_edge[is_(name)] = k
-    wear = edge * k_edge
+    # pass i6 (the visual reviewer: "the frame and cylinder show almost no wear, edge highlights or engraving at 720p ... a clean
+    # casting"): passes i3 and i4 took the wear off the long edges because a worn line two texels wide is stepped into
+    # dashes. A worn edge is not a ruled line: the blue thins over a couple of millimetres either side of it. Each edge
+    # now carries that feathered band (the edge mask blurred over 1.5 texels of the sheet and lifted), stronger than its
+    # hard core on the long straight edges, so the top strap's shoulders, the barrel's flats and the housing show bright
+    # worn steel with no step to alias
+    cov = covered.astype(np.float32)
+    def blurn(a, r): return td.blur(a * cov, r, passes=2) / np.maximum(td.blur(cov, r, passes=2), 1e-3)
+    edge_soft = np.clip(blurn(edge, 3) * 1.9, 0.0, 1.0)
+    k_soft = np.minimum(k_edge * 0.6, 0.5)
+    for name, k in (("barrel_oct", 0.55), ("frame", 0.72), ("ejector_housing", 0.45), ("guard", 0.55), ("straps", 0.5), ("shield", 0.75), ("gate", 0.75), ("cylinder", 0.6)):        # (the shader draws a texel as bare steel from a wear of about 0.45 up: under that a band is paint nobody sees)
+        k_soft[is_(name)] = k
+    wear = np.maximum(edge * k_edge, edge_soft * k_soft)
+    wear = np.where(is_("frame") & (np.abs(X) < 2.4) & (Z > assize.FRAME_TOP - 3.0) & (Y > -58.0), 0.0, wear)       # the sighting groove (pass i4)
     # the front 30 mm of the barrel has gone grey (holster and heat): full at the crown, gone by 160 mm
     # pass i3 (both visual reviewers: "the muzzle crown carries a hot highlight that reads as a glowing tip in every
     # mood"): the whole last 30 mm was bare bright steel, and bare steel mirrors three times as much. The holster has
     # thinned the blue there (a third toward grey); only the crown's own lip, the last 2 mm, is worn bright.
-    front = np.maximum(0.34 * smooth((Y - 150.0) / 32.0), smooth((Y - 186.5) / 1.1))
+    # pass i4 (the visual reviewer: "the barrel carries a near-white streak in every dim room"): thinned blue mirrors up to
+    # three times as much, and the last 40 mm of the barrel drew the horizon band as a pale wedge. 0.34 -> 0.13, from 162 mm
+    front = np.maximum(0.16 * smooth((Y - 162.0) / 24.0), smooth((Y - 185.6) / 1.5))       # (pass i6: the crown's worn lip is 3 mm, it was 2; 0.13)
     muzzle = (is_("barrel_round") | is_("sight")) & (np.hypot(X, Z) > 6.4)
     wear = np.where(muzzle, np.maximum(wear, front), wear)
     wear = np.where(is_("ejector_housing") | is_("ejector_head"), np.maximum(wear, 0.22 * smooth((Y - 140.0) / 25.0)), wear)
@@ -229,13 +271,16 @@ def draw():
     ridge = side & (rc > assize.CYL_R - 0.25) & (Y > -27.0)
     dflute = np.abs(((ang - 30.0) % 60.0 + 30.0) % 60.0 - 30.0)             # degrees from the nearest flute centre
     ridge_edge = smooth(1.0 - np.abs(dflute - assize.FLUTE_HALF) / 2.2)
-    wear = np.where(ridge, np.maximum(wear, 0.10 + 0.7 * ridge_edge), wear)                 # (pass i3: the lands 0.22 -> 0.10: with the holster rub the whole cylinder drew as pale silver at dusk)
-    wear = np.where(side & (Y > -27.5), np.maximum(wear, 0.8 * ridge_edge * (rc > assize.CYL_R - 1.2)), wear)
+    wear = np.where(ridge, np.maximum(wear, 0.10 + 0.85 * ridge_edge), wear)                 # (pass i3: the lands 0.22 -> 0.10: with the holster rub the whole cylinder drew as pale silver at dusk)
+    wear = np.where(side & (Y > -27.5), np.maximum(wear, 0.9 * ridge_edge * (rc > assize.CYL_R - 1.2)), wear)
+    # pass i6: the turn line. The bolt rides the cylinder between two notches and scribes a bright ring round it
+    wear = np.where(side & (rc > assize.CYL_R - 0.3), np.maximum(wear, 0.70 * stroke(Y + 35.2, 0.28, 0.40)), wear)
     # the hammer spur: worn bright on top (the part is built at full cock: undo that to find the spur)
     piv = assize.HAMMER_PIVOT; c, sn = math.cos(-assize.HAMMER_COCK), math.sin(-assize.HAMMER_COCK)
     hy = piv[0] + (Y - piv[0]) * c - (Z - piv[1]) * sn; hz = piv[1] + (Y - piv[0]) * sn + (Z - piv[1]) * c
     ny = Nn[:, :, 1] * c - Nn[:, :, 2] * sn; nz = Nn[:, :, 1] * sn + Nn[:, :, 2] * c
-    spur = is_("hammer") & (hy < -66.0) & (hz > 17.5)                      # (pass i2: was hz > 24, above the spur pass i1 lowered: nothing was worn)
+    HM = assize.HAMMER
+    spur = is_("hammer") & (hy < HM[5][0] - 1.0) & (hz > HM[11][1] + 0.4)                      # (pass i6: read from the profile)                      # (pass i2: was hz > 24, above the spur pass i1 lowered: nothing was worn)
     wear = np.where(spur, np.maximum(wear, 0.5 * smooth((nz + 0.55 * -ny - 0.25) / 0.5)), wear)
     # straps and guard: the faces a palm polishes
     wear = np.where(is_("straps") & (np.abs(Nn[:, :, 0]) < 0.5), np.maximum(wear, 0.38), wear)
@@ -247,12 +292,19 @@ def draw():
     rub_f = fbm3(X / 2.2, Y / 9.0, Z / 2.2, 2, 73)
     rubk = np.zeros(pid.shape, dtype=np.float32)
     rubk = np.where(is_("barrel_oct") | is_("barrel_round"), 0.50 * smooth((np.abs(Nn[:, :, 0]) - 0.35) / 0.4) * smooth((Y - 30.0) / 40.0), rubk)
-    rubk = np.where(side & (rc > assize.CYL_R - 0.4), 0.36, rubk)
+    rubk = np.where(side & (rc > assize.CYL_R - 0.4), 0.44, rubk)                                   # (pass i6: 0.36)
     rubk = np.where(is_("shield") | is_("gate"), 0.50, rubk)
     rubk = np.where(is_("frame") & (Nn[:, :, 2] > 0.35), 0.45, rubk)
+    rubk = np.where(is_("frame") & (np.abs(Nn[:, :, 0]) > 0.85), 0.38, rubk)                          # pass i6: the flanks, where the holster's mouth and the hand's heel have thinned the blue
     rubk = np.where(is_("guard") & (Nn[:, :, 2] < -0.3), 0.55, rubk)
     rubk = np.where(is_("ejector_housing"), 0.45 * smooth((Nn[:, :, 0] - 0.2) / 0.5), rubk)
     wear = np.maximum(wear, rubk * rub_n * (0.45 + 0.75 * rub_f))
+    # pass i6: where the leather has had the flanks, the shield and the cylinder's lands longest the blue is THROUGH: smaller
+    # patches inside the thinned ones, drawn along the gun in streaks, bright enough for the shader to draw them as bare steel
+    thru = smooth((fbm3(X / 11.0 + 7.0, Y / 24.0, Z / 11.0 + 1.0, 3, 91) - 0.60) / 0.10) * smooth((rub_f - 0.30) / 0.35)
+    thru_k = np.where(is_("frame") & (np.abs(Nn[:, :, 0]) > 0.85), 0.80, np.where(is_("shield") | is_("gate"), 0.80, np.where(side & (rc > assize.CYL_R - 0.4), 0.85, 0.0)))
+    wear = np.maximum(wear, thru_k * thru)
+    wear = np.where(is_("hammer") & (hy < HM[6][0] + 1.0) & (hz > HM[11][1] + 0.9), np.minimum(wear, 0.42), wear)       # the chequered pad is matt: no bright dashes on it
     # pass i2: nothing rubs the walls of the cylinder window; its ledge under the cylinder was drawn worn bright (an edge
     # either side and the holster rub of every upward face), and bright steel mirrors three times as much: the "cyan-white
     # stripe on the lower frame" of every mood
@@ -261,7 +313,7 @@ def draw():
     wear = np.clip(wear, 0.0, 1.0)
 
     rgb = blue[None, None, :] * (1.0 - wear[..., None]) + worn[None, None, :] * wear[..., None]
-    gloss = 0.75 + 0.15 * wear
+    gloss = 0.75 + 0.15 * np.clip(wear * 1.5, 0.0, 1.0)                      # (pass i6: thinned blue takes its polish sooner: the feathered bands are not 'plain blue' to the tests' gloss window)
     occl = 0.5 + 0.5 * ao                                                     # cavity shade: quiet, keeps the blue deep
     rgb = rgb * occl[..., None]
 
@@ -379,7 +431,29 @@ def draw():
     scr = noise3(X / 0.35, Y / 14.0, Z / 0.35, 31)
     scratch = smooth((scr - 0.86) / 0.06) * smooth((fbm3(X / 9.0, Y / 30.0, Z / 9.0, 2, 33) - 0.45) / 0.2) * (np.abs(Ny) < 0.5)
     scratch *= (is_("barrel_oct") | is_("barrel_round") | is_("cylinder") | is_("frame") | is_("ejector_housing")).astype(np.float32)
-    add = np.clip(ragged - wear, -1, 0) * 0.6 + 0.30 * scratch
+    # pass i6: single scratches, hairlines of bare steel (a holster's rivet, a buckle, eleven years of tables and saddles):
+    # on the frame's flanks at any angle, along the barrel's left flats where it is drawn, round the cylinder where it turns
+    # against leather. Each is a texel wide and a few millimetres long; the shader draws bare steel in light
+    rs = np.random.RandomState(1107)
+    hair = np.zeros(pid.shape, dtype=np.float32)
+    flank_ = is_("frame") & (np.abs(Nx) > 0.85)
+    for _ in range(11):
+        y0 = rs.uniform(-96.0, 14.0); z0 = rs.uniform(-40.0, 9.0); a_ = rs.uniform(-0.6, 0.6) + (0.0 if rs.rand() < 0.65 else 1.3); L_ = rs.uniform(5.0, 15.0)
+        d_ = seg_dist(Y, Z, [(y0, z0), (y0 + L_ * math.cos(a_), z0 + L_ * math.sin(a_))])
+        hair = np.maximum(hair, stroke(d_, 0.13, 0.22) * rs.uniform(0.55, 0.95) * flank_)
+    arc_b = np.arctan2(X, Z) * 10.3                                           # mm round the barrel from its top
+    onbar = (is_("barrel_oct") | is_("barrel_round")) & (np.hypot(X, Z) > 6.4)
+    for _ in range(8):
+        y0 = rs.uniform(24.0, 170.0); t0 = rs.uniform(-22.0, 4.0); a_ = rs.uniform(-0.12, 0.12); L_ = rs.uniform(8.0, 26.0)
+        d_ = seg_dist(Y, arc_b, [(y0, t0), (y0 + L_ * math.cos(a_), t0 + L_ * math.sin(a_))])
+        hair = np.maximum(hair, stroke(d_, 0.13, 0.22) * rs.uniform(0.5, 0.9) * onbar)
+    arc_c = np.radians(ang) * assize.CYL_R
+    for _ in range(9):
+        y0 = rs.uniform(-40.0, -4.0); t0 = rs.uniform(0.0, 2.0 * math.pi * assize.CYL_R); a_ = math.pi / 2 + rs.uniform(-0.25, 0.25); L_ = rs.uniform(4.0, 11.0)
+        d_ = seg_dist(Y, arc_c, [(y0, t0), (y0 + L_ * math.cos(a_), t0 + L_ * math.sin(a_))])
+        hair = np.maximum(hair, stroke(d_, 0.13, 0.22) * rs.uniform(0.5, 0.9) * (side & (rc > assize.CYL_R - 0.3)))
+    hair = np.where(inwin, 0.0, hair)
+    add = np.clip(ragged - wear, -1, 0) * 0.6 + 0.30 * scratch + hair
     rgb[steel] = (rgb + (worn[None, None, :] * occl[..., None] - rgb) * np.clip(add, -0.0, 1.0)[..., None])[steel]
     rgb[steel] = (rgb * (1.0 + np.clip(ragged - wear, -1, 0) * 0.35)[..., None])[steel]
     k_un = (0.75 * under * np.clip(wear, 0, 1))[..., None]
@@ -387,14 +461,14 @@ def draw():
     gloss[steel] = (gloss - 0.12 * k_un[..., 0])[steel]
     # (pass i1: the case colours are a satin, not the blue's polish: a cloud takes up to 0.035 off the gloss)
     gloss[inwin] = 0.5
-    gloss[steel] = np.clip(gloss + 0.03 * scratch - 0.035 * (np.maximum(np.maximum(c1, c2), c3) * hard), 0.0, 1.0)[steel]
+    gloss[steel] = np.clip(gloss + 0.03 * scratch + 0.10 * hair - 0.035 * (np.maximum(np.maximum(c1, c2), c3) * hard), 0.0, 1.0)[steel]
     # --- tool marks (height): draw-filing along Y on the barrel, the frame's flats and the straps; turning rings on the
     # shield, the gate and the cylinder's faces and band; pitting
     filing = (noise3(X / 0.85, Y / 30.0, Z / 0.85, 41) - 0.5) * 2.0          # (pass i2: 0.45 mm marks were under two pixels of the idle frame: a moire on the flank)
     rings = np.sin(2.0 * math.pi * rc / 1.7 + 3.0 * n_mid)
     turned = ((is_("shield") | is_("gate")) & (Ny < -0.45)) | face
     flats = (np.abs(Nx) > 0.85) | is_("barrel_oct") | is_("barrel_round")           # filed flats and the barrel only: on a rounded hump the marks drew stripes
-    hgt += np.where(turned, 0.010 * rings, 0.0045 * filing * flats * (np.abs(Ny) < 0.6) * ~is_("hammer")) * steel       # (pass i2: not on the hammer, whose flanks are polished: turned 48 degrees the marks were a diagonal hatch)
+    hgt += np.where(turned, 0.010 * rings, np.where(is_("frame"), 0.0026, 0.0045) * filing * flats * (np.abs(Ny) < 0.6) * ~is_("hammer")) * steel       # (pass i4: the frame's flanks 0.0045 -> 0.0026: behind the cylinder the marks drew a hatched plate)       # (pass i2: not on the hammer, whose flanks are polished: turned 48 degrees the marks were a diagonal hatch)
     cyl_side = side & ~notch
     hgt += 0.006 * np.sin(2.0 * math.pi * Y / 1.5) * cyl_side * (rc > assize.CYL_R - 0.3)
     pit = smooth((noise3(X / 0.55 + 3.0, Y / 0.55, Z / 0.55 + 7.0, 51) - 0.80) / 0.10) * smooth((n_lo - 0.35) / 0.3)
@@ -411,11 +485,11 @@ def draw():
         rgb[:] = rgb + (worn[None, None, :] - rgb) * (0.17 * lip * (0.75 + 0.5 * n_lo))[..., None]      # (pass i2: a line, not a row of dots: n_hi cut it every 0.9 mm)
     # the milled panel behind the cylinder: a flat 0.3 mm proud with a bevelled border (the border is all the eye gets: a line of light)
     panel = td.sd_polygon(Y, Z, [(-49.5, 10.5), (-62.0, 9.8), (-76.0, 5.6), (-88.0, -2.0), (-95.0, -12.0), (-96.4, -22.0), (-93.0, -29.5), (-84.0, -34.2), (-74.0, -39.0), (-52.0, -36.6), (-49.5, -30.0)])
-    step = smooth(-panel / 1.1) * flank
-    hgt += 0.16 * step
-    bord = stroke(panel, 0.25, 0.5) * flank
-    rgb[:] = rgb + (worn[None, None, :] * occl[..., None] - rgb) * (0.21 * bord * (0.70 + 0.6 * n_lo))[..., None]   # (pass i2: as the seam's lip)
-    gloss[:] = gloss + 0.05 * bord
+    # pass i4 (the visual reviewer: "behind the cylinder a hard triangular 'V' plate dominates the silhouette"): from the eye
+    # the panel's bevelled border was a lit V between the shield and the hammer, and no single action has one. The flank
+    # is plain filed steel there; only the faintest step is left (a tenth of what it was, no line of light)
+    step = smooth(-panel / 2.4) * flank
+    hgt += 0.016 * step
     # screws: a counterbore in the frame round each, a domed head, a cut slot; the two lower ones are pins on the right
     for (sy, sz, sa) in assize.SCREWS:
         r_ = np.hypot(Y - sy, Z - sz)
@@ -435,10 +509,14 @@ def draw():
     hgt -= 0.45 * (ehead & (np.abs(ew) < 0.36)); rgb[ehead & (np.abs(ew) < 0.36)] = dark * 1.5; gloss[ehead & (np.abs(ew) < 0.36)] = 0.3
     # pass i2: the hammer's thumb-piece is chequered (it was five ribs of geometry: a comb on the skyline): fine diamonds
     # 1.5 mm across cut into the pad's top, shallow; the cut steel is matt and a little darker than the polished flanks
-    pad = is_("hammer") & (hy < -68.5) & (hy > -82.5) & (hz > 18.0) & ((nz - 0.25 * ny) > 0.55) & (np.abs(X) < 3.9)
-    kn = 0.5 + 0.5 * np.sin(2.0 * math.pi * (X + hy) / 1.5) * np.sin(2.0 * math.pi * (X - hy) / 1.5)
-    hgt += np.where(pad, 0.11 * (kn - 0.62), 0.0)
-    rgb[pad] = (rgb * (0.72 + 0.34 * kn)[..., None])[pad]; gloss[pad] = (gloss - 0.10 + 0.06 * kn)[pad]
+    pad = is_("hammer") & (hy < HM[6][0] + 1.0) & (hy > HM[9][0] - 1.6) & (hz > HM[11][1] + 0.9) & ((nz - 0.25 * ny) > 0.55) & (np.abs(X) < assize.PAD_HW - 0.4)       # (pass i4: the shorter, narrower spur)
+    # pass i6 (the visual reviewer: "an oversized ribbed hammer spur ... thin its ribs to fine chequering"): the product of two
+    # sines is a SQUARE grid of half the period (0.75 mm: under two texels), and it aliased into bars across the spur.
+    # The chequer is now two sets of cut lines at 45 degrees, 1.2 mm apart (five texels at the hammer's new density)
+    ck = 0.95 * math.sqrt(2.0)
+    kn = np.minimum(np.abs(np.sin(math.pi * (X + hy) / ck)), np.abs(np.sin(math.pi * (X - hy) / ck))) ** 0.6
+    hgt += np.where(pad, 0.05 * (kn - 0.70), 0.0)                              # (pass i4: 0.11 -> 0.06 and the diamonds' paint 0.72 + 0.34 kn -> 0.84 + 0.16 kn: "a large ridged spur")
+    rgb[pad] = (rgb * (0.86 + 0.14 * kn)[..., None])[pad]; gloss[pad] = (gloss - 0.10 + 0.08 * kn)[pad]
     # the barrel: a turned line at the shoulder, two at the crown; the ejector housing's slot
     for y0 in (112.6, 184.0, 186.2):
         g = stroke(Y - y0, 0.18, 0.3) * is_("barrel_round") * (np.hypot(X, Z) > 6.4)
@@ -452,11 +530,21 @@ def draw():
     hgt -= np.where(lead_in, 0.22 * (1.0 - (arc - 1.7) / 4.8), 0.0)
     g = stroke(Y + 29.4, 0.16, 0.3) * side * (rc > assize.CYL_R - 0.4)
     hgt -= 0.2 * g; rgb *= (1.0 - 0.35 * g)[..., None]
+    # pass i6 (the visual reviewer: "a line of stamped text on the barrel"; ruling R13): the court's property line, struck in
+    # the barrel's upper left flat (the flat the eye is given): the court, the circuit, the gun's number. Not ornament and
+    # not a maker's logo (ART_BIBLE 8.1: "no logo but the one stamp"): a number. The blue has gone from the letters' lips
+    bmp, tw, th, tres = _stamp("THE ASSIZE  VII  1104", 3.1)
+    s2 = math.sqrt(0.5)
+    onflat = is_("barrel_oct") & ((-Nx + Nz) * s2 > 0.9) & (X < 0)
+    line_k = _sample(bmp, tres, th, LINE_Y0 - Y, (X + Z) * s2 + th / 2.0) * onflat
+    rgb[:] = rgb + (worn[None, None, :] * 0.80 - rgb) * (0.85 * line_k)[..., None]
+    gloss[:] = gloss + 0.08 * line_k
+    hgt -= 0.30 * line_k
     # the stamp is struck in
     hgt -= 0.4 * np.clip(ink, 0, 1) - 0.12 * np.clip(burr, 0, 1)
     # the hammer's flanks: polished in arcs about its screw
     hr = np.hypot(Y - assize.HAMMER_PIVOT[0], Z - assize.HAMMER_PIVOT[1])
-    hgt += 0.0022 * np.sin(2.0 * math.pi * hr / 2.6) * (is_("hammer") & (np.abs(Nx) > 0.8))     # (pass i2: 0.008 at 1.6 mm drew a ridged plate at the idle frame's scale)
+    hgt += 0.0022 * np.sin(2.0 * math.pi * hr / 2.6) * (is_("hammer") & (np.abs(Nx) > 0.8) & (hz < 6.0))      # (pass i6: not on the spur)     # (pass i2: 0.008 at 1.6 mm drew a ridged plate at the idle frame's scale)
     # --- the walnut: raised grain, pores, three dents; the oil has gone from the worn places
     pores = smooth((noise3(across / 0.5, along / 2.6, X / 3.0, 61) - 0.72) / 0.12)
     hw = 0.5 - 0.05 * line - 0.05 * pores + 0.02 * (g2 - 0.5)
@@ -479,7 +567,7 @@ def draw():
         x, y = nearest(P, mask, target)
         pts[name] = {"px": [int(x // SS), int(y // SS)], "uv": [round((x // SS + 0.5) / W, 6), round(1.0 - (y // SS + 0.5) / H, 6)],
                      "gloss": {"blue": 0.75, "worn": 0.9, "walnut": 0.35, "brass": 0.6}[name]}
-    bm_ = (rid == assize.STEEL) & covered & (wear < 0.05) & ~face & ~notch
+    bm_ = (rid == assize.STEEL) & covered & (wear < 0.05) & ~face & ~notch & (hair < 0.02) & (line_k < 0.02)        # (pass i6: a scratch and the struck line are bare steel, not blue)
     stats = {"density_px_per_m": round(float(density), 1), "size": [W, H],
              "blue_mean_srgb": [round(float(v), 2) for v in (td.linear_to_srgb(rgb[bm_].mean(axis=0)) * 255.0)], "points": pts}
     return {"rgb": rgb, "gloss": gloss, "height": hgt, "covered": covered, "density": density, "points": pts,

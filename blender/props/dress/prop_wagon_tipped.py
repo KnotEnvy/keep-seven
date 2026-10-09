@@ -37,11 +37,17 @@ AX_R, AX_F = -1.20, 1.00      # rear and front axle (x)
 AX_Y = 0.42
 
 
-def wheel(name, centre, normal, rng, R=0.6, parts=None, shade=1.0, hub_seg=8):
+def wheel(name, centre, normal, rng, R=0.6, parts=None, shade=1.0, hub_seg=12, rim_segs=24, ridge=True):
     """A 1.2 m wagon wheel (dress_common.wheel, pass i1): twenty segments of felloe in six sawn pieces, twelve tapered
     spokes, a turned eight-sided nave with an iron nose. It was a twelve-sided rim with a six-sided block for a hub.
     The iron tyre is painted on the rim's outer face by `weather` below."""
-    return dc.wheel(name, centre, normal, rng, R=R, spokes=12, rim_segs=20, shade=shade, hub_seg=hub_seg, tyre=None)
+    # Pass i5 (visual reviewer: "flat untextured spokes and a hexagonal hub in a single fill"): the iron tyre shows on the
+    # wheel's face (a 22 mm edge), faces and flanks have their own values, the nave of the wheel in the air is twelve-sided.
+    # Pass i6 (both visual reviewers: "flat dark slabs for spokes ... no iron tyre", "round the wheel rim and add spoke
+    # bevels"): 24 segments of rim (20), spokes shaved to a ridge with a lit and an unlit flank, a deeper step between a
+    # face and its flank (0.42), and the tyre is worn iron, paler than the wood it binds (it was a dark brown, one value
+    # with the felloes in the building's shade).
+    return dc.wheel(name, centre, normal, rng, R=R, spokes=12, rim_segs=rim_segs, shade=shade, hub_seg=hub_seg, tyre="#8E7C70", tyre_band=0.026, form=0.42, ridge=ridge, spoke_sides=4 if ridge else 3)
 
 
 def build(args):
@@ -102,7 +108,7 @@ def build(args):
         dc.paint(st, "linen", "rust", shade=0.8); parts.append(st)
     # ---- wheels: one in the air on the front axle, canted, free to turn; one half buried at the foot of the rear axle
     top = wheel("wheel_air", (AX_F, AX_Y - 0.02, HGT + 0.20), (-0.12, 0.74, 0.66), rng)
-    low = wheel("wheel_sunk", (AX_R + 0.03, AX_Y - 0.02, -0.06), (0.10, -0.42, 0.90), rng, shade=0.92, hub_seg=6)
+    low = wheel("wheel_sunk", (AX_R + 0.03, AX_Y - 0.02, -0.06), (0.10, -0.42, 0.90), rng, shade=0.92, hub_seg=8, rim_segs=16, ridge=False)      # (half of it is under the sand: 16 segments; the download share of the piece is 0.3 MB)
     for o in low: dc.drop_faces(o, lambda c, n: c.z < -0.035 or c.y > 0.80)   # what the sand has taken
     gone = [o for o in low if not len(o.data.polygons)]
     low = [o for o in low if len(o.data.polygons)]
@@ -141,7 +147,7 @@ def build(args):
             radial = np.linalg.norm(d - axial[:, None] * nv[None, :], axis=1)
             rn = (p.fnrm * (d - axial[:, None] * nv[None, :])).sum(axis=1) / np.maximum(radial, 1e-4)
             tyre = (radial > 0.55) & (radial < 0.66) & (np.abs(axial) < 0.08) & (rn > 0.7)
-            p.mix(tyre * 0.85, "#6A3B28")
+            p.mix(tyre * 0.85, "#8E7C70")
         # the bed's inside: shaded, greyer; the sun never got at it
         inside = wood_ & (p.y < WALL_Y + 0.02) & (p.y > OPEN_Y) & (p.z < HGT - 0.05) & (p.fnrm[:, 1] < -0.5)
         p.mul(inside, 0.9)

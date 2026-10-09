@@ -12,6 +12,8 @@ export interface HealthHost {
   difficulty(): Difficulty;
   /** camera trauma request (render applies it); never called under reduceMotion by the host */
   trauma(amount: number): void;
+  /** the flinch: `strength` 0 (10 HP or less) to 1 (38 HP), and where the blow came from (world X, Z) */
+  flinch(strength: number, fromX: number, fromZ: number): void;
   /** dev / test builds report a hit above the GDD's largest single hit */
   readonly dev: boolean;
 }
@@ -109,7 +111,9 @@ export class Health {
     const applied = before - Math.max(0, hp);
     if (applied > 0) {
       const k = (applied - TRAUMA_DAMAGE_LOW_HP) / (MAX_SINGLE_HIT - TRAUMA_DAMAGE_LOW_HP);
-      this.host.trauma(TRAUMA_DAMAGE_MIN + (TRAUMA_DAMAGE_MAX - TRAUMA_DAMAGE_MIN) * (k < 0 ? 0 : k > 1 ? 1 : k));
+      const s = k < 0 ? 0 : k > 1 ? 1 : k;
+      this.host.trauma(TRAUMA_DAMAGE_MIN + (TRAUMA_DAMAGE_MAX - TRAUMA_DAMAGE_MIN) * s);
+      this.host.flinch(s, info.ox, info.oz);
     }
     if (hp <= 0) { this.die(info.kind, info.source); return applied; }
     this.hp = hp;

@@ -5,7 +5,7 @@
 import type { AmmoDef } from '../core/contracts.ts';
 import { Interp1 } from '../core/interp.ts';
 import {
-  BOB_FADE_RATE, BOB_LATERAL, BOB_VERTICAL, LAND_DIP_MAX, LAND_DIP_PER_MPS, LAND_DIP_SECONDS, RUN_SPEED, SPRINT_FOV_DEG,
+  BOB_FADE_RATE, BOB_LATERAL, BOB_VERTICAL, FLINCH_DEG_MAX, FLINCH_DEG_MIN, FLINCH_PEAK, FLINCH_ROLL, FLINCH_SECONDS, LAND_DIP_MAX, LAND_DIP_PER_MPS, LAND_DIP_SECONDS, RUN_SPEED, SPRINT_FOV_DEG,
   SPRINT_FOV_IN, SPRINT_FOV_OUT, STEP_SMOOTH_RATE, STRAFE_ROLL_DEG, TIME_EPS,
 } from './defs.ts';
 
@@ -45,6 +45,19 @@ export class CameraRig {
   readonly bobY = new Interp1();
   readonly dip = new Interp1();
 
+  /** the flinch of a hit taken: radians added to the camera's pitch, yaw and roll (never to the aim) */
+  readonly hurtPitch = new Interp1();
+  readonly hurtYaw = new Interp1();
+  readonly hurtRoll = new Interp1();
+  private hurtT = -1;
+  private hurtP = 0;
+  private hurtY = 0;
+  private hurtR = 0;
+  /** what was left of the last flinch when the next blow landed: let go over the new one's attack, so nothing snaps */
+  private carryP = 0;
+  private carryY = 0;
+  private carryR = 0;
+
   private kickT = -1;
   private kickPitchDeg = 0;
   private kickYawDeg = 0;
@@ -74,6 +87,22 @@ export class CameraRig {
     if (!reduceMotion && ammo.fovPunchDeg > 0) { this.punchT = 0; this.punchDeg = ammo.fovPunchDeg; this.punchEnd = ammo.fovPunchSeconds; }
   }
 
+  /**
+   * A hit landed on this tick. `strength` 0..1 (FLINCH_DEG_MIN to FLINCH_DEG_MAX); `right` and `front` are the unit
+   * direction TO the source in her view (right +1, ahead +1; 0, 0: no direction, taken as from the front); `scale` is
+   * options.screenShake. The view goes away from the source: up for a blow from ahead, down from behind, turned and
+   * leaned to the other side for one from a side.
+   */
+  hurt(strength: number, right: number, front: number, scale: number, reduceMotion: boolean): void {
+    if (reduceMotion || scale <= 0) return;
+    const s = strength < 0 ? 0 : strength > 1 ? 1 : strength;
+    const deg = (FLINCH_DEG_MIN + (FLINCH_DEG_MAX - FLINCH_DEG_MIN) * s) * (scale > 1 ? 1 : scale);
+    if (right === 0 && front === 0) front = 1;
+    this.carryP = this.hurtPitch.v; this.carryY = this.hurtYaw.v; this.carryR = this.hurtRoll.v;
+    this.hurtT = 0;
+    this.hurtP = deg * front * DEG; this.hurtY = deg * right * DEG; this.hurtR = deg * right * FLINCH_ROLL * DEG;
+  }
+
   /** One sim tick. Of the options it reads headBob (0 .. 1.5) and reduceMotion, live. */
   tick(dt: number, body: Readonly<BodyMotion>, options: { readonly headBob: number; readonly reduceMotion: boolean }): void {
     if (dt <= 0) return;
@@ -94,6 +123,18 @@ export class CameraRig {
       if (this.viewT >= this.viewEnd - TIME_EPS) this.viewT = -1;
     }
     this.viewKick.set(vk);
+    // ---- the flinch: the same curve as the kick; under reduceMotion it is not started and one in flight is dropped
+    let hp = 0, hy = 0, hr = 0;
+    if (this.hurtT >= 0) {
+      this.hurtT += dt;
+      if (reduceMotion || this.hurtT >= FLINCH_SECONDS - TIME_EPS) this.hurtT = -1;
+      else {
+        const k = kickCurve(this.hurtT, FLINCH_PEAK, FLINCH_SECONDS);
+        const c = this.hurtT < FLINCH_PEAK ? 1 - this.hurtT / FLINCH_PEAK : 0;
+        hp = this.hurtP * k + this.carryP * c; hy = this.hurtY * k + this.carryY * c; hr = this.hurtR * k + this.carryR * c;
+      }
+    }
+    this.hurtPitch.set(hp); this.hurtYaw.set(hy); this.hurtRoll.set(hr);
 
     // ---- field of view: the punch per shot and the sprint widening
     let punch = 0;
@@ -147,7 +188,8 @@ export class CameraRig {
 
   /** A teleport or a restore: no blend across the jump, no motion carried over. */
   reset(): void {
-    this.kickT = -1; this.viewT = -1; this.punchT = -1; this.dipT = -1;
+    this.kickT = -1; this.viewT = -1; this.punchT = -1; this.dipT = -1; this.hurtT = -1;
+    this.hurtPitch.snap(0); this.hurtYaw.snap(0); this.hurtRoll.snap(0);
     this.sprintFov = 0; this.bobAmp = 0; this.rollNow = 0; this.stepOffset = 0; this.dipDepth = 0;
     this.offsetY.snap(0); this.offsetSide.snap(0); this.roll.snap(0); this.kickPitch.snap(0); this.kickYaw.snap(0);
     this.fov.snap(0); this.viewKick.snap(0); this.bobY.snap(0); this.dip.snap(0);
@@ -155,6 +197,9 @@ export class CameraRig {
   /** degrees, of this tick (debug snapshot) */
   get kickPitchDegNow(): number { return this.kickPitch.v / DEG; }
   get kickYawDegNow(): number { return this.kickYaw.v / DEG; }
+  get hurtPitchDegNow(): number { return this.hurtPitch.v / DEG; }
+  get hurtYawDegNow(): number { return this.hurtYaw.v / DEG; }
+  get hurtRollDegNow(): number { return this.hurtRoll.v / DEG; }
 }
 
 /** the roll is a camera motion like the bob: it follows the same slider, but never above 1 */

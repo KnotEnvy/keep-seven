@@ -10,6 +10,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      skip_release_check:
+        description: "Publish without the browser check of the built site (only if the check itself is what fails on the runner)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -21,6 +26,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # typecheck, validators and unit tests take about a minute; the browser check of the built site two or three
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -42,6 +49,15 @@ jobs:
           grep -q '<meta property="og:image" content="https://' dist/index.html
           grep -q '<meta name="twitter:image" content="https://' dist/index.html
           test -s dist/share.jpg
+      # The site as built, served from a sub-path as Pages serves it, booted cold in a headless browser and walked for a
+      # moment by real input (tools/release_check.mjs): no console error, no request outside the sub-path, none failed,
+      # no debug hook, every asset asked for with the build's version. A broken sub-path build is not published.
+      - name: Browser for the release check
+        if: ${{ !inputs.skip_release_check }}
+        run: npx playwright install --with-deps chromium chromium-headless-shell
+      - name: The built site boots from a sub-path
+        if: ${{ !inputs.skip_release_check }}
+        run: node tools/release_check.mjs --dist dist --sub /${{ github.event.repository.name }}/
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

@@ -6,7 +6,7 @@ import type { Graph } from './graph.ts';
 import { IR_CONFIRM_HOLD } from './reverb.ts';
 import { PRIO_CONFIRM, PRIO_GUN, PRIO_OTHER, baked, makeParams, snd } from './sound.ts';
 import type { SoundDef, SoundParams, SoundTable } from './sound.ts';
-import { bell, click, noise, noiseHold, tone, toneHeld, toneHold } from './synth.ts';
+import { bell, click, noise, noiseHold, ticks, tone, toneHeld, toneHold } from './synth.ts';
 import { D4, D5, FOURTH_DOWN, LINE_SHARP, degree } from './tuning.ts';
 
 /** layer mask of gun_report's `c` (0 = everything): tests solo a layer */
@@ -29,12 +29,12 @@ const BOOM_LEVEL = 0.7;
 const CHEST_LEVEL = 0.9;
 /**
  * Hit confirms. They are heard AFTER the report, not under it: the engine starts them CONFIRM_DELAY after the click
- * (150 ms: past the crack, the body and the report's first 150 ms, after which its level is 10 dB down; just behind
- * the cock at 142 ms; the kill's thud after the boom has let go), the engine steps the report's tail back 5 dB under
+ * (190 ms since pass i4, where the kill's thud always was: the boom has let go and the tail is 3.6 dB lower in the open
+ * and 5.2 dB lower in the gallery than at 150 ms, where the street's tick stood 2.5 dB over it), the engine steps the report's tail back 5 dB under
  * the short ones (Graph.duckTail), and they are this much louder than an ordinary effect, so a hit and a miss do not
  * sound the same. At 85 ms (until polish round 3) the tick and the parry sat 8 to 11 dB under the report.
  */
-export const CONFIRM_DELAY = 0.15, KILL_DELAY = 0.19;
+export const CONFIRM_DELAY = 0.19, KILL_DELAY = 0.19;
 const CONFIRM = 3.4, CONFIRM_LOW = 2.4;
 /** the tick is 2.5 dB and the parry's sour note 4 dB over the other confirms: the two that were furthest under the report */
 const TICK = CONFIRM * 1.334, PARRY = CONFIRM * 1.585;
@@ -47,6 +47,50 @@ const TICK_SECONDS = 0.13;
 const HOLDS: readonly number[] = Array.from(new Set(IR_CONFIRM_HOLD)).sort((x, y) => x - y);
 function pickHold(p: Readonly<SoundParams>): number { return HOLDS.indexOf(p.a); }
 const HELD_CONFIRMS: readonly string[] = ['hit_tick', 'hit_weak', 'hit_kill', 'hit_parry'];
+/**
+ * What struck her, `b` of 'hurt' (the engine maps the event's DamageKind): each has its own top layer so the source
+ * can be told by ear. 0 has none (a fall into a kill volume, anything unnamed).
+ */
+export const HURT_PLAIN = 0, HURT_STAKE = 1, HURT_LUNGE = 2, HURT_SLAM = 3, HURT_BLAST = 4;
+/** level of the whole cue over its first cut (a 70 Hz thump at peak -11 dB that a small speaker did not play at all) */
+const HURT_LEVEL = 1.25;
+/** the cloth-and-breath burst: what carries the cue on a laptop speaker and in earbuds */
+const HURT_MID = 2.4;
+function hurt(g: Graph, out: AudioNode, t: number, p: Readonly<SoundParams>): void {
+  const k = Math.min(1, 0.45 + p.a / 70) * HURT_LEVEL, m = k * HURT_MID;
+  // the body: a thud under 100 Hz, and a knock at 190 Hz for the speakers that cannot play the thud
+  tone(g, out, t, 0.2 + 0.14 * k, 'sine', 84, 38, 0.95 * k, 0.003);
+  noise(g, out, t, 0.14, 'lowpass', 300, 90, 0.8, 0.5 * k, 0.003);
+  tone(g, out, t, 0.1, 'triangle', 196, 128, 0.42 * k, 0.002);
+  // cloth: a burst falling from 1.7 kHz to 750 Hz in 110 ms; breath: the air knocked out of her, 850 -> 560 Hz
+  noiseHold(g, out, t, 0.12, 'bandpass', 1700, 750, 0.9, 0.3 * m, 0.003, 0.075);
+  noiseHold(g, out, t + 0.05, 0.22, 'bandpass', 850, 560, 1.4, 0.26 * m, 0.03, 0.14);
+  switch (p.b) {
+    case HURT_STAKE:
+      // a stake striking: one hard knock, and the rod ringing on at 2.5 kHz (the only pitched one)
+      noise(g, out, t, 0.022, 'bandpass', 3300, 2600, 3, 0.4 * m, 0.0005);
+      tone(g, out, t, 0.05, 'triangle', 1150, 720, 0.2 * m, 0.0008);
+      toneHold(g, out, t + 0.004, 0.26, 'sine', 2480, 2440, 0.06 * m, 0.002, 0.21);
+      break;
+    case HURT_LUNGE:
+      // claws through a coat: two tears high up (4 to 6 kHz), the second lower and longer
+      noiseHold(g, out, t + 0.006, 0.055, 'bandpass', 5600, 4400, 1.4, 0.46 * m, 0.004, 0.03);
+      noiseHold(g, out, t + 0.075, 0.09, 'bandpass', 4800, 3400, 1.4, 0.4 * m, 0.006, 0.06);
+      break;
+    case HURT_SLAM:
+      // iron on the whole body: a second, wider blow in the chest (150 -> 60 Hz, 320 ms) and what was knocked loose
+      toneHold(g, out, t, 0.32, 'triangle', 150, 60, 0.5 * k, 0.004, 0.22);
+      noise(g, out, t, 0.24, 'lowpass', 900, 200, 0.7, 0.3 * m, 0.003);
+      ticks(g, out, t + 0.09, 5, 0.24, 1.5, 'bandpass', 1300, 2, 0.16 * m, 0.022, 0.8);
+      break;
+    case HURT_BLAST:
+      // heat: a flat burst over everything, then a hiss above 5 kHz that takes 300 ms to burn out
+      noise(g, out, t, 0.07, 'bandpass', 1100, 500, 0.6, 0.36 * m, 0.001);
+      noiseHold(g, out, t + 0.02, 0.32, 'highpass', 6500, 5000, 0.7, 0.17 * m, 0.02, 0.26);
+      break;
+    default: break;
+  }
+}
 /** footsteps: walk and sprint (5 dB apart). A walk step peaks near the reload's seat-click. */
 export const STEP_WALK = 2.0, STEP_SPRINT = 3.6;
 
@@ -257,13 +301,9 @@ export function gunSounds(): SoundTable {
       const k = Math.min(1, Math.max(0.25, p.a / 8));
       tone(g, out, t, 0.12, 'sine', 95, 48, 0.55 * k, 0.003); noise(g, out, t, 0.09, 'lowpass', 420, 150, 0.7, 0.36 * k, 0.003);
     }),
-    // a = damage taken: a low thud, heavier by amount
-    hurt: snd(BUS_FX, PRIO_CONFIRM, 0.34, 0.1, (g, out, t, p) => {
-      const k = Math.min(1, 0.45 + p.a / 70);
-      tone(g, out, t, 0.2 + 0.14 * k, 'sine', 84, 38, 0.95 * k, 0.003);
-      noise(g, out, t, 0.14, 'lowpass', 300, 90, 0.8, 0.5 * k, 0.003);
-      noise(g, out, t, 0.05, 'bandpass', 1300, 700, 1, 0.14 * k, 0.002);
-    }),
+    // a = damage taken, b = what struck her (HURT_*). Three layers: the thud (heavier by amount), a cloth-and-breath
+    // burst at 600-2000 Hz that a laptop speaker plays, and a top layer that says what it was
+    hurt: snd(BUS_FX, PRIO_CONFIRM, 0.4, 0.1, hurt),
     died: snd(BUS_FX, PRIO_CONFIRM, 1.4, 0.3, (g, out, t) => {
       toneHold(g, out, t, 1.4, 'sine', 196, 41, 0.34, 0.02, 1.0);
       noiseHold(g, out, t, 1.2, 'lowpass', 500, 80, 0.7, 0.2, 0.05, 0.9);

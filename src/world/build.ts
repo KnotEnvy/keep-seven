@@ -577,12 +577,21 @@ class Build implements BuildApi {
     // the surface set is built, behind the loading screen. Staging it when the hatch powers then rebuilds nothing: that
     // one synchronous BVH build of surface + gallery (24 to 42 ms measured, 27 to 55 ms a tick) was the freeze on the
     // Daylight puzzle's payoff. Nobody can stand in those solids before the hatch opens, and it opens only once staged.
-    const seam = this.seamZone();
+    // Pass i4 (the performance review: the swap on the peg stair still built a BVH inside a frame, 12.1 ms on a fast
+    // desktop, between three other slow frames). What round 3 did for the seam's gallery is done for the whole set
+    // below: ALL its solids stand from the moment the surface set is built (`below`). Everything underground lies under
+    // y = -2 and everything on the surface above y = -1 (the only meeting is the hatch and its stair, which both sets
+    // hold), so neither can be touched from the other. When she then walks down the stair the solids of the set below
+    // are standing already, the surface's stay above them, and NOTHING is built in play (`staticUnion`). A restore or a
+    // warp straight into the set below builds that set alone, as before; the coda is built in the lift's dark, as before.
+    const below = this.belowZones();
     let early = false;
-    if (seam && !zones.includes(seam)) { zones = zones.concat(seam); early = true; }
+    for (const z of below) if (!zones.includes(z)) { zones = zones.concat(z); early = true; }
     const key = s.residentSet + ':' + zones.join(',');
+    if (this.staticUnion !== '' && s.residentSet !== this.staticUnionSet && zones.every((z) => this.staticUnion.split(',').includes(z))) { this.collidersAhead = ''; return; }
     if (this.collidersAhead === key) { if (!ahead) this.collidersAhead = ''; return; }
     this.collidersAhead = ahead || early ? key : '';
+    this.staticUnion = early ? zones.join(',') : ''; this.staticUnionSet = early ? s.residentSet : '';
     const skip: ZoneId[] = [];
     const extra: { positions: number[]; surface: SurfaceType; flags: number }[] = [];
     for (const z of zones) { const t = this.terrainOf(z); if (t) { skip.push(z); extra.push(t); } }
@@ -601,6 +610,14 @@ class Build implements BuildApi {
     }
   }
 
+  /** pass i4: the zones whose solids stand under the installed static set although their set is not the resident one ('' = none), and the set they were built under */
+  private staticUnion = '';
+  private staticUnionSet: ResidentSet | '' = '';
+  /** the zones of the set below the seam (the staged zone's whole set), while the seam's resident set is the resident one */
+  private belowZones(): readonly ZoneId[] {
+    const seam = this.seamZone();
+    return seam ? this.zonesOf(this.s.ctx.data.zone(seam).set) : NO_ZONES;
+  }
   /** the zone the seam stage builds beside the resident set, while that set is the resident one ('' otherwise) */
   private seamZone(): ZoneId | '' {
     const stage = this.s.ctx.data.manifest.stages.find((x) => x.id === 'seam');
@@ -824,8 +841,10 @@ class Build implements BuildApi {
     return this.startJob([
       // 1 the files, asked again until they have come: until then the old set is whole and she can go on in it
       this.until(() => assets.prefetch(set), null),
-      // 2 the old set goes, the new one is activated (core uploads one texture a frame while she plays)
-      this.until(() => { if (!dropped) { dropped = true; this.dropFor(set); } return assets.activate(set); }, () => dropped && this.setActive(set)),
+      // 2 the old set goes; a tick later the new one is activated (core uploads one texture a frame while she plays).
+      //   (pass i4: two slices; dropping the surface and starting the activation shared a tick of 11 ms)
+      () => { if (!dropped) { dropped = true; this.dropFor(set); } return true; },
+      this.until(() => assets.activate(set), () => dropped && this.setActive(set)),
       // 3 the new zones' scene graphs, one a tick, not yet built (hidden by the visibility pass at the end of the tick)
       () => {
         for (const z of fresh) if (!this.zoneInstances.has(z)) { this.addZone(z); s.visDirty = true; return false; }
@@ -1084,5 +1103,6 @@ class Build implements BuildApi {
   }
 }
 const NONE: readonly Placed[] = Object.freeze([]);
+const NO_ZONES: readonly ZoneId[] = Object.freeze([]);
 
 export function createBuild(s: State, hooks: BuildHooks): BuildApi { return new Build(s, hooks); }

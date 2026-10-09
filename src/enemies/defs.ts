@@ -6,7 +6,9 @@ import type { Difficulty, DifficultyDef, EnemyDef, EnemyKind } from '../core/con
 export const DIFFICULTY: Record<Difficulty, DifficultyDef> = {
   easy: { damageTaken: 0.6, attackTokens: 1, telegraphScale: 1.2, biderDropChance: 0.40, crownKnotRadius: 0.26 },    // GDD 15
   normal: { damageTaken: 1.0, attackTokens: 2, telegraphScale: 1.0, biderDropChance: 0.25, crownKnotRadius: 0.22 },  // GDD 15
-  hard: { damageTaken: 1.4, attackTokens: 3, telegraphScale: 0.9, biderDropChance: 0.15, crownKnotRadius: 0.20 },    // GDD 15
+  // pass i4 (the combat reviewer: a shot who is not hit on Normal's surface is not hit on Hard's either): Hard's tells are
+  // 20 % shorter, not 10 (a Transit's aim 0.9 -> 0.72 s, a Bider's lunge wind-up 0.5 -> 0.4 s, the Tamper's slam 0.8 s)
+  hard: { damageTaken: 1.4, attackTokens: 3, telegraphScale: 0.8, biderDropChance: 0.15, crownKnotRadius: 0.20 },    // GDD 15
 };
 
 export const ENEMIES: Record<EnemyKind, EnemyDef> = {
@@ -213,7 +215,8 @@ export const TAMPER = {
    * more tell on Normal and Easy (Easy: 1.15 x 1.2 = 1.38 s); Hard keeps GDD 7.3's 1.0. The vent's window is unchanged:
    * it still opens `slamVentLateBy` before the arm comes down. The clip (authored for `slamWindup`) is played slower.
    */
-  slamWindupBy: { easy: 1.15, normal: 1.15, hard: 1.0 } as Readonly<Record<Difficulty, number>>,
+  // (pass i4: Hard's telegraph scale is 0.8, it was 0.9: 1.125 keeps the Tamper's slam on Hard at the same 0.9 s)
+  slamWindupBy: { easy: 1.15, normal: 1.15, hard: 1.125 } as Readonly<Record<Difficulty, number>>,
   /**
    * Release pass p0 (the combat critic: "Hard plays almost like Normal"): how long it stands over a slam before it
    * walks again, by difficulty. Hard: 15 % shorter (1.275 s), so a veteran has less room to empty the cylinder into the
@@ -244,6 +247,34 @@ export const TAMPER = {
    * has not read; before, the only teaching was dying). The same line is said on the respawn after a death to a slam.
    */
   hintAfterSlams: 2, hintKey: 'hint_tamper_ring', hintAfterRespawn: 1.0,
+  /**
+   * Pass i4 (the playthrough reviewer: "repeats the same two hints to a player who keeps dying the same way"; GDD 23.18:
+   * a hint at most once per visit to a checkpoint). `hintKey` is said once per run of the fight (the second slam that
+   * hurts her, or the respawn after a slam killed her before that); the respawn after a death that follows it says
+   * `backKey` once (the other half of the rule: make it run into a wall); later deaths say nothing. What grows instead
+   * is help she can see and feel, one step for each death to an awake Tamper (`helpMax` steps at most):
+   *  - on Easy and Normal the stun of a charge that met a wall is `stunHelp` seconds longer per step, and the slam's
+   *    wind-up `slamHelp` seconds longer per step, all of it with the chest vent open (measured with the reviewer's
+   *    stand-and-shoot proxy: scratch/i4-team-enemies/NOTES.md);
+   *  - from step `ringFromHelp` (the second death) an outline ring pulses on a vent for as long as it stands open
+   *    (every difficulty).
+   */
+  backKey: 'hint_tamper_back', helpMax: 3, stunHelp: 0.5, slamHelp: 0.25, ringFromHelp: 2,
+  helpTiming: { easy: true, normal: true, hard: false } as Readonly<Record<Difficulty, boolean>>,
+  /** the outline ring over an open vent: its radius, and how far out from the knot along the body's facing it floats (metres) */
+  ringRadius: 0.34, ringOut: 0.5,
+  /**
+   * Pass i4 (the combat reviewer: "its charge only connects when the player happens to be inside its reach": a careless
+   * player who stood still was missed by charges that stunned themselves on a rib corner or the cabinet on the way).
+   * A charge is begun only down a lane its body fits through: besides the sight line at its chest, two lines
+   * `laneHalf` to each side of it at `laneHeight` above the floor, from it to `laneShort` short of her, must be clear.
+   * And by the end of the wind-up it faces her squarely (it used to turn 90 degrees a second for 0.8 s and go wherever
+   * that left it): a player who neither moves nor answers is hit; a side-step is still not followed (20 degrees a second).
+   * `laneHalf` is the body's 0.8 m less `grazeDepth`: a corner the charge would slide past does not close the lane.
+   * The bait is footwork now (GDD 7.3 "bait the charge into a rib"): she steps behind a rib or the cabinet once it
+   * has begun to wind up; standing where one already stands in its way, she is walked to and slammed.
+   */
+  laneHalf: 0.55, laneHeight: 0.45, laneShort: 1.0,
   /**
    * The pause after the second and every later slam in a row that hurt her (a slam that misses ends the row), by
    * difficulty: "cap consecutive slams" (the playthrough critic). On Normal and Easy it is as long as the hint the
@@ -290,7 +321,11 @@ export const BOSS = {
   // (closing of pass i3: the roll-call is ONE line, `stn_parley_2` 4.5 s; `stn_parley_3` is gone; the first line 3.5 s,
   // the narrator's and the Reeve's 4 s each. The six open 16.0 s after the first line where nothing shows lines, 17.0 s
   // with the line box's four breaths; phase 1 five seconds after that)
-  parley: { line1: 0, narrator: 3.5, ask: 7.5, line2: 11.5, line4: 16, windowEnd: 20, phase1: 21 },
+  // (pass i4, the cross-cutting fixer; story reviewer a: 24.2 s from the door to phase 1, the roll-call unreadable at its
+  // speed. The narrator's line has left the asking (`nar_parley` is gone from story.json and the layout's list) and the
+  // roll-call is six words, one a lamp: FOUR lines, 3.5 + 4 + 4.5 and three breaths: the six open 12.75 s after the first
+  // line appears where lines are shown, 12.0 s where they are not; phase 1 five seconds after that)
+  parley: { line1: 0, ask: 3.5, line2: 7.5, line4: 12, windowEnd: 16, phase1: 17 },
   /**
    * Release pass p0 (the story critic: "the parley text runs about 9 s behind the boss"). The asking is paced by its
    * lines as they are SHOWN (`story/line`), not by the clock alone: a line still waiting behind the narrator when the
@@ -341,7 +376,12 @@ export const BOSS = {
    * `stn_boss_charge_required` is said again this often until the kept round has been loaded: fourteen HAULINGs in 75 s
    * had buried the one instruction that matters (scratch/r2-story-ux/p3.log).
    */
-  chargeRepeat: 20,
+  chargeRepeat: 30,
+  /**
+   * Pass i4 (story reviewer a: "BORE UNPROVEN ..." four times in 56 s): the repeat is 30 s apart (it was 20) and its
+   * clock stands still while she is within `chargeMarkRadius` of a proving mark (she is doing what it asks).
+   */
+  chargeMarkRadius: 0.9,
   p3AddsAlive: 3, p3AddEvery: 8, p3AddsTotal: 9,
   // the hush and the proof
   hushScale: 0.5, hushSeconds: 1.8, hushSwing: 1.5, proofFreeze: 4.0,
@@ -371,6 +411,20 @@ export const BOSS = {
    * seconds (the line box may still be replaying a hint the death cut off), `retryLeadMax` seconds at most.
    */
   moveRead: 4.0, retryLeadMax: 11,
+  /**
+   * Pass i4 (story reviewer a: the same sentence after every death; GDD 23.18: each boss hint at most once per visit to
+   * a checkpoint). `moveKey` and `teachKey` are each said (by this module or the world: a line shown counts) at most
+   * once in a cylinder phase of a run, retries included. A later retry after a death to a canister says `lobKey` once
+   * instead; after that a retry says nothing (it keeps its longer lead-in).
+   */
+  lobKey: 'hint_boss_lob',
+  /**
+   * Pass i4 (the playthrough reviewer: "the guard has no fallback teaching"). Phase 2 can only be answered by bursting
+   * the two pawls or by a line round through the guard. A haul that begins after `pawlHintHauls` hauls of the phase
+   * (retries included) have gone by with neither says `pawlsKey` once and an outline ring pulses on each pawl still
+   * whole; after `lockerHintHauls` a third ring pulses on the bore's line locker. All of it ends with the first answer.
+   */
+  pawlsKey: 'hint_boss_pawls', pawlHintHauls: 2, lockerHintHauls: 4, lockerMarker: 'ia_line_locker_bore', lockerRingUp: 1.1,
   retryFullHealth: { easy: true, normal: true, hard: false } as Readonly<Record<Difficulty, boolean>>,
   /**
    * Polish round 5 (the story critic): phase 3b's two HAULINGs and the narrator's line are said only when the line box

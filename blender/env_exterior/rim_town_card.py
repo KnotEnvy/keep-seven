@@ -182,7 +182,8 @@ def main():
     # ledge and the plain, 42 m out, leaning: a dark lattice that crosses the dark land and breaks the horizon between
     # the town and the fire (the pylon line runs on to the fire: env_backdrop_dusk). A card in a plane across the view
     # from the stone; thin enough that from no place on the ledge it hides the fire or a lit window.
-    eye_s = (2.9, 103.0); pb = (-7.7, 61.0); H_ = 21.5; y0_ = 3.2   # pass i2: 6.8 m west (it stood in one column with the Rule and the fire); from no place on the ledge (x -2 .. 30) is it in line with the fire
+    eye_s = (2.9, 103.0); pb = (-7.7, 61.0); H_ = 21.5; y0_ = 2.0   # (pass i5: 3.2 -> 2.0, the bench of the rebuilt foot it stands on: env_backdrop_dusk.build_foot prints it)
+    # pass i2: 6.8 m west (it stood in one column with the Rule and the fire); from no place on the ledge (x -2 .. 30) is it in line with the fire
     vx, vz = pb[0] - eye_s[0], pb[1] - eye_s[1]; vl = math.hypot(vx, vz)
     ax, az = -vz / vl, vx / vl                                             # across the view, viewer's right
     lean = math.radians(6.5); cl, sl = math.cos(lean), math.sin(lean)

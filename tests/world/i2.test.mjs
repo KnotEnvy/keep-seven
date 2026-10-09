@@ -4,7 +4,7 @@
 // in story.spec.ts; the tests of earlier passes that held the old behaviour were rewritten in place.
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LAYOUT, STORY, mark, marker, open, server, shootScript, takeRound } from './lib.mjs';
+import { LAYOUT, STORY, mark, marker, open, server, shootScript, status, takeRound } from './lib.mjs';
 
 let srv;
 before(async () => { srv = await server(); });
@@ -77,7 +77,8 @@ test('the rim, the leave branch: the lamps, its own lines, the Rule\'s line (pas
     assert.equal(left.payload.taken, false);
     // (pass i3: the Rule's line, never told while she was bent over the stone, is told last before the fire, behind the thread's)
     const leave = STORY.meta.rules.ending_branch.leave;
-    assert.deepEqual(said.filter((l) => l.tick >= left.tick).map((l) => l.key), [...leave.slice(0, -2), 'nar_rim_2', 'nar_rim_3', ...leave.slice(-2)], all.join(' '));
+    // (pass i4: ... and ahead of the branch's own lines, so nothing stands between the choice's last line and the fire)
+    assert.deepEqual(said.filter((l) => l.tick >= left.tick).map((l) => l.key), ['nar_rim_2', 'nar_rim_3', ...leave], all.join(' '));
     const li = all.indexOf('nar_lamps');
     assert.deepEqual(all.slice(li, li + 3), ['nar_lamps', 'nar_lamps_count', 'nar_lamps_hers'], `"She counted them", the count, whose they were (${all.join(' ')})`);
     assert.ok(!all.includes('nar_take_2'));
@@ -194,6 +195,11 @@ test('the hearth cup: "His cup on their hearthstone" is said at the hearth (turn
     // (a debug clear says no lines: the same call the director makes on a real clear)
     await game.page.evaluate(() => { for (const k of ['nar_nine', 'nar_tally_hearth']) window.__dbg.ext.world.say(k); });
     await game.run([{ steps: 15 * 60 }]);
+    // (pass i4: the fallback no longer says it to her back: it was heard at the far end of the table, over the ledger.
+    // It keeps its place in line until the cup is in her view within eight metres)
+    assert.ok((await keys(game, seq)).includes('nar_nine') && !(await keys(game, seq)).includes('nar_tally_hearth'), 'with her back to the hearth the cup\'s line waits');
+    assert.ok((await status(game)).story.waiting.includes('nar_tally_hearth'), 'still in line');
+    await game.run([{ aimAt: [cup.pos[0], cup.pos[1], cup.pos[2]], steps: 30 }]);
     assert.ok((await keys(game, seq)).includes('nar_tally_hearth'), 'never near the hearth: the line is still hers to hear');
   } finally { await game.close(); }
 });

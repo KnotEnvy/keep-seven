@@ -33,7 +33,11 @@ test('the peg stair, real game: the watcher is named a breath after the line tha
     assert.ok(at('nar_pegs_1') && at('nar_watcher_1'), `the peg line and the watcher's (${said.map((l) => l.k).join(' ')}; walk ${out.reason})`);
     const wait = (at('nar_watcher_1').t - out.looked) / 60;
     assert.ok(wait <= 5, `named ${wait.toFixed(1)} s after the look (it was 8.7 s: scratch/i3-story-a/H_gal.log)`);
-    assert.ok(at('nar_watcher_1').t - (at('nar_pegs_1').t + at('nar_pegs_1').ticks) <= 20, 'a breath after "Coats on pegs"');
+    // (pass i4: the watcher's line takes "Coats on pegs" down once that has had 60 % of its 4.5 s: it is on screen within
+    // 2.7 s of that line's start however early she looks, or half a second after a later look; it waited the line out,
+    // 2.3 s after the look in scratch/i4-story-a/H_gal.log)
+    console.log(`watcher: looked ${((out.looked - at('nar_pegs_1').t) / 60).toFixed(2)} s into "Coats on pegs", named ${wait.toFixed(2)} s after the look`);
+    assert.ok((at('nar_watcher_1').t - at('nar_pegs_1').t) / 60 <= Math.max(2.75, (out.looked - at('nar_pegs_1').t) / 60 + 0.6), `within 2.7 s of the peg line's start, or half a second of a later look (${((at('nar_watcher_1').t - at('nar_pegs_1').t) / 60).toFixed(2)} s)`);
     assert.ok(!at('nar_pegs_2') || at('nar_pegs_2').t > at('nar_watcher_1').t, 'ahead of the second peg line');
     assert.ok(out.y > -9, `she is still at the niche when it is said (y ${out.y.toFixed(1)})`);
   } finally { await bot.close(); }

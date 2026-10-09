@@ -1,7 +1,7 @@
 // The story sequencer's pure parts (code-world 4.8): once-only narrator lines, one line at a time, at most four waiting,
 // hints dropped when busy, narrator lines never lost (the backlog), captions 2 s / 4 s.
 import { describe, expect, it } from 'vitest';
-import { CAPTION_HOLD, CAPTION_REPEAT, CaptionGuard, MAX_WAITING, PAIR_KEEP, STALE_SECONDS, STALE_SECONDS_LEFT, StoryQueue, URGENT_READ, countWord, lateOk, lineClass, neverStale, stemOf } from '../../src/world/story.ts';
+import { CAPTION_HOLD, CAPTION_REPEAT, CaptionGuard, MAX_WAITING, PAIR_KEEP, PRESENT_READ, REPEAT_REST, STALE_SECONDS, STALE_SECONDS_LEFT, StoryQueue, URGENT_READ, countWord, lateOk, lineClass, neverStale, stemOf } from '../../src/world/story.ts';
 
 function queue(seconds = 1): { q: StoryQueue; started: string[]; ended: string[]; played: Set<string> } {
   const started: string[] = [], ended: string[] = [], played = new Set<string>();
@@ -496,5 +496,141 @@ describe('pass i3: PRESENT lines (about what she is looking at this second)', ()
     keep.urgent('nar_file_more'); keep.present('nar_watcher_1');
     for (let i = 0; i < 60 * 12; i++) keep.tick();
     expect(started.filter((k) => k.startsWith('k:'))).toEqual(['k:nar_seal', 'k:nar_file_more', 'k:nar_watcher_1']);
+  });
+});
+
+// Pass i4 (GDD 23.18): a hint is never lost behind a line that only waits on a look; a PRESENT line and the opening of
+// a scene take a narrator's line down once it has been read; a line whose subject is gone is dropped although it waits.
+describe('pass i4: hints, waiting lines, and what may take a narrator\'s line down', () => {
+  const make = (opts: { wait?: (k: string) => boolean; moot?: (k: string) => boolean; keep?: (k: string) => boolean; stale?: number } = {}): { q: StoryQueue; started: string[]; ended: string[]; dropped: string[]; go: (n: number) => void } => {
+    const started: string[] = [], ended: string[] = [], dropped: string[] = [], played = new Set<string>();
+    const q = new StoryQueue(() => 5, (k) => played.has(k), (k) => { started.push(k); if (k.startsWith('nar_')) played.add(k); }, (k) => ended.push(k),
+      { onDrop: (k) => dropped.push(k), moot: opts.moot, wait: opts.wait, keep: opts.keep, staleSeconds: opts.stale });
+    return { q, started, ended, dropped, go: (n) => { for (let i = 0; i < n; i++) q.tick(); } };
+  };
+  it('the jug gate: with the Rule\'s line waiting for a look, a hint is said (it was dropped for as long as the line waited)', () => {
+    const { q, started, go } = make({ wait: (k) => k === 'nar_rule', keep: (k) => k === 'nar_rule' });
+    q.say('nar_seven'); q.say('nar_rule'); go(60 * 8);
+    expect(started).toEqual(['nar_seven']);
+    expect(q.idle).toBe(false);                                    // the Rule's line is still in line
+    expect(q.hintFree).toBe(true);
+    expect(q.say('hint_jugs_2_few')).toBe('queued');
+    go(2);
+    expect(q.current).toBe('hint_jugs_2_few');
+    expect(q.hintFree).toBe(false);                                // a second hint under it is still dropped (and held by Story)
+    expect(q.say('hint_jugs_3')).toBe('dropped');
+    go(60 * 6);
+    expect(q.say('hint_jugs_3')).toBe('queued');
+    go(60 * 6);
+    expect(started).toEqual(['nar_seven', 'hint_jugs_2_few', 'hint_jugs_3']);
+    expect(q.holds('nar_rule')).toBe(true);                        // and the Rule's line still waits for its look
+  });
+  it('a line that is not waiting still keeps a hint out', () => {
+    const { q, go } = make({ wait: (k) => k === 'nar_rule' });
+    q.say('nar_a'); go(1); q.say('nar_rule'); q.say('nar_b');
+    go(60 * 5 + 5);                                                 // in the breath after nar_a: nar_b is next
+    expect(q.current).toBe('');
+    expect(q.hintFree).toBe(false);
+    expect(q.say('hint_x')).toBe('dropped');
+  });
+  it('a waiting line whose subject is gone for good is dropped (it sat in line for the rest of the run), and does not go stale while it waits', () => {
+    let seen = false, left = false;
+    const a = make({ wait: (k) => k === 'nar_rule' && !seen, moot: (k) => k === 'nar_rule' && left, stale: 20 });
+    a.q.say('nar_rule'); a.go(60 * 60);
+    expect(a.started).toEqual([]);
+    seen = true; a.go(2);
+    expect(a.started).toEqual(['nar_rule']);                       // a minute on: not stale, said when it is looked at
+    const b = make({ wait: (k) => k === 'nar_rule' && !seen, moot: (k) => k === 'nar_rule' && left, stale: 20 });
+    seen = false;
+    b.q.say('nar_rule'); b.go(60 * 5);
+    left = true; b.go(2);
+    expect(b.dropped).toEqual(['nar_rule']);
+    expect(b.q.idle).toBe(true);
+  });
+  it('a PRESENT line takes a narrator\'s line down once that has had PRESENT_READ of its hold, not before', () => {
+    const { q, started, ended, go } = make();
+    q.say('nar_pegs_1'); go(60);                                   // one second of five
+    q.present('nar_watcher_1');
+    expect(q.current).toBe('nar_pegs_1');
+    go(Math.round(60 * 5 * PRESENT_READ) - 60 - 2);
+    expect(q.current).toBe('nar_pegs_1');
+    go(4);
+    expect(q.current).toBe('nar_watcher_1');                       // at three seconds of five (it waited to 5.25 s)
+    expect(ended).toEqual(['nar_pegs_1']);
+    expect(started).toEqual(['nar_pegs_1', 'nar_watcher_1']);
+    // already read when she looks: at once
+    const b = make();
+    b.q.say('nar_pegs_1'); b.go(60 * 4 - 30);
+    b.q.present('nar_watcher_1');
+    expect(b.q.current).toBe('nar_watcher_1');
+  });
+  it('... never a line the story stands on, never the Reeve\'s, never a line in its last second, never its own first half, never another present line', () => {
+    const a = make({ keep: (k) => k === 'nar_plate_1' });
+    a.q.say('nar_plate_1'); a.go(60 * 4);
+    a.q.present('nar_watcher_1');
+    expect(a.q.current).toBe('nar_plate_1');
+    const b = make();
+    b.q.say('rv_ask'); b.go(60 * 4);
+    b.q.present('nar_watcher_1');
+    expect(b.q.current).toBe('rv_ask');
+    const c = make();
+    c.q.say('nar_pegs_1'); c.go(60 * 4 + 10);                       // 50 ticks left
+    c.q.present('nar_watcher_1');
+    expect(c.q.current).toBe('nar_pegs_1');
+    // the watcher's two lines: the second does not cut the first at 60 %
+    const d = make();
+    d.q.present('nar_watcher_1'); d.q.present('nar_watcher_2');
+    d.go(60 * 5 - 5);
+    expect(d.q.current).toBe('nar_watcher_1');
+    d.go(30);
+    expect(d.started).toEqual(['nar_watcher_1', 'nar_watcher_2']);
+    // two different things looked at one after the other: the first is heard out too
+    const e = make();
+    e.q.present('nar_kneeler'); e.go(60 * 4 - 30);
+    e.q.present('nar_embers_1');
+    expect(e.q.current).toBe('nar_kneeler');
+  });
+  it('with part = false a present line does not take the first half of a pair down', () => {
+    const { q, started, go } = make();
+    q.say('nar_tally_1'); q.say('nar_tally_2'); go(60 * 4 - 30);
+    q.present('nar_tally_chair', '', false);
+    expect(q.current).toBe('nar_tally_1');
+    go(60 * 20);
+    expect(started).toEqual(['nar_tally_1', 'nar_tally_2', 'nar_tally_chair']);
+  });
+  it('the opening of a scene (the asking): over ANY narrator\'s line once it has been read, one the story stands on too', () => {
+    const a = make({ keep: (k) => k === 'nar_cradle_2' });
+    a.q.say('nar_cradle_2'); a.go(60 * 2);
+    expect(a.q.open('stn_parley_1')).toBe('queued');
+    expect(a.q.current).toBe('nar_cradle_2');                      // two seconds of five: not yet
+    a.go(60 + 2);
+    expect(a.q.current).toBe('stn_parley_1');                      // at three (it began at 5.25)
+    // read already: at once; nothing on screen or a station line: at once
+    const b = make();
+    b.q.say('nar_embers_2'); b.go(60 * 3 + 12);
+    b.q.open('stn_parley_1');
+    expect(b.q.current).toBe('stn_parley_1');
+    const c = make();
+    c.q.say('stn_ask_done'); c.go(30);
+    c.q.open('stn_parley_1');
+    expect(c.q.current).toBe('stn_parley_1');
+  });
+  it('... but never between a line and its continuation still to come', () => {
+    const { q, started, go } = make({ keep: (k) => k.startsWith('nar_cradle') });
+    q.say('nar_cradle'); q.say('nar_cradle_2'); go(60 * 4);
+    q.open('stn_parley_1');
+    go(60 * 12);
+    expect(started).toEqual(['nar_cradle', 'nar_cradle_2', 'stn_parley_1']);
+  });
+  it('dropWaiting drops a waiting line unheard and leaves a line on screen alone', () => {
+    const { q, dropped, go } = make();
+    q.say('nar_a'); q.say('nar_b'); go(2);
+    q.dropWaiting('nar_a'); q.dropWaiting('nar_b');
+    expect(q.current).toBe('nar_a');
+    expect(dropped).toEqual(['nar_b']);
+  });
+  it('the Windlass\'s two refill lines have a rest', () => {
+    expect(REPEAT_REST.stn_boss_refilled).toBeGreaterThanOrEqual(20);
+    expect(REPEAT_REST.stn_boss_head_dry_refilling).toBeGreaterThanOrEqual(20);
   });
 });

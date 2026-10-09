@@ -171,7 +171,7 @@ test('the Windlass line: said on a look through the gantry\'s grille; crossed wi
   } finally { await game.close(); }
 });
 
-test('the embers: said when she turns to the camp; facing the door, nothing for six seconds, then only with the camp in frame, and at twenty seconds anyway', async () => {
+test('the embers: said when she turns to the camp; facing the door they are never named to a wall (pass i4), and not at all once the bore door has opened', async () => {
   const T = marker('trg_ante_enter'), C = marker('prop_camp_three');
   const at = [C.pos[0], C.pos[1] + 0.3, C.pos[2]];
   for (const [name, turn] of [['turns to the camp 2 s in', 2], ['never turns', 0]]) {
@@ -184,13 +184,23 @@ test('the embers: said when she turns to the camp; facing the door, nothing for 
       // in at the antechamber's door, facing the bore door (the camp is behind her and to the left)
       await game.run([{ call: ['teleport', T.pos[0], T.pos[1], T.pos[2], 180, 0] }, { steps: turn ? turn * 60 : 12 * 60 }]);
       assert.ok(!(await keys(game, seq)).includes('nar_embers_1'), `${name}: facing the door, the embers are not named`);
-      if (turn) await game.run([{ aimAt: at, steps: 60 }]); else await game.run([{ steps: 10 * 60 }]);
+      if (turn) await game.run([{ aimAt: at, steps: 60 }]); else await game.run([{ steps: 18 * 60 }]);
       const said = await lines(game, seq);
       const e1 = said.find((l) => l.key === 'nar_embers_1');
+      if (!turn) {
+        // (pass i4: it was said at twenty seconds whatever she faced: to the panelling. scratch/i4-story-a/H_ride.log)
+        assert.ok(!e1, `${name}: thirty seconds with her back to the camp and the embers are not named (${said.map((l) => l.key).join(' ')})`);
+        assert.ok(!(await game.state()).systems.world.flags.includes('trg:trg_ante_enter'), 'the lines still wait for a look');
+        // the bore door opens (the asking is answered): she has gone on, and nothing is said of embers she never saw
+        await game.page.evaluate(() => window.__dbg.ext.world.forceDoor('door_bore', 'open'));
+        await game.run([{ steps: 30 }, { aimAt: at, steps: 8 * 60 }]);
+        assert.ok(!(await keys(game, seq)).some((k) => k.startsWith('nar_embers')), 'with the bore door open the embers are never named, even on a look back');
+        assert.ok((await game.state()).systems.world.flags.includes('trg:trg_ante_enter'), 'the trigger is spent');
+        continue;
+      }
       assert.ok(e1, `${name}: the embers' line (${said.map((l) => l.key).join(' ')})`);
       const s = (e1.tick - t0) / 60;
-      if (turn) assert.ok(s <= turn + 4.5, `${name}: named ${s.toFixed(1)} s in, within a line of the look`);
-      else assert.ok(s >= 19.5 && s <= 26, `${name}: at twenty seconds (${s.toFixed(1)} s)`);
+      assert.ok(s <= turn + 4.5, `${name}: named ${s.toFixed(1)} s in, within a line of the look`);
     } finally { await game.close(); }
   }
 });
@@ -271,7 +281,7 @@ test('the prompt never says more than the key: wherever a thing is offered (out 
 });
 
 // ---- the run hint -------------------------------------------------------------------------------------------------------
-test('the run hint: fifteen metres down the gully it is shown beside the narrator\'s line (never under a card); a showing cut short by a puzzle does not count', async () => {
+test('the run hint: three metres out of the overhang, as soon as the title card is gone (pass i4; never under the title card); a showing cut short by a puzzle does not count', async () => {
   const G = marker('trg_glare'), J = marker('trg_pz_jugs');
   const game = await open(srv, { checkpoint: 'cp_lip_start' });
   try {
@@ -284,15 +294,19 @@ test('the run hint: fifteen metres down the gully it is shown beside the narrato
     const shown = (await hintsOf(game, seq, 'ui_hint_sprint')).filter((h) => h.show);
     assert.equal(shown.length, 1, 'shown on the walk');
     const at = (shown[0].tick - t0) / 60;
-    assert.ok(at <= 13, `within the gully (${at.toFixed(1)} s after the overhang; it came 31 s in, at the gate)`);
-    const said = await lines(game, seq);
-    assert.ok(said.some((l) => l.tick <= shown[0].tick && l.tick + l.ticks > shown[0].tick), 'a line is on screen beside it');
+    // (pass i4: it came 16.9 s into play, past the middle of the gully: the two cards, 7.5 s, held it back)
+    assert.ok(at <= 5.5, `in the first fifth of the gully (${at.toFixed(1)} s after the overhang; it was 7.6 s and more)`);
     const cards = await game.events(seq, 'story/card');
-    for (const c of cards) assert.ok(shown[0].tick >= c.tick + Math.round(c.payload.seconds * 60) || shown[0].tick < c.tick, 'not under a movement card');
+    const title = cards.find((c) => c.payload.key === 'card_title');
+    assert.ok(title && shown[0].tick >= title.tick + Math.round(title.payload.seconds * 60), 'never under the game\'s title card');
     // into the jug puzzle a second after it comes back: that showing is not one of the two
-    await game.until({ event: 'ui/hint', where: { key: 'ui_hint_sprint', show: false } }, 12 * 60);      // its eight seconds are over
-    await game.run([{ steps: 30 * 60 }]);                          // and it is due again forty seconds on (SPRINT_AGAIN)
+    // its eight seconds are over (pass i4: inside the walk now, so it is looked for, not waited for)
+    for (let i = 0; i < 24 && !(await hintsOf(game, seq, 'ui_hint_sprint')).some((h) => !h.show); i++) await game.run([{ steps: 30 }]);
+    const down = (await hintsOf(game, seq, 'ui_hint_sprint')).find((h) => !h.show);
+    assert.ok(down && Math.abs((down.tick - shown[0].tick) / 60 - 8) < 0.2, 'it stands eight seconds');
     const seq2 = await mark(game);
+    await game.run([{ steps: 38 * 60 }]);                          // and it is due again forty seconds on (SPRINT_AGAIN)
+    assert.ok(!(await hintsOf(game, seq2, 'ui_hint_sprint')).some((h) => h.show), 'not before its forty seconds');
     for (let i = 0; i < 40 && !(await hintsOf(game, seq2, 'ui_hint_sprint')).some((h) => h.show); i++) await game.run([{ steps: 30 }]);
     assert.ok((await hintsOf(game, seq2, 'ui_hint_sprint')).some((h) => h.show), 'the second showing');
     await game.run([{ steps: 30 }, { call: ['teleport', J.pos[0], J.pos[1], J.pos[2] + 2, 0, 0] }, { steps: 30 }]);

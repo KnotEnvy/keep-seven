@@ -6,6 +6,7 @@ import type {
 } from './contracts.ts';
 import { coreOf } from './context.ts';
 import type { CoreInternals } from './context.ts';
+import { STALL_SAY_MS } from './assets.ts';
 
 /** 0.6 s fade + 1.2 s `ui_death`, in unscaled ticks. */
 export const DEATH_TICKS = Math.round((0.6 + 1.2) * 60);
@@ -65,6 +66,53 @@ export class Flow {
       this.commit(e.id, null);
     });
     ctx.events.on('player/died', () => this.onDied());
+    ctx.events.on('zone/entered', (e) => this.fetchAhead(e.zone));
+  }
+
+  /**
+   * Pass i4 (performance): the next resident set's files are asked for when she enters the last zone before it (the
+   * Tally House for the underground set, the bore for the coda), not when the puzzle that opens the way is solved: by
+   * then they are in the browser's cache and decoded, whatever the line's speed. Nothing is activated or uploaded here;
+   * the world's own prefetch at the seam finds the files loaded. Test mode decodes every set at boot.
+   */
+  private fetchAhead(zone: string): void {
+    const { ctx } = this;
+    if (ctx.flags.test || ctx.state.current !== 'playing') return;
+    const zones = ctx.data.layout.zones;
+    const at = zones.findIndex((z) => z.id === zone);
+    const here = zones[at], next = zones[at + 1];
+    if (!here || !next || next.set === here.set || here.set !== ctx.world.residentSet) return;
+    ctx.assets.prefetch(next.set).then(() => undefined, () => undefined);     // a failure here is not an error: the seam asks again
+  }
+
+  /**
+   * Pass i4 (robustness): a request that stalls during the first load, or behind any LOADING screen, left the bar
+   * standing with no word. While the state is 'boot' or 'loading' and nothing has arrived for `STALL_SAY_MS`, core shows
+   * story.json `system.waiting` low on the screen; it goes when bytes come again or the state changes. (In play the
+   * world and the UI say it themselves.) The asset store gives a stalled request up after 30 s and tries it again.
+   */
+  private waiting: HTMLElement | null = null;
+  private watch: ReturnType<typeof setInterval> | null = null;
+  private watchConnection(): void {
+    if (this.ctx.flags.test || this.watch !== null || typeof document === 'undefined' || typeof setInterval !== 'function') return;
+    this.watch = setInterval(() => {
+      const state = this.ctx.state.current;
+      const quiet = (state === 'boot' || state === 'loading') && this.core.assets.quietFor() >= STALL_SAY_MS;
+      if (!quiet) { if (this.waiting) this.waiting.style.display = 'none'; return; }
+      let el = this.waiting;
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'flow-waiting';
+        el.setAttribute('role', 'status');
+        // under the loading bar, on its left edge (src/ui/ui.css `.load-foot`: 7 % in, 13 % up; 5.5 % up in a narrow frame)
+        el.style.cssText = 'position:fixed;left:calc(7% + 1.6vh);right:7%;bottom:1.8vh;text-align:left;pointer-events:none;'
+          + 'color:#e8dcc4;font:italic 18px/1.5 Georgia,serif;text-shadow:0 1px 3px #0b0d12,0 0 12px #0b0d12;z-index:900';
+        el.textContent = this.systemText('waiting', 'Waiting on the connection.');
+        this.core.uiRoot.appendChild(el);
+        this.waiting = el;
+      }
+      el.style.display = '';
+    }, 1000);
   }
 
   /** True while an action, a respawn or a warp is still running. */
@@ -158,8 +206,13 @@ export class Flow {
       ctx.events.emit('load/progress', progress);
     };
     ctx.events.emit('load/progress', progress);
+    this.watchConnection();
     if (!ctx.flags.test) core.quality.detect(rendererString(ctx));
     await core.assets.probeR8();                    // before any texture is created: the verdict picks R8 or RGBA8
+    // (pass i4, performance) the surface set's files are ASKED FOR now, beside the always set's: before, their requests
+    // went out only after the always set had been fetched, decoded and uploaded. They are awaited (and counted on the
+    // loading line) in their turn below; a failure is reported there, not here.
+    if (!ctx.flags.test) ctx.assets.prefetch('surface').then(() => undefined, () => undefined);
     await ctx.assets.prefetch('always', report('always'));
     await ctx.assets.activate('always');
     await ctx.assets.prefetch('surface', report('surface'));
@@ -373,9 +426,24 @@ export class Flow {
       this.applying = false;
     }
   }
+  /**
+   * Pass i4 (ruling R12: what the end card says is true). The run's time was restored with the checkpoint, so the card's
+   * TIME was the sum of the successful attempts only, beside "Times she went down": five deaths at the Windlass in 114 s
+   * of play read 0:19. Time played and deaths are the RUN's, not the checkpoint's: whenever she is put back on a
+   * checkpoint of the run she is in (a death, "Restart from checkpoint", the net under the world) the save takes both
+   * from the live count, and the stored save with it, so a reload after a death does not forget them either.
+   */
+  private carryStats(save: SaveData): void {
+    const live = this.world.stats, kept = save.world.stats;
+    if (!(live.playSeconds > kept.playSeconds) && !(live.deaths > kept.deaths)) return;
+    kept.playSeconds = Math.max(kept.playSeconds, live.playSeconds);
+    kept.deaths = Math.max(kept.deaths, live.deaths);
+    if (save === this.ctx.save.current) this.ctx.save.commit(save);
+  }
   private async restore(save: SaveData): Promise<void> {
     const { ctx } = this;
     this.core.clock.clearSlowMotion();
+    this.carryStats(save);
     await ctx.world.restoreCheckpoint();
     this.restoreTrio(save);
     ctx.events.emit('player/respawned', { checkpoint: save.checkpoint });

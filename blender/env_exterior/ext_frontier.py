@@ -318,6 +318,21 @@ def dark_box(part, F, u0, u1, y0, y1, depth=1.0, w=0.0, col=None):
     q([(u0, y0, w - depth), (u0, y0, w), (u1, y0, w), (u1, y0, w - depth)])                       # floor
 
 
+def _ground_colour(x, z):
+    """The colour of the ground sheet under a point (pass i4): the street's and the yard's ground, the Lip's sand."""
+    try:
+        if x < 0.0:
+            import street_parts
+            if x < -80.0:
+                from ext_kit import fbm as _fbm
+                return mix(lin("sand"), lin("sand_pale"), clamp(0.3 + 0.5 * _fbm(x / 7.0, z / 7.0, 22, 2)))
+            return street_parts.street_sand(x, z, 0.25 if z > 6.5 else 0.0)
+        import lip_parts, lip_fields
+        return lip_parts.sand_colour(x, z, lip_fields.ground(x, z))
+    except Exception:                                                     # noqa: BLE001  (a script that builds without those modules)
+        return lin("sand")
+
+
 def sand_wedge(part, F, u0, u1, w1, h, rng=None, n=4, chart=None, st_off=(0.0, 0.0)):
     """Sand banked against a wall foot (ART_BIBLE 5.4): a ramp from height h at the wall down to nothing at w1, its
     crest wandering. m_sand."""
@@ -329,7 +344,10 @@ def sand_wedge(part, F, u0, u1, w1, h, rng=None, n=4, chart=None, st_off=(0.0, 0
         ws = [w1 * (0.35 + 0.65 * (hs[k] / h if h else 0)), w1 * (0.35 + 0.65 * (hs[k + 1] / h if h else 0))]
         c = F.p(us[k + 1], 0.01, ws[1]); d = F.p(us[k], 0.01, ws[0])
         pts = [d, c, b, a]
-        cols = [lin("sand"), lin("sand"), lin("sand_pale"), lin("sand_pale")]
+        # pass i4 (the visual reviewer: "sharp wedge polygons at the wall's foot ... read as decals"): the toe takes the
+        # colour of the ground it lies on (it was one sand colour whatever lay under it), the head is a shade paler
+        head = lambda q, hh: mix(_ground_colour(q[0], q[2]), lin("sand_pale"), 0.55 * clamp(hh / h if h else 0.0))
+        cols = [_ground_colour(d[0], d[2]), _ground_colour(c[0], c[2]), head(b, hs[k + 1]), head(a, hs[k])]
         st = [(us[k] + st_off[0], st_off[1]), (us[k + 1] + st_off[0], st_off[1]), (us[k + 1] + st_off[0], st_off[1] + 1.0), (us[k] + st_off[0], st_off[1] + 1.0)]
         part.poly(pts, "m_sand", [kit.sand_uv(p) for p in pts], cols, chart, st if chart else None, final=True)
 
@@ -488,7 +506,7 @@ def wall_weather(axis, H, seed, stains=(), y0=0.0):
     return fn
 
 
-def _wall_from_profile(lm, vl, F, L, prof, thick, name, seed, density, batter, H):
+def _wall_from_profile(lm, vl, F, L, prof, thick, name, seed, density, batter, H, courses=False):
     """The faces of a broken wall whose top follows `prof` [(u, y), ...]: two lightmapped sides, the brick core on top
     and at both ends, plaster off near every break. Returns top(u)."""
     hw = thick / 2
@@ -521,16 +539,32 @@ def _wall_from_profile(lm, vl, F, L, prof, thick, name, seed, density, batter, H
         (u0, y0), (u1, y1) = prof[k], prof[k + 1]
         w0 = hw - batter * y0; w1 = hw - batter * y1
         q = [(u0, y0, w0), (u1, y1, w1), (u1, y1, -w1), (u0, y0, -w0)]
-        vl.poly([F.p(*v) for v in q], "m_frontier", [row_uv(FT, "adobe", v[0], 0.06 + 0.1 * (v[2] / thick + 0.5)) for v in q], [brick(v[1], v[0]) for v in q])
+        tk = (0.74 + 0.52 * vnoise(k * 1.9, seed * 0.7, seed + 8)) if courses else 1.0        # (pass i4) each tooth its own brick
+        vl.poly([F.p(*v) for v in q], "m_frontier", [row_uv(FT, "adobe", v[0], 0.06 + 0.1 * (v[2] / thick + 0.5)) for v in q], [mul(brick(v[1], v[0]), tk) for v in q])
     for (u, flip) in ((0.0, False), (L, True)):
         t = top(u)
+        if courses:
+            # pass i4: the broken end is laid in COURSES (each its own tone, a dark bed joint under it) and is not a plane:
+            # every other course stands a finger proud or is set back, as bricks pulled out of a bond are
+            ys_ = [0.0]
+            while ys_[-1] + 0.19 < t - 0.06: ys_.append(ys_[-1] + 0.19)
+            ys_.append(t)
+            for k in range(len(ys_) - 1):
+                y0_, y1_ = ys_[k], ys_[k + 1]
+                tone = 0.72 + 0.5 * vnoise(k * 1.7 + u, seed * 0.31, seed + 4)
+                out = (0.03 if k % 2 else -0.012) * (1.0 if flip else -1.0) * (0.5 + vnoise(k * 2.3, u + 1.0, seed + 6))
+                q = [(-hw + batter * y0_, y0_), (hw - batter * y0_, y0_), (hw - batter * y1_, y1_), (-hw + batter * y1_, y1_)]
+                if flip: q = [q[1], q[0], q[3], q[2]]
+                cc = [mul(brick(y, u), tone * (0.62 if j < 2 else 1.0)) for j, (w, y) in enumerate(q)]
+                vl.poly([F.p(u + out, y, w) for w, y in q], "m_frontier", [row_uv(FT, "adobe", w + 0.3, 0.04 + 0.15 * y / t) for w, y in q], cc)
+            continue
         q = [(-hw, 0.0), (hw, 0.0), (hw - batter * t, t), (-hw + batter * t, t)]
         if flip: q = [q[1], q[0], q[3], q[2]]
         vl.poly([F.p(u, y, w) for w, y in q], "m_frontier", [row_uv(FT, "adobe", w + 0.3, 0.04 + 0.15 * y / t) for w, y in q], [brick(y, u) for w, y in q])
     return top
 
 
-def ruin_wall(parts, a, b, H, thick=0.52, name="stub", seed=0, density=1.0, batter=0.025, ends=(0.55, 0.55), drops=(0.95, 1.05)):
+def ruin_wall(parts, a, b, H, thick=0.52, name="stub", seed=0, density=1.0, batter=0.025, ends=(0.55, 0.55), drops=(0.95, 1.05), ragged=False):
     """A broken adobe wall (cover): the top has SLUMPED (it sags and has one bite out of it, never more than 0.2 m under
     H), both ends are raked breaks in brick-course teeth (a tread of a hand or two, a riser of one or two courses: the
     brick core shows, darker), the plaster has come off near every break. parts = (lightmapped, vertex-lit). The body
@@ -546,6 +580,22 @@ def ruin_wall(parts, a, b, H, thick=0.52, name="stub", seed=0, density=1.0, batt
         n = max(3, int(round(drop / 0.3)))
         out = []; u = 0.0; y = H - drop
         runs = [rng.uniform(0.6, 1.5) for _ in range(n)]; rises = [rng.uniform(0.6, 1.4) for _ in range(n)]
+        if ragged:
+            # pass i4 (the visual reviewer: "a broken wall made of stepped flat boxes" in the sighting's own frame): a break
+            # follows the bond. Teeth of ONE course (a brick's height), some two, their treads from a finger to a brick
+            # long and tipped outward, one brick left standing proud of the slope: no two risers alike
+            n = max(5, int(round(drop / 0.19)))
+            runs = [rng.choice((0.25, 0.5, 0.5, 1.0, 1.0, 1.6)) * rng.uniform(0.8, 1.2) for _ in range(n)]
+            rises = [rng.choice((1.0, 1.0, 1.0, 2.0)) for _ in range(n)]
+            sr = sum(runs); sy = sum(rises)
+            out.append((0.0, y - 0.03))
+            for k in range(n):
+                ru = e * runs[k] / sr; ri = drop * rises[k] / sy
+                proud = 0.06 if (k == n // 2 and ru > 0.07) else 0.0
+                out.append((u + max(0.03, ru - 0.02), y - 0.035 + proud))       # the tread tips outward
+                u += ru; y += ri
+                out.append((u, y - (0.0 if k == n - 1 else 0.012)))
+            return [(L - uu, yy) for (uu, yy) in out][::-1] if flip else out
         sr = sum(runs); sy = sum(rises)
         out.append((0.0, y))
         for k in range(n):
@@ -561,22 +611,320 @@ def ruin_wall(parts, a, b, H, thick=0.52, name="stub", seed=0, density=1.0, batt
         if abs(u - bite) < bw + 0.1: continue
         mid.append((u, H - 0.02 - 0.07 * abs(fbm(u / 0.9, seed * 0.7, seed + 9, 2)) - 0.05 * math.sin(math.pi * (u - ends[0]) / max(L - ends[0] - ends[1], 0.1))))
     mid += [(bite - bw, H - 0.03), (bite - bw * 0.3, H - bd), (bite + bw * 0.5, H - bd * 0.8), (bite + bw, H - 0.04)]
-    top = _wall_from_profile(lm, vl, F, L, left + mid + right, thick, name, seed, density, batter, H)
+    top = _wall_from_profile(lm, vl, F, L, left + mid + right, thick, name, seed, density, batter, H, courses=ragged)
     return F, top
 
 
-def rubble_heap(part, c, r, rng, n=8, hmax=0.3):
+# ------------------------------------------------------------------ pass i5: a broken wall is broken BRICKWORK
+class Isles:
+    """Many small planar faces in ONE lightmap chart: each face is an island laid on shelves `width` metres long, a few
+    texels apart (the faces of a broken wall end: every brick's end, top and side takes its own baked light)."""
+    def __init__(self, name, density, width=1.5, base=16.0):
+        self.chart = kit.chart(name, density); self.gap = 7.0 / (base * density); self.width = width
+        self.x = 0.0; self.y = 0.0; self.shelf = 0.0; self.n = 0
+
+    def face(self, part, pts, cols, out, v0=0.04):
+        """A polygon (3 or 4 corners) that looks toward `out` (a direction in game space)."""
+        if not isinstance(cols[0], (tuple, list)): cols = [cols] * len(pts)
+        nrm = kit.vcross(kit.vsub(pts[1], pts[0]), kit.vsub(pts[-1], pts[0]))
+        if kit.vlen(nrm) < 1e-7: return
+        if kit.vdot(nrm, out) < 0: pts = pts[::-1]; cols = cols[::-1]; nrm = kit.vscale(nrm, -1.0)
+        nrm = kit.vnorm(nrm)
+        ax = max(range(len(pts)), key=lambda k: kit.vlen(kit.vsub(pts[(k + 1) % len(pts)], pts[k])))      # the longest edge lies along the shelf
+        e1 = kit.vnorm(kit.vsub(pts[(ax + 1) % len(pts)], pts[ax])); e2 = kit.vcross(nrm, e1)
+        loc = [(kit.vdot(kit.vsub(q, pts[ax]), e1), kit.vdot(kit.vsub(q, pts[ax]), e2)) for q in pts]
+        x0 = min(l[0] for l in loc); y0 = min(l[1] for l in loc); w = max(l[0] for l in loc) - x0; h = max(l[1] for l in loc) - y0
+        if w < 1e-4 or h < 1e-4: return
+        if self.x > 0 and self.x + w > self.width: self.x = 0.0; self.y += self.shelf + self.gap; self.shelf = 0.0
+        st = [(l[0] - x0 + self.x, l[1] - y0 + self.y) for l in loc]
+        uv = [row_uv(FT, "adobe", l[0] - x0 + 0.37 * self.n, v0 + 0.5 * min(l[1] - y0, 0.3)) for l in loc]
+        self.x += w + self.gap; self.shelf = max(self.shelf, h); self.n += 1
+        part.poly(pts, "m_frontier", uv, cols, self.chart, st, final=True)
+
+
+COURSE = 0.19                                    # an adobe brick and its bed joint (wall_paint.BRICK_H)
+
+
+def _brick_tone(seed, a, b, top=False):
+    """One brick's own colour: adobe, some sun-baked pale, some iron-red, one in six dark; dust lies on a top."""
+    h1 = vnoise(a * 7.31 + 0.5, b * 5.17 + 0.5, seed + 61); h2 = vnoise(a * 3.77 + 0.5, b * 9.13 + 0.5, seed + 62); h3 = vnoise(a * 5.9 + 0.5, b * 2.3 + 0.5, seed + 63)
+    c = mix(lin("adobe_base"), lin("adobe"), 0.15 + 0.55 * h1)
+    c = mix(c, lin("rust"), 0.30 * smooth((h2 - 0.45) / 0.3))
+    c = mul(c, 0.74 + 0.36 * h3)
+    if top: c = mul(mix(c, lin("sand_pale"), 0.30), 1.04)
+    return c
+
+
+def break_wall(parts, a, b, H, thick=0.52, name="stub", seed=0, density=2.5, batter=0.025, ends=(0.55, 0.55), drops=(0.95, 1.05), lanes=(True, True), kdens=3.0, loose=2):
+    """A broken adobe wall (cover) whose breaks are BRICKWORK (pass i5: both visual reviewers called the stub beside the
+    sighting "three or four untextured, flat-shaded boxes", "a staircase of flat dark boxes": its ends were one stack
+    of plain quads, vertex-lit, a course to a quad).
+
+    The body is a plaster skin: two lightmapped faces that end, at each end, on a ragged diagonal where the render came
+    away. The CORE stands out of it a finger inside each face: at each end a rake of single bricks (a course or two to
+    a tooth, in two wythes that broke at different places where `lanes`), under the rake the wall's end in courses that
+    stand toothed out of the break as bricks do when a bond is torn (some a hand proud, one or two gone), and along
+    the top the core's last course with a brick or two still lying on it. Every brick face is lightmapped in the chart
+    `name`_k at `kdens` times the atlas' density: wall_paint lays the bond (bed joints, perpends, each brick its tone)
+    into those texels and the bake puts each tooth's shadow on the one below. The body between the two rakes stays
+    the layout's cover (H). parts = (lightmapped, vertex-lit). Returns (frame, top(u))."""
+    lm, vl = parts
+    rng = random.Random(seed * 17 + 3)
+    L = math.hypot(b[0] - a[0], b[1] - a[1])
+    F = Frame((a[0], 0.0, a[1]), ((b[0] - a[0]) / L, (b[1] - a[1]) / L))
+    hw = thick / 2; INS = 0.022
+    isl = Isles(name + "_k", kdens)
+    half = lambda y: hw - batter * y                                       # the plaster face
+    core = lambda y: hw - batter * y - INS                                 # the brick's own side
+
+    def stair(e, drop):
+        """Teeth of one wythe: [(s, y), ...] the start and height of each tread, the last one running to `e`."""
+        y = H - drop; out = [(0.0, y)]
+        rises = []
+        while y < H - 0.03 - 0.5 * COURSE:
+            r = COURSE * rng.choice((1, 1, 1, 2)); r = min(r, H - 0.03 - y); y += r; rises.append(r)
+        if not rises: return out
+        runs = [rng.choice((0.4, 0.7, 1.0, 1.0, 1.5)) * rng.uniform(0.8, 1.2) for _ in rises]
+        # pass i6 (both visual reviewers: "a regular staircase of steps", "three or four stacked boxes"): a torn bond does
+        # not come down a course a brick. One tooth in three is short (a header, a snapped brick), one in four long (two
+        # bricks still bedded), and one or two bricks are GONE from the rake: that tread drops to the one below it (a
+        # long shelf) and the next tooth stands two or three courses over it
+        runs = [ru * rng.choice((0.3, 0.45, 1.0, 1.0, 1.0, 1.0, 1.9, 2.3)) for ru in runs]
+        if len(rises) >= 4:
+            for _ in range(1 if len(rises) < 7 else 2):
+                g_ = rng.randrange(1, len(rises) - 1)
+                if rises[g_] > 0.0: rises[g_ + 1] += rises[g_]; rises[g_] = 0.0
+        sr = sum(runs); s_ = 0.0; y = H - drop
+        for ru, ri in zip(runs, rises):
+            s_ += e * ru / sr; y += ri
+            out.append((s_, y))
+        return out
+    ENDS = []
+    for k in (0, 1):
+        e = ends[k]; drop = drops[k]
+        sa = stair(e, drop)
+        sb = stair(e * rng.uniform(0.72, 0.95), drop) if lanes[k] else sa
+        ENDS.append((sa, sb, H - drop))
+    tread_at = lambda st, s_: [y for (ss, y) in st if ss <= s_ + 1e-6][-1]
+
+    # ---- the plaster body: its top under each rake is a ragged diagonal a finger under the lowest tooth of either wythe
+    def diag(k):
+        sa, sb, y0 = ENDS[k]
+        e = max(sa[-1][0], sb[-1][0])
+        need = lambda s_: min(tread_at(sa, s_ - 0.002), tread_at(sb, s_ - 0.002)) - 0.035
+        pts = [(0.0, y0 - 0.05)]
+        for f_ in (0.36, 0.7):
+            s_ = e * (f_ + rng.uniform(-0.06, 0.06))
+            pts.append((s_, min(need(s_), y0 + (H - y0) * f_ - rng.uniform(0.02, 0.10))))
+        pts.append((e + 0.03, H - 0.05))
+        for _ in range(30):                                               # hold the polyline under every tooth's foot
+            bad = False
+            for st in (sa, sb):
+                for i in range(len(st)):
+                    s_end = st[i + 1][0] if i + 1 < len(st) else e
+                    for s_ in (st[i][0] + 0.001, s_end - 0.001):
+                        for j in range(len(pts) - 1):
+                            if pts[j][0] <= s_ <= pts[j + 1][0]:
+                                t = (s_ - pts[j][0]) / max(pts[j + 1][0] - pts[j][0], 1e-6)
+                                if pts[j][1] + (pts[j + 1][1] - pts[j][1]) * t > st[i][1] - 0.03:
+                                    jj = j if (t < 0.5 and j > 0) or j + 1 == len(pts) - 1 else j + 1
+                                    if 0 < jj < len(pts) - 1: pts[jj] = (pts[jj][0], pts[jj][1] - 0.03); bad = True
+            if not bad: break
+        return pts, e
+    (dl, e0), (dr, e1) = diag(0), diag(1)
+    bite = rng.uniform(e0 + 0.5, L - e1 - 0.5); bw = rng.uniform(0.28, 0.45); bd = rng.uniform(0.12, 0.2)
+    mid = []
+    for u in breaks(e0 + 0.03, L - e1 - 0.03, 0.45)[1:-1]:
+        if abs(u - bite) < bw + 0.1: continue
+        mid.append((u, H - 0.02 - 0.07 * abs(fbm(u / 0.9, seed * 0.7, seed + 9, 2)) - 0.05 * math.sin(math.pi * (u - e0) / max(L - e0 - e1, 0.1))))
+    mid += [(bite - bw, H - 0.03), (bite - bw * 0.3, H - bd), (bite + bw * 0.5, H - bd * 0.8), (bite + bw, H - 0.04)]
+    prof = sorted(dl + mid + [(L - s_, y) for (s_, y) in dr])
+    prof = [q for k, q in enumerate(prof) if k == 0 or q[0] - prof[k - 1][0] > 0.012]
+
+    def top(u):
+        if u <= prof[0][0]: return prof[0][1]
+        for k in range(len(prof) - 1):
+            if prof[k][0] <= u <= prof[k + 1][0]:
+                t = (u - prof[k][0]) / max(prof[k + 1][0] - prof[k][0], 1e-6)
+                return prof[k][1] + (prof[k + 1][1] - prof[k][1]) * t
+        return prof[-1][1]
+    brick = lambda y, u: mul(mix(lin("adobe_base"), lin("rust"), 0.14 * vnoise(u * 3.0, y * 4.0, seed)), 0.78 + 0.2 * vnoise(u * 7.0, y * 9.0, seed + 2))
+
+    def col(u, y, sd):
+        c = adobe_colour(y, u + sd * 9.0, seed + sd, 1.0)
+        t = top(u)
+        rag = 0.10 * fbm(u * 2.3 + sd, y * 2.9, seed + 12, 2)
+        k = max(smooth(1.0 - (t - y) / (0.26 + rag)), smooth(1.0 - min(u, L - u) / (0.30 + rag)) * 0.9,
+                0.85 * smooth((vnoise(u * 1.1 + sd * 3.0, y * 1.3, seed + 7) - 0.62) / 0.12))
+        return mix(c, brick(y, u), clamp(k) * 0.85)
+    us = [q[0] for q in prof]
+    ys = adobe_rows(0.0, H)
+    grid_face(lm, F, us, ys, hw, "m_frontier", lambda u, y: row_uv(FT, "adobe", u, adobe_v(y)), lambda u, y: col(u, y, 0),
+              kit.chart(name + "_r", density), (), False, w_fn=lambda u, y: hw - batter * y, top_fn=top)
+    grid_face(lm, F, us, ys, -hw, "m_frontier", lambda u, y: row_uv(FT, "adobe", L - u + 3.3, adobe_v(y)), lambda u, y: col(u, y, 1),
+              kit.chart(name + "_l", density), (), True, w_fn=lambda u, y: -hw + batter * y, top_fn=top)
+    UP = (0.0, 1.0, 0.0)
+    # the body's own top: the core's last course between the rakes (seen), the skin's edge under them (it shuts the slot
+    # between the plaster and the bricks)
+    for k in range(len(prof) - 1):
+        (u0, y0), (u1, y1) = prof[k], prof[k + 1]
+        q = [F.p(u0, y0, half(y0)), F.p(u1, y1, half(y1)), F.p(u1, y1, -half(y1)), F.p(u0, y0, -half(y0))]
+        isl.face(lm, q, [_brick_tone(seed, k * 1.0, 0.3, True), _brick_tone(seed, k + 1.0, 0.3, True), _brick_tone(seed, k + 1.0, 0.7, True), _brick_tone(seed, k * 1.0, 0.7, True)], UP)
+    n_face0 = len(lm.f)
+    for k in (0, 1):
+        sa, sb, y0 = ENDS[k]
+        e = max(sa[-1][0], sb[-1][0])
+        P = (lambda s_, y, w: F.p(s_, y, w)) if k == 0 else (lambda s_, y, w: F.p(L - s_, y, w))
+        OUT = kit.vscale(F.U, -1.0 if k == 0 else 1.0)                      # out of the wall's end
+        Wp = F.N; Wn = kit.vscale(F.N, -1.0)
+        sd = seed * 3 + k * 11
+        two = sa is not sb
+        # -- the rake: each wythe's teeth
+        for li, st in enumerate((sa, sb) if two else (sa,)):
+            w_lo, w_hi, wout = ((0.0, 1.0, Wp) if li == 0 else (-1.0, 0.0, Wn)) if two else (-1.0, 1.0, None)
+            for i in range(len(st)):
+                s0, y = st[i]; s1 = st[i + 1][0] if i + 1 < len(st) else e + 0.03
+                tip = 0.03 * vnoise(i * 1.9, li + 0.5, sd + 5)              # the tread tips toward the break
+                c_top = _brick_tone(sd, i * 1.0, li + 3.0, True)
+                if s1 - s0 > 0.012:
+                    q = [P(s0, y - tip, w_lo * core(y)), P(s1, y, w_lo * core(y)), P(s1, y, w_hi * core(y)), P(s0, y - tip, w_hi * core(y))]
+                    isl.face(lm, q, [mul(c_top, 0.92), c_top, c_top, mul(c_top, 0.92)], UP)
+                if i > 0 and y - st[i - 1][1] > 0.02:                      # its riser: the end of the brick(s) of this tooth (none where a brick is gone: pass i6)
+                    yb = st[i - 1][1]; tip_b = 0.0
+                    c_f = _brick_tone(sd, i * 1.0, li + 7.0)
+                    q = [P(s0, yb, w_lo * core(yb)), P(s0, yb, w_hi * core(yb)), P(s0, y - tip, w_hi * core(y)), P(s0, y - tip, w_lo * core(y))]
+                    isl.face(lm, q, [mul(c_f, 0.8), mul(c_f, 0.8), c_f, c_f], OUT)
+                # its outer side(s), from the tread down into the skin
+                for sgn, wv in ((1.0, Wp), (-1.0, Wn)):
+                    if two and ((li == 0) != (sgn > 0)): continue
+                    ub = (lambda s_: top(s_ if k == 0 else L - s_) - 0.07)
+                    b0, b1 = ub(max(s0, 0.0)), ub(min(s1, L))
+                    if y - min(b0, b1) < 0.025: continue
+                    c_s = _brick_tone(sd, i * 1.0, li + 11.0 + sgn)
+                    q = [P(s0, min(b0, y - tip), sgn * core(y)), P(s1, min(b1, y), sgn * core(y)), P(s1, y, sgn * core(y)), P(s0, y - tip, sgn * core(y))]
+                    isl.face(lm, q, [mul(c_s, 0.85), mul(c_s, 0.85), c_s, c_s], wv)
+        if two:                                                            # where one wythe stands over the other: the inner side
+            cuts = sorted({round(s_, 4) for (s_, _) in sa + sb} | {round(e + 0.03, 4)})
+            for i in range(len(cuts) - 1):
+                c0, c1 = cuts[i], cuts[i + 1]
+                if c1 - c0 < 0.012: continue
+                ya = tread_at(sa, 0.5 * (c0 + c1)); yb = tread_at(sb, 0.5 * (c0 + c1))
+                if abs(ya - yb) < 0.02: continue
+                c_i = mul(_brick_tone(sd, i * 1.0, 17.0), 0.9)
+                q = [P(c0, min(ya, yb), 0.0), P(c1, min(ya, yb), 0.0), P(c1, max(ya, yb), 0.0), P(c0, max(ya, yb), 0.0)]
+                isl.face(lm, q, [mul(c_i, 0.8), mul(c_i, 0.8), c_i, c_i], Wn if ya > yb else Wp)
+        # -- under the rake: the wall's end, in courses that stand toothed out of the break
+        cy = [0.0]
+        while cy[-1] + COURSE < y0 - 0.5 * COURSE: cy.append(cy[-1] + COURSE)
+        cy.append(y0)
+        nc = len(cy) - 1
+        gone = rng.randrange(1, max(2, nc - 1)); hang = rng.randrange(max(1, nc - 3), nc)
+        outs = []
+        for j in range(nc):
+            base = (0.035, 0.115)[j % 2] * rng.uniform(0.7, 1.25)
+            if j == gone: base = 0.02
+            oa = base; ob = base
+            if two and rng.random() < 0.45 and j != gone: ob = max(0.02, base + rng.choice((-1, 1)) * rng.uniform(0.04, 0.09))
+            if j == hang:                                                  # one brick hangs out of the break (one wythe of it where there are two: a brick, not a shelf)
+                oa = rng.uniform(0.14, 0.18)
+                ob = oa if not two else rng.uniform(0.03, 0.06)
+            outs.append((oa, ob))
+        q = [P(0.0, 0.0, half(0.0)), P(0.0, 0.0, -half(0.0)), P(0.0, y0, -half(y0)), P(0.0, y0, half(y0))]      # the skin's own end, a rim round the core
+        isl.face(lm, q, mul(lin("adobe"), 0.8), OUT)
+        for j in range(nc):
+            ya_, yb_ = cy[j], cy[j + 1]
+            oa, ob = outs[j]
+            up_a, up_b = outs[j + 1] if j + 1 < nc else (0.0, 0.0)
+            wa, wb = core(ya_), core(yb_)
+            sag = 0.012 * (vnoise(j * 2.1, 0.5, sd + 9) - 0.5)
+            lanes_ = ((oa, 0.0, 1.0, up_a, 0), (ob, -1.0, 0.0, up_b, 1)) if abs(oa - ob) > 0.01 else ((oa, -1.0, 1.0, max(up_a, up_b) if abs(up_a - up_b) < 0.01 else min(up_a, up_b), 0),)
+            for (o_, w_lo, w_hi, up_, li) in lanes_:
+                c_f = _brick_tone(sd, j * 1.0 + 0.5, li + 21.0)
+                if j == gone: c_f = mul(c_f, 0.55)                          # the bed of a brick that is gone: in the wall's shade
+                qq = [P(-o_, ya_, w_lo * wa), P(-o_, ya_, w_hi * wa), P(-o_ + sag, yb_, w_hi * wb), P(-o_ + sag, yb_, w_lo * wb)]
+                isl.face(lm, qq, [mul(c_f, 0.82), mul(c_f, 0.82), c_f, c_f], OUT)
+                if o_ - up_ > 0.015:                                      # its top, where the course over it stands back
+                    c_t = _brick_tone(sd, j * 1.0 + 0.5, li + 25.0, True)
+                    qq = [P(-o_ + sag, yb_, w_lo * wb), P(-o_ + sag, yb_, w_hi * wb), P(-up_, yb_, w_hi * wb), P(-up_, yb_, w_lo * wb)]
+                    isl.face(lm, qq, c_t, UP)
+                if o_ > 0.03:                                             # its sides, out of the skin
+                    for sgn, wv in ((1.0, Wp), (-1.0, Wn)):
+                        if (sgn > 0 and w_hi <= 0.0) or (sgn < 0 and w_lo >= 0.0): continue
+                        c_s = _brick_tone(sd, j * 1.0 + 0.5, li + 29.0 + sgn)
+                        qq = [P(-o_, ya_, sgn * wa), P(0.03, ya_, sgn * wa), P(0.03, yb_, sgn * wb), P(-o_ + sag, yb_, sgn * wb)]
+                        isl.face(lm, qq, [mul(c_s, 0.82), mul(c_s, 0.82), c_s, c_s], wv)
+            if abs(oa - ob) > 0.01:                                        # between two wythes that broke at different places
+                c_i = mul(_brick_tone(sd, j * 1.0, 33.0), 0.85)
+                qq = [P(-max(oa, ob), ya_, 0.0), P(-min(oa, ob), ya_, 0.0), P(-min(oa, ob), yb_, 0.0), P(-max(oa, ob), yb_, 0.0)]
+                isl.face(lm, qq, c_i, Wn if oa > ob else Wp)
+    # -- a brick or two still lying on the top between the rakes (the skyline is not a ruled line)
+    for i in range(loose):
+        u = rng.uniform(e0 + 0.25, L - e1 - 0.25)
+        if abs(u - bite) < bw + 0.25: u = bite + (bw + 0.3) * (1 if u > bite else -1)
+        if not (e0 + 0.15 < u < L - e1 - 0.15): continue
+        bl = rng.uniform(0.34, 0.42); bh = rng.uniform(0.09, 0.12); bwd = rng.uniform(0.2, 0.25); wc = rng.uniform(-0.1, 0.1); yaw = rng.uniform(-0.5, 0.5)
+        yb_ = min(top(u - 0.2), top(u), top(u + 0.2)) - 0.01
+        cs, sn = math.cos(yaw), math.sin(yaw)
+        cn = lambda du, dw, dy: F.p(u + du * cs - dw * sn, yb_ + dy, wc + du * sn + dw * cs)
+        c_b = _brick_tone(seed, i + 40.0, 3.0)
+        dirs = lambda du, dw: kit.vadd(kit.vscale(F.U, du * cs - dw * sn), kit.vscale(F.N, du * sn + dw * cs))
+        isl.face(lm, [cn(-bl / 2, -bwd / 2, bh), cn(bl / 2, -bwd / 2, bh), cn(bl / 2, bwd / 2, bh), cn(-bl / 2, bwd / 2, bh)], mul(mix(c_b, lin("sand_pale"), 0.25), 1.04), UP)
+        for (d0, d1, od) in (((-1, -1), (1, -1), (0, -1)), ((1, -1), (1, 1), (1, 0)), ((1, 1), (-1, 1), (0, 1)), ((-1, 1), (-1, -1), (-1, 0))):
+            qq = [cn(d0[0] * bl / 2, d0[1] * bwd / 2, 0.0), cn(d1[0] * bl / 2, d1[1] * bwd / 2, 0.0), cn(d1[0] * bl / 2, d1[1] * bwd / 2, bh), cn(d0[0] * bl / 2, d0[1] * bwd / 2, bh)]
+            isl.face(lm, qq, [mul(c_b, 0.8), mul(c_b, 0.8), c_b, c_b], dirs(od[0], od[1]))
+    return F, top
+
+
+def rubble_fan(part, c, r, rng, h=0.2, n=7, chart=None):
+    """What a broken wall end melts into: a low fan of adobe gone back to earth, its rim the ground's own colour.
+    Lightmapped (chart: planar from above): on High a vertex-lit thing in a building's shade takes the sun map's shadow whole."""
+    apex = (c[0] + rng.uniform(-0.08, 0.08), h, c[1] + rng.uniform(-0.08, 0.08))
+    ring = []
+    for k in range(n):
+        a_ = 2 * math.pi * k / n + rng.uniform(-0.2, 0.2); rr = r * rng.uniform(0.75, 1.2)
+        ring.append((c[0] + math.cos(a_) * rr, 0.012, c[1] + math.sin(a_) * rr))
+    ca = mix(_ground_colour(c[0], c[1]), mul(mix(lin("adobe_base"), lin("adobe"), 0.5), 0.92), 0.6)
+    for k in range(n):
+        p0, p1 = ring[k], ring[(k + 1) % n]
+        pts = [apex, p0, p1]
+        nrm = kit.vcross(kit.vsub(p0, apex), kit.vsub(p1, apex))
+        if nrm[1] < 0: pts = [apex, p1, p0]
+        cols = [ca] + [_ground_colour(q[0], q[2]) for q in pts[1:]]
+        part.poly(pts, "m_sand", [kit.sand_uv(q) for q in pts], cols, chart, [(q[0], q[2]) for q in pts] if chart else None, final=True)
+
+
+def rubble_bricks(isl, part, c, r, rng, n=6, hmax=0.3):
+    """Bricks that fell from a broken end, lying where they dropped, some on one another, half in the sand: each face an
+    island of `isl` (lightmapped: see rubble_fan)."""
+    for k in range(n):
+        a = rng.uniform(0, 2 * math.pi); d = r * rng.random() ** 0.7
+        x = c[0] + math.cos(a) * d; z = c[1] + math.sin(a) * d
+        sz = (rng.uniform(0.3, 0.42), rng.uniform(0.1, 0.14), rng.uniform(0.17, 0.22))
+        lift = (0.11 if k % 3 == 0 else 0.0) * (1.0 - d / max(r, 1e-3))
+        y = min(hmax - sz[1] / 2 - 0.03, sz[1] * rng.uniform(0.15, 0.5) + lift)
+        t = rng.uniform(-0.09, 0.09)
+        colr = _brick_tone(int(rng.random() * 97), k * 1.0, 1.0)
+        P = kit.box_pts((x, y, z), sz, rng.uniform(0, 180), (t, -t))
+        ctr = (x, y, z)
+        for fi, idx in enumerate(((0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7), (4, 5, 6, 7))):
+            q = [P[i] for i in idx]
+            mid = tuple(sum(v[j] for v in q) / 4 for j in range(3))
+            top = fi == 4
+            isl.face(part, q, mul(mix(colr, lin("sand_pale"), 0.25), 1.04) if top else [mul(colr, 0.8), mul(colr, 0.8), colr, colr], kit.vsub(mid, ctr))
+
+
+def rubble_heap(part, c, r, rng, n=8, hmax=0.3, slabs=True):
     """What came off a broken wall end: bricks and slabs of plaster lying where they fell, some on one another, half in
     the sand (nothing over `hmax`: nothing a body meets)."""
     for k in range(n):
         a = rng.uniform(0, 2 * math.pi); d = r * rng.random() ** 0.7
         x = c[0] + math.cos(a) * d; z = c[1] + math.sin(a) * d
-        slab = k % 3 == 2
+        slab = slabs and k % 3 == 2                                      # (pass i5, slabs=False: a flat dark slab on the sand read as a decal beside the stubs; bricks only, some on one another)
         sz = (rng.uniform(0.34, 0.6), rng.uniform(0.04, 0.07), rng.uniform(0.3, 0.45)) if slab else (rng.uniform(0.3, 0.42), rng.uniform(0.1, 0.14), rng.uniform(0.17, 0.22))
-        lift = (0.11 if (k % 4 == 0 and not slab) else 0.0) * (1.0 - d / max(r, 1e-3))
+        lift = (0.11 if ((k % 4 == 0 or (not slabs and k % 3 == 2)) and not slab) else 0.0) * (1.0 - d / max(r, 1e-3))
         y = min(hmax - sz[1] / 2 - 0.03, sz[1] * rng.uniform(0.15, 0.5) + lift)
         t = rng.uniform(-0.09, 0.09)
-        colr = mul(mix(lin("adobe_base"), lin("adobe"), rng.uniform(0.1, 0.9) if slab else rng.uniform(0.0, 0.5)), rng.uniform(0.8, 1.05))
+        colr = mul(mix(lin("adobe_base"), lin("adobe"), rng.uniform(0.1, 0.9) if slab else rng.uniform(0.0, 0.5) if slabs else rng.uniform(0.2, 0.8)), rng.uniform(0.8, 1.05))
         kit.add_box(part, (x, y, z), sz, "m_frontier", colr, rot=rng.uniform(0, 180), sides="nsewt", lean=(t, -t), final=True)
 
 

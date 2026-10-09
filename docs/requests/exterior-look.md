@@ -366,3 +366,204 @@ rows: mine, fixed and re-run; R6 "bore: 4.1 % under L* 12": the gun's); `npx vit
 | `public/share.jpg` | remade from this pass's title frame |
 | `tests/render/polish3.test.mjs` (hot body = longest run of hot rows; stars off for the sky comparison) | **Accepted**: the measure follows the thing measured |
 | Section 2, not done | In `docs/KNOWN_ISSUES.md` |
+
+## Fixer, pass i4 (2026-10-08): what is ready for this team, and what is ruled
+
+
+| Item | State |
+|---|---|
+| Triangles (ruling R14) | **Applied** through `tools/gen_assets.mjs`; nothing built with them. Free now: `chunk_lip_rock` 1 478, `chunk_lip_upper` 1 029, `chunk_lip_mid` 267, `chunk_lip_gate` 1 103, `chunk_st_east` 715, `chunk_st_west` 563, `chunk_st_yard` 776, `chunk_st_works` 183, `env_backdrop_day` 561, `chunk_rim_ledge` 7 626, `rim_town_card` 851, `env_backdrop_dusk` 1 235. `env_plenty_street` is held to the sum of its chunk plans WITH its four drawn nodes (about 570 triangles): the zone as a whole has about 1 670 free |
+| The street's instanced dressing | **Not raised**: the street and yard cells stand at 119 840 of 120 000. Stones and scrub go into the chunks (the triangles above) or into the bake; a High-only scatter is render-tech's to draw and does not count against Low |
+| Textures | **Unchanged.** Low 55.3 of 64 MiB at the seam stage, High 121.0 of 128. Ask the closer with a number if the ground needs `tx_sand` at 1024 (1.0 MiB) |
+| The pursued man (rulings R4, R18) | his place is the layout's (`DOWSER` in `tools/gen_layout.mjs`: bearing 270, elevation 12 degrees, 250 m; the validator's `sightlines` check holds it clear). **Not moved**: give him ground at his depth with the backdrop's 561 triangles. If he must come down, write the elevation you need here: the closer changes it and rebuilds |
+| The last image | `nar_fire` and `socket_last_fire` are unchanged; the ending's camera is the world team's (`src/world/ending.ts`): agree the fire's place with it before moving the socket |
+| A full rebuild was made after the design data changed | every item is current: `node tools/build-assets.mjs --only env_exterior` rebuilds only what you change |
+
+## Team exterior-look, pass i4 (2026-10-08): what changed, what the closer mirrors, what is asked of others
+
+Working log `scratch/i4-team-exterior-look/NOTES.md`; images `shots/i4-team-exterior-look/` (`before/`, `after/`, work sets).
+
+### 1. Changes (for GDD / ART_BIBLE / ARCHITECTURE)
+
+| # | What | Where | Numbers |
+|---|---|---|---|
+| 1 | The pursued man stands on a rimrock at his own scale (R4, R18) | `src/world/sightRock.ts` (new), `src/world/director.ts` `presentSightRock` | one unfogged mesh, 1 draw call, about 220 triangles, built with the director (the boot's warm-up compiles it), shown while `plenty_street` is built; measured in his drawn heights and scaled `0.9 x SIGHT_MIN_PX` of a 720-line frame per height about his feet; it stands `SIGHT_ROCK_FRONT` 9 m nearer than his card |
+| 2 | High out of doors: ground dust and the sun's glow (R16) | `src/render/post.ts` `SunShaftEffect` (`DUST_*`, `GLOW_*`), `src/render/system.ts` (`post.dustK`, `glowK`, `dustGround`, `dustTime`, `dustCol`), debug `ext.render.dust(on?)` | `DUST_K` 0.036, `DUST_H` 0.9 m, `DUST_FAR` 150 m, `DUST_SUN` 0.7, `DUST_HIDE` 0.6, `DUST_MAX` 0.5, `DUST_DARK` 0.7, `DUST_GULLY` 0.3, `DUST_WIND` 0.5; `GLOW_K` 1.0, `GLOW_FALL` 11, `GLOW_NEAR` 0.3. Same pass, same depth, no new sample, no target. Under the Long Light only (not under the overhang, not at dusk); still under Reduce Motion |
+| 3 | High's sun shadow | `src/render/moods.ts` `SHADOW_SUN` | k 0.60 -> 0.64, shade 0.40 -> 0.36, inShade 0.5 -> 0.45, tint (0.018, 0.030, 0.075) |
+| 4 | The last fire | `src/render/vfx/vfx.ts` | `FIRE_PX` 38 -> 50; tight glow 60 -> 104 px at 0.50 (0.80); wide glow 150 -> 230 px at 0.19 (0.26); pools 0.36 / 0.75 (0.30 / 0.62); smoke 0.46 (0.36) |
+| 5 | The glance off the rim's sand no longer follows each triangle (chevrons) | `src/render/materials.ts` (render-tech's block; that team is not active in this pass) | the glance's ground normal is level but for 15 % of the face's tilt |
+| 6 | Art: see `blender/env_exterior/README.md` "What pass i4 changed" | `blender/env_exterior/` | `env_the_lip` 27 777 / 31 000, `env_plenty_street` 48 799 / 49 700, `env_backdrop_dusk` 2 369 / 3 200 |
+
+Measured (1280 x 720, the real game, `scratch/i4-team-exterior-look/diff_after.log`; mean absolute difference of 255 and
+share of pixels more than 24 apart, Low against High): gate 6.2 / 0.5 % -> 8.7 / 2.3 %, gate court toward the gate
+4.7 / 0.1 -> 13.1 / 11.1, street west 8.9 / 5.2 -> 14.0 / 15.4, yard at the checkpoint 5.1 / 0.2 -> 11.0 / 3.7, yard
+door 7.8 / 4.6 -> 14.9 / 20.7, gully mouth 7.0 / 2.5 -> 20.0 / 36.5. **Away from the sun it is still small**: yard
+south 5.8 / 0.6 -> 6.2 / 1.5, yard east 6.7 / 0.5 -> 6.3 / 0.6. The overhang and the rim are unchanged (6.1 / 5.4, 7.9 / 5.2).
+Budgets in the after sets: Low at most 51 draw calls, 91 669 triangles, 48.9 MiB; High 98, 205 466, 73.9 MiB.
+
+### 2. Tests edited
+
+`tests/art_env_exterior/i3.test.mjs` (the row under his boots is the rimrock; the last frame is level: the fire and the
+land's edge stand just under the middle), `tests/world/sighting.test.mjs` (the figure's window ends over his foot line:
+the rimrock's shaded beds are as dark as his coat), `tests/render/polish3.test.mjs` (the fire's glow may be 500 px wide of
+960, it was 400; its hot body keeps the 48 px cap).
+
+### 3. Asked of others
+
+| To | What |
+|---|---|
+| creatures-props | **The wagon's wheel** (`prop_wagon_tipped`, visual-b: "a smooth dark shape with no grain or iron tyre"): the prop is yours (`blender/props/dress/`); the fixer raised its budget to 1 500. After any change to it or to `prop_water_cart`, `node tools/build-assets.mjs --only env_exterior` (both are embedded in `env_plenty_street` and shade `lm_surface`) |
+| render-tech | (a) a vertex-lit face of a chunk takes the High shadow map whole (its lightmap texel is the neutral one, so `inShade` never applies): the break face of `yd_cover_stub_1`, in the foreground of the sighting, reads flat violet on High. A gate by the face's own vertex light would mend it. (b) High away from the sun is still within 6 of 255 of Low: a High-only scatter of stones and scrub is the cheapest thing left |
+| closer | mirror section 1 into ARCHITECTURE 8.4 (High tables) and ART_BIBLE (daylight dust, the last fire's size); `share.jpg` and the hero frames show the old yard and last image; re-run the playthrough (the director adds one mesh; no gameplay value changed) |
+
+## Closer, pass i4 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| 1 rows 1 to 6 | Mirrored: ART_BIBLE amendments, ARCHITECTURE "Pass i4 (closer)" 8.4, GDD 23.19 (9.3, 9.8), LEVEL 19 |
+| 3 the wagon's wheel | **Not built** (no team took it); known issue |
+| 3 render-tech (a) a vertex-lit face under the High shadow map, (b) a High-only scatter | **Not built**; known issue |
+| Creatures-props' ask: delete `rim_shelf`'s two boxes | **Left**: they draw nothing a player sees and the rim has 6 600 triangles of plan free |
+| The posterised banding in late captures | Looked for by the closer in the final hero frames: see INTEGRATION_REPORT Part R |
+
+## Team exterior-look, pass i5 (2026-10-08): what changed, what the closer mirrors, what is asked of others
+
+Working log `scratch/i5-team-exterior-look/NOTES.md`; images `shots/i5-team-exterior-look/` (`before/`, `after/`, work sets
+`f1`..`f3`, `s1`..`s3`, `s1b`..`s1d` = High with the sun map and the dust switched off in turn, `d1`, `w_shelves`, `test/`).
+Tools there: `view.mjs`, `end.mjs` (the TRUE last image), `floors.mjs`, `lip.mjs`, `iso.mjs`, `lmprobe.mjs` (what the High
+shadow gate reads at a world point), `metric.mjs`, `chunks.mjs`, `collider.mjs`.
+
+### 1. Changes (for GDD / ART_BIBLE / ARCHITECTURE / LEVEL)
+
+| # | What | Where | Numbers |
+|---|---|---|---|
+| 1 | **The broken wall beside the sighting is brickwork** (both reviewers, major: "untextured, flat-shaded boxes on a plain blue base"). All five ragged cover stubs: a plaster skin over a brick core that stands toothed out of each break, a rake of single bricks (two wythes on `yd_cover_stub_1`), loose bricks on a fan of melted adobe at the foot; every face lightmapped, the bond painted into the lightmap | `blender/env_exterior/ext_frontier.py` (`Isles`, `break_wall`, `rubble_fan`, `rubble_bricks`), `street_parts.stub_wall`, `street_yard.build`, `wall_paint.py` (`brick` kind) | `env_plenty_street` 48 945 / 49 700 (yard chunk 13 164 / 13 400, east 13 261, west 15 601); `lm_surface` 2.02 MB (1.77), 15.56 texels a metre (16.0). Cover extents, colliders and nav unchanged (`openings.test.mjs` passes) |
+| 2 | **High: a WALL in baked shade that looks at the sun is no longer shaded twice** (the stub's "flat blue" on High: `shade` 0.36 + `inShade` 0.45 = 52 % of the way to the shadow's dark blue on every sun-facing face in a building's shade; a face turned from the sun took 23 %). `inShade` is the ground's now: a wall takes 0.27 of it (30 % in all), and up-facing ground always counts as facing the light (a drift's lee slope in a building's shade took no shadow and lay there as a paler patch) | `src/render/system.ts` `SHADOW_WALL_IN_SHADE` 0.27 and two lines of `keepShadowGate` (the face's own normal: `fn.y` 0.35 .. 0.75 for the share, 0.80 .. 0.93 for the ground). `moods.ts` `SHADOW_SUN` is unchanged (0.12 for everything was tried: the street's cast shadows went from 19 % of the frame to 0.3 %, `tests/render/i2.test.mjs`) | `tests/render/i2.test.mjs`: fixed casters darken 18.2 % of the town frame (19.4), the whole pass 29.0 % (29.5). Low against High (`tiers.test.mjs`, final tree): gate 10.3, street 13.4, yard door 15.2, yard vista 12.6, last view 7.3 (pass i4: 10.7, 14.7, 16.6, 13.3, 7.3: the walls in shade are a little nearer Low's, by design) |
+| 3 | **High: no dark ring round a patch of loose sand** ("an outlined circle patch on the sand" in the sighting's frame). The shadow twins were pulled toward the eye by a slope-scaled polygon offset: at a grazing angle the ground sheet's twin came through a drift lying a finger over it and its toe was shaded twice | `src/render/system.ts` `makeShadowMaterial`: `polygonOffsetFactor` -1 -> **0**, `polygonOffsetUnits` -1 -> **-4** | `shots/i5-team-exterior-look/s1b/iso_sheet.png` (rings with the map on, none with it off), `s1d/iso_all.png` (map on, no rings) |
+| 4 | **The last image's foreground is benched rimrock** (both reviewers, major: "a smooth low-detail pink mound with a pale lavender streak"). The mesa's foot under the ledge: level beds with lit lips, risers where they turn into the wash, the wash a stepped floor of sand that runs on over the plain toward the fire; the apron reaches the plain 60 m out (78) | `blender/env_exterior/env_backdrop_dusk.py` (`build_foot`, `foot_h`), `rim_town_card.py` (the dead pylon stands on its bench: `y0_` 3.2 -> 2.0) | `env_backdrop_dusk` 2 857 / 3 200; in the ending's own view the lower 30 % averages 29 to 31 of 255 with 2.5 to 3.2 % of it over 60 (it was 50 and 35 %); the rock fills the bottom 20 % of the frame (it was 28 %) |
+| 5 | **The overhang's dust is dust** ("a tight cluster of hard white dots against the gully wall"): out of doors a mote of the sun blades is 2.2 times the size, soft-edged, the sand's warm hue at 0.28 of the level, in a shaft 0.95 m in radius, gone by 8 m | `src/render/vfx/ambient.ts` (`OUT_SIZE`, `OUT_ALPHA`, `OUT_SPREAD`, `OUT_FAR`; `uGround.w`), `src/render/system.ts` (one line: `ambient.ground.value.w` is 1 in `the_lip`) | hard bright pixels in the left half of the reviewer's frame: 201 and 341 -> 1 and 6. **Both tiers** (Low draws 120 of these motes): the first image's motes are softer. The Tally House's blades are unchanged (`w` 0) |
+| 6 | **The floors** (minor): wind-laid sheets painted into the lightmap, stronger pans and wall feet | `blender/env_exterior/ground_paint.py` (`sheets`, `breakup`, `paint_lip`, `paint_street`, `paint_yard`) | no triangle; see section 2 |
+
+### 2. Not done, honestly
+
+- **The gully's and the street's floors got value structure, not things.** No rock shelf, brush or half-buried board was
+  added: a second run of longer bedrock shelves was built and withdrawn (a 3 m plate is one flat vertex-lit facet: a
+  pale board on the sand, `shots/i5-team-exterior-look/w_shelves/`). The painted sheets are subtle in the gully's shade.
+- **The last fire is the size it was** (`FIRE_PX` 50). Reviewer visual-a asked for 1.5 times; `tests/render/polish3.test.mjs`
+  holds its hot body under 48 rows of 540 (58 failed it in pass i4) and pass i2's reviewers asked for a small far fire.
+  With the foreground dark the fire and the lamps carry the frame; a larger flame is a lead's call.
+- **The lit windows** ("six or seven are visible while the card says nine") were not touched: the town's west end is cut
+  by the frame's left edge at 16:9, as in pass i2.
+- Close up (under a metre) a brick's joints are soft: the stub's charts have 40 to 47 texels a metre.
+- A vertex-lit thing in a building's shade still takes High's sun shadow whole (the bushes, the boards on the sand, the
+  street's older rubble): only the stubs were moved into the lightmap.
+- The polygon offset of the shadow twins was looked at on SwiftShader only (the street, the yard, the gully: shadows
+  drawn, no stripes). On a real GPU a constant offset of 4 units is the usual decal setting; if a twin ever z-fights
+  its own mesh there, raise the units, not the factor.
+- Not run by me: the whole-stage playthrough and the e2e suite. No collider, nav, trigger or gameplay value changed
+  (`collider_terrain` is byte-identical); the director's sighting is computed from collision, not from drawn geometry.
+
+### 3. Asked of others
+
+| To | What |
+|---|---|
+| closer (docs) | Mirror section 1: **ART_BIBLE** (7.2: a cover stub's break is brickwork, plaster over a toothed core, all lightmapped; the coda: the foot under the rim is benched rimrock with lit lips and a stepped wash; High: a wall in baked shade takes 0.27 of `inShade`, the ground all of it; the overhang's motes out of doors), **ARCHITECTURE** 8.4 (the shadow twins' constant polygon offset, `SHADOW_WALL_IN_SHADE`, the ground rule of the face gate; `uGround.w`), **LEVEL** (the stubs' drawn bricks reach up to 0.18 m past the cover solid's end, no collider; the apron under the rim), **KNOWN_ISSUES** (section 2; R.7's "the dune in the foreground is a smooth unlit shape" is gone) |
+| closer (assets) | Rebuilt at full quality by me: `lm_surface`, `env_plenty_street`, `env_the_lip` (one run, the atlas is shared: `--only lm_surface,env_plenty_street,env_the_lip --force`), `env_backdrop_dusk`, `rim_town_card`. The zones embed the props as they stood when I built (11:50): **rebuild the zones last if a prop team's asset changed after that.** `src/ui/loadMeter.ts` `BOOT_FILE_BYTES` moves by about +0.27 MB (`lm_surface`, the street). The hero frames `hero_05` (the sighting) and `hero_12` (the last image) and `public/share.jpg`'s source frame show the old stub and the old foreground |
+| render-tech (seen, edited by me in shared files; that team is not active in the look pass) | `src/render/system.ts`: the shadow twin's polygon offset (one line and its comment in `makeShadowMaterial`), `SHADOW_WALL_IN_SHADE` and four lines of the twin's `keepShadowGate`, one line where the ambient points are set (`ground.value.w`); `src/render/vfx/ambient.ts`: the `OUT_*` constants and four places in the motes branch of the two shaders. Nothing reordered |
+| world team | nothing changed in `src/world`. `tests/world/i5.test.mjs` re-run after the stub's rebuild (it reads collision; see the report) |
+| reviewers | the true last image is `scratch/i5-team-exterior-look/end.mjs <set> <tier> take|leave` (the game eases the view itself); `shots/i5-team-exterior-look/after/high_end_take_nogun.png`, `high_end_take_card.png`, `high_end_leave_gun.png` |
+
+Tests on the final tree (one after another): `node --test tests/render/` **86 of 86**; `node --test tests/art_env_exterior/`
+**33 of 33** (the 29 and the 4 of the new `i5.test.mjs`: the yard stubs end in toothed brickwork at six depths or more; the
+foot is benched; the last image's lower 30 % is dark with hard edges on both tiers; the overhang's motes are not a rash
+of white dots); `tests/world/i5.test.mjs`, `i5_real.test.mjs`, `sighting.test.mjs` **6 of 6**; `npx vitest run tests/render
+tests/world` 98 pass; `npx tsc --noEmit` clean; `node tools/check-glb.mjs` 84 assets, 21 textures, 11.68 MB: all pass;
+`npm run validate` pass. Not run by me: `tests/e2e`, the whole of `tests/world` and `tests/ui` (its loading-bytes figure moves).
+
+## Closer, pass i5 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| Section 3, closer (docs) | **Mirrored**: ART_BIBLE "Amendments, pass i5 (closer)", ARCHITECTURE "Pass i5 (closer)" 8.4, LEVEL 20, GDD 23.20; `docs/KNOWN_ISSUES.md` rewritten |
+| Section 3, closer (assets) | **Done**: full rebuild with `--force` (zones embed the final props and re-bake); `BOOT_FILE_BYTES` refreshed; `hero_05`, `hero_12` and `public/share.jpg` retaken (Part S) |
+| The last fire at 1.5 times; things rather than paint on the floors | **Declined, upheld**: the test's cap and pass i2's "small far fire" stand; the street cells have no triangles left for lightmapped shelves. Both in `docs/KNOWN_ISSUES.md` |
+| The lit windows cut by the frame at 16:9; vertex-lit things under High's sun shadow; the polygon offset on a real GPU | **Not built / not verifiable here**: in `docs/KNOWN_ISSUES.md` |
+
+## Team exterior-look, pass i6 (2026-10-08): what changed, what the closer mirrors, what is asked of others
+
+Working log `scratch/i6-team-exterior-look/NOTES.md`; images `shots/i6-team-exterior-look/` (`before/`, `after/`, work sets
+`c1`..`c3` the last image's land, `m1`, `m2`, `k1`..`k3` the rim on High, `g1`, `g2` the Lip on High, `p0`..`p2` the pylon,
+`s0`, `s1` the stubs and floors, `e1` the sighting, `t1` the dust and the dusk's shafts switched off in turn). Tools there:
+`cap.mjs`, `view.mjs`, `end.mjs` (the TRUE last image), `sight.mjs`, `diff.mjs`, `toggle.mjs`, `chunks.mjs`.
+
+### 1. Changes (for GDD / ART_BIBLE / ARCHITECTURE / LEVEL)
+
+| # | What | Where | Numbers |
+|---|---|---|---|
+| 1 | **High on the rim: mist on the plain** (R16, a major: "almost pixel-identical to Low"). The Long Light's ground-dust term with its own shape in the blue hour: it lies on the plain under the ledge, 3 m deep, pools round the town, the pylon line and the near swells, thins to a fifth between 180 and 320 m (the last fire's horizon stays clear, R5) | `src/render/moods.ts` `DUSK_MIST` / `MistSpec`; `src/render/post.ts` `uShAir` / `PostChain.dustAir` (the layer's height, reach and far fade are a uniform; by day `DUST_H`, `DUST_FAR`, 160, 230: the same picture); `src/render/system.ts` (the dust block) | `k` 0.0062, `h` 3.0, `ground` -0.6, `far` 520, `fade` 180 .. 320, `col` 0.35 / 0.29 / 0.47 (display). Same pass, same depth, no sample, no target |
+| 2 | **High on the rim: dust on the evening wind, lamp light in the air, the afterglow along the sand** | `moods.ts` `AIR_DUST` L6 / L6c 0.7 (none), `AIR` L6 1.8 (0.8), `AIR_CONE` L6 6 (none), `AIR_GLOW` L6 22 (18), `GLANCE` L6 / L6c 3.2 (2.1); `src/render/vfx/ambient.ts` `DUSK_DRIFT` 0.22 m/s, `DUSK_SIZE` 1.5, `DUSK_COL` (the 'air' motes take them while `uGround.z` is 1); `system.ts` sets `ground.z` in the 'air' branch | 400 points, the one ambient draw call. Tried and withdrawn: `SHAFT_DUSK` 1.0 (the mesa behind the fire was lifted), `AIR_GLOW` 26 (the panes lost their shape), mist `k` 0.0075 and a far fade of 650 .. 1 000 m (the last image lost its dark third; a third of the flame) |
+| 3 | **High under the overhang and in the gully** (R16) | `post.ts` `DUST_ROOF` 0.8 (new: the ground-dust layer is drawn from under the roof: nothing on the near rock, a warm band along the gully's foot beyond the mouth), `DUST_GULLY` 0.55 (0.3); `src/render/vfx/vfx.ts` the gully's three shafts 2.2 m wide at 0.21 (1.7 at 0.15) | see section 2 |
+| 4 | **The pursued man stands on a mesa's rim** (R18: "a giant on a nearby boulder") | `src/world/sightRock.ts`: `TOP` is a level caprock thirteen of his heights long (it was a knob 0.9 heights across with steps half his height), cliffs at both ends out of the gap's sight, low steps and one notch; the face under the cap in level beds (`STRATA`, `STRATA_TONE`); `HAZE_K` 0.13 (0.07) | about 600 triangles (250), one draw call. He stands on the rim's one proud slab, a twelfth of his height over the caprock beside it (rock level with his feet beside him was counted as part of him by `tests/world/sighting.test.mjs` when the view is turned off him). Nothing in `director.ts` changed: his size, the rule of the clean line and the rock's place are the world team's |
+| 5 | Art: see `blender/env_exterior/README.md` "What pass i6 changed" (the pylon, the stubs' rake and bond, the yard's walls, the floors' drifts and door scuffs, the last image's lips, swells, wash and scrub) | `blender/env_exterior/` | `env_the_lip` 28 289 / 31 000 (gate chunk 6 891 / 7 300), `env_plenty_street` 49 017 / 49 700 (yard chunk 13 144 / 13 400), `env_backdrop_dusk` 3 069 / 3 200, `lm_surface` 1.97 MB at 14.58 texels a metre (15.56) |
+
+### 2. Measured (1280 x 720, the real game; mean absolute difference of 255 and share of pixels more than 24 apart, Low against High, `diff.mjs`)
+
+| Frame | Before | After |
+|---|---|---|
+| under the overhang, the start (`lip_start`) | 6.0 / 5.3 % | 13.9 / 18.9 % |
+| the mouth, a pace out (`lip_mouth`, `lip_out`) | 8.4 / 5.8, 8.4 / 7.0 | 13.8 / 17.5, 14.9 / 19.1 |
+| the gully's reaches (`lip_gully_a`, `_b`, `_c`) | 8.1 / 3.6, 8.4 / 2.3, 10.1 / 5.3 | 10.3 / 5.7, 11.2 / 4.1, 13.5 / 11.6 |
+| the rim, the cage looking out (`cage_n`), the gate (`door_out`) | 6.4 / 5.4, 12.4 / 12.3 | 8.5 / 10.0, 16.8 / 27.1 |
+| the last view (`last`), the TRUE last image (`end.mjs`, no gun) | 7.9 / 5.1, 6.6 / 5.5 | 13.1 / 12.2, 11.5 / 10.7 |
+
+`tests/art_env_exterior/tiers.test.mjs` (view-model hidden): gate 10.2, street 13.2, yard door 14.8, yard vista 12.6, **rim last
+11.4 (7.3)**. Budgets in the after sets: Low at most 55 draw calls, 96 thousand triangles, 48.9 MiB (the rim 15 / 28 580 /
+29.6); High 98 / 206 thousand / 73.9 (the rim 27 / 28 580 / 54.6).
+
+### 3. Not done, honestly
+
+- **Inside the cage, facing its own walls, High is Low** (1.3 to 4.0 of 255). The cage is a dark enamel prop under the
+  blue hour's dynamic light; what High adds there is the motes and the call lamp's glow. The reviewers' `A_cp_rim` averages
+  four headings from inside it.
+- **No shadow map in the blue hour** (the reviewer asked for "the sun shadow map under the cage, stone and rocks"). The
+  rim's lightmap already holds the afterglow's soft shade under the stone and the rocks; a map from a light 6 degrees up
+  would lay a second, hard one over it. Not built, not tried.
+- **Down the gully the share of plainly different pixels is still under a tenth in two of three reaches** (5.7 %, 4.1 %):
+  the mean is over 10 of 255 and the far reaches are plainly hazier, but the near rock walls are the bake's on both
+  tiers (the shadow map's fixed casters are off in the Lip: its bake is not the sun's alone).
+- **No "sun shadow edge from the overhang's lip on the sand"**: the roof's shade is the bake's.
+- **High's last fire is softer than Low's** (it was before this pass: the halo and the bloom): the mist is thinned to a
+  fifth on its horizon, but the flame on High is still a soft small light where Low's is a crisp one
+  (`shots/i6-team-exterior-look/after/fire_crops.png`: before above, after below; Low left, High right).
+- The stubs' joints are soft under a metre (the painted course is 6 texels); the rake is irregular but still made of
+  whole 0.19 m teeth (halving the built course would need about 900 triangles the yard chunk does not have).
+- The yard's walls got paint, not relief: they already had a buttress every 6 m; `chunk_st_yard` has 256 triangles free.
+- `STREET_DOORS` are eyeballed sills, not read from the buildings: a scuff may sit a pace off a door.
+- The sighting's rimrock is plain from the yard's west side where no man shows (a long level bar over the wall).
+- Not run by me: `tests/e2e` (the playthrough's hash should not move: nothing hashed changed), `tests/ui`.
+
+### 4. Asked of others
+
+| To | What |
+|---|---|
+| closer (docs) | Mirror section 1: **ART_BIBLE** (the blue hour on High: mist on the plain, dust on the wind, `GLANCE` 3.2; the overhang's and the gully's air; the pylon; the stub's bond 0.26 x 0.095 m; the last image's lips are a soft band, the plain's swells, wash and scrub; the sighting's mesa rim), **ARCHITECTURE** 8.4 (`DUSK_MIST`, `PostChain.dustAir` / `uShAir`, `DUST_ROOF`, `DUST_GULLY` 0.55, the 'air' motes' dusk branch and `uGround.z`, `AIR` / `AIR_CONE` / `AIR_GLOW` / `AIR_DUST` L6 rows), **LEVEL** (the sighting row: a mesa rim, not a knob; `sightRock` about 600 triangles), **KNOWN_ISSUES** (section 3; "the gate pylon" and "things rather than paint on the floors" rows) |
+| closer (assets) | Built at full quality by me: `lm_surface`, `env_plenty_street`, `env_the_lip` (one run), `env_backdrop_dusk`. **Rebuild the two surface zones and `lm_surface` last if a prop team's asset changed after 17:20** (the zones embed the props and shade the lightmap). `src/ui/loadMeter.ts` `BOOT_FILE_BYTES` moves (`lm_surface` 2.02 -> 1.97 MB, the Lip + 5 kB). Hero frames `hero_01`, `hero_02`, `hero_05`, `hero_12` and `public/share.jpg`'s source show the old picture |
+| render-tech (not active; edited by me in shared files) | `post.ts`: the `SHAFT_FRAGMENT` dust block reads `uShAir` where it had `DUST_H`, `DUST_FAR`, 160 and 230; `DustUniforms.air`, `PostChain.dustAir`, `DUST_ROOF`, `DUST_GULLY`. `system.ts`: the dust block (about ten lines) and one line in the ambient 'air' branch. `vfx/ambient.ts`: the 'air' branch's dusk terms. `vfx/vfx.ts`: one line (the gully shafts' width and level). `moods.ts`: `DUSK_MIST`, and my rows of `AIR`, `AIR_CONE`, `AIR_GLOW`, `AIR_DUST`, `GLANCE`. Nothing reordered |
+| underground-look | `AIR_DUST`, `AIR` and `AIR_CONE` are your tables: I added only the `L6` / `L6c` entries. `ambient.ts` 'air' is unchanged while `uGround.z` is 0 (the system sets it to 0 in every mood but the blue hour) |
+| world | `src/world/sightRock.ts` only (the outline, the beds, the haze); `director.ts` untouched |
+
+Tests on the final tree (one after another): `node --test tests/art_env_exterior/` **38 of 38** (the 33 and the 5 of the new
+`i6.test.mjs`: the pylon carries its bands and cables up its height; the lips are bands; High is not Low in the last view and
+under the overhang, with the dark kept; level rock runs three heights to either side of the pursued man's feet);
+`node --test tests/render/` **86 of 86** (812 s); `tests/world/` `sighting`, `i4`, `i4_real`, `i5`, `i5_real`, `i6`, `i6_real`
+**27 of 27** (the sighting test failed twice on the way: 63 and 45 px "wide", the rim beside his feet; the proud slab mended
+it: 26 x 55 px); `npx vitest run tests/render tests/world` 98 pass; `npx tsc --noEmit` clean; `node tools/check-glb.mjs` 84
+assets, 21 textures, 11.74 MB: all pass; `npm run validate` pass. Not run by me: `tests/e2e`, the whole of `tests/world`, `tests/ui`.
+
+## Closer, pass i6 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| Section 4, closer (docs) | **Mirrored**: ART_BIBLE "Amendments, pass i6 (closer)", ARCHITECTURE "Pass i6 (closer)" 8.4, LEVEL 21, GDD 23.21; `docs/KNOWN_ISSUES.md` rewritten |
+| Section 4, closer (assets) | **Done**: every asset rebuilt with `--force` in one run (the zones embed the final props); `BOOT_FILE_BYTES` refreshed; hero frames and `public/share.jpg` retaken (Part T) |
+| Section 3 (the cage, no dusk shadow map, the gully's near walls, the softer fire on High, the stubs, the scuffs, the plain bar) | **Not built**: in `docs/KNOWN_ISSUES.md`. The last fire on High was looked at in the true last image (Part T) |

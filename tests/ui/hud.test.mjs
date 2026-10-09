@@ -430,15 +430,18 @@ test('damage arc points at the source from eight directions; health segments; bo
         const arcs = [...document.querySelectorAll('.k7 .xh .arc.on:not(.ink)')];
         const arc = arcs[arcs.length - 1], r = arc.getBoundingClientRect(), x = document.querySelector('.k7 .xh').getBoundingClientRect();
         const cx = r.left + r.width / 2 - (x.left + x.width / 2), cy = r.top + r.height / 2 - (x.top + x.height / 2);
-        const out = { deg: window.__dbg.state().systems.ui.hud.arcDeg, at: (Math.atan2(cx, -cy) * 180 / Math.PI + 360) % 360, dist: Math.hypot(cx, cy), colour: getComputedStyle(arc).stroke, anim: getComputedStyle(arc).animationName + ' ' + getComputedStyle(arc).animationDuration, n: arcs.length };
+        const out = { deg: window.__dbg.state().systems.ui.hud.arcDeg, at: (Math.atan2(cx, -cy) * 180 / Math.PI + 360) % 360, dist: Math.hypot(cx, cy), colour: getComputedStyle(arc).stroke, o: Number(getComputedStyle(arc).opacity), n: arcs.length };
+        // pass i4: the arc stands a second on the fixed tick (it was a 0.6 s keyframe on the wall clock): tests/ui/i4.test.mjs
         window.__dbg.step(36, true);
+        out.mid = document.querySelectorAll('.k7 .xh .arc.on:not(.ink)').length;
+        window.__dbg.step(24, true);
         out.after = document.querySelectorAll('.k7 .xh .arc.on:not(.ink)').length;
         return out;
       }, deg);
       assert.equal(got.deg, deg);
       assert.ok(Math.abs(((got.at - deg + 540) % 360) - 180) < 3, `source at ${deg}: the arc sits at ${got.at.toFixed(1)}`);
       assert.ok(got.dist > 25, 'round the crosshair, not on it');
-      assert.deepEqual([got.colour, got.anim, got.after], ['rgb(243, 230, 207)', 'k7-arc 0.6s', 0], 'pale, 0.6 s, then gone');
+      assert.deepEqual([got.colour, got.o, got.mid, got.after], ['rgb(243, 230, 207)', 1, 1, 0], 'pale and whole, still up at 0.6 s, gone at 1 s');
     }
     // the view turned 90 degrees to her left: a source that was ahead is now on her right
     const turned = await game.page.evaluate(() => {

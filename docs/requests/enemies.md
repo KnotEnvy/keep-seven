@@ -275,3 +275,68 @@ label and the checkpoint by 1 s and nothing a player does or sees.
 | 2.5 a persisted "an asking has been heard" | **Declined for this release** (a core contract change); the skip is per page: `docs/KNOWN_ISSUES.md` |
 | 2.6 larger lamp cards | **Not done** (the boss asset; no team owned it in this pass): `docs/KNOWN_ISSUES.md` |
 | 3 documents | Mirrored: GDD 8.1 (in place) and 23.17 |
+
+## Fixer, pass i4 (2026-10-08): what is ready for this team, and what is ruled
+
+
+| Item | State |
+|---|---|
+| `BOSS.parley` | **edited by the fixer** (a number table): `{ line1: 0, ask: 3.5, line2: 7.5, line4: 12, windowEnd: 16, phase1: 17 }`; `PARLEY_LINES` in `boss/parley.ts` is four rows. Tests edited with the data: `tests/enemies/logic.spec.ts`, `boss_p1.test.mjs`, `release_p0.test.mjs`, `i3.test.mjs` |
+| Hard | **`DIFFICULTY.hard.telegraphScale` 0.8** (was 0.9): a Transit aims 0.72 s, a Bider winds up 0.4 s. `TAMPER.slamWindupBy.hard` 1.125 keeps its slam at 0.9 s. `tests/enemies/logic.spec.ts`, `bider.test.mjs` edited |
+| New lines for you | `hint_boss_lob` ("What it lobbed came down where she had been standing."), `hint_boss_pawls` ("Two knots held the plate shut."), `hint_tamper_back` ("It ran itself into the wall. Its back stood open a while.") |
+| Ruled (GDD 23.18) | each boss hint at most once per visit to a checkpoint |
+| A persisted "an asking has been heard" | still declined (a save-format change); the asking is now 17.75 s |
+
+## Team enemies, pass i4 (2026-10-08): what changed, what the documents must follow, what is asked of others
+
+Working log and every number: `scratch/i4-team-enemies/NOTES.md`. Tests: `tests/enemies/i4.test.mjs` (six), plus the
+edits named below. Frames (opened): `shots/i4-team-enemies/ring_pawls_low.png`, `ring_pawls_high.png`,
+`ring_locker_low.png`, `ring_vent_chest_low.png`.
+
+### 1. For the closer: mirror into the documents (ruling R1)
+
+| Document | Was | Is (code: `src/enemies/defs.ts`, comments marked "Pass i4") |
+|---|---|---|
+| GDD 7.3 `charge_windup` | "starts at 8 to 20 m with a clear lane" was written but not built: it charged on a sight line at its chest alone and stunned itself on a rib corner or the ramp cabinet on the way to a player who had not moved | **the lane is tested**: besides the sight line, two lines 0.55 m to each side (`TAMPER.laneHalf`: the 0.8 m body less `grazeDepth`), 0.45 m over the floor, from it to 1.0 m short of her, out of the four sight rays a tick. No lane: it walks to her and slams |
+| GDD 7.3 `charge_windup` | turned 90 degrees a second for the 0.8 s and ran wherever that left it | **faces her squarely on the last tick of the wind-up**, wherever it stood when it began (the turn left is spread over the time left). In flight still 20 degrees a second |
+| GDD 7.3 "Killed well: Footwork" | she could stand where a rib corner or the cabinet lay in the lane and it obliged | **the bait is a step**: she stands in a clear lane and steps behind a rib or the cabinet once it winds up. `LEVEL.md` 5 (the ramp cabinet "stuns a charge like a rib") stays true for a player who steps behind it |
+| GDD 7.3 hints, 12.1 | `hint_tamper_ring` on the second slam of every try and again on every respawn after a slam death | **`hint_tamper_ring` once per run of the fight** (the second slam that hurts her, or the first respawn if a slam killed her sooner); **`hint_tamper_back` once**, on the first respawn after that; later deaths say nothing |
+| GDD 7.3 (new), 15 | nothing grew with her deaths | **help by deaths to an awake Tamper** (`TAMPER.helpMax` 3 steps, forgotten when it dies or a new run begins): on Easy and Normal each step makes the slam wind-up 0.25 s longer with the chest vent open for all of the added time (Normal 1.15 / 1.40 / 1.65 / 1.90 s; the vent still opens 0.55 s in) and the charge stun 0.5 s longer (2.0 to 3.5 s); from the second death, on every difficulty, **an outline ring pulses on a vent for as long as it stands open** (the renderer's hint outline) |
+| GDD 8.2 phase 3a, 23 | `stn_boss_charge_required` every 20 s until the kept round is loaded | **every 30 s** (`BOSS.chargeRepeat`), and the clock stands while she is within 0.9 m of a proving mark (`BOSS.chargeMarkRadius`) |
+| GDD 8.3 retries, 23.18 | from the second death in a cylinder phase every retry said `hint_boss_move` | `hint_boss_move`, `hint_boss_haul` and the new `hint_boss_lob` are **each said at most once in a cylinder phase of a run** (a line shown counts, whoever said it: the world's first-hit and first-retry lines included). A late retry owes the direct hint if the phase has not had it; else `hint_boss_lob` once if a canister killed her; else nothing. It keeps its 6.5 s lead-in either way |
+| GDD 8.2 phase 2 (new) | the guard had no fallback teaching | **`hint_boss_pawls` once**, at the third haul of the phase begun with the guard unanswered (no pawl burst, no line round through it; the count survives a retry), with an outline ring on each pawl still whole from then on; from the fifth, a third ring on `ia_line_locker_bore`. The first answer ends it |
+| `docs/KNOWN_ISSUES.md` | | see 3 below: the chest vent's window on Normal is not widened |
+
+Measured on the real game (Low, Normal; the reviewers' proxies, copied to `scratch/i4-team-enemies/`): the Tamper's own
+damage over twelve legs from `cp_hall_gantry` was plain 73 / 73 / 73, careless (reaction 30 to 45 ticks, no kiting)
+73 / 38 / 38 / 38 / 76 / 38, mid 38 / 38 / 38, no death (the reviewer's: plain 76 / 76 / 18, careless 0 / 56 / 76,
+mid 0 / 0 / 108). The stand-and-shoot proxy that died four times running and never won now dies three times and wins
+the fourth try. An idle player at `cp_boss_p1` is told: the direct hint (first hit), the haul line (first death), the
+lob line (second death, a canister), then nothing through deaths three to six.
+
+### 2. Asked of the world team (active in this pass; not edited by this team)
+
+| # | Ask | Why |
+|---|---|---|
+| 2.1 | `director.ts` `hint_tamper_vent` (`TAMPER_PLATE_HINT`): say it once per run of the fight, not once per try | the playthrough reviewer's log has it at 10.1 / 40.7 / 68.3 / 95.8 s, one per death; `plateHinted` is reset with the encounter. The enemies' two lines are once now |
+| 2.2 | nothing else: `TEACH_MOVE` / `TEACH_HAUL` are unchanged and are counted by the Windlass as said when they are shown | |
+
+### 3. Declined, with the reason
+
+- **"Open the chest vent a few ticks into the slam wind-up"** (second half of the combat reviewer's Tamper issue). Not
+  done on Normal and Hard. Polish round 3 measured it: with the vent open through the wind-up a round on sight cancels
+  every slam and the fight costs nothing, which is the first half of the same issue (ruling R3). The vent opens 0.55 s
+  into the 1.15 s as before; what a player who keeps dying gets instead is the longer open vent and the ring on it.
+  Of the 13 to 17 rounds a proxy fires at it, 7 to 10 still ring off plate: that is the walk-in, where nothing is open.
+- **A guaranteed hit on every stander.** A slam can still be cancelled by a round in the open vent (GDD 7.3 "Nerve"),
+  so a player who lands that every time is not hit by a slam. In the twelve legs above nobody did.
+
+## Closer, pass i4 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| 1 the table | Mirrored: GDD 23.19 (7.3, 8.2, 8.3, 12.1, 15), LEVEL 19; `docs/KNOWN_ISSUES.md` carries the vent window |
+| 2.1 `hint_tamper_vent` once per run of the fight | **Applied by the closer** in `src/world/director.ts`: a new attempt no longer owes the line again (`plateHinted` is cleared only by a new run). `tests/world/polish_r5.test.mjs` still passes |
+| 3 the two declined items | **Upheld** (ruling R3: a vent open through the wind-up makes the fight free); known issue |
+| World's ask: a faster first lunge for a Bider risen from a seat (R3, the Tally House) | **Not built in this pass**: no proxy runs were possible for it at the close and it moves the deterministic playthrough; in `docs/KNOWN_ISSUES.md` |
+| World's ask: stop repeating `stn_boss_refilled` / `stn_boss_head_dry_refilling` | Not needed: the world's queue holds each to once in 20 s |

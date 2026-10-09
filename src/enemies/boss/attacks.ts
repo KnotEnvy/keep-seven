@@ -108,6 +108,12 @@ function beginHaul(B: Boss): void {
   if (p2) {
     B.adds.haulStarted();
     if (B.pawl[0] === 1 && B.pawl[1] === 1) B.releaseGuard();
+    // Pass i4 (the guard's fallback teaching, defs.ts `pawlsKey`): this haul begins with the guard not yet answered.
+    // The line once, at the haul after `pawlHintHauls` of them; the rings are the body's (Boss.ringGuard).
+    if (!B.guardAnswered) {
+      B.guardIdleHauls++;
+      if (B.guardIdleHauls > BOSS.pawlHintHauls && !B.pawlsSaid && B.S.ctx.data.story.lines[BOSS.pawlsKey] !== undefined) { B.pawlsSaid = true; B.S.say(BOSS.pawlsKey); }
+    }
   }
 }
 
@@ -152,6 +158,7 @@ export function breakPhase(B: Boss): void {
   B.cue('guard_shatter');
   B.setGuard('shattered');
   B.chargeAsked = false; B.relit = false; B.haulSaid3a = false; B.chargeSaid = 0;
+  B.guardIdleHauls = 0; B.guardAnswered = false; B.pawlsSaid = false;
   S.say('stn_boss_p2_break');
   B.setPhase('p3a');
 }
@@ -233,8 +240,9 @@ function tickUnproven(B: Boss, dt: number): void {
     S.say('stn_boss_charge_required');
     S.say('nar_one_left');
   } else if (B.chargeAsked && !B.keptLoaded) {
-    // the line only (not the event: the hint ladder is counted from the first one), every 20 s until she loads it
-    B.chargeSaid += dt;
+    // the line only (not the event: the hint ladder is counted from the first one), every `chargeRepeat` seconds until
+    // she loads it. Pass i4: 30 s (it was 20), and the clock stands while she is at a proving mark.
+    if (!B.onMark) B.chargeSaid += dt;
     if (B.chargeSaid >= BOSS.chargeRepeat - EPS) { B.chargeSaid = 0; S.say('stn_boss_charge_required'); }
   }
   switch (B.sub) {

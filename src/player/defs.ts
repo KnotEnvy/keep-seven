@@ -72,10 +72,27 @@ export const GRACE_ABOVE = 25;                       // a fatal hit from above 2
 export const GRACE_SECONDS = 0.75;                   // ... leaves 1 HP and this much immunity
 export const MAX_SINGLE_HIT = 38;
 export const DAMAGE_TAKEN: Readonly<Record<Difficulty, number>> = { easy: 0.6, normal: 1.0, hard: 1.4 };
-/** damage trauma: +0.3 at 10 HP to +0.6 at 38 HP, linear */
-export const TRAUMA_DAMAGE_MIN = 0.3;
-export const TRAUMA_DAMAGE_MAX = 0.6;
+/**
+ * damage trauma: +0.55 at 10 HP to +0.9 at 38 HP, linear. Pass i4 (combat review): it was 0.3 to 0.6, and render
+ * squares trauma before it becomes shake (at most 1.2 degrees): an 18 HP lunge shook the view by 0.18 degrees, two
+ * pixels at 720p. Now 0.36 degrees at 10 HP, 0.53 at 18, 0.97 at 38.
+ */
+export const TRAUMA_DAMAGE_MIN = 0.55;
+export const TRAUMA_DAMAGE_MAX = 0.9;
 export const TRAUMA_DAMAGE_LOW_HP = 10;
+/**
+ * The flinch (pass i4, ruling R20 "being hit must be unmistakable"): a hit knocks the VIEW away from where it came
+ * from and lets it come back, the way the gun's own kick does. Degrees at 10 HP or less and at 38 HP (linear between,
+ * on the health really taken); the knock is there in FLINCH_PEAK seconds and gone, exactly, by FLINCH_SECONDS. A blow
+ * from the front tips the view up, from behind down, from a side turns it to the other side and leans the head that
+ * way (FLINCH_ROLL of the turn). Like the kick it is added to the camera only: the stored aim, and so where a round
+ * goes, never moves. Scaled by options.screenShake; none under reduceMotion.
+ */
+export const FLINCH_DEG_MIN = 1.0;
+export const FLINCH_DEG_MAX = 2.0;
+export const FLINCH_PEAK = 0.05;
+export const FLINCH_SECONDS = 0.25;
+export const FLINCH_ROLL = 0.5;
 export const RESPAWN_MIN_HEALTH = 60;                // GDD 5 "Respawn"; ARCHITECTURE 10.1
 export const RESPAWN_MIN_RESERVE = 18;
 export const REFILL_FLOOR = 18;                      // GDD 6.5: the refill box tops the reserve up to 18
@@ -120,6 +137,12 @@ export const DRAW_SECONDS = 0.5;                     // GDD 6.9 `draw`
 export const RELOAD_SEAT_AT = 10 * FIXED_DT;
 /** line-round bodies react 40 ms apart: entry i at tick offset round(i * 2.4) (ARCHITECTURE 3.6) */
 export const LINE_TICKS_PER_HIT = 2.4;
+/**
+ * A line round that has gone through a body may hold that body's height for the rest of its range (shots.ts `hold`),
+ * unless it was fired steeper than this (the y of the unit aim: 30 degrees up or down). A shot from a ledge straight
+ * down onto a head is not turned level.
+ */
+export const LINE_HOLD_MAX_SLOPE = 0.5;
 /** when `kept_loop` leaves the cuff inside `load_kept` (art-weapons: "stage the hand-off at 0.9 s") and returns in the other clips */
 export const KEPT_LOOP_HIDE_AT = 0.9;
 export const KEPT_LOOP_SHOW_AT_TAKE = 0.8;

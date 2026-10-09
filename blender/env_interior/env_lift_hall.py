@@ -27,6 +27,7 @@ from mathutils import Vector, Matrix
 from lib import scene, mesh, uv, material, vcol, bake, export, zone, layout, manifest, brand
 import interior_common as ic
 from interior_common import B, lin, cuts, frange
+import lm_paint as lp_
 
 ASSET = "env_lift_hall"
 def _env(k, d): return float(os.environ.get(k, d))
@@ -39,11 +40,17 @@ RIB_X = [-9.0, -3.0, 3.0, 9.0, 15.0]; RIB_Z = [-18.0, -10.0]
 WIDE_T, WIDE_R, WIDE_P = _env("KS_WIDE_T", 0.16), _env("KS_WIDE_R", 10.5), _env("KS_WIDE_P", 1.5)        # the pendant's pool (polish round 2)
 RING_T = _env("KS_RING_T", 1.0)     # polish round 5: 1.5 drew the gate's surround as one flat near-white mint field from the hall's checkpoint; at 1.0 its panel joints read
 STREAK_T, STREAK_SPREAD = _env("KS_STREAK_T", 1.6), _env("KS_STREAK_S", 24.0)
+# look pass i6 (visual reviewer: "the centre floor strip clips to near white"): the streaks are baked as before (at 1.15
+# the ribs beside them lost the bounce that keeps them the pale shapes of the hall) and the FLOOR's light is given a
+# soft ceiling in stain(): a texel that read 1.0 drew at sRGB 187, one at 1.7 at 235; nothing on the floor is over 1.3 now
+FLOOR_KNEE, FLOOR_CEIL = _env("KS_FLOOR_KNEE", 0.8), _env("KS_FLOOR_CEIL", 1.3)
+STAIN_K = _env("KS_STAIN", 1.0)                                         # look pass i6: 0 = the lightmap as baked
 DEAD = {"light_hall_4_n", "light_hall_2_s"}                       # one lamp in eight is dead (dark, not flickering)
 RESERVE = {"tamper_cold_static": 1.0, "rd_plate": 1.0 / 3.0}
 GRATES = ["sp_hall_grate_1", "sp_hall_grate_2", "sp_hall_grate_3", "sp_hall_grate_4", "sp_hall_vig_bider"]
 
 parts, emb, dec, emi = [], [], [], []
+STENCILS = []                                                         # look pass i6: decal quads painted on lightmapped faces (out of the lightmap's passes: they would shadow the wall they lie on)
 
 
 def add(ob, into=None):
@@ -159,18 +166,21 @@ def pier(tag, cx, cz, w, d, h0=FL, h1=CE, fillet=0.6, r=0.15, faces=("x-", "x+",
     x0_, x1_, z0_, z1_ = cx - w / 2, cx + w / 2, cz - d / 2, cz + d / 2
     plan = ic.rounded_rect(x0_, z0_, x1_, z1_, r, 3) if r > 0 else [(x1_, z1_), (x0_, z1_), (x0_, z0_), (x1_, z0_)]
     n = len(plan)
+    # look pass i6: above the collar (4 m up and further) the corners are two segments, not three: 72 triangles a rib,
+    # 6 mm of difference behind a collar 25 mm proud; they pay for the hall's trays, conduits and stencils
+    plan_hi = ic.rounded_rect(x0_, z0_, x1_, z1_, r, 2) if r > 0 else plan
     ys_lm = [h0, h0 + 0.3, h0 + 1.2, h0 + 2.4, h0 + LMH]
     # fix pass 1: a vertex ring just above the collar. The ring AT 4 m lies behind the collar and bakes dark; without
     # this one that darkness graded over the next 1.6 m (the critic's "two-tone step on every rib").
     ys_vl = [h0 + LMH, h0 + LMH + 0.16] + [h0 + LMH + 1.6 * i for i in range(1, 6) if h0 + LMH + 1.6 * i < h1 - fillet - 0.05] + [h1 - fillet]
-    def shaft(name, ys, lm_):
-        f = []
+    def shaft(name, ys, lm_, plan=plan):
+        f = []; n = len(plan)
         for j in range(len(ys) - 1):
             for i in range(n):
                 a, b = plan[i], plan[(i + 1) % n]
                 f.append([(a[0], ys[j], a[1]), (b[0], ys[j], b[1]), (b[0], ys[j + 1], b[1]), (a[0], ys[j + 1], a[1])])
         return ic.from_faces(name, f, "m_pellam", RIB, "panel", away_from=(cx, (ys[0] + ys[-1]) / 2, cz), lm=lm_, smooth=50, mpr=3.6, fit='metric')
-    lo = shaft(f"{tag}_lo", ys_lm, lm); hi = shaft(f"{tag}_hi", ys_vl, False)
+    lo = shaft(f"{tag}_lo", ys_lm, lm); hi = shaft(f"{tag}_hi", ys_vl, False, plan_hi)
     # colours by course: stain low, steel kick
     for o in (lo,):
         me = o.data; t = vcol.get_colors(o, "Tint") if "Tint" in me.color_attributes else None
@@ -178,8 +188,8 @@ def pier(tag, cx, cz, w, d, h0=FL, h1=CE, fillet=0.6, r=0.15, faces=("x-", "x+",
     # the fillet: a quarter circle (r 0.6) from the pier face out onto the ceiling, all round
     f = []
     prof = [(math.sin(math.radians(a)) * fillet, h1 - fillet + (1 - math.cos(math.radians(a))) * fillet) for a in (0, 30, 60, 90)]
-    for i in range(n):
-        a, b = plan[i], plan[(i + 1) % n]
+    for i in range(len(plan_hi)):
+        a, b = plan_hi[i], plan_hi[(i + 1) % len(plan_hi)]
         # outward normal of this plan edge
         ex, ez = b[0] - a[0], b[1] - a[1]; L = math.hypot(ex, ez); nx, nz = ez / L, -ex / L
         if (a[0] + b[0]) / 2 * 0 + nx * ((a[0] + b[0]) / 2 - cx) + nz * ((a[1] + b[1]) / 2 - cz) < 0: nx, nz = -nx, -nz
@@ -225,6 +235,7 @@ def build_ribs():
             row = "n" if z < -14 else "s"
             pier(f"rib_{row}{RIB_X.index(x) + 1}", x, z, 1.6, 2.4, plate_side=("z", 1 if row == "n" else -1), plate_no=f"4-1{k:02d}")
             rib_collar(f"rib_{row}{RIB_X.index(x) + 1}", x, z, 1.6, 2.4)
+            rib_dress(f"rib_{row}{RIB_X.index(x) + 1}", x, z, 1.6, 2.4, 1.0 if row == "n" else -1.0, f"{1 if row == 'n' else 2}{RIB_X.index(x) + 1}")
     # engaged half-piers on the long walls, in line with the ribs (0.2 m proud): the rhythm reads down the hall
     for x in RIB_X:
         pier(f"pil_n{RIB_X.index(x)}", x, ZN + 0.1, 1.6, 0.2, r=0.0, fillet=0.6, lm=True)
@@ -232,6 +243,154 @@ def build_ribs():
         if abs(x - 3.0) > 0.01:
             pier(f"pil_s{RIB_X.index(x)}", x, ZS - 0.1, 1.6, 0.2, r=0.0, fillet=0.6, lm=True)
             rib_collar(f"pil_s{RIB_X.index(x)}", x, ZS - 0.1, 1.6, 0.2, r=0.0)
+
+
+# ====================================================================================================== look pass i6: what is ON the big faces
+UP = Vector((0.0, 1.0, 0.0))
+
+
+def _quad(c, n, w, h, lift=0.004):
+    """Decal corners (bottom-left, bottom-right, top-right, top-left as read from the front) of a w x h rectangle
+    centred on GAME point c of a vertical face that looks along GAME normal n."""
+    c = Vector(c); n = Vector(n); r = UP.cross(n)
+    o = c + n * lift
+    return [tuple(o - r * (w / 2) - UP * (h / 2)), tuple(o + r * (w / 2) - UP * (h / 2)), tuple(o + r * (w / 2) + UP * (h / 2)), tuple(o - r * (w / 2) + UP * (h / 2))]
+
+
+def _number(c, n, text, h=0.22, tint="steel_dark"):
+    """Stencilled digits (the mask's numerals, 2 : 3 cells; at most 0.25 m tall: ART_BIBLE 5.4) centred on c."""
+    r = UP.cross(Vector(n)); w = h * 2.0 / 3.0; gap = w * 0.12; out = []
+    x0 = -(len(text) * w + (len(text) - 1) * gap) / 2 + w / 2
+    for i, ch in enumerate(text):
+        out.append((_quad(Vector(c) + r * (x0 + i * (w + gap)), n, w, h), "numerals", int(ch), tint))
+    return out
+
+
+def rib_dress(tag, cx, cz, w, d, nave, bay):
+    """Look pass i6 (visual reviewer: "the pillar at 2 m is a flat pale face with one small box"). Each rib carries
+    its bay number stencilled on the three faces she reads it from (rows 1 and 2, lines 1 to 5: no six, no seven,
+    no nine), a row of fasteners along the panel joint at 2.4 m on all four, and a conduit from the collar down to
+    the kick on its nave face, in two saddle clamps. The stains, the dark base course and the joint itself are painted
+    into the lightmap (stain())."""
+    faces = [((-1.0, 0.0, 0.0), (cx - w / 2, 0.0, cz), d), ((1.0, 0.0, 0.0), (cx + w / 2, 0.0, cz), d),
+             ((0.0, 0.0, nave), (cx, 0.0, cz + nave * d / 2), w), ((0.0, 0.0, -nave), (cx, 0.0, cz - nave * d / 2), w)]
+    for k, (n, c, width) in enumerate(faces):
+        rw = width - 0.5
+        STENCILS.append((_quad((c[0], FL + 2.47, c[2]), n, rw, rw / 16.0, lift=0.003), "rivets", None, "steel_dark"))
+        if k < 3: STENCILS.extend(_number((c[0], FL + 2.86, c[2]), n, bay))
+    # the conduit: three faces of a 40 mm square tube 35 mm proud of the nave face, 0.5 m off its centre line
+    n = Vector((0.0, 0.0, nave)); r = UP.cross(n); zf = cz + nave * d / 2
+    def Pq(u, y, out): q = Vector((cx, y, zf)) + r * u + n * out; return (q.x, q.y, q.z)
+    u0, u1, y0, y1, o = 0.48, 0.52, FL + 0.3, FL + LMH - 0.03, 0.035
+    add(ic.oriented(f"{tag}_conduit", [([Pq(u0, y0, o), Pq(u1, y0, o), Pq(u1, y1, o), Pq(u0, y1, o)], tuple(n)),
+                                       ([Pq(u0, y0, 0), Pq(u0, y0, o), Pq(u0, y1, o), Pq(u0, y1, 0)], tuple(-r)),
+                                       ([Pq(u1, y0, o), Pq(u1, y0, 0), Pq(u1, y1, 0), Pq(u1, y1, o)], tuple(r))], "m_pellam", "steel", None, tess=1.9))
+    for j, y in enumerate((FL + 1.75, FL + 3.25)):
+        a0, a1, b0, b1, oc = u0 - 0.05, u1 + 0.05, y - 0.035, y + 0.035, o + 0.012
+        add(ic.oriented(f"{tag}_clamp{j}", [([Pq(a0, b0, oc), Pq(a1, b0, oc), Pq(a1, b1, oc), Pq(a0, b1, oc)], tuple(n)),
+                                            ([Pq(a0, b1, 0), Pq(a0, b1, oc), Pq(a1, b1, oc), Pq(a1, b1, 0)], (0.0, 1.0, 0.0)),
+                                            ([Pq(a0, b0, 0), Pq(a0, b0, oc), Pq(a0, b1, oc), Pq(a0, b1, 0)], tuple(-r)),
+                                            ([Pq(a1, b0, oc), Pq(a1, b0, 0), Pq(a1, b1, 0), Pq(a1, b1, oc)], tuple(r))], "m_pellam", "steel_dark", None))
+
+
+def build_trays():
+    """Look pass i6 (visual reviewer: "sparse, closer to a clean blockout than a decayed Old-World station ... add two
+    or three dressing clusters (crates, a fallen cable tray)"). A dressing crate is a collider and the zone's allowance
+    is spent, so the clusters are the hall's own, and all of them hang where she cannot walk: a cable tray along each
+    long wall 3.1 m up on an arm at every pilaster; on the north wall the run between lines 3 and 4 has come down, one
+    end still on its arm, the other on the floor against the wall (0.34 m deep: inside the 0.35 m her body keeps from
+    a wall), its two cables hanging from the standing end and lying along the skirting. The station's name is
+    stencilled once on each long wall, under the tray."""
+    y0, y1 = FL + 3.1, FL + 3.18
+    dark = tuple(lin("steel_dark") * 0.7)
+    for tag, zw, sg in (("n", ZN, 1.0), ("s", ZS, -1.0)):
+        za, zb = zw + sg * 0.24, zw + sg * 0.54
+        runs = [(XW, -8.6), (-3.4, 3.8), (8.2, XE)] if tag == "n" else [(XW, XE)]     # not across the pounded bulkhead (x -8..-4); the run between lines 3 and 4 is down
+        items = []
+        for (xa, xb) in runs:
+            xs = cuts(xa, xb, 3.2)
+            for a, b in zip(xs[:-1], xs[1:]):
+                items.append(([(a, y0, za), (b, y0, za), (b, y0, zb), (a, y0, zb)], (0.0, -1.0, 0.0)))
+                items.append(([(a, y0, zb), (b, y0, zb), (b, y1, zb), (a, y1, zb)], (0.0, 0.0, sg)))
+        add(ic.oriented(f"tray_{tag}", items, "m_pellam", "steel", "steel", mpr=3.6))
+        add(ic.oriented(f"tray_{tag}_bed", [([(a, y0 + 0.02, za), (b, y0 + 0.02, za), (b, y0 + 0.02, zb), (a, y0 + 0.02, zb)], (0.0, 1.0, 0.0))
+                                            for (xa, xb) in runs for a, b in zip(cuts(xa, xb, 3.2)[:-1], cuts(xa, xb, 3.2)[1:])], "m_pellam", dark, None))
+        for i, x in enumerate(RIB_X):
+            if tag == "s" and abs(x - 3.0) < 0.01: continue                 # no pilaster at the slot
+            z0, z1 = sorted((zw + sg * 0.2, zb))
+            add(ic.box(f"tray_arm_{tag}{i}", (x - 0.03, y0 - 0.07, z0), (x + 0.03, y0, z1), "m_pellam", "steel_dark", None, bevel=0.0, drop=("z- y+" if sg > 0 else "z+ y+")))
+    # the fallen run on the north wall: hinged on the arm of line 3, its far end on the floor
+    zw = ZN; A = Vector((3.8, y0, 0.0)); Bq = Vector((7.6, FL + 0.03, 0.0)); t = (Bq - A).normalized(); pv = Vector((-t.y, t.x, 0.0))
+    if pv.y < 0: pv = -pv
+    zf, zk = zw + 0.11, zw + 0.02; M = (A + Bq) / 2
+    def W(q, z): return (q.x, q.y, z)
+    it = []
+    for a, b in ((A, M), (M, Bq)):
+        it.append(([W(a, zf), W(b, zf), W(b + pv * 0.3, zf), W(a + pv * 0.3, zf)], (0.0, 0.0, 1.0)))
+        it.append(([W(a + pv * 0.3, zf), W(b + pv * 0.3, zf), W(b + pv * 0.3, zk), W(a + pv * 0.3, zk)], (pv.x, pv.y, 0.0)))
+    add(ic.oriented("tray_fallen", it, "m_pellam", tuple(ic.mix("steel", "enamel_stain", 0.35)), "steel", mpr=3.6))
+    cab = tuple(lin("steel_dark") * 0.55)
+    add(ic.tube("tray_cable_0", [(8.2, y0 + 0.03, zw + 0.40), (8.12, FL + 2.3, zw + 0.36), (7.98, FL + 1.2, zw + 0.30), (7.9, FL + 0.32, zw + 0.25), (7.6, FL + 0.035, zw + 0.24), (6.7, FL + 0.03, zw + 0.3)],
+                0.028, 4, "m_pellam", cab, None))
+    add(ic.tube("tray_cable_1", [(3.86, y0 + 0.03, zw + 0.38), (4.4, FL + 2.3, zw + 0.2), (5.3, FL + 1.25, zw + 0.17), (6.5, FL + 0.42, zw + 0.2), (7.3, FL + 0.035, zw + 0.27), (8.3, FL + 0.03, zw + 0.24)],
+                0.028, 4, "m_pellam", cab, None))
+    # LIFT STATION 4, 0.3 m capitals would be geometry (ART_BIBLE 5.4): the atlas line at 0.24 m, 1.92 m long
+    pale = tuple(ic.mix("enamel", "enamel_stain", 0.4))                  # pale on the walls' dark glaze (the ribs' numbers are dark on pale)
+    STENCILS.append((_quad((12.0, FL + 2.55, ZN), (0.0, 0.0, 1.0), 1.92, 0.24), "station", None, pale))
+    STENCILS.append((_quad((-6.0, FL + 2.55, ZS), (0.0, 0.0, -1.0), 1.92, 0.24), "station", None, pale))
+
+
+def stain(light, objs, res):
+    """Look pass i6: the hall's dirt, painted into its lightmap by world position (lm_paint). Vertical faces (ribs,
+    pilasters, walls, the gantry's plinth): water stains from the cap band at 4 m (the deck's edge on the plinth) and
+    short ones under the livery band, grime rising from the kick, the dark line of the panel joint at 2.4 m, a slow
+    mottle; the ribs' course under the band is the stained glaze. The floor: the pendants' streaks keep tone (a soft
+    ceiling at FLOOR_CEIL: they clipped to white under the L4 exposure), wear beside the two rails, a spill round every
+    grate, dirt at the foot of every rib and wall, long smears."""
+    t0 = time.perf_counter()
+    pos, nrm, oid, names = lp_.texel_map(objs, res)
+    x, y, z = pos[:, :, 0], pos[:, :, 1], pos[:, :, 2]; h = y - FL
+    has = oid >= 0
+    def of(pred): return lp_.ids(names, pred)[oid]
+    vert = has & (np.abs(nrm[:, :, 1]) < 0.5)
+    pier = of(lambda n: n.startswith(("rib_", "pil_")) and n.endswith("_lo"))
+    wall = of(lambda n: n.startswith(("wall_", "cb_wall")))
+    plinth = of(lambda n: n.startswith("gantry_") or n == "ramp_side")
+    m = (vert & (pier | wall | plinth)).astype(np.float32)
+    s = np.where(np.abs(nrm[:, :, 2]) > np.abs(nrm[:, :, 0]), x, z) + 3.1 * nrm[:, :, 0] + 5.3 * nrm[:, :, 2]
+    warm = (0.80, 1.0, 1.14)
+    top = np.where(plinth, 3.0, LMH)
+    d1 = lp_.drips(s, top - h, seed=11, width=0.26, density=0.42, lmin=0.5, lmax=2.6)
+    d2 = lp_.drips(s + 0.11, top - h, seed=23, width=0.55, density=0.25, lmin=1.2, lmax=3.4)
+    d3 = lp_.drips(s, 1.15 - h, seed=37, width=0.2, density=0.3, lmin=0.2, lmax=0.7)
+    out = lp_.darken(light, np.clip(0.58 * d1 + 0.42 * d2 + 0.36 * d3, 0.0, 0.68) * m * STAIN_K, warm)
+    g = np.exp(-np.clip(h - 0.3, 0.0, None) / 0.32) * (0.35 + 0.9 * lp_.fbm(s / 0.5, h / 0.25, 51)) * (h > 0.28)
+    out = lp_.darken(out, 0.36 * np.clip(g, 0.0, 1.0) * m * STAIN_K, warm)
+    out = lp_.darken(out, 0.18 * (pier & vert & (h > 0.3) & (h < 1.2)) * STAIN_K)
+    out = lp_.darken(out, 0.30 * np.exp(-((h - 2.4) / 0.05) ** 2) * m * STAIN_K)
+    out = lp_.darken(out, 0.14 * np.clip((lp_.fbm(s / 1.9, h / 1.9, 77) - 0.35) / 0.65, 0.0, 1.0) * m * (~pier) * STAIN_K)      # (the ribs stay the pale shapes of the hall: their dirt is local)
+    # the floor
+    main = of(lambda n: n == "floor") & (nrm[:, :, 1] > 0.5); fl = main | (of(lambda n: n == "cb_floor") & (nrm[:, :, 1] > 0.5))
+    out = np.where(fl[:, :, None], lp_.knee(out, FLOOR_KNEE, FLOOR_CEIL), out)
+    a = 0.22 * np.clip((lp_.fbm(x / 2.6, z / 2.6, 91) - 0.3) / 0.7, 0.0, 1.0)
+    cz = layout.marker("door_lift_cage")["pos"][2]
+    a = a + main * 0.26 * np.exp(-((np.abs(np.abs(z - cz) - 0.75) - 0.2) / 0.2) ** 2) * (0.45 + 0.55 * lp_.fbm(x / 1.5, z / 0.3, 93)) * (x > -12.6)
+    a = a + main * 0.12 * (np.abs(z - cz) < 0.68) * lp_.fbm(x / 2.5, z / 0.12, 95) * (x > -12.6)
+    for gid in GRATES:
+        gp = layout.marker(gid)["pos"]; rr = np.hypot(x - gp[0], z - gp[2])
+        a = a + main * 0.36 * lp_.smooth(1.9, 0.7, rr) * (0.25 + 0.95 * lp_.fbm(x / 0.45, z / 0.45, 97))
+    dp = np.full(x.shape, 1e3, dtype=np.float32)
+    for rz in RIB_Z:
+        for rx in RIB_X:
+            dp = np.minimum(dp, np.hypot(np.clip(np.abs(x - rx) - 0.8, 0.0, None), np.clip(np.abs(z - rz) - 1.2, 0.0, None)))
+    dw = np.minimum(np.minimum(x - XW, XE - x), np.minimum(z - ZN, ZS - z))
+    foot = np.exp(-np.minimum(dp, np.clip(dw, 0.0, None)) / 0.24) * (0.4 + 0.8 * lp_.fbm(x / 0.6, z / 0.6, 98))
+    a = a + main * 0.32 * foot
+    a = a + main * 0.15 * lp_.smooth(0.56, 0.72, lp_.fbm(x / 5.0, z / 0.9, 99))
+    out = lp_.darken(out, np.clip(a, 0.0, 0.62) * fl * STAIN_K, (0.9, 1.0, 1.08))
+    print(f"NOTE stain: {int(has.sum())} texels mapped ({int(m.sum())} on ribs, walls and plinth, {int(fl.sum())} of floor) in {time.perf_counter() - t0:.1f}s; "
+          f"floor max {float(light[fl].max()):.2f} -> {float(out[fl].max()):.2f}, wall mean x {float(out[m > 0].mean() / max(float(light[m > 0].mean()), 1e-6)):.2f}")
+    return out
 
 
 # ====================================================================================================== vault, cornice, rails (pass 2)
@@ -661,6 +820,8 @@ def main():
     bk, shutter, gate = build_shell()
     build_ribs(); build_gantry(rng); build_bulkhead(bk)
     build_structure(bk, shutter, gate)
+    build_trays()
+    dec.append(ic.decals("hall_stencils", STENCILS, "steel_dark")); stencils = [dec[-1]]
     ring = build_ring(gate)
     diag_lamps, diag = build_diagram()
     build_cage_bay()
@@ -734,9 +895,9 @@ def main():
     def near_ring(o):
         c = [layout.to_game(o.matrix_world @ Vector(b)) for b in o.bound_box]
         return max(p[0] for p in c) > XE - 9.0
-    with bake.only_lights(others): la = ic.lm_pass(lm_objs, LM, AMBIENT, ao_distance=5.0, samples=None if ic.DRAFT else 192)     # fix pass 1: 64 spp left the south wall mottled under thirty lamps
-    with bake.only_lights(rl): lb = ic.lm_pass([o for o in lm_objs if near_ring(o)], LM, None, samples=(24 if ic.DRAFT else 1024))     # polish round 5: 256 left the reveal and the ring's foot mottled once the strip no longer clipped them
-    ic.save_lm(la + lb, LM); t_lm = time.perf_counter() - tb
+    with bake.only_lights(others): la = ic.lm_pass(lm_objs, LM, AMBIENT, ao_distance=5.0, hide=stencils, samples=None if ic.DRAFT else 192)     # fix pass 1: 64 spp left the south wall mottled under thirty lamps
+    with bake.only_lights(rl): lb = ic.lm_pass([o for o in lm_objs if near_ring(o)], LM, None, hide=stencils, samples=(24 if ic.DRAFT else 1024))     # polish round 5: 256 left the reveal and the ring's foot mottled once the strip no longer clipped them
+    ic.save_lm(stain(la + lb, lm_objs, manifest.texture(LM)["size"][0]) if STAIN_K > 0 else la + lb, LM); t_lm = time.perf_counter() - tb
     t_vl = ic.bake_vertex(vl_objs, AMBIENT, ao_distance=5.0)
     print(f"BAKED {LM} {t_lm:.1f}s, vertex light {sum(len(o.data.polygons) for o in vl_objs)} faces {t_vl:.1f}s; ambient at an open floor {AMBIENT.max():.2f}; build {time.perf_counter() - t0:.1f}s")
     # polish round 4 (visual critic, minor: "both lift rides are a wall of bright mesh squares"): the well's lining is seen

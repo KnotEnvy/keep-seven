@@ -136,14 +136,35 @@ function zoneAsset(id, a) {
 // 28 coats are 184 triangles each now, and the stair's share of the dressing allowance had been cut with its chunks.
 // The ledger this file prints: worst cells cell_street / cell_yard 119 788, cell_lip_gate 119 507, cell_gallery 118 700.
 // No texture changed: the seam stage is 55.3 of 64 MiB on Low.
+// Pass i4 (ruling R14, the cross-cutting fixer). The reviewers name plain ground and flat rock faces outdoors, the pursued
+// man standing in the sky, a blocky wall stump in the sighting view, a pylon that is a prism, a rim stone that is a box, a
+// last image whose lower half is one dune, hats that are flat-shaded, a sighting loop that is a black disc and a Tamper
+// that is smooth shapes at slam range. The view-model gives back what three passes did not spend (11 745 built):
+//   weapon_revolver 18 000 -> 14 000 (2 255 free): 4 000 triangles in EVERY cell
+//   chunk_lip_rock 8 000 -> 9 200, chunk_lip_upper 8 500 -> 9 500, chunk_lip_gate 6 500 -> 7 300 (ledges, fallen slabs, the
+//   pylon), paid in part by chunk_lip_mid 6 000 -> 5 000 (4 733 built)
+//   chunk_st_east 13 400 -> 13 800, chunk_st_west 15 700 -> 16 000, chunk_st_yard 12 700 -> 13 400 (the wall stump, rubble,
+//   stones and scrub merged into the ground), chunk_st_works 6 400 -> 6 500
+//   env_backdrop_day 1 700 -> 2 100 (a ledge or spur under the pursued man, at his depth and scale)
+//   chunk_rim_ledge 16 000 -> 19 000, prop_rim_stone 240 -> 1 200 (a hero prop), env_backdrop_dusk 2 000 -> 3 200 (the fire's
+//   ground, lit dune crests, smoke), prop_cartridge_kept 144 -> 240 (the banded round)
+//   enemy_tamper and tamper_cold_static 4 000 -> 5 000 (seams and rivets at 1.5 m), boss_windlass 8 000 -> 8 400 (lamp cards)
+//   prop_hat_hung 50 -> 110 with the gallery's dressing 8 500 -> 10 000 (24 hats), prop_sighting_loop 220 -> 320,
+//   chunk_ty_hall 17 000 -> 17 200 (the face behind the hatch frame)
+//   prop_wagon_tipped 1 200 -> 1 500 (the wheel: built at exactly 1 200), prop_water_cart 900 -> 1 100 (asked in pass i3);
+//   both are merged into their street chunks, whose plans above pay for them
+//   chunk_gl_stair and chunk_gl_bay 4 000 -> 3 200 (2 868 and 2 818 built): the closer of pass i3 had raised them to cover the
+//   stair cell's dressing; the ledger now counts a cell's own zone's dressing whole (tools/validate_assets.mjs cellBudget)
+// The ledger this file prints: worst cells cell_street / cell_yard, cell_lip_gate, cell_gallery; every one under 120 000.
+// No texture and no draw call changed.
 // ---------------------------------------------------------------- env_exterior
 zoneAsset('env_the_lip', {
   owner: 'env_exterior', nodes: ['collider_terrain'], collision: 'mesh', lightmaps: ['lm_surface'], zone: 'the_lip', sets: ['surface'], size: [32, 27, 120],
   chunks: [
-    chunk('chunk_lip_rock', 8000, ['m_frontier'], [[0, -1, -9], [32, 26, 111]], 'high'),
-    chunk('chunk_lip_upper', 8500, ['m_sand', 'm_frontier', 'm_mask'], [[0, -1, 54], [32, 26, 111]], 'low'),
-    chunk('chunk_lip_mid', 6000, ['m_sand', 'm_frontier'], [[0, -1, 30], [32, 26, 54]], 'low'),
-    chunk('chunk_lip_gate', 6500, ['m_sand', 'm_frontier', 'm_pellam', 'm_mask'], [[0, -1, -9], [32, 26, 30]], 'low'),
+    chunk('chunk_lip_rock', 9200, ['m_frontier'], [[0, -1, -9], [32, 26, 111]], 'high'),
+    chunk('chunk_lip_upper', 9500, ['m_sand', 'm_frontier', 'm_mask'], [[0, -1, 54], [32, 26, 111]], 'low'),
+    chunk('chunk_lip_mid', 5000, ['m_sand', 'm_frontier'], [[0, -1, 30], [32, 26, 54]], 'low'),
+    chunk('chunk_lip_gate', 7300, ['m_sand', 'm_frontier', 'm_pellam', 'm_mask'], [[0, -1, -9], [32, 26, 30]], 'low'),
   ],
   notes: 'Overhang, gully, gate piers, dead pylon. chunk_lip_rock is every rock face more than 3 m above the path, the overhang roof and the pylon mast above 3 m (vertex-lit): it is the skyline seen from the street and the yard. collider_terrain replaces the layout solids of role "terrain" (must stay within 0.25 m of them).',
 });
@@ -151,17 +172,17 @@ zoneAsset('env_plenty_street', {
   owner: 'env_exterior', nodes: ['pump_rotor', 'pump_tail', 'drum_lamp', 'plug_door_tally'], lampSets: { drum_lamp: 1 }, codeDriven: ['pump_rotor', 'pump_tail'], extraMaterials: ['m_emis'], drawnNodes: ['pump_rotor', 'pump_tail', 'drum_lamp', 'plug_door_tally'],
   lightmaps: ['lm_surface'], zone: 'plenty_street', sets: ['surface'], size: [111, 20, 32],
   chunks: [
-    chunk('chunk_st_east', 13400, ['m_sand', 'm_frontier', 'm_pellam', 'm_mask'], [[-37, -1, -16], [0, 16, 16]]),
-    chunk('chunk_st_west', 15700, ['m_sand', 'm_frontier', 'm_mask'], [[-80, -1, -16], [-37, 16, 16]]),
-    chunk('chunk_st_yard', 12700, ['m_sand', 'm_frontier', 'm_mask'], [[-111, -1, -16], [-80, 20, 16]]),
-    chunk('chunk_st_works', 6400, ['m_frontier', 'm_pellam'], [[-111, -1, -16], [-80, 20, 16]], 'high',
+    chunk('chunk_st_east', 13800, ['m_sand', 'm_frontier', 'm_pellam', 'm_mask'], [[-37, -1, -16], [0, 16, 16]]),
+    chunk('chunk_st_west', 16000, ['m_sand', 'm_frontier', 'm_mask'], [[-80, -1, -16], [-37, 16, 16]]),
+    chunk('chunk_st_yard', 13400, ['m_sand', 'm_frontier', 'm_mask'], [[-111, -1, -16], [-80, 20, 16]]),
+    chunk('chunk_st_works', 6500, ['m_frontier', 'm_pellam'], [[-111, -1, -16], [-80, 20, 16]], 'high',
       ['yd_drum', 'yd_pump_tower', 'yd_tank', 'yd_tank_deck', 'yd_tank_boards', 'yd_tank_ramp', 'yd_tank_stilt_1', 'yd_tank_stilt_2', 'yd_tank_stilt_3', 'yd_tank_stilt_4']),
   ],
   notes: 'Front Street (east and west halves split at x = -37, the gate court belongs to the west half) and the pump yard. chunk_st_works is the yard\'s tall machinery: the whole drum, the wind-pump derrick and the tank on its stilts with deck and ramp (the skyline seen down the street and from the jug gate). chunk_st_yard is the yard ground, walls, stubs, shed, cart and the Tally House exterior. pump_rotor is spun by code at 9 deg/s. drum_lamp is the aqua status lamp by the drum door. plug_door_tally is a black panel filling the Tally House doorway just inside the leaf (m_frontier, COLOR_0 black): world shows it while the door is open and the hall interior is not drawn.',
 });
 zoneAsset('env_far_rim', {
   owner: 'env_exterior', lightmaps: ['lm_rim'], zone: 'far_rim', sets: ['coda'], size: [32, 8, 21],
-  chunks: [chunk('chunk_rim_ledge', 16000, ['m_sand', 'm_frontier', 'm_mask'], [[-2, 17, 100], [30, 25, 121]])],
+  chunks: [chunk('chunk_rim_ledge', 19000, ['m_sand', 'm_frontier', 'm_mask'], [[-2, 17, 100], [30, 25, 121]])],
 });
 asset('rim_town_card', {
   owner: 'env_exterior', category: 'env', priority: 0, triBudget: 1200, materials: ['m_flat', 'm_emis'], bake: 'UNLIT',
@@ -170,12 +191,12 @@ asset('rim_town_card', {
   notes: 'Authored in world coordinates: the town (about 104 x 25 m) is drawn 12.5 m east of the layout vista_plenty target, 117 to 142 m from the ledge, and one leaning dead line pylon stands as a card 42 m out from the ledge at game (-0.9, 3.2 to 25, 61) (polish round 4; the size field is the town alone). 48 panes and 16 window pools (a second face of the same lamp). town_windows lights the first `lamps` quads (lighting order spreads outward from the Tally House).',
 });
 asset('env_backdrop_day', {
-  owner: 'env_exterior', category: 'env', priority: 0, triBudget: 1700, materials: ['m_flat'], bake: 'UNLIT',
+  owner: 'env_exterior', category: 'env', priority: 0, triBudget: 2100, materials: ['m_flat'], bake: 'UNLIT',
   nodes: ['socket_dowser', 'socket_rule_base'], sets: ['surface'], placedBy: 'origin', pivot: 'world origin', anchor: 'world', size: [1600, 120, 1600],
   notes: 'Mesa cards, pylon line, cloud cards. One mesh, one draw call. Drawn with fog. socket_dowser is on the bearing of layout vista_dowser (due west of the yard).',
 });
 asset('env_backdrop_dusk', {
-  owner: 'env_exterior', category: 'env', priority: 0, triBudget: 2000, materials: ['m_flat'], bake: 'UNLIT',
+  owner: 'env_exterior', category: 'env', priority: 0, triBudget: 3200, materials: ['m_flat'], bake: 'UNLIT',
   nodes: ['socket_last_fire'], sets: ['coda'], placedBy: 'origin', pivot: 'world origin', anchor: 'world', size: [1600, 120, 1600],
   notes: 'Mesa cards, pylon line, the flat and the last fire\'s socket; since polish round 5 it also carries the wings of the rim\'s own cliff (26 m west and 33 m east of the ledge: the zone\'s chunk may not leave its box, this card may) and the rock under the ledge\'s two ends. One mesh, one draw call, unlit.',
 });
@@ -184,15 +205,15 @@ asset('env_backdrop_dusk', {
 zoneAsset('env_tally_house', {
   owner: 'env_interior', nodes: ['strip_hatch'], lampSets: { strip_hatch: 1 }, extraMaterials: ['m_emis'], drawnNodes: ['strip_hatch'],
   lightmaps: ['lm_tally'], lightLayers: ['lm_tally_hatch'], zone: 'tally_house', sets: ['surface'], size: [16, 7, 24],
-  chunks: [chunk('chunk_ty_hall', 17000, ['m_frontier', 'm_pellam', 'm_mask'], [[-97, -1, -38], [-81, 6, -14]])],
+  chunks: [chunk('chunk_ty_hall', 17200, ['m_frontier', 'm_pellam', 'm_mask'], [[-97, -1, -38], [-81, 6, -14]])],
   notes: 'strip_hatch and the lm_tally_hatch light layer switch on with hatch_powered. The eleven chairs, the latch block and its cowl (layout ty_latch_*), and the pictogram plate on the west-wall conduit are zone geometry.',
 });
 zoneAsset('env_the_gallery', {
   owner: 'env_interior', nodes: ['strip_flicker', 'violet_hairline'], lampSets: { strip_flicker: 1, violet_hairline: 1 }, drawnNodes: ['strip_flicker', 'violet_hairline'],
   lightmaps: ['lm_gallery'], zone: 'the_gallery', sets: ['underground'], size: [77, 13, 27],
   chunks: [
-    chunk('chunk_gl_stair', 4000, ['m_pellam', 'm_emis'], [[-95, -13, -36], [-83, 0, -18.5]]),
-    chunk('chunk_gl_bay', 4000, ['m_pellam', 'm_mask', 'm_emis'], [[-95, -13, -18.5], [-81, -6, -9]]),
+    chunk('chunk_gl_stair', 3200, ['m_pellam', 'm_emis'], [[-95, -13, -36], [-83, 0, -18.5]]),
+    chunk('chunk_gl_bay', 3200, ['m_pellam', 'm_mask', 'm_emis'], [[-95, -13, -18.5], [-81, -6, -9]]),
     chunk('chunk_gl_gallery', 18000, ['m_pellam', 'm_mask', 'm_emis'], [[-81, -13, -19], [-18, -6, -9]]),
   ],
   notes: 'Peg stair, proving bay, gallery. chunk_gl_stair holds the seam (flight 1, landing 1 and their shaft walls) and is drawn while the surface set is resident once the hatch is powered. The 3.6 m gallery module is baked once and copied by the script (shared lightmap UVs), then merged: no instancing. Stair strips are baked lit.',
@@ -235,7 +256,7 @@ D('pk_canteen', { priority: 0, triBudget: 220, instanced: true, size: [0.24, 0.0
 W('prop_cartridge_lead', { priority: 1, triBudget: 80, instanced: true, nodes: ['round_live', 'round_spent'], placedBy: 'zone', pivot: 'case head centre', shape: 'cylinder', size: [0.012, 0.041, 0.012] });
 W('prop_cartridge_line', { priority: 0, triBudget: 48, instanced: true, placedBy: 'code', pivot: 'case head centre', shape: 'cylinder', size: [0.012, 0.041, 0.012] });
 W('prop_cartridge_kept', {
-  priority: 0, triBudget: 144, instanced: true, nodes: ['round_sealed', 'round_spent', 'round_violet'], pivot: 'case head centre', shape: 'cylinder', size: [0.012, 0.041, 0.012],
+  priority: 0, triBudget: 240, instanced: true, nodes: ['round_sealed', 'round_spent', 'round_violet'], pivot: 'case head centre', shape: 'cylinder', size: [0.012, 0.041, 0.012],
   notes: 'round_violet is ia_stone_round (runtime, taken by the player); six round_spent are zone-baked on the rim stone.',
 });
 M('ia_ammo_box', { priority: 0, triBudget: 400, materials: ['m_prop', 'm_emis', 'm_mask'], rigid: ['flap'], nodes: ['lamp'], lampSets: { lamp: 1 }, animations: [clip('dispense', 0.4)], pivot: 'back-plate centre at floor level', anchor: 'back_base', size: [0.6, 0.9, 0.25] });
@@ -254,10 +275,10 @@ M('prop_stock_gate', {
   notes: `Sized to door_jug_gate (${gateW} x ${gateH} m): bar ${gateW + 0.6} m, hurdle ${gateW - 0.1} x 2.35 m. hook_n are children of gate_bar, on the face away from the street (asset -Z), 0.7 m apart. Jugs and their hit spheres follow the hooks as code raises gate_bar.`,
 });
 M('prop_well_sweep', { priority: 1, triBudget: 600, rigid: ['sweep_arm'], nodes: [], codeDriven: ['sweep_arm'], sets: ['surface'], pivot: 'world origin (authored in place: post beside the gate, arm tip at layout prop_pylon.sweepTo)', anchor: 'world', size: [5.5, 3.4, 0.6] });
-D('prop_wagon_tipped', { priority: 0, triBudget: 1200, bake: 'VL', placedBy: 'zone', size: [3.6, 2.1, 1.5] });
+D('prop_wagon_tipped', { priority: 0, triBudget: 1500, bake: 'VL', placedBy: 'zone', size: [3.6, 2.1, 1.5] });
 D('prop_trough_pump', { priority: 0, triBudget: 450, bake: 'VL', placedBy: 'zone', size: [2.4, 1.6, 0.6] });
 D('prop_cup_tin', { priority: 0, triBudget: 60, instanced: true, shape: 'cylinder', size: [0.09, 0.08, 0.09] });
-D('prop_water_cart', { priority: 1, triBudget: 900, bake: 'VL', placedBy: 'zone', size: [3.2, 2.1, 1.6] });
+D('prop_water_cart', { priority: 1, triBudget: 1100, bake: 'VL', placedBy: 'zone', size: [3.2, 2.1, 1.6] });
 const [yardGateW, yardGateH] = opening('door_yard_gate');
 M('prop_yard_gate', { priority: 1, triBudget: 400, rigid: ['leaf_l', 'leaf_r'], nodes: [], animations: [clip('burst_open', 0.5)], collision: 'box', pivot: 'hinge line centre at ground', size: [yardGateW, yardGateH - 0.1, 0.15] });
 const [yardDoorW, yardDoorH] = opening('ia_yard_door');
@@ -320,12 +341,12 @@ M('ia_hatch', {
 
 // gallery and stair
 D('prop_coat_hung', { priority: 0, triBudget: 600, instanced: true, nodes: ['coat_long', 'coat_short', 'coat_shawl'], placedBy: 'dressing', sets: ['underground'], pivot: 'peg (top)', anchor: 'top', size: [0.5, 1.1, 0.15] });
-D('prop_hat_hung', { priority: 1, triBudget: 50, instanced: true, placedBy: 'dressing', sets: ['underground'], pivot: 'peg', anchor: 'top', shape: 'cylinder', size: [0.38, 0.14, 0.38] });
+D('prop_hat_hung', { priority: 1, triBudget: 110, instanced: true, placedBy: 'dressing', sets: ['underground'], pivot: 'peg', anchor: 'top', shape: 'cylinder', size: [0.38, 0.14, 0.38] });
 D('prop_boots_pair', { priority: 1, triBudget: 90, instanced: true, placedBy: 'dressing', sets: ['underground'], size: [0.3, 0.28, 0.25] });
 M('ia_range_plate', { priority: 1, triBudget: 100, rigid: ['plate'], nodes: [], animations: [clip('ring', 0.8)], sets: ['underground'], pivot: 'hook', anchor: 'top', size: [0.7, 0.8, 0.04], hitPoint: [0, -0.45, 0], notes: 'A disc 0.7 m across whose centre hangs 0.45 m below the hook. Collision is the pierce-tagged layout solid ia_range_plate_n_solid.' });
 M('prop_proving_step', { priority: 0, triBudget: 160, materials: ['m_prop', 'm_emis', 'm_mask'], nodes: ['mark_glow'], lampSets: { mark_glow: 1 }, sets: ['underground'], size: [1.6, 0.15, 1.6], notes: 'Collision is the layout solid gl_mark_step.' });
 const loopUp = marker('pz_sighting_loop').params.ringCentreAboveFloor;
-M('prop_sighting_loop', { priority: 0, triBudget: 220, materials: ['m_prop', 'm_emis'], nodes: ['loop_rim'], lampSets: { loop_rim: 1 }, sets: ['underground'], pivot: 'post base', size: [0.62, r3(loopUp + 0.31), 0.1], nodePos: { loop_rim: [0, loopUp, 0] } });
+M('prop_sighting_loop', { priority: 0, triBudget: 320, materials: ['m_prop', 'm_emis'], nodes: ['loop_rim'], lampSets: { loop_rim: 1 }, sets: ['underground'], pivot: 'post base', size: [0.62, r3(loopUp + 0.31), 0.1], nodePos: { loop_rim: [0, loopUp, 0] } });
 const [baffleW, baffleH] = opening('ia_baffle');
 M('ia_baffle', { priority: 0, triBudget: 500, materials: ['m_prop', 'm_emis', 'm_mask'], rigid: ['leaf_l', 'leaf_r'], nodes: ['door_lamps'], lampSets: { door_lamps: 3 }, animations: [clip('open', 3.0)], collision: 'box', sets: ['underground'], pivot: 'sill centre', size: [baffleW, baffleH, 0.3], notes: 'The lamp bar mounts on the wall above the lintel, outside the leaf area.' });
 
@@ -358,7 +379,8 @@ M('ia_bore_door', {
 M('ia_cradle', { priority: 0, triBudget: 400, materials: ['m_prop', 'm_emis'], nodes: ['cradle_lamp', 'mark_lamps'], lampSets: { cradle_lamp: 1, mark_lamps: 7 }, sets: ['underground'], pivot: 'back centre', anchor: 'back', size: [0.5, 1.1, 0.2], notes: 'Load-bearing. mark_lamps index 6 (the seventh disc) is dark until the proof.' });
 D('ia_proving_mark', { priority: 0, triBudget: 60, bake: 'LM', placedBy: 'zone', sets: ['underground'], pivot: 'centre at floor', shape: 'cylinder', size: [0.5, 0.01, 0.5], notes: 'Embedded in the bore sector by the zone script; its glow is lamp set mark_glows on env_the_bore.' });
 M('prop_station_plate', { priority: 0, triBudget: 220, materials: ['m_prop', 'm_emis'], nodes: ['plate_lamp'], lampSets: { plate_lamp: 1 }, pivot: 'back centre', anchor: 'back', size: [0.8, 0.8, 0.03] });
-D('prop_rim_stone', { priority: 0, triBudget: 240, bake: 'VL', placedBy: 'zone', sets: ['coda'], size: [0.9, 0.12, 0.5] });
+// pass i5 (closer, ruling R19; asked by creatures-props): the stone's rock faces go on the zone's own m_frontier with the cliffs' strata row (a second mesh; brass and seat stay m_prop)
+D('prop_rim_stone', { priority: 0, triBudget: 1200, materials: ['m_prop', 'm_frontier'], drawCalls: 2, bake: 'VL', placedBy: 'zone', sets: ['coda'], size: [0.9, 0.12, 0.5] });
 
 // ---------------------------------------------------------------- weapons
 // Release pass p0, ruling R14: the view-model (the revolver and the hands) is one object on screen every second. It has
@@ -369,7 +391,7 @@ D('prop_rim_stone', { priority: 0, triBudget: 240, bake: 'VL', placedBy: 'zone',
 // gallery, chunk_lh_hall), from env_backdrop_day and from the effects allowance: every cell still holds 120 000 and
 // the seam stage 64 MiB on Low (the ledger this file prints).
 asset('weapon_revolver', {
-  owner: 'weapons', category: 'weapons', priority: 0, triBudget: 18000, drawCalls: 3, materials: ['m_gun', 'm_hands', 'm_prop'], skinned: true,
+  owner: 'weapons', category: 'weapons', priority: 0, triBudget: 14000, drawCalls: 3, materials: ['m_gun', 'm_hands', 'm_prop'], skinned: true,
   bones: ['root', 'gun', 'cylinder', 'hammer', 'trigger', 'gate', 'ejector', ...range('round_', 6), 'arm_r', 'hand_r', 'thumb_r_1', 'thumb_r_2',
     'index_r_1', 'index_r_2', 'grip_r', 'arm_l', 'hand_l', 'thumb_l_1', 'thumb_l_2', 'index_l_1', 'index_l_2', 'fingers_l',
     'round_hand_lead', 'round_hand_line', 'round_hand_kept', 'kept_loop'],
@@ -412,7 +434,7 @@ E('enemy_transit', {
 });
 E('proj_stake', { priority: 0, triBudget: 48, instanced: true, nodes: ['stake_hot', 'stake_cool'], pivot: 'tip', anchor: 'centre', size: [0.04, 0.04, 0.6], notes: 'Shared pool: 8 in flight + 18 stuck (Transits and the Windlass).' });
 B('enemy_tamper', {
-  category: 'enemies', priority: 0, triBudget: 4000, skinned: true, sets: ['underground'],
+  category: 'enemies', priority: 0, triBudget: 5000, skinned: true, sets: ['underground'],
   bones: ['root', 'pelvis', 'barrel', 'arm_r_upper', 'arm_r_ram', 'arm_l', 'leg_l_upper', 'leg_l_foot', 'leg_r_upper', 'leg_r_foot', 'vent_chest', 'vent_back'],
   nodes: ['root', 'vent_chest_knot', 'vent_back_knot', 'ram_head', 'foot_spark'],
   animations: [loop('idle', 2.4), loop('walk', 1.2), clip('slam_windup', 1.0), clip('slam', 0.3), clip('slam_recover', 1.5), clip('charge_windup', 0.8), loop('charge', 0.5),
@@ -420,9 +442,9 @@ B('enemy_tamper', {
   size: [1.6, 2.4, 1.4],
   notes: 'State line_stagger (GDD 7.3 revision 2) plays `stagger` at half speed while code holds vent_chest and vent_back open: both vent bones must be openable additively over any clip (key them only in stagger, charge_stun and die).',
 });
-B('tamper_cold_static', { category: 'enemies', priority: 2, triBudget: 4000, bake: 'VL', placedBy: 'zone', sets: ['underground'], size: [1.6, 2.4, 1.4] });
+B('tamper_cold_static', { category: 'enemies', priority: 2, triBudget: 5000, bake: 'VL', placedBy: 'zone', sets: ['underground'], size: [1.6, 2.4, 1.4] });
 B('boss_windlass', {
-  category: 'boss', priority: 0, triBudget: 8000, materials: ['m_prop', 'm_emis'], skinned: true, sets: ['underground'],
+  category: 'boss', priority: 0, triBudget: 8400, materials: ['m_prop', 'm_emis'], skinned: true, sets: ['underground'],
   bones: ['root', 'arm_yaw', 'drum_spin', ...range('mouth_', 6), ...range('knot_', 6), 'guard', ...range('guard_piece_', 5), 'pawl_l', 'pawl_r', 'cable_a', 'cable_b', 'cable_c'],
   nodes: ['arm_yaw', 'drum_spin', ...range('mouth_', 6), ...range('knot_', 6), 'guard', 'pawl_l', 'pawl_r',
     ...range('knot_', 6).map((k) => `${k}_hit`), 'pawl_l_hit', 'pawl_r_hit', 'muzzle_top', 'canister_muzzle', ...range('thread_anchor_', 6),
@@ -564,7 +586,7 @@ const bindings = {
     ...family('ia_ask_port_', 8, (i) => b('ia_bore_door', 'partOf', `port_${i}`, { owner: 'door_bore' })),
     ...family('ia_proving_mark_', 6, (i) => b('env_the_bore', 'zoneNode', 'mark_glows', { index: i - 1 })),
     ia_proving_lift: b('ia_proving_lift_cage', 'partOf', 'control', { owner: 'lift_depart_bore' }),
-    ia_stone_round: b('prop_cartridge_kept', 'variant', 'round_violet', { scale: 2.6 }),
+    ia_stone_round: b('prop_cartridge_kept', 'variant', 'round_violet', { scale: 3.4 }),   // pass i4: it was 2.6, a dark speck 12 px tall at standing distance (story-a); the six spent cases beside it are zone-baked
   },
   prop: {
     cold_camp: null,
@@ -690,7 +712,7 @@ const DRESSING = {
   the_lip: { tris: 1000, drawCalls: 2, assets: ['prop_bottle', 'prop_sack'] },
   plenty_street: { tris: 6000, drawCalls: 6, assets: ['prop_lantern', 'prop_bottle', 'prop_crate', 'prop_barrel', 'prop_sack', 'prop_strain_cloth'] },
   tally_house: { tris: 2000, drawCalls: 3, assets: ['prop_lantern', 'prop_bottle', 'prop_sack'] },
-  the_gallery: { tris: 8500, drawCalls: 5, assets: ['prop_coat_hung', 'prop_hat_hung', 'prop_boots_pair', 'prop_crate'] },
+  the_gallery: { tris: 10000, drawCalls: 5, assets: ['prop_coat_hung', 'prop_hat_hung', 'prop_boots_pair', 'prop_crate'] },
   lift_hall: { tris: 2000, drawCalls: 3, assets: ['prop_crate', 'prop_barrel'] },
   the_bore: { tris: 1000, drawCalls: 2, assets: ['prop_crate', 'prop_barrel'] },
   far_rim: { tris: 500, drawCalls: 1, assets: [] },
@@ -739,7 +761,7 @@ const cells = [
     accept: [{ unit: 'chunk_ty_hall', plug: 'plug_door_tally', why: 'from the rest of the yard the open Tally House door is a dark doorway: plug_door_tally' }],
     why: 'The pump yard.' },
   { id: 'cell_tally_seam', zone: 'tally_house', box: BOX([-97, -5.5, -38], [-81, -0.35, -14]), show: ['chunk_ty_hall'],
-    showIf: [{ units: ['chunk_gl_stair'], flag: 'hatch_powered', value: true, why: 'the staged gallery stair (it is what she stands on)' }],
+    showIf: [{ units: ['chunk_gl_stair', 'chunk_gl_bay'], flag: 'hatch_powered', value: true, why: 'the staged gallery stair (it is what she stands on) and, pass i4, the proving bay she looks into down flight 2 through the stair\'s mouth (it was the sky\'s fog in a 2 m x 5 m rectangle until trg_set_swap)' }],
     why: 'Peg-stair flight 1, landing 1 and the top of flight 2 while the surface set is resident (zoneAt gives tally_house here until trg_set_swap).' },
   { id: 'cell_tally', zone: 'tally_house', show: ['chunk_ty_hall'],
     showIf: [

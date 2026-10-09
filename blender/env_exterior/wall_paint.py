@@ -98,13 +98,16 @@ ADOBE = re.compile(r"^(lip_gatewall|lip_gate_jamb|lip_northwall|lip_pier|st_end_
 TIMBER = re.compile(r"^(st_(assay|feed|board|dry|under|wash|meet|saddle)_[fs]$|yd_tank_boards|st_feed_dock)")
 ROCK = re.compile(r"^(lip_wall_|lip_bo\d|lip_ledge_|lip_shelf_|lip_slab_)")
 CERAMIC = re.compile(r"^(yd_drum)$")
+BRICK = re.compile(r"^((st|yd)_cover_stub_.)_k$")                       # pass i5: the brick faces of a broken wall end (ext_frontier.break_wall)
+STUB_SIDE = re.compile(r"^((st|yd)_cover_stub_.)_[lr]$")
 
 
-GAIN = {"adobe": 1.5, "rock": 1.3, "ceramic": 1.45, "timber": 1.3}
+GAIN = {"adobe": 1.75, "rock": 1.5, "ceramic": 1.7, "timber": 1.4, "brick": 1.0}     # pass i4: 1.5 / 1.3 / 1.45 / 1.3 (the reviewers still read single-tone slabs)
 
 
 def kind_of(name):
     if name is None: return None
+    if BRICK.match(name): return "brick"
     if ADOBE.match(name): return "adobe"
     if TIMBER.match(name): return "timber"
     if ROCK.match(name): return "rock"
@@ -121,7 +124,7 @@ def _lerp3(k, c):
 BRICK_H = 0.19; BRICK_L = 0.42
 
 
-def paint_adobe(P, N, dense, y_top):
+def paint_adobe(P, N, dense, y_top, yard=False):
     """P (n, 3) game positions, N (n, 3) normals, dense: the chart has texels enough for courses, y_top: the chart's top."""
     x, y, z = P[:, 0], P[:, 1], P[:, 2]
     u = x * N[:, 2] - z * N[:, 0]                                         # metres along the wall
@@ -130,7 +133,7 @@ def paint_adobe(P, N, dense, y_top):
     m = np.ones((len(x), 3))
     # broad plaster tones: a patch re-rendered warmer, one gone grey
     broad = fbm(u / 2.9, y / 2.1, sd, 3); mid = fbm(u / 0.8, y / 0.55, sd + 1, 2)
-    m *= (1.0 + 0.16 * broad + 0.06 * mid)[:, None]
+    m *= (1.0 + 0.21 * broad + 0.08 * mid)[:, None]          # pass i4: 0.16 / 0.06
     m *= _lerp3(np.clip(broad * 1.6, 0, 1) * 0.5, (1.05, 0.99, 0.93)); m *= _lerp3(np.clip(-broad * 1.6, 0, 1) * 0.5, (0.95, 0.98, 1.05))
     # fallen render: likelier at the foot and at corners of the top; the bricks' courses show
     # (a) the eroded foot: along most of a wall the render is gone to a ragged line a hand to a pace up; (b) a few large
@@ -140,7 +143,10 @@ def paint_adobe(P, N, dense, y_top):
     foot_h = (0.22 + 0.75 * (fbm(u / 1.9, y * 0 + 0.11, sd + 5, 3) * 0.5 + 0.5) + 0.10 * fbm(u / 0.33, y * 0 + 0.5, sd + 4, 2)) * foot_on
     def patch_field(yy):
         hi = 0.07 * sstep(1.0, 0.2, y_top - yy)
-        mid = sstep(0.665 - hi, 0.665 - hi + soft * 1.2, fbm(u / 2.6, yy / 1.7, sd + 7, 3) * 0.5 + 0.5 + 0.05 * fbm(u / 0.4, yy / 0.4, sd + 8, 2)) * sstep(0.5, 1.0, yy)
+        # pass i6 (the visual reviewer: the yard's long walls are "large single-tone planes"): on the yard's own walls the
+        # render has come away in more and larger patches (`yard`), and their foot is a darker damp course to the knee
+        thr = 0.60 if yard else 0.665
+        mid = sstep(thr - hi, thr - hi + soft * 1.2, fbm(u / 2.6, yy / 1.7, sd + 7, 3) * 0.5 + 0.5 + 0.05 * fbm(u / 0.4, yy / 0.4, sd + 8, 2)) * sstep(0.5, 1.0, yy)
         return np.maximum(mid, sstep(foot_h + soft, foot_h - soft, yy))
     inp = patch_field(y)
     lip = (1.0 - patch_field(y + 0.11)) * inp                             # under the plaster's broken upper edge
@@ -170,11 +176,91 @@ def paint_adobe(P, N, dense, y_top):
     m *= _lerp3(0.42 * st * hang, (0.74, 0.76, 0.84))
     # the foot: damp and dark, and above it the pale line of sand the wind left on the wall
     rag = 0.22 * fbm(u / 1.1, y * 0 + 0.7, sd + 31, 2)
-    damp = 1.0 - sstep(0.16 + rag, 0.48 + rag, y)
-    m *= _lerp3(0.30 * damp * (1.0 - 0.6 * inp), (0.70, 0.72, 0.82))
+    damp = 1.0 - (sstep(0.30 + 1.4 * rag, 0.66 + 1.4 * rag, y) if yard else sstep(0.16 + rag, 0.48 + rag, y))
+    m *= _lerp3((0.58 if yard else 0.42) * damp * (1.0 - 0.6 * inp), (0.66, 0.68, 0.80))          # pass i4: 0.30 (a stained base)
     dust = np.exp(-((y - 0.62 - rag) / 0.20) ** 2) * (0.6 + 0.4 * vnoise(u / 0.6, y * 0 + 0.2, sd + 32))
     m *= _lerp3(0.30 * dust, (1.30, 1.20, 1.02))
     return m
+
+
+# ---------------------------------------------------------------------------------------------------- brickwork
+def _stub_frame(sid):
+    """(centre, along_x, length) of a cover stub's layout solid."""
+    from lib import layout
+    L = layout.load()
+    s_ = next(s for s in L["solids"] if s["id"] == sid)
+    along_x = s_["size"][0] >= s_["size"][2]
+    return s_["pos"], along_x, max(s_["size"][0], s_["size"][2])
+
+
+# pass i6 (the visual reviewer: at 3 m a stub is "stacked boxes with oversized bricks"): the PAINTED bond of a stub is half
+# the size of the built teeth: a mud brick 0.26 x 0.095 m with its joint, two courses to a tooth of ext_frontier.COURSE
+BOND_H = 0.095; BOND_L = 0.26
+
+
+def _bond(u, y, w, face, sd):
+    """The bond of a two-wythe adobe wall as a multiplier (n,): bed joints every course, a perpend between the wythes that
+    changes side every course, stretchers 0.42 m long breaking joint. face: 0 a side (u, y), 1 an end (w, y), 2 a top (u, w)."""
+    top = face == 2
+    yy = np.where(top, y - 0.04, y + 0.002)
+    row = np.floor(yy / BOND_H); fy = yy / BOND_H - row
+    wj = np.where(row % 2 == 0, 0.065, -0.075)
+    lane = (w > wj).astype(np.float64)
+    fu = (u + (row % 2) * 0.5 * BOND_L + lane * 0.5 * BOND_L + 0.07 * BOND_L * (_hash(row, row * 0 + 3, sd + 1) - 0.5)) / BOND_L; colu = np.floor(fu); fu = fu - colu
+    j_bed = np.maximum(sstep(0.26, 0.10, fy), 0.7 * sstep(0.90, 0.99, fy))
+    j_w = sstep(0.022, 0.010, np.abs(w - wj))
+    j_u = sstep(0.11, 0.05, fu)
+    joint = np.where(top, np.maximum(j_w, j_u), np.where(face == 1, np.maximum(j_bed, j_w), np.maximum(j_bed, j_u)))
+    tone = _hash(colu * (face != 1) + lane * 7, row * 3 + lane, sd + 3)
+    k = (0.80 + 0.42 * tone) * (1.0 - 0.46 * joint)
+    k = k * (1.0 + 0.10 * (~top) * sstep(0.70, 0.86, fy) * (1.0 - joint))                 # a brick's upper arris catches the sky
+    chip = sstep(0.62, 0.80, vnoise(u / 0.07 + w / 0.05, y / 0.06, sd + 5))                # a chipped corner, a pocket where the mud fell out
+    k = k * (1.0 - 0.22 * chip * sstep(0.0, 0.5, joint + 0.25))
+    return k
+
+
+def paint_brick(P, N, frame):
+    c, along_x, L = frame
+    x, y, z = P[:, 0], P[:, 1], P[:, 2]
+    u = (x - c[0]) if along_x else (z - c[2]); w = (z - c[2]) if along_x else (x - c[0])
+    nu = np.abs(N[:, 0] if along_x else N[:, 2]); ny = np.abs(N[:, 1]); nw = np.abs(N[:, 2] if along_x else N[:, 0])
+    face = np.where(ny > 0.7, 2, np.where(nu > nw, 1, 0))
+    sd = 300 + int(abs(c[0]) * 3 + abs(c[2]) * 7) % 89
+    k = _bond(u, y, w, face, sd)
+    m = np.ones((len(x), 3)) * k[:, None]
+    # mud that ran down the broken face, in broad soft fields; the foot damp and cool; dust on the tops
+    m *= (1.0 + 0.16 * fbm(u / 0.33 + w / 0.4, y / 0.45, sd + 7, 2))[:, None]
+    damp = (1.0 - sstep(0.10, 0.45, y)) * (face != 2)
+    m *= _lerp3(0.40 * damp, (0.66, 0.68, 0.80))
+    m *= _lerp3(0.22 * (face == 2) * (0.5 + 0.5 * vnoise(u / 0.11, w / 0.11, sd + 9)), (1.22, 1.16, 1.02))
+    return m
+
+
+def stub_break(P, N, frame, m):
+    """A stub's plastered side near its breaks: under the fallen render the same bond as the brick faces round the
+    corner, a dark line under the render's broken edge."""
+    c, along_x, L = frame
+    x, y, z = P[:, 0], P[:, 1], P[:, 2]
+    u = (x - c[0]) if along_x else (z - c[2])
+    w = np.sign(N[:, 2] if along_x else N[:, 0]) * 0.2
+    s_ = u + L / 2
+    nb = int(L / 0.05) + 2
+    b = np.clip((s_ / 0.05).astype(np.int64), 0, nb - 1)
+    tb = np.zeros(nb); np.maximum.at(tb, b, y)
+    for _ in range(2): tb = np.maximum(tb, np.minimum(np.roll(tb, 1), np.roll(tb, -1)))        # a bin the chart's margin left empty
+    t = tb[b]
+    sd = 300 + int(abs(c[0]) * 3 + abs(c[2]) * 7) % 89
+    rag = 0.10 * fbm(s_ * 2.3, y * 2.9, sd + 12, 3) + 0.05 * fbm(s_ * 9.0, y * 9.0, sd + 13, 2)
+    e = np.minimum(s_, L - s_)
+    k = np.maximum(sstep(1.0, 0.0, (t - y) / (0.27 + rag)), 0.95 * sstep(1.0, 0.0, e / (0.31 + rag)))
+    k = sstep(0.42, 0.58, k)                                                                # the render ends at an edge, not in a fade
+    bond = _bond(u, y, w, np.zeros(len(x), np.int64), sd) * (1.0 + 0.16 * fbm(u / 0.33 + w / 0.4, y / 0.45, sd + 7, 2))
+    lat = np.ones((len(x), 3)) * (1.12 * bond)[:, None] * np.array([1.10, 1.0, 0.90])[None, :]
+    out = m * (1.0 - k[:, None]) + lat * k[:, None]
+    # the render's broken edge: a shadow line a finger wide on the brick side of it
+    kk = np.maximum(sstep(1.0, 0.0, (t - y) / (0.27 + rag)), 0.95 * sstep(1.0, 0.0, e / (0.31 + rag)))
+    edge = sstep(0.50, 0.56, kk) * sstep(0.74, 0.58, kk)
+    return out * (1.0 - 0.38 * edge)[:, None]
 
 
 # ---------------------------------------------------------------------------------------------------- rock
@@ -201,6 +287,28 @@ def paint_rock(P, N):
     bay = np.floor(u / 4.3); has = _hash(bay, bay * 0 + 3, 69) < 0.6
     uc = (bay + 0.25 + 0.5 * _hash(bay, bay * 0 + 4, 70)) * 4.3 + 0.18 * fbm(y / 0.8, bay * 2.1, 71, 2)
     m *= (1.0 - side * 0.30 * np.exp(-((u - uc) / 0.05) ** 2) * has)[:, None]
+    # pass i4 (the visual reviewer: "large flat-shaded rock faces ... give the gully faces a second scale of form (ledges,
+    # fallen slabs, crack lines, a lighter top band)"). THICK beds a pace to a man's height, each its own tone, with a
+    # ledge between two of them: the dark of the undercut below the joint and the lit lip of the bed above it (the sun
+    # is low: a ledge a hand deep throws a shadow a pace long down the face)
+    yk = y + 0.35 * fbm(u / 11.0, x / 11.0, 75, 2)
+    edges = np.array([-6.0, -4.3, -2.9, -1.2, 0.4, 1.7, 3.6, 5.0, 7.1, 8.4, 10.6, 12.2, 14.5, 16.1, 18.3, 20.4, 22.0, 24.6, 27.0, 30.0])
+    kb = np.clip(np.searchsorted(edges, yk) - 1, 0, len(edges) - 2)
+    tone = _hash(kb, kb * 0 + 7, 76)
+    m *= (1.0 + side * 0.20 * (tone - 0.5))[:, None]
+    m *= _lerp3(side * np.clip(tone - 0.6, 0, 1) * 0.9, (1.06, 0.98, 0.90)); m *= _lerp3(side * np.clip(0.4 - tone, 0, 1) * 0.9, (0.94, 0.96, 1.06))
+    below = edges[kb + 1] - yk                                            # metres under the bed's top joint
+    above = yk - edges[kb]
+    ledge = (_hash(kb, kb * 0 + 9, 77) < 0.7) * (0.55 + 0.45 * vnoise(u / 3.1, kb * 2.3, 78))
+    m *= (1.0 - side * 0.34 * ledge * (1.0 - sstep(0.0, 0.42 + 0.2 * vnoise(u / 1.2, kb * 1.1, 79), below)))[:, None]      # the undercut's shade
+    ledge_dn = (_hash(np.maximum(kb - 1, 0), kb * 0 + 9, 77) < 0.7)
+    m *= (1.0 + side * 0.16 * ledge_dn * np.exp(-(above / 0.09) ** 2))[:, None]                                         # the lit lip
+    # long fractures: a leaning crack every ten paces or so that crosses several beds, and a block's joint off it
+    bay2 = np.floor(u / 9.5); has2 = _hash(bay2, bay2 * 0 + 5, 80) < 0.75
+    lean = (_hash(bay2, bay2 * 0 + 6, 81) - 0.5) * 0.5
+    uc2 = (bay2 + 0.2 + 0.6 * _hash(bay2, bay2 * 0 + 8, 82)) * 9.5 + lean * (y - 6.0) + 0.3 * fbm(y / 1.6, bay2 * 1.7, 83, 3)
+    m *= (1.0 - side * 0.42 * np.exp(-((u - uc2) / 0.075) ** 2) * has2)[:, None]
+    m *= (1.0 + side * 0.10 * np.exp(-((u - uc2 - 0.17) / 0.09) ** 2) * has2)[:, None]
     # pass i3: the wall's foot. A band of damp, flood-stained rock a pace high over the gully's floor (ragged, darker and
     # cooler), and over it the pale line the last flood's silt left: the walls stand ON the floor instead of ending at it
     hy = y - _floor_y(z)
@@ -274,6 +382,18 @@ def paint_ceramic(P, N, centre, radius):
     rag = 0.35 * fbm(s / 0.9, y * 0 + 0.4, 83, 3)
     sk = 1.0 - sstep(0.35 + rag * 0.4, 1.25 + rag, y)
     m *= _lerp3(0.85 * sk * (0.6 + 0.4 * vnoise(s / 0.2, y / 0.2, 84)), (1.22, 0.70, 0.40))
+    # pass i4 (the visual reviewer: "a flat violet face with soft panel lines ... bake rivet rows, streaks and a waterline"):
+    # the tide line of the years it stood full (a ragged pale mineral band a hand deep at 2.3 m, a darker wet-stained
+    # skirt hanging under it), dirt that ran from every rivet of every lap, and plates that were hammered back flat
+    wl = 2.32 + 0.07 * fbm(s / 1.4, y * 0 + 0.3, 86, 3)
+    band = np.exp(-((y - wl) / 0.07) ** 2)
+    m *= _lerp3(0.55 * band * (0.6 + 0.4 * vnoise(s / 0.25, y * 0 + 0.6, 87)), (1.32, 1.30, 1.20))
+    hang = sstep(0.0, 0.05, wl - y) * (1.0 - sstep(0.1, 0.9 + 0.5 * vnoise(s / 0.3, y * 0 + 0.9, 88), wl - y))
+    m *= _lerp3(0.30 * hang * (0.5 + 0.5 * vnoise(s / 0.09, y / 1.3, 89)), (0.74, 0.78, 0.86))
+    run = sstep(0.45, 0.8, vnoise(s / 0.075, row * 5.3, 90)) * (1.0 - fy / 0.6) * sstep(0.08, 0.16, fy)
+    m *= _lerp3(0.34 * run, (0.72, 0.70, 0.74))
+    dent = fbm(s / 0.55, y / 0.5, 91, 2)
+    m *= (1.0 + 0.10 * dent)[:, None]
     # the wrong-coloured water: one long green-white mineral streak under the tap on the yard's side (it faces the gate)
     d = (th - math.radians(-28.0)) * radius
     wet = np.exp(-(d / (0.10 + 0.16 * sstep(1.9, 0.2, y))) ** 2) * sstep(1.95, 1.75, y) * (0.7 + 0.3 * vnoise(d / 0.05, y / 0.6, 85))
@@ -317,7 +437,11 @@ def apply(S, img, base_density=16.0):
         m = cid == c
         P = pos[m].astype(np.float64); N = nrm[m].astype(np.float64)
         y_top = float(P[:, 1].max())
-        if kind == "adobe": k = paint_adobe(P, N, dens.get(int(c), 1.0) * base_density >= 12.0, y_top)
+        if kind == "adobe":
+            k = paint_adobe(P, N, dens.get(int(c), 1.0) * base_density >= 12.0, y_top, yard=name.startswith("yd_wall"))
+            ms = STUB_SIDE.match(name)
+            if ms and (ms.group(1) + "_k") in kit.CHARTS: k = stub_break(P, N, _stub_frame(ms.group(1)), k)
+        elif kind == "brick": k = paint_brick(P, N, _stub_frame(BRICK.match(name).group(1)))
         elif kind == "rock":
             k = paint_rock(P, N)
             if name.startswith("lip_shelf"): k = k * paint_shelf(P, N)
@@ -325,7 +449,7 @@ def apply(S, img, base_density=16.0):
         elif kind == "ceramic":
             if drum_c is None: continue
             k = paint_ceramic(P, N, drum_c[0], drum_c[1])
-        if kind != "rock":
+        if kind not in ("rock", "brick"):
             wall = (np.abs(N[:, 1]) < GROUND_NY)[:, None]                 # a wall's own top or a sand wedge in its chart is left alone
             k = np.where(wall, k, 1.0)
         # pass i3 (both visual reviewers: the adobe walls "are broad single-tone planes", the gully's rock "big flat faces", the

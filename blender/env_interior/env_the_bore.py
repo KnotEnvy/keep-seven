@@ -30,6 +30,7 @@ from mathutils import Vector, Matrix
 from lib import scene, mesh, uv, material, vcol, bake, export, zone, layout, manifest, brand
 import interior_common as ic
 from interior_common import B, lin, cuts, frange
+import lm_paint as lp_
 
 ASSET = "env_the_bore"
 LM, GLOW = "lm_bore", "lm_bore_glow"
@@ -580,11 +581,37 @@ def delete_region(objs, pred):
         mesh.delete_faces(o, lambda f, c, n: pred(c.x, c.z, -c.y))
 
 
+def cut_at_opening(objs, z_wall):
+    """Look pass i5 (visual reviewer, major: "bright cyan slivers cross the boss room's lift doorway"; the same two hung
+    in the bore door's opening). delete_region takes a face by its CENTRE, and the livery band and the lamp's conduit
+    are tessellated without regard to the opening: the band's triangle whose centre lay just outside a jamb kept its
+    point 0.6 m inside the doorway, and the conduit's last face hung from the lintel into it. Both get an edge loop at
+    the jambs (x 12.5, 15.5) and at the lintel (floor + 3.0) first, so that the cut follows the opening exactly; what is
+    left of the conduit ends under the steel frame (0.2 m wide, 0.06 proud). The band's two ends outside the frame were
+    0.15 m tabs between the frame and the lesene, vertex-lit brighter than the band of the next facet (a cyan tag at
+    each jamb once the slivers were gone): the opening's facet carries no band, the frame stands on plain wall."""
+    for o in objs:
+        if not o.name.startswith(("band_", "lamp_conduit")) or not len(o.data.vertices): continue
+        g = layout.to_game(sum((o.matrix_world @ v.co for v in o.data.vertices), Vector()) / len(o.data.vertices))
+        if abs(g[0] - 14.0) > 2.2 or abs(g[2] - z_wall) > 0.6: continue
+        if o.name.startswith("band_"): mesh.delete_faces(o, lambda f, c, n: True); continue
+        mesh.bisect(o, B((12.5, FL, z_wall)), ic.Bd((1, 0, 0))); mesh.bisect(o, B((15.5, FL, z_wall)), ic.Bd((1, 0, 0)))
+        mesh.bisect(o, B((14.0, FL + 3.0, z_wall)), ic.Bd((0, 1, 0)))
+
+
 def build_on_top(all_sector):
     out = []
     def add(o): out.append(o); return o
+    cut_at_opening(all_sector, 81.0); cut_at_opening(all_sector, 111.0)
+    # closer, pass i5 (seen in the underground team's frames: "a dark navy rectangle on the floor before both chamber
+    # doorways"). delete_region takes a face by its CENTRE and took the floor's outer ring (r 14.4 .. 15.25) with the wall
+    # of each opening: a hole to the void 0.6 m deep across each threshold. The floor gets an edge at each wall's inner
+    # plane and only what lies inside the wall goes (the reveal's own floor is there).
+    for o in all_sector:
+        if o.name.startswith("floor") and not o.name.startswith("floor_joint") and len(o.data.vertices):
+            mesh.bisect(o, B((14.0, FL, 81.0)), ic.Bd((0, 0, 1))); mesh.bisect(o, B((14.0, FL, 111.0)), ic.Bd((0, 0, 1)))
     # ---- the door bay (0 degrees): the 3 x 3 m opening through the door wall (z 80..81), its reveal and a steel frame
-    delete_region(all_sector, lambda x, y, z: abs(x - 14.0) < 1.5 and y < FL + 3.0 and z < 81.6 and z > 80.0 and bearing(x, z) < 10 or (abs(x - 14.0) < 1.5 and y < FL + 3.0 and z < 81.6 and bearing(x, z) > 350))
+    delete_region(all_sector, lambda x, y, z: abs(x - 14.0) < 1.5 and y < FL + 3.0 and z < (81.0 if abs(y - FL) < 0.003 else 81.6) and z > 80.0 and bearing(x, z) < 10 or (abs(x - 14.0) < 1.5 and y < FL + 3.0 and z < (81.0 if abs(y - FL) < 0.003 else 81.6) and bearing(x, z) > 350))
     rv = [[(12.5, FL, 81), (12.5, FL, 80), (12.5, FL + 3, 80), (12.5, FL + 3, 81)], [(15.5, FL, 80), (15.5, FL, 81), (15.5, FL + 3, 81), (15.5, FL + 3, 80)],
           [(12.5, FL + 3, 81), (12.5, FL + 3, 80), (15.5, FL + 3, 80), (15.5, FL + 3, 81)], [(12.5, FL + 0.001, 80), (15.5, FL + 0.001, 80), (15.5, FL + 0.001, 81), (12.5, FL + 0.001, 81)]]
     add(ic.from_faces("door_reveal", rv, "m_pellam", "steel", "steel", toward=(14, FL + 1.5, 80.5), lm=True, mpr=3.6))
@@ -594,7 +621,7 @@ def build_on_top(all_sector):
     for j, (za, zb) in enumerate(((12.31, 12.49), (15.51, 15.69))):
         add(ic.from_faces(f"door_hazard_{j}", [[(x, y, 81.064) for x, y in ic.diagonal_band(za, FL + 0.35, zb, FL + 1.55, 0.3, up=(j == 0))]], "m_pellam", "hazard", None, away_from=(14, FL + 1, 79)))
     # ---- the proving-lift gate (180 degrees): 3 x 3 m through a 1 m wall to the lift room (x 12..16, z 112..116, 3.5 m)
-    delete_region(all_sector, lambda x, y, z: abs(x - 14.0) < 1.5 and y < FL + 3.0 and z > 110.4 and 170 < bearing(x, z) < 190)
+    delete_region(all_sector, lambda x, y, z: abs(x - 14.0) < 1.5 and y < FL + 3.0 and z > (111.0 if abs(y - FL) < 0.003 else 110.4) and 170 < bearing(x, z) < 190)
     rv = [[(12.5, FL, 111), (12.5, FL, 112), (12.5, FL + 3, 112), (12.5, FL + 3, 111)], [(15.5, FL, 112), (15.5, FL, 111), (15.5, FL + 3, 111), (15.5, FL + 3, 112)],
           [(12.5, FL + 3, 112), (12.5, FL + 3, 111), (15.5, FL + 3, 111), (15.5, FL + 3, 112)]]
     add(ic.from_faces("gate_reveal", rv, "m_pellam", "steel", "steel", toward=(14, FL + 1.5, 111.5), lm=True, mpr=3.6))
@@ -872,6 +899,100 @@ def build_stair():
     for q in NOSINGS: add(q)
     add(ic.box("st_lamp2_bezel", (27.84, -34.45, 82.4), (28.0, -34.15, 83.6), "m_pellam", "steel_dark", None, bevel=0.02, drop="x+"))
     emi.append(ic.emis("st_lamp2", [[(27.83, -34.38, 82.48), (27.83, -34.38, 83.52), (27.83, -34.22, 83.52), (27.83, -34.22, 82.48)][::-1]], "aqua"))
+    # look pass i6 (visual reviewer: "the bore descent stair is two large flat green walls ... the plainest stretch
+    # underground"). On the outer walls of the two flights (east, then north) a tube handrail 0.95 m over the nosing line
+    # on six brackets, round the turn; on the inner walls a cable run 2.2 m up in clips; at the turn, under the lamp, the
+    # level's number and the way on, stencilled. 126 triangles (the asset had 167 left); the walls' joints, stains and
+    # two-tone paint and the lamps' pools are in the lightmap (stair_stain, main).
+    UPv = Vector((0.0, 1.0, 0.0))
+    def strip(name, A, Bp, n, off0, off1, half, tint, mid=False):
+        A, Bp, n = Vector(A), Vector(Bp), Vector(n); t = (Bp - A).normalized(); q = n.cross(t)
+        if q.y < 0: q = -q
+        def Pq(p, o, v): r = p + n * o + q * v; return (r.x, r.y, r.z)
+        segs = [(A, (A + Bp) / 2), ((A + Bp) / 2, Bp)] if mid else [(A, Bp)]
+        it = []
+        for a, b in segs:
+            it.append(([Pq(a, off1, -half), Pq(b, off1, -half), Pq(b, off1, half), Pq(a, off1, half)], tuple(n)))
+            it.append(([Pq(a, off0, half), Pq(a, off1, half), Pq(b, off1, half), Pq(b, off0, half)], tuple(q)))
+            it.append(([Pq(a, off0, -half), Pq(a, off1, -half), Pq(b, off1, -half), Pq(b, off0, -half)], tuple(-q)))
+        return add(ic.oriented(name, it, "m_pellam", tint, None))
+    rail_t = tuple(ic.mix("steel", "enamel_stain", 0.35)); RH = 0.95
+    YS = -36.0 - 1.7 * 4.0 / 6.0                                      # the flight's line at z 80.3, where the two chunks meet (faces go to a chunk by their centre: no face may span it)
+    eN, nN = (-1.0, 0.0, 0.0), (0.0, 0.0, 1.0)
+    runs = [("e0", (28.0, -36.0 + RH, 83.7), (28.0, -36.0 + RH, 82.0), eN, False), ("e1a", (28.0, -36.0 + RH, 82.0), (28.0, YS + RH, 80.3), eN, False), ("e1", (28.0, YS + RH, 80.3), (28.0, -40.0 + RH, 76.0), eN, True),
+            ("e2", (28.0, -40.0 + RH, 76.0), (28.0, -40.0 + RH, 74.06), eN, False), ("n0", (27.94, -40.0 + RH, 74.0), (26.0, -40.0 + RH, 74.0), nN, False),
+            ("n1", (26.0, -40.0 + RH, 74.0), (20.0, -44.0 + RH, 74.0), nN, True)]
+    for tag, a, b, n, mid in runs: strip("st_rail_" + tag, a, b, n, 0.055, 0.105, 0.025, rail_t, mid)
+    k = 0
+    for (a, b, n) in (((28.0, -36.0, 82.0), (28.0, -40.0, 76.0), eN), ((26.0, -40.0, 74.0), (20.0, -44.0, 74.0), nN)):
+        for f in (0.08, 0.5, 0.92):
+            c = Vector(a).lerp(Vector(b), f) + UPv * (RH - 0.035); nv = Vector(n); tv = (Vector(b) - Vector(a)).normalized()
+            def Pq(o, u, v, c=c, nv=nv, tv=tv): r = c + nv * o + tv * u + UPv * v; return (r.x, r.y, r.z)
+            add(ic.oriented(f"st_rail_arm_{k}", [([Pq(0, -0.02, -0.03), Pq(0.075, -0.02, 0.0), Pq(0.075, 0.02, 0.0), Pq(0, 0.02, -0.03)], tuple(-UPv)),
+                                                 ([Pq(0, -0.02, -0.03), Pq(0, -0.02, 0.03), Pq(0.075, -0.02, 0.03), Pq(0.075, -0.02, 0.0)], tuple(-tv)),
+                                                 ([Pq(0, 0.02, -0.03), Pq(0.075, 0.02, 0.0), Pq(0.075, 0.02, 0.03), Pq(0, 0.02, 0.03)], tuple(tv))], "m_pellam", "steel_dark", None)); k += 1
+    cab_t = tuple(lin("steel_dark") * 0.8); CH = 2.2
+    wN, sN = (1.0, 0.0, 0.0), (0.0, 0.0, -1.0)
+    clips = []
+    strip("st_cable_w0", (26.0, -36.0 + CH, 82.0), (26.0, YS + CH, 80.3), wN, 0.0, 0.045, 0.055, cab_t, False)
+    for tag, a, b, n in (("w", (26.0, YS + CH, 80.3), (26.0, -40.0 + CH, 76.0), wN), ("s", (26.0, -40.0 + CH, 76.0), (20.0, -44.0 + CH, 76.0), sN)):
+        strip("st_cable_" + tag, a, b, n, 0.0, 0.045, 0.055, cab_t, True)
+        nv = Vector(n); tv = (Vector(b) - Vector(a)).normalized(); qv = nv.cross(tv)
+        if qv.y < 0: qv = -qv
+        for f in (0.12, 0.5, 0.9):
+            c = Vector(a).lerp(Vector(b), f) + nv * 0.052
+            clips.append(([tuple(c - tv * 0.03 - qv * 0.085), tuple(c + tv * 0.03 - qv * 0.085), tuple(c + tv * 0.03 + qv * 0.085), tuple(c - tv * 0.03 + qv * 0.085)], tuple(n)))
+    add(ic.oriented("st_cable_clips", clips, "m_pellam", "steel", None))
+    # the stencil on the turn's north wall (she comes down flight 1 facing it; flight 2 goes to her left): level 02 and
+    # an arrow (the atlas arrow points right: the quad is turned half round)
+    zf = 74.0 + 0.004; pale = tuple(ic.mix("enamel", "concrete", 0.3))
+    def q4(x0, x1, y0, y1, turn=False):
+        c = [(x0, y0, zf), (x1, y0, zf), (x1, y1, zf), (x0, y1, zf)]
+        return c[2:] + c[:2] if turn else c
+    hgt = 0.24; wd = hgt * 2.0 / 3.0; yb = -40.0 + 1.5
+    st = [(q4(26.82, 26.82 + wd, yb, yb + hgt), "numerals", 0, pale), (q4(26.82 + wd * 1.12, 26.82 + wd * 2.12, yb, yb + hgt), "numerals", 2, pale),
+          (q4(26.36, 26.36 + hgt, yb, yb + hgt, turn=True), "picto_misc", 0, pale)]
+    STAIR_STENCIL.append(ic.decals("st_stencil", st, pale)); dec.append(STAIR_STENCIL[-1]); ante_dec.append(STAIR_STENCIL[-1])
+    return out
+
+
+STAIR_STENCIL = []
+STAIN_K = _env("KS_STAIN", 1.0)
+ST_POOL_T, ST_POOL_R, ST_SIDE_K, ST_SIDE_R = _env("KS_ST_POOL", 0.95), _env("KS_ST_POOL_R", 5.5), _env("KS_ST_SIDE", 0.5), _env("KS_ST_SIDE_R", 6.0)
+
+
+def stair_stain(light, objs, res):
+    """Look pass i6: the stair's walls, painted into the lightmap by world position (lm_paint). The formwork's joints
+    (a lift every 1.2 m, a panel every 2.4 m), short runs of water under the lifts and longer ones from the ceiling at
+    the head of the stair, a darker painted dado that follows the flights under the handrail's line with grime along
+    the treads, slow damp patches; the treads are worn pale down the middle and dark against the walls."""
+    t0 = time.perf_counter()
+    pos, nrm, oid, names = lp_.texel_map(objs, res)
+    x, y, z = pos[:, :, 0], pos[:, :, 1], pos[:, :, 2]
+    def of(pred): return lp_.ids(names, pred)[oid]
+    f1 = of(lambda n: n in ("st1_e_lm", "st1_w_lm")); f2 = of(lambda n: n in ("st2_n_lm", "st2_s_lm")); ld = of(lambda n: n in ("land_n", "land_s"))
+    wall = f1 | f2 | ld; m = wall.astype(np.float32)
+    h1 = np.where(z < 76.0, -40.0, np.where(z < 82.0, -36.0 - (82.0 - z) * 4.0 / 6.0, -36.0))
+    h2 = np.where(x < 20.0, -44.0, np.where(x < 26.0, -40.0 - (26.0 - x) * 4.0 / 6.0, -40.0))
+    hh = y - np.where(f1, h1, np.where(f2, h2, -36.0))                 # height over the stair's line
+    s = np.where(f1, z, x) + 7.3 * nrm[:, :, 0] + 3.9 * nrm[:, :, 2]
+    warm = (0.80, 1.0, 1.12)
+    edge = 0.90 + 0.05 * (lp_.fbm(s / 0.5, s * 0.0, 3) - 0.5)
+    out = lp_.darken(light, 0.30 * lp_.smooth(edge + 0.05, edge - 0.05, hh) * m * STAIN_K)
+    g = np.exp(-np.clip(hh, 0.0, None) / 0.2) * (0.4 + 0.8 * lp_.fbm(s / 0.4, hh / 0.2, 5))
+    out = lp_.darken(out, 0.42 * np.clip(g, 0.0, 1.0) * m * STAIN_K, warm)
+    jv = np.exp(-(((s / 2.4) - np.round(s / 2.4)) * 2.4 / 0.045) ** 2); jh = np.exp(-(((y / 1.2) - np.round(y / 1.2)) * 1.2 / 0.045) ** 2)
+    out = lp_.darken(out, 0.34 * np.maximum(jv, jh) * m * STAIN_K)
+    row = np.ceil(y / 1.2)
+    d1 = lp_.drips(s, -33.4 - y, seed=61, width=0.24, density=0.4, lmin=0.6, lmax=3.0)
+    d2 = lp_.drips(s + row * 3.3, row * 1.2 - y, seed=67, width=0.2, density=0.24, lmin=0.3, lmax=1.15)
+    out = lp_.darken(out, np.clip(0.5 * d1 + 0.46 * d2, 0.0, 0.6) * m * STAIN_K, warm)
+    out = lp_.darken(out, 0.22 * lp_.smooth(0.52, 0.74, lp_.fbm(s / 1.7, y / 1.7, 71)) * m * STAIN_K, (0.9, 1.0, 1.06))
+    tr1 = of(lambda n: n in ("flight_1", "landing_s")); tr2 = of(lambda n: n == "flight_2")
+    across = np.where(tr1, np.abs(x - 27.0), np.abs(z - 75.0))
+    a = 0.36 * lp_.smooth(0.35, 0.95, across)                          # (no mottle here: a tread is 9 texels deep and drew it as blocks)
+    out = lp_.darken(out, a * (tr1 | tr2) * STAIN_K, warm)
+    print(f"NOTE stair stain: {int(wall.sum())} wall texels, {int((tr1 | tr2).sum())} tread texels in {time.perf_counter() - t0:.1f}s; wall mean x {float(out[wall].mean() / max(float(light[wall].mean()), 1e-6)):.2f}")
     return out
 
 
@@ -1107,11 +1228,17 @@ def main():
     r = ic.set_reading(cr_l, (cradle[0], cradle[1] - 0.3, 79.97), (0, 0, -1), 0.9)
     print(f"CALIBRATED cradle lamp: the wall under the cradle reads {r:.2f} (target 0.9), tight")
     # the stair's two wall lamps (fill): the landing wall across each reads 0.55; the proving-lift room's lamp
-    st_l = [ic.area_light("st_lamp_l", (27.78, -37.4, 75.0), (25.0, -39.5, 75.0), "#7CF2E2", 1.0, 0.16, energy=30.0, spread_deg=170.0, radius=9.0, power=1.4),
-            ic.area_light("st_lamp2_l", (27.78, -34.3, 83.0), (25.0, -36.0, 83.0), "#7CF2E2", 1.0, 0.16, energy=30.0, spread_deg=170.0, radius=9.0, power=1.4)]
-    st_l.append(ic.area_light("st_lamp3_l", (23.0, -39.8, 74.22), (23.0, -41.8, 76.0), "#7CF2E2", 1.0, 0.16, energy=30.0, spread_deg=170.0, radius=9.0, power=1.4))
-    r = ic.set_reading(st_l[0], (26.0, -39.5, 75.0), (1, 0, 0), 0.55, group=[st_l[0]]); st_l[1].data.energy = st_l[0].data.energy; st_l[2].data.energy = st_l[0].data.energy
-    print(f"CALIBRATED stair lamps: the wall across the landing reads {r:.2f} (target 0.55)")
+    # look pass i6 (visual reviewer: "big, evenly lit, nearly untextured planes"): three lamps that each reached 9 m lit
+    # every wall of the stair alike (0.55 everywhere). The lamp at the turn is a pool now (0.95 across the landing, dead
+    # at 5.5 m, and the pale aqua-white of the station's work lamps: the one place on the stair that is not green); the lamps at the head and on the lower flight are half of it and die at 6 m: the flights fall away
+    # from the turn and come up again at their far ends
+    st_l = [ic.area_light("st_lamp_l", (27.78, -37.4, 75.0), (25.0, -39.5, 75.0), "#CFFFF6", 1.0, 0.16, energy=30.0, spread_deg=170.0, radius=ST_POOL_R, power=1.4),
+            ic.area_light("st_lamp2_l", (27.78, -34.3, 83.0), (25.0, -36.0, 83.0), "#7CF2E2", 1.0, 0.16, energy=30.0, spread_deg=170.0, radius=ST_SIDE_R, power=1.4)]
+    st_l.append(ic.area_light("st_lamp3_l", (23.0, -39.8, 74.22), (23.0, -41.8, 76.0), "#7CF2E2", 1.0, 0.16, energy=30.0, spread_deg=170.0, radius=ST_SIDE_R, power=1.4))
+    r = ic.set_reading(st_l[0], (26.0, -39.5, 75.0), (1, 0, 0), ST_POOL_T, group=[st_l[0]])
+    r2 = ic.set_reading(st_l[1], (26.0, -35.2, 83.0), (1, 0, 0), ST_POOL_T * ST_SIDE_K, group=[st_l[1]])
+    r3 = ic.set_reading(st_l[2], (23.0, -41.6, 75.97), (0, 0, -1), ST_POOL_T * ST_SIDE_K, group=[st_l[2]])
+    print(f"CALIBRATED stair lamps: the wall across the landing reads {r:.2f} (target {ST_POOL_T}); across the head {r2:.2f}, across the lower flight {r3:.2f} (target {ST_POOL_T * ST_SIDE_K:.2f})")
     arr_l = ic.area_light("bay_arrival_l", (4.82, -33.1, 83.0), (2.0, -36.0, 83.0), "#7CF2E2", 1.2, 0.14, energy=30.0, spread_deg=170.0, radius=5.5, power=1.4)
     r = ic.set_reading(arr_l, (2.0, -36.0, 83.0), (0, 1, 0), BAY_LAMP_T)      # polish round 2: 0.45 -> 0.7 (the cage's own floor and roof are dark; the walls carry the bay); round 3: 0.9
     print(f"CALIBRATED arrival bay lamp: the floor in the middle of the bay reads {r:.2f} (target {BAY_LAMP_T})")
@@ -1220,7 +1347,8 @@ def main():
     bay_pass[grown] *= WELL_KEEP
     print(f"NOTE arrival well: {int(well.sum())} texels (+{int(grown.sum() - well.sum())} margin) x {WELL_KEEP}")
     b = b + bay_pass
-    b = b + ic.lm_pass(stair_side, LM, AMB_AN, ao_distance=3.0, hide=grille + base + dummies, **Q2)
+    sp = ic.lm_pass(stair_side, LM, AMB_AN, ao_distance=3.0, hide=grille + base + dummies + STAIR_STENCIL, **Q2)
+    b = b + (stair_stain(sp, stair_side, res) if STAIN_K > 0 else sp)
     c = ic.lm_pass(ante_side, LM, AMB_AN, ao_distance=2.5, **Q2) if ante_side else 0
     ic.save_lm(a + b + c, LM)
     for g in glow: g.hide_render = False

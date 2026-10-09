@@ -529,3 +529,127 @@ No contract, design file or budget changed.
 |---|---|
 | 5 documents | Mirrored: ARCHITECTURE "Pass i3" (8.1, 8.3, 8.4), ART_BIBLE "Amendments, pass i3 (closer)", `docs/KNOWN_ISSUES.md` |
 | Shared files | Checked first: every constant the teams name is in place; `tests/render/` on the final tree is in INTEGRATION_REPORT Part P |
+
+## Fixer, pass i4 (2026-10-08): what is ready for this team, and what is ruled
+
+
+| Item | State |
+|---|---|
+| The release build has no debug hook | `vite.config.mts` `__KEEP7_HOOK__`; `startServer({ mode: 'build' })` of the harness still builds WITH the hook (your build tests are unchanged); `startServer({ mode: 'build', hook: false })` is the bundle as published. `__dbg.ext.render.*` is therefore never present on the public page: nothing a player needs may depend on it |
+| A real pointer lock in headless Chromium | floods the page with synthetic mouse events (the performance reviewer): any script that clicks "Begin" on a page without the hook calls `grantPointerLock(page)` (`tests/harness.mjs`) first. Real-loop numbers taken with a real lock are not evidence |
+| Asset addresses in a build | carry `?v=<8 hex>`: a test that routes a file of a BUILD by its address must allow a query (`**/lm_gallery.webp*`) |
+| Ledger | the view-model is 14 000 triangles; the per-cell plan is in INTEGRATION_REPORT Part Q. High-only scatter, shadows and air do not count against Low's 120 000 but do against High's 400 000 and 220 calls |
+| Not done here, yours | adaptive steps that resize the canvas; the neighbour tiers' programs without `KHR_parallel_shader_compile`; the 5 kB allocated per tick and frame |
+
+## Render-tech, pass i4 (2026-10-08): the five carried-over issues
+
+Evidence: `tests/render/i4.test.mjs` (the real game, seven tests), `shots/i4-team-render-tech/` (`test/`, `motes/`,
+`lowhigh/base` and `lowhigh/try1`: Low | High pairs), `scratch/i4-team-render-tech/` (`NOTES.md`, `lowhigh_base.log`,
+`lowhigh_try1.log`, `allocprof_before_low.log`, `allocprof_after_low.log`, `gate/`). Gate on the final tree, one command
+after another: `npx tsc --noEmit` clean; `npx vitest run tests/render` 27 of 27; `node --test --test-concurrency=1
+tests/render/*.test.mjs` in three batches (38, 26 and 24 tests; 312 s + 107 s + 320 s): all pass (the first batch had one failure, `i1_high.test.mjs` pinning the bore glow's reach at 7; corrected and re-run in the second); `KEEP7_REAL=all node --test tests/core/`
+76 of 76 (392 s); `tests/e2e/production.test.mjs` 4 of 4 (the published bundle builds and boots).
+
+### 1. What changed
+
+| Issue | Change | Proof |
+|---|---|---|
+| Every adaptive-resolution step resizes the canvas (performance, minor) | `system.ts` `applySize` / `topRatio`, `post.ts` `setSize`: on Low and High the canvas is allocated once per window size and tier, at the tier's largest ratio; a step resizes only the composer's off-screen targets (the composer's own `setSize` resized the renderer, which is what stalled) and the chain's last pass, which already draws onto the canvas, enlarges the picture through its linear filter. `min` has no off-screen target: its canvas still steps | test 1 (Low, High): seven steps 1 -> 0.5 -> 1, **0 writes to the canvas's width or height**, the scene buffer is the ratio's (480 x 270 at 0.5), the targets shrink (Low 9.9 -> 5.4 MiB, High 27.4 -> 15.8), the half-size picture is within 2.9 of 255 of the full one in every quarter of the frame (`test/step_high_050.png`, opened); a window resize still allocates. Test 2, the running loop: the opening look went 0.5 -> 1 on one allocation |
+| An automatic tier step-down can link 41 programs in play without `KHR_parallel_shader_compile` (performance, minor) | `system.ts` `warmNeighboursSliced`, `neighbourSteps`, `compileSteps`: the boot's warm-up takes the tier below on without the extension too, behind the loading screen, in slices (`NEIGHBOUR_SLICE_MS` 8 ms of steps or `NEIGHBOUR_SLICE_PROGRAMS` 4 programs, one answer from the context so the driver's time is paid there, then a turn for the page). A set or tier that changes under it leaves the tier owed as before | test 2 (dev page, real loop, no tier forced, the extension hidden): 84 links by the title (43 + 41), 8 slices, the longest 32 to 35 ms under SwiftShader, nothing owed; the quality manager's own `setTier('min', 'demote')`: **0 links** |
+| Daylight dust motes read as white specks against the sky (visual, minor) | `vfx/ambient.ts` (`DUST_ALPHA`, `DUST_TINT`, `DUST_FAR`, `DUST_SKY`, `DUST_SKY_FROM`; the High half of the sand cloud only): the dust takes the hue of the mood's light, 0.6 of its level, is gone by 9 m (it was 13: further off a mote is a two-pixel dot) and fades with its elevation when it is seen above the horizon from more than arm's length | reproduced (`scratch/.../motes.mjs`, ten frames at 1280 x 720 from the yard toward the far rim): the dust added up to **55** of 255 over the sky, 253 pixels over 12; now at most **0.9**, none over 12; against the shade it is still there (2 400 pixels over 12, was 2 853). `motes/after_with.png` opened. Test 3 |
+| Play still allocates 5 kB per tick and drawn frame (performance, minor) | **Partly.** The profile's largest site was neither in the frame nor in the tick: three's upload path builds a cache-key string for every bone texture a moved skeleton marks. `quiet.ts` `quietBones` (called from `materials.ts` `propOnBeforeRender`) writes the matrices straight to the texture three made, through three's state cache | sampled bytes a tick + frame, Low: file fight **6 339 -> 4 267**, yard 7 043 -> 6 589. Test 5: 540 direct writes in 60 frames of the file fight, 0 uploads through three, the frame byte for byte the frame three's own upload draws. What is left is in section 3 |
+| High is close to Low in the yard, the Tally House and the boss room (visual, major; R9 / R16) | **Partly (the rooms; outdoors is not done, section 3).** Every High term was already live at the weak stops (`scratch/.../state.mjs`): the chamber and the Tally House ran them weaker than the hall. `moods.ts`: `SHEEN` L5 / L5c / L5p -> 3.0 (2.2, 1.2, 2.2); `AIR` L2 1.6 (1.0), L5 2.2 (1.5), L5c 2.4 (1.8), L5p 2.0 (1.2); `AIR_CONE` L5 / L5c / L5p 8 (4). `system.ts` `AIR_LAYOUT.bore_glow` 2.8 / 9 m (1.6 / 7): the well's glow stands in the chamber's air | the reviewer's measure (320 x 180: mean absolute difference, share of pixels more than 24 apart), his stops, before -> after: chamber floor `cp_boss_p1` **7.7 / 5.8 % -> 11.0 / 15.4 %**, `vista_windlass` 3.7 / 4.5 % -> 5.3 / 7.9 %, `cp_tally_enter` 4.3 / 2.1 % -> 7.0 / 5.6 %, `cp_tally_hatch` 5.4 / 4.6 % -> 8.0 / 6.9 %. Pairs opened: `lowhigh/try1/pair_cp_boss_p1.jpg`, `pair_vista_windlass.jpg`, `pair_cp_tally_enter.jpg`. Draw calls, triangles and memory unchanged; Low draws none of it. Test 4 holds floors under these |
+
+### 2. For the closer: mirror into the documents
+
+| Document | Now says | Should say |
+|---|---|---|
+| `docs/ARCHITECTURE.md` 8.5 (adaptive resolution) | a step sets the renderer's pixel ratio and size | on Low and High a step resizes the composer's targets only; the canvas is allocated at the tier's largest ratio once per window size and tier, and the last pass enlarges. `min` steps its canvas. `PerfStats.width / height` are the CANVAS's; `__dbg.ext.render.sizeState()` gives the scene buffer |
+| `docs/ARCHITECTURE.md` 8.2 / "Pass i4" (warm-up) | without `KHR_parallel_shader_compile` the neighbouring tier is owed until the first pause or death | the boot compiles it in slices behind the loading screen; owed only when a warm-up falls in play |
+| `docs/ARCHITECTURE.md` 8.4 (High's tables) | `SHEEN`, `AIR`, `AIR_CONE` as in pass i3; `bore_glow` 1.6 / 7 | the numbers of section 1, last row |
+| `docs/ART_BIBLE.md` (High's daylight dust) | gold motes to 13 m | the mood's hue, to 9 m, fading above the horizon |
+| `docs/KNOWN_ISSUES.md` | the three performance minors of the regression review | the canvas no longer steps (Low, High); the tier below is compiled at boot everywhere; allocation: 4.3 kB a tick and frame sampled in the file fight (was 6.3), the rest named in section 3 |
+
+No contract, design file or budget changed. `tests/render/i1_high.test.mjs` line 105 now expects the bore glow's reach 9.
+
+### 3. Not done, with the reason
+
+- **High against Low OUTDOORS (the yard, the street, the lip gate; R16).** Measured and unchanged: `cp_yard_clear` 5.9 /
+  0.2 %, `cp_street_clear` 4.9 / 0.4 %, `cp_lip_gate` 5.6 / 0.2 %, `vista_dowser` 4.9 / 0.2 %. The reviewer's first
+  suggestion was tried: the sun's shadow square at 38 m a half side instead of 26 moved none of the four numbers by a
+  tenth (and cost 3 draw calls): the map is live with the town's fixed casters at all four stops, but those frames are
+  the bake's own shade, where no sun casts. What is missing there is not a switch that is off; it is a picture (light
+  in the air against the shade, a glow on the lit skyline, contact under things in sky light), and the terms that would
+  draw it are the look teams' tables (`SHADOWS`, `RELIEF_SKY`, `post.ts` `VEIL_*`, `AO_SKY`, the mood's bloom). A wide
+  second lobe of the contact shade was considered and not built: sixteen taps without a blur pass is the speckle three
+  earlier rounds took out. **Left to the exterior look team under R16.**
+- **A mirrored floor in the chamber** ("floor sheen reflecting the purple well and the six lamps"). The sheen is a
+  glance of the baked light, not a reflection: it shows standing on the plate (the floor row above) and hardly from the
+  catwalk looking down (5.3). A screen-space reflection in the merged pass was not attempted: the pass does not know a
+  surface's gloss or the floor's height in the hall and the gallery.
+- **Allocation: the budget line is still not met.** Sampled after this pass, Low: a drawn frame alone 2.1 kB (yard) to
+  2.6 kB (file fight), a tick alone 1.3 to 1.6 kB. The frame's remainder is inside three (the render list's boxed depth
+  per object about 500 B, the uniform setters about 450 B, `setClear` about 220 B over three renders) and cannot be
+  reached without replacing three's closures; `lateUpdate` shows 255 B in the file fight that I did not find by line.
+  The tick's is other owners': the view-model's animation mixer (`three` `evaluate` from `src/player/viewModel.ts`,
+  500 B), `src/core/collision.ts` `rayObb` from `src/world/interact.ts` `tickFocus` (400 to 600 B), `src/player/camera.ts`
+  `tick` (360 B with a frame), `src/world/interact.ts` `tickHints` (120 B). On High a skinned shadow caster's bones still
+  go three's way in the shadow pass (a depth material has no hook).
+- **`min` still resizes its canvas on an adaptive step.** It is the tier with no off-screen target and no full-screen
+  pass; giving it one to scale would cost the tier its point.
+- **On Low the one merged pass now covers the canvas, not the scaled buffer**: at ratio 0.5 the grade runs on four
+  times the pixels it did (one texture read, the curve, the grade, the grain). The scene's own fill still scales with
+  the ratio. Not measured on a real GPU; on High the last pass is FXAA and the grain, the eleven before it scale.
+- **`tests/render` was not split**: it runs in three batches of under six minutes each as listed above.
+
+### 4. Requests to other owners
+
+| To | Request |
+|---|---|
+| core (`src/core/quality.ts`) | (a) Offer `maxRatio()` (or a `maxPixelRatioNow` field) on the quality manager: `system.ts` `topRatio` repeats its formula from the public inputs, and takes the larger of that and the current ratio so a mismatch only ever costs one allocation. (b) The reviewer's second guard: refuse an AUTOMATIC tier change while the render system still owes the neighbouring tier (after a set change in play), until the next pause, death or checkpoint fade. The render side would need to say so (`RenderApi` has no such field): not built. Today a step down in that window calls `warmUp()` for the new tier, which links only what the playthrough's recipes do not cover |
+| exterior look | High outdoors under R16 (section 3, first row). The daylight dust's five constants are in `vfx/ambient.ts`. In the yard frames the pursued man reads as standing in the sky above the mesa at 960 x 540 (`shots/i4-team-render-tech/test/step_high_050.png`, `motes/after_with.png`): R18, not touched |
+| underground look | The chamber's and the Tally House's High numbers (section 1, last row) are a first step, yours to tune; test 4's floors are the reviewer's "before" plus a margin (Tally 5.5 / 3.5 %, Windlass vista 4.5 / 6 %, chamber floor 9 / 10 %). The pale motes of the station's air (`ambient.ts` 'air') still read as a few white dots against a dark pillar (`lowhigh/try1/pair_vista_windlass.jpg`): the reviewer named them; not changed |
+| player, world | the tick's allocation sites named in section 3 |
+
+## Closer, pass i4 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| 2 the mirror table | Mirrored: ARCHITECTURE "Pass i4 (closer)" (8.2, 8.4, 8.5), ART_BIBLE amendments (High's dust and rooms); `docs/KNOWN_ISSUES.md` |
+| 4 core: `maxRatio()`, the second guard for a tier change | **Not built** (frozen core, no failing case); known issue |
+| 3 not done | Listed in `docs/KNOWN_ISSUES.md` (High out of doors away from the sun, allocation, `min`'s canvas, no real GPU) |
+
+## Render-tech, pass i5 (2026-10-08): the creatures' contact shadow in shade
+
+Evidence: `scratch/i5-team-render-tech/NOTES.md`, `shots/i5-team-render-tech/` (`after_low_sheet.png`,
+`after_high_sheet.png`: probe off left, on right; `test/`), `tests/render/i5.test.mjs`.
+
+### 1. What changed
+
+| Issue | Change | Proof |
+|---|---|---|
+| Creatures have only a faint contact shadow in shade (visual-b) | **Reproduced** with a bare blob at Front Street (-40, 0, 0), 960 x 540: the ground under it was 28.6 levels darker than the ground beside it on Low and 16.7 on High. The blob is a black quad of opacity 0.55 that multiplies the ground, so on ground the bake has already darkened it is a few levels, and on High the air (dust, veil) is drawn over it. `src/render/system.ts` `shadeAt`: outdoors, a collision sight line from 1 m over the blob, 80 m toward the sun (`uSunDir`), ignoring grilles and undrawn colliders; **one blob per drawn frame** (each of the 16 slots every 16 frames), eased over 0.25 s. `src/render/vfx/vfx.ts` (`BLOB_ALPHA 0.55`, `BLOB_ALPHA_SHADE 0.8`, `BLOB_ALPHA_SHADE_HIGH 0.9`, `BLOB_CORE 0.4`, `BLOB_CORE_HIGH 0.8`, `BLOB_SHADE_EASE 0.25`) and `vfx/quads.ts` (SHAPE_BLOB: a tight core, radius 0.1 to 0.5 of the quad's, weighted by `vE.y`): in shade the blob is deeper and has a contact core, more on High. **In the sun and indoors the blob is drawn exactly as before.** No quad, draw call, texture or program more; nothing allocated; the simulation is not touched | Low **52.6** levels (28.6), High **32.5** (16.7); in the sun 82.1 -> 82.4 (unchanged); sun to shade: first change after 9 frames, largest step 0.067 per frame; indoors never. `tests/render/i5.test.mjs` (3 tests) |
+
+New debug surface: `__dbg.ext.render.blobs(on?)` (each active blob's shade, opacity and core; `false` switches the probe off).
+
+### 2. For the closer: mirror into the documents
+
+| Document | What |
+|---|---|
+| ARCHITECTURE 8 (render) | the blob shadow's shade probe: one `collision.lineOfSight` per drawn frame, exterior zones only; the `VfxHost.shadeAt` hook; `__dbg.ext.render.blobs` |
+| ART_BIBLE (shadows) | a creature's blob in a building's shade outdoors: opacity 0.8 with a contact core 0.4 (Low, min), 0.9 with 0.8 (High); 0.55 without a core in the sun and indoors |
+
+### 3. Limits, for the look teams
+
+- On High the air is drawn over the blob: with the dust on, the ground under a fully black blob cannot fall below about 60 of 255 at 3 m (39 with `dust(false)`). High's blob in shade is therefore as deep as a quad can make it; more needs the air to spare the first metres, which is a look decision.
+- The probe reads colliders, not the bake: the bake's shade edge is soft (the street's lit strip is 90 to 130 levels, its shade 85 to 105), so near that edge a blob can be deepened on half-lit ground.
+- The blob is 1.1 m and sits under the root: a Transit's feet stand about a metre out, outside the core (`setLevel` is the enemies team's).
+- Seen, not mine: pale straight stripes on High's street ground near (-40, 0) (`after_high_sheet.png`, top row), on both sides of this change.
+
+## Closer, pass i5 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| Section 2 (documents) | **Mirrored**: ARCHITECTURE "Pass i5 (closer)" (the shade probe, `VfxHost.shadeAt`, the `blobs` hook), ART_BIBLE "Amendments, pass i5 (closer)" (the blob in shade per tier) |
+| A Transit's blob does not reach its feet (asked of enemies, not active) | **Applied by the closer**: `src/enemies/pool.ts` `setLevel(1.8)` for a Transit (render only; the playthrough is replayed after it) |
+| High's contact shadow under the air; pale stripes on High's street near (-40, 0); the probe reads colliders, not the bake | **Not built**: in `docs/KNOWN_ISSUES.md`. The stripes were looked for in this pass's hero frames (Part S) |

@@ -154,6 +154,8 @@ test('in real time the staging and the swap are cut into slices: no tick does it
     await spreadOn(game);
     await game.run([{ steps: 30 }]);
     let seq = await mark(game);
+    // (pass i4) every build of the static colliders from here on is counted
+    await game.page.evaluate(() => { const c = window.__dbg.ext.core.ctx().collision, f = c.setStatic.bind(c); window.__statics = 0; c.setStatic = (...a) => { window.__statics++; return f(...a); }; });
     // the day-cell lights: the gallery is instanced on one tick, built on a later one
     const staging = await game.page.evaluate(() => {
       const dbg = window.__dbg, w = dbg.ext.core.ctx().world, out = { roots: [], built: [] };
@@ -183,6 +185,10 @@ test('in real time the staging and the swap are cut into slices: no tick does it
     assert.deepEqual(down.zones, ['tally_house', 'the_gallery']);
     assert.deepEqual(down.sets, ['surface', 'underground']);
     await game.run([{ steps: 120 }]);
+    // pass i4 (the performance review: "fn collision.setStatic (BVH build) 12.1 ms" inside a frame on the peg stair): the
+    // solids of the whole set below stand from the surface build on, so neither the staging nor the swap builds a BVH
+    assert.equal(await game.page.evaluate(() => window.__statics), 0, 'no static-collider build between the day-cell and the foot of the stair');
+    assert.equal(await busy(game), false);
     const ev = await game.events(seq);
     const released = ev.find((e) => e.name === 'load/set' && e.payload.set === 'surface' && e.payload.stage === 'released');
     const built = ev.filter((e) => e.name === 'world/built' && e.payload.set === 'underground').at(-1);

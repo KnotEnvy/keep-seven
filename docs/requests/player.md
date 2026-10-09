@@ -40,3 +40,47 @@ cylinder with a reserve: the second follows 7 ticks later. Nothing in `src/` rel
 | 2.2 | the gun hides the right-most Bider at melee range | **Ruled: stands.** R6 sets the size; the gun team's new `VIEW_PLACE` moved the muzzle to 101 px right / 69 px below the crosshair (it was 52 / 50), which uncovers more of the centre |
 | 2.3 | the flash sits below-left of the lifted barrel | **Open for round 5** (gun look): purely visual; seen in `shots/round-4/hero_03.png` |
 | 1 | numbers | mirrored: GDD 6.3, 6.8, 6.9 in place and 23.8 |
+
+## Fixer, pass i4 (2026-10-08): what is ready for this team, and what is ruled
+
+
+| Item | State |
+|---|---|
+| `DAMAGE_TAKEN` | unchanged. Hard's change of this pass is in the enemies' table (tells 20 % shorter) |
+| The view-model's budget | 14 000 triangles (`docs/requests/gun.md`) |
+
+## Team player, pass i4 (2026-10-08): two combat-review issues, both fixed
+
+### 1. Numbers and behaviour changed (closer: mirror into the documents)
+
+| What | Was | Now | Where it is written |
+|---|---|---|---|
+| Damage trauma (`TRAUMA_DAMAGE_MIN` / `MAX`) | +0.3 at 10 HP to +0.6 at 38 HP | **+0.55 to +0.9** (shake after render's square: 0.36 degrees at 10 HP, 0.51 at 18, 0.97 at 38) | GDD 5 "Damage feedback" row ("trauma +0.3 to +0.6 by damage") |
+| The flinch (new: `FLINCH_DEG_MIN` 1.0, `FLINCH_DEG_MAX` 2.0, `FLINCH_PEAK` 0.05 s, `FLINCH_SECONDS` 0.25 s, `FLINCH_ROLL` 0.5) | none | a hit that takes health knocks the VIEW 1 degree (10 HP or less) to 2 degrees (38 HP) away from its source: up for a blow from ahead, down from behind, turned and leaned to the other side for one from a side; whole in 0.05 s, exactly gone by 0.25 s. Added to the camera only, like the gun's kick: the stored aim (where a round goes) never moves. Scaled by `screenShake`, none under `reduceMotion`, none from a kill volume | GDD 5 "Damage feedback" row and the comfort options (GDD 17: screen shake / reduce motion now also govern the flinch) |
+| Line round (`LINE_HOLD_MAX_SLOPE` 0.5) | flies on the aim ray | once it has gone through a body it holds that body's height (level, same heading) for the rest of its 60 m WHEN the level run meets every receiver the aim ray would have met behind that body (same entity, same part) and at least one body more; never when fired steeper than 30 degrees. Otherwise unchanged | GDD 6.4; ARCHITECTURE 3.6 "A line round" |
+| `weapon/fired` of a held line round | `end*` = the geometric end | `end*` = the point where it met the first body (render draws muzzle to there); the player asks `render.vfx.line('line_round', ...)` for the level run; `combat/line_resolved.end*` is the true end. Hits of the level run carry that ray in `DamageInfo` (`ox..oz` = the bend, `dx..dz` level) | ARCHITECTURE 3.6 and the `weapon/fired` note in the events table |
+| Player debug snapshot | | + `hurtPitchDeg`, `hurtYawDeg`, `hurtRollDeg`, `lineHolding` | ARCHITECTURE debug table |
+
+Measured in the real game (Low, the street; `scratch/i4-team-player/measure.mjs before|after`): an 18 HP lunge moved the camera 0 degrees off the aim with at most 0.15 degrees of shake, now 1.29 degrees (17 px at 720p) plus at most 0.51 of shake; a file at 8 / 11 / 14 m freed 2 of 3 (sand at 12.3 m), now 3 of 3; at 5 / 8 / 11 m 1 of 3, now 3 of 3.
+
+### 2. For others
+
+| # | For | What |
+|---|---|---|
+| 1 | render-tech | A held line round uses two `line_round` lines per shot (pool 4: two shots inside 1.5 s still fit). The level run starts inside the first body and is mostly hidden behind the file from her eye; nothing asked |
+| 2 | ui / look teams | The flinch moves the 3D view only; the HUD's own hit feedback (arc, vignette) is unchanged. If the two together are judged too much, the numbers are `FLINCH_DEG_*` in `src/player/defs.ts` |
+| 3 | world | The line-round hint needs no "aim at heads" wording: a chest aim now carries down a file |
+
+### 3. Tests
+
+- new `tests/player/flinch.spec.ts` (5), `tests/player/line_hold.test.mjs` (sandbox, 2), `tests/player/i4_real.test.mjs` (real game, 2)
+- changed `tests/player/health.spec.ts` (trauma numbers; the flinch is asked for), `tests/player/state.test.mjs` (trauma numbers)
+
+## Closer, pass i4 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| 1 the five rows | Mirrored: GDD 5 in place, GDD 23.19 (5, 6.4, 17), ARCHITECTURE "Pass i4 (closer)" (3.6, the debug snapshot) |
+| 2 rows 1 to 3 | Noted; nothing to change. The flinch and the HUD's hit feedback together were looked at in the closer's hero legs (INTEGRATION_REPORT Part R) |
+| Not done: a dead, dissolving first body can be the bend point | **Left**; in `docs/KNOWN_ISSUES.md` |
+| UI's ask: the dial tuck from `trg_pz_asking` at 4:3 | **Not built** (no team took it); in `docs/KNOWN_ISSUES.md` |

@@ -8,6 +8,7 @@ import type {
 import { ColFlag } from '../core/contracts.ts';
 import { Interp3, InterpAngle } from '../core/interp.ts';
 import { CAPS, DIFFICULTY } from './defs.ts';
+import type { HintRing } from './hintring.ts';
 import type { Nav } from './nav.ts';
 import type { Anim, AssetAnims } from './pool.ts';
 import type { TokenKind, Tokens } from './tokens.ts';
@@ -152,6 +153,8 @@ export class Actor implements HitReceiver {
   slamsLanded = 0;
   /** slams in a row that have hurt her (a miss ends the row): the pause grows from the second (`TAMPER.slamAfterRun`) */
   slamsRun = 0;
+  /** pass i4: seconds the help adds to the slam wind-up or the charge stun it is in (fixed when that began) */
+  helpSeconds = 0;
 
   constructor(readonly index: number, private readonly shared: Shared) {}
 
@@ -184,6 +187,8 @@ export interface Hooks {
   slamLanded(x: number, y: number, z: number, radius: number): void;
   /** a Transit's stake reached the bell of its vignette */
   bossFight(): boolean;
+  /** pass i4: the Tamper's ring line, once per run of its fight (index.ts) */
+  sayRing(): void;
 }
 
 export interface StakeShot {
@@ -291,6 +296,14 @@ export class Shared {
   tokens!: Tokens;
   stakes!: StakesApi;
   pool!: PoolApi;
+  /** pass i4: the outline rings of the fallback teaching (0 and 1: the Tamper's vents or the Windlass's pawls; 2: the bore's line locker) */
+  rings!: HintRing;
+  /**
+   * Pass i4: deaths to an awake Tamper in this run of the fight, `TAMPER.helpMax` at most: the steps of
+   * help a player who keeps dying to it is given (defs.ts `backKey`). Kept across the encounter's reset; forgotten with
+   * the run and when the Tamper dies.
+   */
+  tamperHelp = 0;
   /** total damage this module has dealt her and the largest single hit (tests: no hit over 38) */
   dealt = 0;
   maxHit = 0;

@@ -96,7 +96,8 @@ class World implements WorldSystem {
     e.on('weapon/fired', () => { s.stats.roundsFired++; this.hitCounted = false; });
     // a round that met something that reacted, once per shot (GDD 22: accuracy)
     e.on('combat/hit', (h) => { if (!this.hitCounted && h.outcome !== 'impact' && h.outcome !== 'passed') { this.hitCounted = true; s.stats.roundsHit++; } });
-    e.on('combat/line_resolved', (l) => { if (l.bodies + l.knots >= 3) s.stats.linesOfThree++; });
+    // (pass i4: once a shot; the proving line's three knots are counted by the puzzle, whose assist bursts two of them)
+    e.on('combat/line_resolved', (l) => { if (l.bodies + l.knots >= 3 && s.lineCounted !== l.shotId) { s.lineCounted = l.shotId; s.stats.linesOfThree++; } });
     // the title: no run is going on (after a quit core rebuilds the overhang shot under the menu; "Begin" and "Go on"
     // start a run again through beginRun). Whatever was being said or ridden stops with the run.
     e.on('game/state', (g) => {

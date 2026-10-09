@@ -37,6 +37,24 @@ describe('index.html head', () => {
     expect(size).toBeLessThan(300_000);            // it counts toward the 20 MB download
     expect(meta('twitter:card')).toBe('summary_large_image');
   });
+  // Pass i4 (ruling R20, robustness): what the page says by itself, before or instead of the game, is story.json's text
+  it('carries the words of story.json for a visitor without a mouse, a page that did not load and a browser without scripts', () => {
+    const system = story.system as Record<string, string>;
+    const says = /var SAYS = \{([\s\S]*?)\};/.exec(html)?.[1] ?? '';
+    const pairs = Object.fromEntries([...says.matchAll(/(\w+): '((?:[^'\\]|\\.)*)'/g)].map((m) => [m[1] as string, m[2] as string]));
+    expect(Object.keys(pairs).sort()).toEqual(['load_anyway', 'needs_input', 'page_failed', 'page_reload', 'page_slow']);
+    for (const [key, text] of Object.entries(pairs)) expect(text, key).toBe(system[key]);
+    expect(/<noscript><p>([^<]*)<\/p><\/noscript>/.exec(html)?.[1]).toBe(system.needs_script);
+    // the notice names both things the game needs, and the UI's copy for the title is the same sentence
+    expect(system.needs_input).toMatch(/mouse/);
+    expect(system.needs_input).toMatch(/keyboard/);
+    expect((story.ui as Record<string, string>).ui_needs_input).toBe(system.needs_input);
+    // the game waits on the notice before it asks for its files (src/main.ts), and a release build drops the hook
+    const main = fs.readFileSync(path.join(ROOT, 'src/main.ts'), 'utf8');
+    expect(main).toMatch(/__keep7Gate/);
+    expect(main.indexOf('__keep7Gate')).toBeLessThan(main.indexOf('createContext({'));
+    expect(main).toMatch(/if \(HOOK\) installDebugHook/);
+  });
   it('asks the host for nothing by an absolute path', () => {
     const urls = [...html.matchAll(/(?:href|src|content)="(\/[^"/][^"]*)"/g)].map((m) => m[1]).filter((u) => u !== '/src/main.ts');
     expect(urls).toEqual([]);

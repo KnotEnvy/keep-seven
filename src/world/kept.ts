@@ -286,9 +286,11 @@ class Kept implements KeptApi {
     if (tier === 0) { if (this.clock.tier >= 2 && !this.hintShown && s.hintsOn()) this.showPrompt(); return; }
     s.hint('kept', tier);
     // (round 5: tier 1 has a line of its own, `hint_kept_1`; it said `nar_office`, the line that pays off the shot)
-    if (tier === 1) s.story.say(this.lineHint1);
+    // (pass i4, the playthrough review: under the Windlass's refill lines neither line was ever said in 200 s; a hint
+    // was dropped whenever anything was on screen. `sayHint`: next in line, over a station line that has been read)
+    if (tier === 1) s.story.sayHint(this.lineHint1);
     // (the plainer line replaces the first; pass i3: and the key's prompt comes with it, not a tier later)
-    else if (tier === 2) { s.story.drop(this.lineHint1); s.story.say(this.lineHint2); this.showPrompt(); }
+    else if (tier === 2) { s.story.drop(this.lineHint1); s.story.sayHint(this.lineHint2); this.showPrompt(); }
     else if (tier === 3 && !this.hintShown) this.showPrompt();
   }
   private floor = 0;

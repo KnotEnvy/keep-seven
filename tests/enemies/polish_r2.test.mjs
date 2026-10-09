@@ -141,7 +141,7 @@ test('a Transit with no sight of her from any authored point goes and finds one:
   } finally { await game.close(); }
 });
 
-test('phase 3a: HAULING is said once in the phase; the charge line repeats every 20 s until the kept round is loaded, and boss/charge_required stays one event', async () => {
+test('phase 3a: HAULING is said once in the phase; the charge line repeats every 30 s (pass i4; it was 20) until the kept round is loaded, and boss/charge_required stays one event', async () => {
   const game = await openScene('bore');
   try {
     const r = await inPage(game, async (dbg, e, core) => {
@@ -168,8 +168,9 @@ test('phase 3a: HAULING is said once in the phase; the charge line repeats every
     assert.ok(r.hauls >= 8, `the hauls still happen and are announced by boss/haul (${r.hauls})`);
     assert.equal(r.events, 1, 'boss/charge_required once (the hint ladder counts from it)');
     assert.equal(r.one.length, 1, 'nar_one_left once');
-    assert.equal(r.charge.length, 4, `charge line at 12, 32, 52 and 72 s (${r.charge})`);
-    for (let i = 0; i < 4; i++) assert.ok(Math.abs(r.charge[i] - (12 + 20 * i)) < 0.2, `${r.charge}`);
+    // pass i4 (story reviewer a: four times in 56 s): BOSS.chargeRepeat is 30 s
+    assert.equal(r.charge.length, 3, `charge line at 12, 42 and 72 s (${r.charge})`);
+    for (let i = 0; i < 3; i++) assert.ok(Math.abs(r.charge[i] - (12 + 30 * i)) < 0.2, `${r.charge}`);
     assert.equal(r.afterLoad, 0, 'not repeated once the kept round has been loaded');
     assert.equal(r.haulingAfter, 0);
   } finally { await game.close(); }

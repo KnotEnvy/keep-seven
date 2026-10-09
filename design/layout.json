@@ -4358,6 +4358,17 @@
    }
   },
   {
+   "id": "pk_rounds_6_yard_bell",
+   "zone": "plenty_street",
+   "type": "pickup",
+   "pos": [-93.2, 0, 3.6],
+   "rotY": 0,
+   "params": {
+    "pickup": "pk_rounds_6",
+    "note": "pass i4 (the playthrough reviewer: one plain run in three left the yard with nothing in the gun and nothing in reserve): a packet at the foot of the bell post, in the middle of the fight"
+   }
+  },
+  {
    "id": "cp_yard_clear",
    "zone": "plenty_street",
    "type": "checkpoint",
@@ -4381,9 +4392,9 @@
     "vignette": {
      "id": "vig_dowser"
     },
-    "startsWhen": "the player is inside this volume AND the card is within the view cone (GDD 9.3); until then nothing is narrated",
+    "startsWhen": "the player is inside this volume AND he stands (her line to him is clean of the tank, the roofs and the wall stump) AND the card is within the view cone (GDD 9.3, 23.20); until then nothing is narrated",
     "clockSeconds": 12,
-    "goesWhen": "looked away for 2 s after she has looked AT him (inside 15 degrees) for 1 s; the 12 s clock no longer takes him off the mesa (lead ruling R4)",
+    "goesWhen": "pass i4: out of her FRAME (66 degrees off the middle of her view) for 2 s (0.5 s once the door is open) after she has looked AT him for 1 s; stared at for 40 s he walks down behind the skyline over 1.5 s under nar_dowser_down; the 12 s clock only opens the door, it never takes him (lead ruling R4; src/world/director.ts SIGHT_OFF, SIGHT_STAYS, SIGHT_DOWN)",
     "lines": {
      "seen": "nar_dowser_seen",
      "shot": "nar_dowser_shot",
@@ -4391,7 +4402,7 @@
     },
     "holdsDoor": "door_tally",
     "doorOpensWhen": "nar_dowser_gone has played (card on screen at least 1 s), or 12 s after this volume is first entered, whichever is first; the 12 s clock waits for the end of nar_dowser_seen while that line is on screen (polish round 4)",
-    "drawsEye": "a sun-glint off the rod every 1.5 s (star4 sprite) from the moment enc_yard is clear; the tally door stays shut and dark, so the glint is the only new thing in the yard",
+    "drawsEye": "a sun-glint off the rod every 1.5 s (star4 sprite) wherever he stands: he and the glint exist only where her line to him is clean (the strip before the tally door, the north yard; pass i5), and he comes up over the rim in 0.35 s as she enters it. From the gate and the east yard the tally door breadcrumb lamp (20 s) leads her to the strip",
     "once": true,
     "note": "x -95..-82, z -13.6..-7.8: every approach to door_tally crosses it"
    }
@@ -4409,7 +4420,7 @@
     "elevationDeg": 12,
     "distance": 250,
     "sunSeparationDeg": 45,
-    "visibleSeconds": 12,
+    "visibleSeconds": 40,
     "minPixels": [
      9,
      28
@@ -4726,7 +4737,7 @@
    "params": {
     "prop": "cup",
     "stop": 2,
-    "line": "nar_tally_hearth is spoken AT THE HEARTH (pass i2): turned to this cup from within 3 m for 0.4 s out of a fight, or on opening rd_note_hearth; the end of enc_tally still names it as the fallback of a player who never came near",
+    "line": "nar_tally_hearth is spoken AT THE HEARTH (pass i2): turned to this cup from within 3 m for 0.4 s out of a fight, or on opening rd_note_hearth; pass i4: said only with the cup within 8 m and inside 60 degrees of the middle of her view, and dropped when she leaves the Tally House (the end of enc_tally is no longer a fallback)",
     "note": "his cup, the dregs dried to a ring"
    }
   },
@@ -6431,7 +6442,7 @@
    "params": {
     "lines": ["nar_embers_1", "nar_embers_2"],
     "once": true,
-    "note": "pass i3: the lines wait for a look at prop_camp_three (35 degrees, within 8 m, 0.4 s); else 6 s after the trigger once the camp is inside 50 degrees, and at 20 s whatever she faces; dropped once the Windlass fight has begun (src/world/director.ts LOOK_GATES)"
+    "note": "pass i3: the lines wait for a look at prop_camp_three (35 degrees, within 8 m, 0.4 s); else 6 s after the trigger once the camp is inside 50 degrees, and (pass i4) never to a wall: there is no last resort, and the lines are not said once door_bore is no longer shut; dropped once the Windlass fight has begun (src/world/director.ts LOOK_GATES)"
    }
   },
   {
@@ -6765,7 +6776,6 @@
     "seals": "door_bore",
     "parley": [
      "stn_parley_1",
-     "nar_parley",
      "rv_ask",
      "stn_parley_2",
      "stn_parley_4"

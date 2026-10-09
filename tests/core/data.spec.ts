@@ -23,7 +23,7 @@ describe('GameData: lookups', () => {
     expect(data.layout.meta.version).toBe(2);
     expect(data.layout.zones).toHaveLength(7);
     expect(data.layout.solids.length).toBe(309);
-    expect(data.layout.markers.length).toBe(268);   // polish round 5: + sp_file_10, sp_file_11 (the rear pair), sp_file_12 (round 4: + ia_ammo_box_yard)
+    expect(data.layout.markers.length).toBe(269);   // pass i4: + pk_rounds_6_yard_bell  //   // polish round 5: + sp_file_10, sp_file_11 (the rear pair), sp_file_12 (round 4: + ia_ammo_box_yard)
     expect(data.layout.nav.nodes.length).toBe(472);
     expect(Object.keys(data.manifest.assets)).toHaveLength(84);
     expect(Object.keys(data.manifest.textures)).toHaveLength(21);

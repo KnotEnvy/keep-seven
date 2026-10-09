@@ -10,13 +10,13 @@ import { FIXED_DT } from '../core/contracts.ts';
 import type {
   DebugSnapshot, GameContext, GameEvents, Options, RunStats, SeventhState, StoryKey, UiScreen, UiSystem,
 } from '../core/contracts.ts';
-import { el, flag, setText } from './dom.ts';
+import { el, flag, keyed, setText } from './dom.ts';
 import { Hud } from './hud.ts';
 import { DECODE_SHARE, FILES_SHARE, LoadMeter, loadShare } from './loadMeter.ts';
 import { MarkWidget, markScale, pellamMark } from './mark.ts';
 import { MenuList, Reader } from './menu.ts';
 import { OptionsScreen, repairBindings } from './optionsScreen.ts';
-import { VERSION, boundCode, clockTime, creditsBody, creditsText, format, keyName, loadingLine, publishedDate, repositoryUrl, roman, uiOr, useStoryUi } from './text.ts';
+import { VERSION, boundCode, clockTime, creditsBody, creditsText, format, keyName, loadingLine, publishedDate, repositoryUrl, roman, tokenize, uiOr, useStoryUi } from './text.ts';
 
 type UiAction = GameEvents['ui/action']['action'];
 type Cue = 'ui_move' | 'ui_select' | 'ui_back';
@@ -72,6 +72,25 @@ const LEDGER: readonly (readonly [string, StoryKey])[] = [
  * the key holds '0' (a scripted run is not stopped by a sheet, as core's own test mode stops for nothing else).
  */
 const STORY_SEEN_KEY = 'keepseven.ui.story_seen.v1';
+/**
+ * Pass i4 (robustness reviewer): the click-to-resume plate came back for ever with no word when the browser would not
+ * give the mouse (a sandboxed frame, an embedded view, a policy). The plate counts the times it has come up with no
+ * lock arriving in between; from the PLATE_REFUSED-th (the first is the request of the menu item, the second the click
+ * on the plate itself) it says so under its line (`ui_lock_refused`). A lock that arrives clears the count.
+ */
+export const PLATE_REFUSED = 2;
+/**
+ * Pass i4 (ruling R20): does this visitor have a mouse the game can take? No fine pointer of any kind, or no pointer
+ * lock at all: a phone or a tablet. index.html asks the same question before the game is fetched and leaves
+ * `html[data-input="touch"]`; the title says the same line above its column, and so does the click-to-resume plate
+ * (which no tap can answer).
+ */
+export function needsInput(): boolean {
+  if (typeof document === 'undefined') return false;
+  if (document.documentElement.getAttribute('data-input') === 'touch') return true;
+  const fine = typeof window.matchMedia !== 'function' || window.matchMedia('(any-pointer: fine)').matches;
+  return !fine || !('requestPointerLock' in Element.prototype);
+}
 
 class UiSystemImpl implements UiSystem {
   readonly id = 'ui' as const;
@@ -116,6 +135,11 @@ class UiSystemImpl implements UiSystem {
   private loadBg!: HTMLDivElement;
   private seventhLabel!: HTMLDivElement;
   private lineLegend!: HTMLDivElement;
+  private lineSays!: HTMLDivElement;
+  private titleNeed!: HTMLDivElement;
+  private plateNote!: HTMLDivElement;
+  /** times the click-to-resume plate has come up with no pointer lock arriving in between (PLATE_REFUSED) */
+  private plateShows = 0;
   private readonly ledgerValues: Record<string, HTMLElement> = {};
   private readonly lamps: HTMLElement[] = [];
   private lampCount!: HTMLElement;
@@ -159,7 +183,7 @@ class UiSystemImpl implements UiSystem {
     this.meter.start();
     this.subscribe();
     this.fitMark();
-    for (const key of ['reduceMotion', 'reduceFlashes', 'subtitles', 'subtitleSize', 'captions'] as const) this.applyOption(key);
+    for (const key of ['reduceMotion', 'reduceFlashes', 'subtitles', 'subtitleSize', 'captions', 'subtitleBackground'] as const) this.applyOption(key);
     this.healBindings();
     this.sync();
   }
@@ -243,6 +267,9 @@ class UiSystemImpl implements UiSystem {
     pellamMark(head, 'pm', 0);
     setText(el('div', 'title-sub', head), ui('ui_subtitle'));
     this.titleMenu = new MenuList(title, move, select);
+    // pass i4 (R20): the line for a visitor without a mouse, the first thing in the column (shown by prepare('title'))
+    this.titleNeed = el('div', 'title-need', this.titleMenu.node);
+    setText(this.titleNeed, ui('ui_needs_input'));
     this.titleMenu.add('play', ui('ui_menu_play'), () => this.begin());
     this.storedCount.push(el('span', 'mi-count', this.titleMenu.add('continue', ui('ui_menu_continue'), () => this.act('continue')).node));
     this.titleMenu.add('story', ui('ui_menu_story'), () => this.openSheet('story'));
@@ -284,11 +311,14 @@ class UiSystemImpl implements UiSystem {
     this.lineLegend = el('div', 'line-legend', side);
     el('i', '', this.lineLegend);
     setText(el('span', '', this.lineLegend), ui('ui_hud_line_rounds'));
+    // pass i4: ... and what it is, with the key that seats it (filled when the screen opens: the key may be rebound)
+    this.lineSays = el('div', 'line-says', side);
     this.nodes.pause = pause;
 
     // ---- click to resume: the pointer was refused or lost without the menu
     const ctr = el('div', 'scr scrim ctr', screens);
     setText(el('div', 'ctr-text', ctr), ui('ui_click_to_start'));
+    this.plateNote = el('div', 'ctr-note', ctr);            // empty until it has something to say (prepare)
     ctr.addEventListener('click', () => { this.cue('ui_select'); this.act('resume'); });
     this.nodes.click_to_resume = ctr;
 
@@ -381,6 +411,8 @@ class UiSystemImpl implements UiSystem {
     on.push(e.on('encounter/reset', (p) => hud.onEncounter(p.id, false)));
     on.push(e.on('boss/pips', (p) => hud.onBossPips(p)));
     on.push(e.on('ride/state', (p) => hud.onRide(p)));
+    // pass i4: a movement card stands aside while a staged scene plays (hud.ts CARD_ASIDE)
+    on.push(e.on('vignette/state', (p) => hud.onVignette(p)));
     // pass i3: the bore door's question stands under the work at hand (hud.ts ASK_QUESTIONS)
     on.push(e.on('asking/question', (p) => { hud.setQuestion(p.question); if (this.screen === 'pause') this.fillPause(); }));
     on.push(e.on('ending/card', (p) => this.openEnd(p.stats)));
@@ -389,6 +421,7 @@ class UiSystemImpl implements UiSystem {
     on.push(e.on('input/pointer_lock', (p) => {
       if (!p.locked) return;
       this.lockSeen = true;
+      this.plateShows = 0;
       if (NEEDS_CURSOR[this.screen] && !this.lockWanted) ctx.input.exitPointerLock();
     }));
 
@@ -446,7 +479,7 @@ class UiSystemImpl implements UiSystem {
   private onGameState(e: Readonly<GameEvents['game/state']>): void {
     if (e.to === 'playing') this.lockSeen = this.ctx.input.pointerLocked;
     if (e.to === 'loading' || e.to === 'title') this.hud.reset();
-    if (e.to === 'title') { this.hud.newRun(); this.introPending = false; this.meter.stop(); }
+    if (e.to === 'title') { this.hud.newRun(); this.introPending = false; this.meter.stop(); this.plateShows = 0; }
     // the story cards of a first run are laid down before its first tick (the narrator's first line starts on it): once
     // this state change has been told to everybody, never from inside it. The fixed tick is the fallback (fixedUpdate).
     if (e.to === 'playing' && this.introPending) queueMicrotask(() => { if (this.introPending) this.openIntro(); });
@@ -599,6 +632,16 @@ class UiSystemImpl implements UiSystem {
           this.titleMenu.selectId('continue');
         } else this.titleMenu.first();
         this.ask(false);
+        flag(this.nodes.title, 'need', needsInput());
+        break;
+      }
+      case 'click_to_resume': {
+        // a phone or a tablet: no tap answers this plate; a browser that keeps refusing the mouse: say so
+        const touch = needsInput();
+        this.plateShows++;
+        const say = touch || this.plateShows >= PLATE_REFUSED;
+        setText(this.plateNote, say ? ctx.data.ui(touch ? 'ui_needs_input' : 'ui_lock_refused') : '');
+        flag(this.plateNote, 'on', say);
         break;
       }
       case 'pause':
@@ -642,6 +685,8 @@ class UiSystemImpl implements UiSystem {
     this.pauseMark.setSeventh(w.seventh);
     setText(this.seventhLabel, ctx.data.ui(SEVENTH_LABEL[w.seventh]));
     flag(this.lineLegend, 'on', w.lineRounds > 0);
+    if (w.lineRounds > 0) keyed(this.lineSays, tokenize(ctx.data.ui('ui_legend_line'), ctx.options.value.bindings));
+    flag(this.lineSays, 'on', w.lineRounds > 0);
   }
 
   // =============================================================== the title's question
@@ -858,6 +903,8 @@ class UiSystemImpl implements UiSystem {
     const o = this.ctx.options.value, frame = this.frame;
     switch (key) {
       case 'reduceMotion': flag(frame, 'rm', o.reduceMotion); break;
+      // the death line stands on the subtitle's ground (ui.css `.death-text`); the HUD sets the subtitle's own
+      case 'subtitleBackground': frame.style.setProperty('--sub-bg', String(o.subtitleBackground)); this.hud.applyOption(key); break;
       case 'reduceFlashes': flag(frame, 'rf', o.reduceFlashes); break;
       case 'subtitles': flag(frame, 'no-sub', !o.subtitles); break;
       case 'captions': flag(frame, 'no-capt', !o.captions); break;

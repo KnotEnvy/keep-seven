@@ -275,6 +275,13 @@ export interface StoryApi {
    * been read. Give it an `unless` rule: it is dropped when its subject is behind her by its turn
    */
   sayPresent(key: StoryKey, part?: boolean, alsoZone?: string): void;
+  /** pass i4: next in line behind the lines of `set` that are still waiting (a set that is being heard out) */
+  sayBehind(key: StoryKey, set: readonly StoryKey[]): void;
+  /**
+   * pass i4: a hint line that must not be lost under another system's talk: at once when the queue is free for a hint,
+   * else the very next line, over a station line or a hint that has been read (never over a narrator's line)
+   */
+  sayHint(key: StoryKey): void;
   /** pass i3: for `seconds`, a `story/say` for `key` from another system is ignored (the world has just said it) */
   mute(key: StoryKey, seconds: number): void;
   /** `key` keeps its place in line while `away()` is true (its subject is out of her view); the lines behind it go ahead */
@@ -299,6 +306,11 @@ export interface StoryApi {
   readonly idle: boolean;
   /** a title card is on screen or about to be (pass i1: no key hint is raised over a movement card) */
   readonly cardUp: boolean;
+  /** pass i4: the card on screen ('' when none); how many more wait to be shown */
+  readonly cardKey: StoryKey;
+  readonly cardsWaiting: number;
+  /** pass i4: show a card again although it has been shown in this run (a run taken up again from the title) */
+  recard(key: StoryKey): void;
   played(key: StoryKey): boolean;
   /** true once the line's hold is over (this run) */
   finished(key: StoryKey): boolean;
@@ -477,6 +489,8 @@ export class State {
   readonly forcers = new Map<MarkerId, (announce?: boolean) => void>();
   /** she was put somewhere (a new run, a restore): index.ts looks again at the zone, the mood and what is drawn */
   placed: (moodSeconds?: number) => void = () => {};
+  /** pass i4: the shot id of the last line round counted as a "line of three or more" (-1: none): each shot counts once */
+  lineCounted = -1;
   /** wave B of the first fight has spawned: the moment sprint is first needed (the lazy key hint) */
   needSprint = false;
   // ---- modules (assigned by index.ts right after construction)

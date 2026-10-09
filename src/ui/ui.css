@@ -1,5 +1,5 @@
 /* src/ui: brass, bone and ink (ART_BIBLE 10). Thin strokes, no panels, no gradients, no drop shadows beyond a 1 px ink
-   outline, NO RED ANYWHERE. Every length is `--u` (one pixel at 1080p) times a number, so the layout holds from
+   outline, NO RED ANYWHERE but the flare of a hit (`.hurt`, pass i5; it alone is blurred and red-violet). Every length is `--u` (one pixel at 1080p) times a number, so the layout holds from
    1280 x 720 to 21:9; hairlines never fall under one device pixel, inside the mark as well (its strokes are
    non-scaling and floored, and the mark itself stops shrinking at `--mk`). Motion is transitions and keyframes started by a
    class; the script never animates. */
@@ -11,6 +11,8 @@
   --aqua: #7CF2E2;        /* line round dot and pips, station label, proving prompt */
   --violet: #B24BFF;      /* ONLY the seventh in state `violet` */
   --pale: #F3E6CF;        /* damage arc, markers */
+  --hurt: rgb(172 38 84 / 0.84);      /* ONLY the flare on the side of the frame a hit came from (pass i5) */
+  --hurt-hot: rgb(236 104 118 / 0.9); /* ... and its rim, at the frame's very edge */
   --flame: #FF9433;       /* boss pips, and the lamps of the end card */
   --paper: rgb(233 226 208 / 0.96);
   --enamel: #CFD6CC;
@@ -74,10 +76,26 @@
 .k7.rf .m-kill .mt { animation: none; transform: scale(1.7); }
 .k7.rf .m-freed .mr { animation: none; }
 
-.k7 .xh .arc { stroke: var(--pale); stroke-width: 3; opacity: 0; stroke-linecap: butt; }
-.k7 .xh .ink.arc { stroke: var(--ink); stroke-width: 5; }
-.k7 .xh .arc.on { animation: k7-arc 0.6s linear both; }
-@keyframes k7-arc { 0% { opacity: 0.95; } 65% { opacity: 0.8; } 100% { opacity: 0; } }
+/* pass i4 (R20: being hit is unmistakable). The arc is heavy (7 units: 4.7 px at 720p; it was 3) at radius 78 (it was
+   46) and as wide as the hit was hard; its opacity is written by the script from the fixed tick (hud.ts drawArc). */
+.k7 .xh .arc { stroke: var(--pale); stroke-width: 7; opacity: 0; stroke-linecap: butt; }
+.k7 .xh .ink.arc { stroke: var(--ink); stroke-width: 10.5; }
+/* ... and the side of the frame it came from. Pass i5 (visual reviewer b: the pale bars of pass i4 "read like progress
+   bars"): the side is now a FLARE, a soft lobe of warm red-violet spilling into the frame over a wider ink bruise,
+   deepest at the middle of the side and tapering to nothing toward the corners. It is three blurred outer shadows of
+   one ellipse that lies wholly OUTSIDE the frame (a hot rim, the red-violet, the ink): nothing in it has an edge, no
+   bar, no rule, no fill, and it never covers the whole screen. This is the one place the UI uses a red (ruling R20
+   outranks the art bible's "no red anywhere in the UI"); it is a wine red, far from the seventh's cold violet. The
+   ink under it is what shows on the street's glare, the red-violet what shows in the bore. The script writes each
+   side's opacity from the fixed tick (hud.ts drawEdge); a side that is not up is not drawn at all. */
+.k7 .hurt { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.k7 .hurt i { position: absolute; display: none; opacity: 0; --d: calc(var(--u) * 170); border-radius: 50%;
+  box-shadow: 0 0 calc(var(--u) * 46) calc(var(--u) * 2) var(--hurt-hot), 0 0 calc(var(--u) * 170) calc(var(--u) * 64) var(--hurt), 0 0 calc(var(--u) * 250) calc(var(--u) * 120) rgb(20 17 15 / 0.86); }
+.k7 .hurt i.on { display: block; }
+.k7 .hurt .t, .k7 .hurt .b { left: 13%; right: 13%; height: var(--d); }
+.k7 .hurt .l, .k7 .hurt .r { top: 15%; bottom: 15%; width: var(--d); }
+.k7 .hurt .t { top: calc(var(--d) * -1); } .k7 .hurt .b { bottom: calc(var(--d) * -1); }
+.k7 .hurt .l { left: calc(var(--d) * -1); } .k7 .hurt .r { right: calc(var(--d) * -1); }
 
 /* ---- the six-and-one mark: the cylinder ring and, apart from it, the seventh.
    Polish round 5: it stands LOWER LEFT, over the health bars (the ring's left edge on the bars' left edge), not lower
@@ -195,7 +213,8 @@
 /* ---- boss: the name over 26 pips in groups of 10 / 10 / 6 */
 .k7 .boss { position: absolute; top: calc(var(--u) * 44); left: 0; right: 0; display: none; flex-direction: column; align-items: center; gap: calc(var(--u) * 9); }
 .k7 .boss.on { display: flex; }
-.k7 .boss-name { font-size: calc(var(--u) * 15); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; text-shadow: var(--outline); padding-left: 0.18em; }
+/* pass i4: never under 10 px (it was 6 px in an 800 x 450 window) */
+.k7 .boss-name { font-size: max(10px, calc(var(--u) * 15)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; text-shadow: var(--outline); padding-left: 0.18em; }
 .k7 .pips { display: flex; gap: calc(var(--u) * 9); }
 .k7 .pip-group { display: flex; gap: calc(var(--u) * 2); }
 .k7 .pip { display: block; width: max(3px, calc(var(--u) * 4)); height: calc(var(--u) * 10); border: 1px solid var(--brass-dim); box-shadow: 0 0 0 1px var(--ink); background: rgb(20 17 15 / 0.5); }
@@ -207,12 +226,23 @@
 .k7 .txt.on { visibility: visible; }
 .k7 .cp { position: absolute; left: calc(var(--u) * 46); top: calc(var(--u) * 42); font-size: calc(var(--u) * 17); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; font-variant-numeric: tabular-nums; opacity: 0; transition: opacity 0.4s linear; }
 .k7 .cp.on { opacity: 1; transition: opacity 0.2s linear; }
+/* pass i4: a movement card that stands aside (hud.ts CARD_ASIDE) is its name in this row, beside the numeral, in brass */
+.k7 .cp { white-space: nowrap; }
+.k7 .cp-t { color: var(--brass); }
+.k7 .cp-t:not(:empty) { margin-left: 1.3em; }
+.k7 .card.aside { visibility: hidden; }
 /* Pass i2: the work at hand, in play: under the checkpoint numeral for five seconds each time it changes (hud.ts
    OBJECTIVE_SECONDS), in the pause screen's own words and faces (a brass label, the line in the serif), on a soft ink
    ground like the card's. Not drawn under a sheet or a menu, nor behind the end card. */
-.k7 .obj { position: absolute; left: calc(var(--u) * 46); top: calc(var(--u) * 76); max-width: min(calc(var(--u) * 470), 44vw); opacity: 0; transition: opacity 0.6s linear; isolation: isolate; }
+.k7 .obj { position: absolute; left: calc(var(--u) * 46); top: calc(var(--u) * 76); max-width: min(calc(var(--u) * 470), 44vw); opacity: 0; transition: opacity 0.2s linear 0.3s; isolation: isolate; }
 .k7 .obj.on { opacity: 1; transition: opacity 0.3s linear; }
-.k7 .obj::before { content: ''; position: absolute; inset: calc(var(--u) * -14) calc(var(--u) * -22); z-index: -1; pointer-events: none; background: rgb(20 17 15 / 0.42); filter: blur(calc(var(--u) * 14)); }
+/* pass i4 (story reviewer b): the whole box faded as one over 0.6 s, so for its last half second the words were pale
+   cream at part strength on a ground that was going too (lost on the gully's teal sky). The words now go first, in
+   0.3 s on the ground at full strength, and the ground after them in 0.2 s: the words are never weaker than their ground. */
+.k7 .obj > * { opacity: 0; transition: opacity 0.3s linear; }
+.k7 .obj.on > * { opacity: 1; transition: opacity 0.3s linear; }
+.k7.rm .obj > * { transition: none; }
+.k7 .obj::before { content: ''; position: absolute; inset: calc(var(--u) * -14) calc(var(--u) * -22); z-index: -1; pointer-events: none; background: rgb(20 17 15 / 0.5); filter: blur(calc(var(--u) * 14)); }
 .k7 .obj-label { font-size: max(10px, calc(var(--u) * 13)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; color: var(--brass); }
 .k7 .obj-line { text-wrap: balance; font-family: var(--serif); font-size: max(14px, calc(var(--u) * 22)); line-height: 1.3; margin-top: calc(var(--u) * 5); }
 .k7.modal .obj { visibility: hidden; }
@@ -244,6 +274,14 @@
 /* pass i2: at the asking's dial (hud.ts DIAL_VOLUME) the column stands on the frame's bottom margin and the backing thins */
 .k7 .txt.dial .talk { bottom: 1.4%; }
 .k7 .txt.dial .sub { background: rgb(20 17 15 / calc(var(--sub-bg, 0.6) * 0.45)); }
+/* pass i4 (story reviewer b): at 4:3 the work at hand's ground lay on the start of the stencilled "LIFT STATION 4", the
+   answer to the door's first question. At the dial the box is a narrow column (its line wraps) and its ground is a
+   thin one that ends with the words: the wall beside it reads. (Only in a frame narrower than 3:2: in a wider one the
+   stencil is clear of the box.) */
+@media (max-aspect-ratio: 3/2) {
+  .k7 .txt.dial .obj { max-width: min(calc(var(--u) * 300), 23vw); }
+  .k7 .txt.dial .obj::before { inset: calc(var(--u) * -8) calc(var(--u) * -10); background: rgb(20 17 15 / 0.3); filter: blur(calc(var(--u) * 8)); }
+}
 .k7 .sub { display: none; padding: calc(var(--u) * 12) calc(var(--u) * 20); background: rgb(20 17 15 / var(--sub-bg, 0.6)); font-size: var(--sub-size); line-height: 1.3; text-align: center; white-space: pre; }
 .k7 .sub.on { display: block; }
 .k7.no-sub .sub.on { display: none; }
@@ -283,6 +321,10 @@
 .k7 .prompt.row.on { display: block; animation: k7-row 0.2s linear both; }
 .k7.rm .prompt.row.on { animation: none; }
 .k7 .prompt.row.aqua { transform: none; }
+/* pass i4 (story reviewer b): "E  Read", the first prompt a player ever sees, was pale letters on the bedroll's white
+   stripe in a shaft of sun; "break the band" and the subtitles had a ground. Every row of the talk column now stands on
+   the same ink ground as the kept-round prompt (the hint keeps its place, and its ground, only while it is drawn). */
+.k7 .talk > .prompt { padding: calc(var(--u) * 9) calc(var(--u) * 18) calc(var(--u) * 9) calc(var(--u) * 12); background: rgb(20 17 15 / 0.62); }
 /* pass i2 (story reviewer): "break the band" is the prompt the stage turns on, and thin aqua capitals were lost on the
    bore's pale aqua floor. It stands in bone on the subtitle's ink backing, its key in a cap FILLED with the proving
    aqua (ink letters), so it is still the aqua prompt and reads on any floor. */
@@ -362,6 +404,11 @@
 .k7 .pm-seventh { fill: var(--brass); }
 .k7 .title-sub { font-size: max(11px, calc(var(--u) * 16)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; }
 .k7 .title .menu { position: absolute; left: 7%; bottom: 13%; }
+/* pass i4 (R20): a visitor with no mouse (a phone, a tablet) is told so on the title too, above the column, in the
+   narrator's face on an ink ground (system.ts needsInput; index.html says it before the game is fetched) */
+.k7 .title-need { display: none; box-sizing: border-box; width: max-content; max-width: min(30em, 84vw); margin: 0 0 calc(var(--u) * 14) calc(var(--u) * 4); padding: calc(var(--u) * 12) calc(var(--u) * 20); white-space: normal;
+  background: rgb(20 17 15 / 0.72); font-family: var(--serif); font-style: italic; font-size: max(15px, calc(var(--u) * 24)); line-height: 1.35; text-wrap: balance; text-transform: none; letter-spacing: 0; }
+.k7 .title.need .title-need { display: block; }
 /* "Go on" names the count it goes on from (the checkpoint as the HUD shows it when it is saved) */
 .k7 .mi-count { margin-left: 1.1em; letter-spacing: 0.18em; font-weight: 600; font-size: 0.78em; color: var(--bone); opacity: 0.85; font-variant-numeric: tabular-nums; }
 /* Begin over a stored save asks first (polish round 5): the question and its three answers stand where the column stood */
@@ -384,6 +431,15 @@
      column and the question stand on the objective's soft ink ground there (a blurred ink box: no colour ramp) */
   .k7 .title > .menu, .k7 .title-ask { isolation: isolate; }
   .k7 .title > .menu::before, .k7 .title-ask::before { content: ''; position: absolute; inset: calc(var(--u) * -18) calc(var(--u) * -34) calc(var(--u) * -18) calc(var(--u) * -30); z-index: -1; pointer-events: none; background: rgb(20 17 15 / 0.56); filter: blur(calc(var(--u) * 18)); }
+  /* pass i4 (story reviewer b): "The story so far" still ended on the dim edge of the lit sand. The whole left column
+     of the narrow frame (the name, the menu, the question, the loading line; index.html's pre-boot page has the same
+     rule) stands 3.5 % of the width further left, and the items carry the card's ink halo */
+  .k7 .title-head, .k7 .title .menu, .k7 .title-ask, .k7 .load-foot { left: 3.5%; }
+  .k7 .title .title-ask .menu { left: auto; }
+  .k7 .title .mi { text-shadow: var(--outline), 0 0 0.3em rgb(20 17 15 / 0.9), 0 0 0.7em rgb(20 17 15 / 0.7); }
+  /* ... and the ground under them is deeper and reaches further right (it was 56 % and 34 units: the sand beside the
+     longest item still read 98 of 255 through it) */
+  .k7 .title > .menu::before, .k7 .title-ask::before { right: calc(var(--u) * -48); background: rgb(20 17 15 / 0.74); }
 }
 
 /* ---- pause */
@@ -400,7 +456,11 @@
 .k7 .sv-label { font-family: var(--serif); font-style: italic; font-size: max(14px, calc(var(--u) * 22)); margin-top: calc(var(--u) * 14); }
 .k7 .line-legend { display: none; align-items: center; gap: calc(var(--u) * 10); margin-top: calc(var(--u) * 10); font-size: max(11px, calc(var(--u) * 14)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; color: var(--aqua); }
 .k7 .line-legend.on { display: flex; }
-.k7 .line-legend i { display: block; width: max(6px, calc(var(--u) * 9)); height: max(6px, calc(var(--u) * 9)); border-radius: 50%; background: var(--aqua); box-shadow: 0 0 0 1px var(--ink); }
+/* pass i4: what the dot is and which key seats it (ui_legend_line), in the narrator's face under its name */
+.k7 .line-says { display: none; margin-top: calc(var(--u) * 6); font-family: var(--serif); font-style: italic; font-size: max(13px, calc(var(--u) * 19)); line-height: 1.35; max-width: 100%; }
+.k7 .line-says.on { display: block; }
+.k7 .line-says .key { font-family: var(--sans); font-style: normal; font-size: 0.72em; text-transform: uppercase; font-weight: 600; letter-spacing: 0.1em; vertical-align: 0.1em; }
+.k7 .line-legend i { flex: none; display: block; width: max(6px, calc(var(--u) * 9)); height: max(6px, calc(var(--u) * 9)); border-radius: 50%; background: var(--aqua); box-shadow: 0 0 0 1px var(--ink); }
 /* a very small window (polish round 5): the side column starts higher and its mark is sized to the height that is left */
 @media (max-height: 420px), (max-width: 700px) {
   .k7 .pause-col { top: 8%; max-width: 44%; }
@@ -410,7 +470,11 @@
 }
 
 /* ---- click to resume */
-.k7 .ctr { align-items: center; justify-content: center; cursor: pointer; }
+.k7 .ctr { flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 22); cursor: pointer; }
+/* pass i4 (R20; robustness reviewer): the plate came back for ever with no word when the browser would not give the
+   mouse, and on a phone no tap can answer it. The second line says so (system.ts plateNote) */
+.k7 .ctr-note { display: none; max-width: min(34em, 86vw); text-align: center; text-wrap: balance; font-family: var(--serif); font-style: italic; font-size: max(15px, calc(var(--u) * 24)); line-height: 1.35; }
+.k7 .ctr-note.on { display: block; }
 .k7 .ctr-text { font-size: max(13px, calc(var(--u) * 20)); text-transform: uppercase; font-weight: 600; letter-spacing: 0.18em; padding-left: 0.18em; }
 
 /* ---- options */
@@ -485,7 +549,11 @@
    fades off the game in 0.5 s as before, and the line stays over it, outlined like every other text, for 1.4 s more
    and fades in 0.4 s. Whole for 1.2 + 1.4 = 2.6 s (it was 0.9 s). It stands above the crosshair, never on it. */
 .k7 .death { background: var(--ink); align-items: center; justify-content: center; pointer-events: none; text-shadow: none; animation: k7-death-in 0.6s linear both; }
-.k7 .death-text { color: var(--bone); font-family: var(--serif); font-style: italic; font-size: max(18px, calc(var(--u) * 32)); transform: translateY(-9vh); animation: k7-death-text 0.3s linear both; }
+/* pass i4 (story reviewer a): over the respawned game the line was bare italic across the brightest thing in the room
+   (the lit face of the Windlass). It stands on the subtitle's ink ground (the same option, never thinner than 45 %):
+   nothing on the ink of the death screen itself, a plate once the picture is back. */
+.k7 .death-text { color: var(--bone); font-family: var(--serif); font-style: italic; font-size: max(18px, calc(var(--u) * 32)); transform: translateY(-9vh); animation: k7-death-text 0.3s linear both;
+  padding: calc(var(--u) * 12) calc(var(--u) * 24); background: rgb(20 17 15 / max(var(--sub-bg, 0.6), 0.45)); }
 .k7 .death.out { display: flex; background: transparent; animation: k7-death-out 0.5s linear both; }
 .k7 .death.out .death-text { text-shadow: var(--outline); animation: k7-death-hold 1.8s linear both; }
 @keyframes k7-death-in { from { opacity: 0; } to { opacity: 1; } }

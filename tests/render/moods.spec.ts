@@ -74,7 +74,11 @@ describe('mood table (code-render 4.3)', () => {
   it('polish round 3: the chamber gives dynamic things a cool fill; the blue hour has a dark zenith and a bright ember', () => {
     const lum = (m: Float32Array, at: number): number => 0.2126 * (m[at] as number) + 0.7152 * (m[at + 1] as number) + 0.0722 * (m[at + 2] as number);
     for (const k of ['L5', 'L5c', 'L5p'] as MoodKey[]) expect(lum(MOODS[k], M_RIM)).toBeGreaterThan(0.15);
-    for (const k of ['L1', 'L2', 'L4', 'L6'] as MoodKey[]) expect(lum(MOODS[k], M_RIM)).toBe(0);
+    for (const k of ['L1', 'L2', 'L6'] as MoodKey[]) expect(lum(MOODS[k], M_RIM)).toBe(0);
+    // look team creatures-props, pass i4: the lift hall fills them too (the Tamper at slam range was a flat dark sheet), at
+    // well under the gallery's level: the Tamper stays the hall's dark mass
+    expect(lum(MOODS.L4, M_RIM)).toBeGreaterThan(0.05);
+    expect(lum(MOODS.L4, M_RIM)).toBeLessThan(lum(MOODS.L3, M_RIM) * 0.5);
     // look team creatures-props, pass i3: the stair and the gallery fill the upright faces of dynamic things too (the
     // sighting loop was "a plain black ring on a thin black pole" beside lit walls), at no more than the chamber's level
     expect(lum(MOODS.L3, M_RIM)).toBeGreaterThan(0.15);

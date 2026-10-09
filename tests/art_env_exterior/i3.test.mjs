@@ -118,7 +118,17 @@ test('the sighting: his boots meet the rim; the shut Tally door shows no sky', a
   const under = box(f, bx0, y1 + 1, bx1, y1 + 3), rock = box(f, bx0, y1 + 10, bx1, y1 + 14), sky = box(f, x1 + 14, y0 + 20, x1 + 30, y0 + 40);
   const dRock = Math.abs(under.r - rock.r) + Math.abs(under.g - rock.g) + Math.abs(under.b - rock.b), dSky = Math.abs(under.r - sky.r) + Math.abs(under.g - sky.g) + Math.abs(under.b - sky.b);
   console.log(`the Dowser: ${y1 - y0 + 1} px tall, boots on row ${y1} (x ${bx0}..${bx1 - 1}); under them ${under.r.toFixed(0)},${under.g.toFixed(0)},${under.b.toFixed(0)}: ${dRock.toFixed(0)} from the rock, ${dSky.toFixed(0)} from the sky`);
-  assert.ok(dRock < dSky, `rock under his boots, not sky (${dRock.toFixed(0)} from the rock's colour, ${dSky.toFixed(0)} from the sky's)`);
+  // pass i4 (R18): he stands on the rimrock of src/world/sightRock.ts, whose lit lip is the row under his boots and whose
+  // body is the rows under that: both are rock (far darker than the sky beside his shoulders), neither is sky
+  const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  assert.ok(lum(under) < lum(sky) - 30, `rock under his boots, not sky (luminance ${lum(under).toFixed(0)} against the sky's ${lum(sky).toFixed(0)})`);
+  assert.ok(lum(rock) < lum(sky) - 60, `the rimrock's body under them is dark (luminance ${lum(rock).toFixed(0)} against the sky's ${lum(sky).toFixed(0)})`);
+  // ... and it is ROCK at his own scale to either side of him: one of his heights left and right of his feet, a little under them
+  const tall = y1 - y0 + 1;
+  for (const side of [-1, 1]) {
+    const cx = Math.round((bx0 + bx1) / 2 + side * tall * 0.9), b3 = box(f, cx - 3, y1 + 8, cx + 3, y1 + 14);
+    assert.ok(lum(b3) < lum(sky) - 60, `rimrock ${side < 0 ? 'left' : 'right'} of his feet (luminance ${lum(b3).toFixed(0)} against the sky's ${lum(sky).toFixed(0)})`);
+  }
   // the Tally door from the yard, looking up at its head: the wedge of sky over the leaves is gone
   const p = [-87.5, 0, -12.6];
   await place(p, dir(p, 25, 8), 20);
@@ -164,6 +174,8 @@ test('the blue hour has stars, more on High; the last image stands on the lower 
   // the land's edge: going down the frame's right third, the first row whose mean falls well under the row 24 px over it
   let hz = -1; for (let y = 260; y < H - 4 && hz < 0; y++) { const a = box(e, 900, y - 24, 1240, y - 20).l, b2 = box(e, 900, y, 1240, y + 4).l; if (b2 < a * 0.55) hz = y; }
   console.log(`the last image: the view rests ${r.pitch.toFixed(1)} degrees up; the fire on row ${fy} (${(100 * fy / H).toFixed(0)} % down), the land's edge about row ${hz} (${(100 * hz / H).toFixed(0)} %)`);
-  assert.ok(fy > H * 0.60 && fy < H * 0.76, `the fire stands in the lower third (row ${fy})`);
-  assert.ok(hz > H * 0.56 && hz < H * 0.72, `the land's edge is near the lower third (row ${hz})`);
+  // pass i4: the world rests the last frame LEVEL (src/world/ending.ts END_PITCH_DEG 1.25: the thread hangs plumb): the
+  // land's edge stands a little under the frame's middle and the fire just under it (they were on the lower third)
+  assert.ok(fy > H * 0.50 && fy < H * 0.68, `the fire stands just under the frame's middle (row ${fy})`);
+  assert.ok(hz > H * 0.46 && hz < H * 0.66, `the land's edge is a little under the frame's middle (row ${hz})`);
 });

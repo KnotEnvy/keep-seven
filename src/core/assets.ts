@@ -34,8 +34,22 @@ export interface AssetStoreDeps {
   retryDelays?: readonly number[];
   /** the renderer once it exists (uploads); null in unit tests */
   renderer: () => THREE.WebGLRenderer | null;
+  /** pass i4: appended to every asset URL of a build ('?v=<8 hex>', vite.config.mts `assetsVersion`); '' in dev and tests */
+  version?: string;
+  /** pass i4: a request from which no byte has come for this long is given up and tried again, ms (default 30 000) */
+  stallMs?: number;
 }
 const RETRY_DELAYS: readonly number[] = [500, 1000, 2000];
+/**
+ * Pass i4 (robustness: three lightmaps that never answered left LOADING on screen with no line until the browser's own
+ * time-out, minutes later). A request is read as it arrives; when no byte has come for `STALL_ABORT_MS` it is aborted,
+ * which the retry below treats like any other dropped connection: four tries, then the plain line of a failed load.
+ * `AssetStoreImpl.quietFor()` is how long the store has been waiting with nothing arriving: the flow shows
+ * "Waiting on the connection." under the loading bar after `STALL_SAY_MS` of it (src/core/flow.ts).
+ */
+export const STALL_ABORT_MS = 30000;
+export const STALL_SAY_MS = 8000;
+const nowMs = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 export interface UploadReport {
   /** 'r8': RedFormat upload of an ImageBitmap works; 'rgba': it does not and R8 textures are uploaded as RGBA8 (4x the bytes); 'untested' */
@@ -457,6 +471,9 @@ export class AssetStoreImpl implements AssetStore {
   private readonly setPayload: GameEvents['load/set'] = { set: 'surface', stage: 'prefetched' };
   private inFlight = 0;
   private idleWaiters: (() => void)[] = [];
+  /** requests on the wire right now, and when a byte (or an answer) last came from any of them */
+  private fetching = 0;
+  private lastByteAt = 0;
   readonly report: UploadReport = {
     r8: 'untested', glError: 0, sample: [0, 0, 0, 0], texturesFromFiles: 0, texturesSynthesised: 0, assetsFromFiles: 0, assetsSynthesised: 0, retries: 0,
   };
@@ -513,7 +530,54 @@ export class AssetStoreImpl implements AssetStore {
   get busy(): boolean { return this.inFlight > 0; }
 
   // ---- loading ------------------------------------------------------------------------------
-  private url(path: string): string { return this.deps.baseUrl + path; }
+  private url(path: string): string { return this.deps.baseUrl + path + (this.deps.version ?? ''); }
+
+  /** ms for which at least one request has been waiting and no byte has arrived from any (0: nothing is being fetched) */
+  quietFor(): number { return this.fetching > 0 ? nowMs() - this.lastByteAt : 0; }
+
+  /**
+   * One try at one file: the body is read chunk by chunk so that a connection that has stopped sending is noticed
+   * (`stallMs` without a byte aborts it and the caller tries again). null = the dev server's fallback page.
+   */
+  private async fetchOnce(url: string): Promise<{ ok: boolean; status: number; buffer: ArrayBuffer | null }> {
+    const stallMs = this.deps.stallMs ?? STALL_ABORT_MS;
+    const control = typeof AbortController === 'function' ? new AbortController() : null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const alive = (): void => {
+      this.lastByteAt = nowMs();
+      if (!control) return;
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => control.abort(), stallMs);
+    };
+    if (this.fetching++ === 0) this.lastByteAt = nowMs();
+    alive();
+    try {
+      const res = await fetch(url, control ? { signal: control.signal } : undefined);
+      alive();
+      if (!res.ok) return { ok: false, status: res.status, buffer: null };
+      const type = res.headers.get('content-type') ?? '';
+      if (type.includes('text/html')) return { ok: true, status: res.status, buffer: null };   // a dev server's fallback page is not our file
+      const body = res.body;
+      if (!body || typeof body.getReader !== 'function') return { ok: true, status: res.status, buffer: await res.arrayBuffer() };
+      const reader = body.getReader();
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      for (;;) {
+        const part = await reader.read();
+        if (part.done) break;
+        alive();
+        chunks.push(part.value as Uint8Array);
+        size += (part.value as Uint8Array).byteLength;
+      }
+      const out = new Uint8Array(size);
+      let at = 0;
+      for (const c of chunks) { out.set(c, at); at += c.byteLength; }
+      return { ok: true, status: res.status, buffer: out.buffer };
+    } finally {
+      if (timer !== null) clearTimeout(timer);
+      this.fetching--;
+    }
+  }
 
   /**
    * One file. A request that fails on the network (a dropped connection, a 5xx, a body cut short) is tried again after
@@ -526,14 +590,10 @@ export class AssetStoreImpl implements AssetStore {
     for (let attempt = 0; ; attempt++) {
       let transient = false;
       try {
-        const res = await fetch(this.url(path));
-        if (res.ok) {
-          const type = res.headers.get('content-type') ?? '';
-          if (type.includes('text/html')) return null;             // a dev server's fallback page is not our file
-          return await res.arrayBuffer();
-        }
+        const res = await this.fetchOnce(this.url(path));
+        if (res.ok) return res.buffer;
         transient = res.status >= 500 || res.status === 408 || res.status === 429;
-      } catch { transient = true; }
+      } catch { transient = true; }              // a dropped connection, a body cut short, or a request that stalled (aborted)
       if (!transient || attempt >= delays.length) return null;
       this.report.retries++;
       await new Promise<void>((resolve) => { setTimeout(resolve, delays[attempt] as number); });

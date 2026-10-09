@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { FIXED_DT, Layer } from '../../core/contracts.ts';
 import type {
-  AssetInstance, BossPhase, BossView, DamageInfo, EnemiesSave, EntityRef, FxHandle, GameEvents, GuardState, HitReceiver, HitResponse,
+  AssetInstance, BossPhase, BossView, DamageInfo, DamageKind, EnemiesSave, EntityRef, FxHandle, GameEvents, GuardState, HitReceiver, HitResponse,
   HitResult, Vec3,
 } from '../../core/contracts.ts';
 import { BOSS, BOSS_BY, TRANSIT } from '../defs.ts';
@@ -154,6 +154,27 @@ export class Boss {
   retryOf: BossPhase | '' = '';
   /** the phase whose haul last said the teaching line (kept across retries; forgotten with the run) */
   teachSaidIn: BossPhase | '' = '';
+  /**
+   * Pass i4 (GDD 23.18: each boss hint at most once per visit to a checkpoint). The phase in which `BOSS.moveKey` and
+   * `BOSS.lobKey` were last said or shown (kept across retries; forgotten with the run); `owedKey`: the line this
+   * retry's lead-in owes ('' none); `lastDeath`: what killed her last, if it was the Windlass's.
+   */
+  moveSaidIn: BossPhase | '' = '';
+  lobSaidIn: BossPhase | '' = '';
+  owedKey = '';
+  lastDeath: DamageKind | '' = '';
+  /**
+   * Pass i4 (defs.ts `pawlsKey`): hauls of phase 2 begun with the guard not yet answered (no pawl burst, no line round
+   * through it), retries included; the pawls line has been said; the guard has been answered. Forgotten with the run
+   * and at the end of the phase.
+   */
+  guardIdleHauls = 0;
+  pawlsSaid = false;
+  guardAnswered = false;
+  private lockerX = 0; private lockerY = 0; private lockerZ = 0; private lockerNX = 0; private lockerNZ = 0;
+  private hasLocker = false;
+  /** the six proving marks, x and z in pairs */
+  private readonly marks: number[] = [];
   drySaid = 0;
   shots3b = 0;
   reload3b = false;
@@ -232,6 +253,16 @@ export class Boss {
     this.parts.push(new Part(this, 'pawl', 0), new Part(this, 'pawl', 1), new Part(this, 'guard', 0), new Part(this, 'shutter', 0));
     const m = S.ctx.data.layout.markers.find((x) => x.id === 'sp_windlass');
     if (m) { this.axisX = m.pos[0]; this.axisY = m.pos[1]; this.axisZ = m.pos[2]; }
+    for (const k of S.ctx.data.layout.markers) {
+      if (k.zone === 'the_bore' && k.params.kind === 'floor_mark') this.marks.push(k.pos[0], k.pos[2]);
+      else if (k.id === BOSS.lockerMarker) {
+        // the ring floats off the locker's face, toward the bore's axis
+        const dx = this.axisX - k.pos[0], dz = this.axisZ - k.pos[2], l = Math.hypot(dx, dz) || 1;
+        this.lockerNX = dx / l; this.lockerNZ = dz / l;
+        this.lockerX = k.pos[0] + this.lockerNX * 0.45; this.lockerY = k.pos[1] + BOSS.lockerRingUp; this.lockerZ = k.pos[2] + this.lockerNZ * 0.45;
+        this.hasLocker = true;
+      }
+    }
     for (let i = 0; i < 6; i++) this.lamp[i] = 1;
     const self = this;
     this.view = {
@@ -258,6 +289,30 @@ export class Boss {
   /** index (0..5) of the mouth at the top for the drum's spin */
   get topMouth(): number { return (((Math.round(this.arm.spin * this.spinSign / 60) % 6) + 6) % 6); }
   playerBay(): number { return bayOfBearing(bearingDeg(this.S.px, this.S.pz, this.axisX, this.axisZ)); }
+  /** pass i4: is she standing on (or a step from) one of the six proving marks? */
+  get onMark(): boolean {
+    const { S } = this, r2 = BOSS.chargeMarkRadius * BOSS.chargeMarkRadius, m = this.marks;
+    for (let i = 0; i < m.length; i += 2) { const dx = S.px - (m[i] as number), dz = S.pz - (m[i + 1] as number); if (dx * dx + dz * dz <= r2) return true; }
+    return false;
+  }
+  /** Everything said or given once per run of the fight is owed again (a new run, a debug jump). */
+  forgetRun(): void {
+    this.teachSaidIn = ''; this.moveSaidIn = ''; this.lobSaidIn = ''; this.lastDeath = '';
+    this.guardIdleHauls = 0; this.pawlsSaid = false; this.guardAnswered = false;
+  }
+  /** The guard was answered (a pawl burst, a line round through the plate): the fallback teaching is over. */
+  answerGuard(): void { this.guardAnswered = true; }
+  /** The outline rings of the guard's fallback teaching (defs.ts `pawlsKey`), every tick they are owed. */
+  private ringGuard(): void {
+    if (this.phase !== 'p2' || this.guardAnswered || this.guardIdleHauls <= BOSS.pawlHintHauls || this.sub === 'transition') return;
+    const rings = this.S.rings, b = this.arm.heading * RAD, nx = Math.sin(b), nz = -Math.cos(b), w = this.sphereAtPos;
+    for (let i = 0; i < 2; i++) {
+      if (this.pawl[i] === 1) continue;
+      const o = (6 + i) * 3;
+      rings.place(i, (w[o] as number) + nx * 0.2, w[o + 1] as number, (w[o + 2] as number) + nz * 0.2, nx, nz, PAWL_R * 1.5);
+    }
+    if (this.hasLocker && this.guardIdleHauls > BOSS.lockerHintHauls) rings.place(2, this.lockerX, this.lockerY, this.lockerZ, this.lockerNX, this.lockerNZ, 0.5);
+  }
 
   // ---- events ---------------------------------------------------------------------------------------------
   emitPips(): void {
@@ -667,6 +722,7 @@ export class Boss {
       // two knots high on the arm: both burst and the guard drops (phase 2)
       if (this.phase !== 'p2' || this.pawl[part.index] === 1 || this.sub === 'transition') { respond(out, 'deflected', !line, false, 0, this.pips); return; }
       this.pawl[part.index] = 1;
+      this.answerGuard();
       this.evPawl.side = part.index === 0 ? 'l' : 'r'; this.evPawl.burst = true;
       this.S.ctx.events.emit('boss/pawl', this.evPawl);
       if (this.pawl[0] === 1 && this.pawl[1] === 1 && this.hauling) this.releaseGuard();
@@ -684,6 +740,7 @@ export class Boss {
       // lead clanks off the guard; a line round pierces it and counts as exactly three hits (GDD 8.2)
       if (line && vulnerable && this.mouthsOpen > 0) {
         const n = this.takeHits(-1, BOSS.lineThroughGuard);
+        if (n > 0) this.answerGuard();
         if (n > 0) { respond(out, 'weak', false, true, n, this.pips); return; }
       }
       respond(out, line ? 'impact' : 'deflected', !line, false, 0, this.pips);
@@ -857,7 +914,7 @@ export class Boss {
     this.parleyAwait = ''; this.parleySaidAt = 0; this.parleyShift = 0; this.inspectAt = -1;
     this.parleyDue = 0; this.parleyWritten = 0; this.keptSaid = false; this.parleySkipped = false;
     this.rollLines = 0; this.rollLine = -1; this.rollAt = 0; this.rollHold = 0; this.rollLit = 6;
-    this.moveOwed = 0; this.moveShown = false;
+    this.moveOwed = 0; this.moveShown = false; this.owedKey = '';
     for (let i = 0; i < 6; i++) { this.want[i] = 0; this.openF[i] = 0; this.lamp[i] = 1; this.relightAt[i] = 0; }
     this.clearDark();
     this.pawl[0] = 0; this.pawl[1] = 0;
@@ -960,10 +1017,15 @@ export class Boss {
    */
   private applyRetry(): void {
     this.lead = BOSS.retryLead;
-    if ((this.phase === 'p1' || this.phase === 'p2') && this.deaths >= BOSS.moveDeaths && this.S.ctx.data.story.lines[BOSS.moveKey] !== undefined) {
+    const lines = this.S.ctx.data.story.lines;
+    if ((this.phase === 'p1' || this.phase === 'p2') && this.deaths >= BOSS.moveDeaths && lines[BOSS.moveKey] !== undefined) {
       this.lead = BOSS.retryLeadLate;
-      this.moveOwed = 1; this.moveShown = false;
       this.taught = true;
+      // Pass i4: each line once per visit to the phase. The direct hint if this phase has not had it (from here or from
+      // the world's first hit); else, after a death to a canister, the line about what it lobs, once; else nothing.
+      this.owedKey = this.moveSaidIn !== this.phase ? BOSS.moveKey
+        : this.lastDeath === 'canister' && this.lobSaidIn !== this.phase && lines[BOSS.lobKey] !== undefined ? BOSS.lobKey : '';
+      this.moveOwed = this.owedKey !== '' ? 1 : 0; this.moveShown = false;
     }
   }
 
@@ -987,7 +1049,12 @@ export class Boss {
     this.lineOn = on; this.lineQuiet = 0; this.lineHeld = 0;
     if (!on) return;
     this.storyLive = true;
-    if (key === BOSS.moveKey && !this.moveShown) {
+    // (pass i4: a hint shown in a cylinder phase has been had in it, whoever said it: the world says the direct hint
+    // on the first hit of a run and the haul line on the first retry)
+    if (this.phase === 'p1' || this.phase === 'p2') {
+      if (key === BOSS.moveKey) this.moveSaidIn = this.phase; else if (key === BOSS.lobKey) this.lobSaidIn = this.phase; else if (key === BOSS.teachKey) this.teachSaidIn = this.phase;
+    }
+    if (key !== '' && key === this.owedKey && !this.moveShown) {
       this.moveShown = true;
       // a late retry's first attack waits until the direct hint has been read (defs.ts `moveRead`)
       if (this.retryOf !== '' && this.sub === 'transition') this.lead = Math.min(Math.max(this.lead, this.t + BOSS.moveRead), Math.max(this.lead, BOSS.retryLeadMax));
@@ -1007,7 +1074,14 @@ export class Boss {
     for (let i = 0; i < 3 && pl.alive && pl.health < pl.maxHealth; i++) if (!pl.givePickup('pk_canteen')) break;
   }
 
-  onDied(): void { if (FIGHT[this.phase] === true || this.phase === 'p3b' || this.phase === 'proven') this.deaths++; }
+  onDied(kind: DamageKind | '' = ''): void { this.lastDeath = kind; if (FIGHT[this.phase] === true || this.phase === 'p3b' || this.phase === 'proven') this.deaths++; }
+
+  /** The line a late retry owes: said, and had in this phase from now on. */
+  private sayOwed(): void {
+    if (this.owedKey === '') return;
+    if (this.owedKey === BOSS.moveKey) this.moveSaidIn = this.phase; else this.lobSaidIn = this.phase;
+    this.S.say(this.owedKey);
+  }
 
   onFired(): void {
     if (this.phase === 'parley') parleyShot(this);
@@ -1033,8 +1107,8 @@ export class Boss {
       if (this.retryOf !== '' && (this.sub !== 'transition' || this.phase !== this.retryOf)) this.retryOf = '';   // the lead-in ran out
       // release pass p0: the direct hint of a late retry, early in its lead-in; once more if the line box did not take it
       if (this.moveOwed > 0 && this.sub === 'transition') {
-        if (this.moveOwed === 1 && this.ut >= BOSS.moveHintAt) { this.moveOwed = 2; S.say(BOSS.moveKey); }
-        else if (this.moveOwed === 2 && this.ut >= BOSS.moveHintAgain) { this.moveOwed = 3; if (!this.moveShown) S.say(BOSS.moveKey); }
+        if (this.moveOwed === 1 && this.ut >= BOSS.moveHintAt) { this.moveOwed = 2; this.sayOwed(); }
+        else if (this.moveOwed === 2 && this.ut >= BOSS.moveHintAgain) { this.moveOwed = 3; if (!this.moveShown) this.sayOwed(); }
         // (the line box has it but has not shown it yet: the lead-in holds for it, `retryLeadMax` at most)
         if (this.storyLive && !this.moveShown && this.lead - this.t < BOSS.moveRead) this.lead = Math.min(this.t + BOSS.moveRead, Math.max(this.lead, BOSS.retryLeadMax));
       } else if (this.moveOwed > 0) this.moveOwed = 0;
@@ -1056,6 +1130,7 @@ export class Boss {
     this.pose();
     this.updateVolumes();
     this.syncLamps();
+    this.ringGuard();
   }
 
   debugState(): Record<string, unknown> {
@@ -1067,6 +1142,8 @@ export class Boss {
       rings: this.ord.rings, canisters: this.ord.flying, lance: this.ord.lanceStage, fan: this.ord.fanStage,
       lidClose: this.closeTable !== null, addsSpawned: this.adds.spawned, addsPending: this.adds.pending, chargeAsked: this.chargeAsked, cleanSix: this.cleanSix,
       lead: this.lead, storyLive: this.storyLive, parleyAwait: this.parleyAwait, parleyShift: Math.round(this.parleyShift * 1e4) / 1e4, inspectAt: Math.round(this.inspectAt * 1e4) / 1e4, moveOwed: this.moveOwed,
+      moveSaidIn: this.moveSaidIn, lobSaidIn: this.lobSaidIn, teachSaidIn: this.teachSaidIn, owedKey: this.owedKey, lastDeath: this.lastDeath,
+      guardIdleHauls: this.guardIdleHauls, pawlsSaid: this.pawlsSaid, guardAnswered: this.guardAnswered, onMark: this.onMark, chargeSaid: Math.round(this.chargeSaid * 1e4) / 1e4,
       askedBefore: this.askedBefore, parleySkipped: this.parleySkipped, parleyKeys: this.parleyKeys.slice(), parleyHolds: this.parleyHolds.slice(), rollLit: this.rollLit,
     };
   }

@@ -33,6 +33,10 @@ def lin(h):
 
 LEATHER = lin("#685848"); WORN = lin("#8E7A62"); DEEP = lin("#30261F"); THREAD = lin("#B09C7C")
 BIND = lin("#4A382A"); SKIN = lin("#7C6156"); CLOTH = lin("#3B3843"); CLOTH_HI = lin("#524E5C")
+# Pass i5 (the visual reviewer: "both hands are the same flat tan ... in the loading pose they overlap into a single lump"):
+# the palm side of the glove is a second hide, a dark rough-out patch sewn on over the palm and the insides of the
+# fingers, as a work glove's is. The off hand shows its palm in the loading pose and the gun hand its back: two tones.
+PALM = lin("#4A382B"); PALM_WORN = lin("#6C5743")
 CORD = lin("#75624A"); HORN = lin("#5A4E42"); HORN_HI = lin("#8A7A68")
 
 
@@ -92,6 +96,25 @@ class Rect:
         self.hgt += -depth * groove + 0.10 * welt + 0.16 * st
         self.gloss -= 0.10 * groove
         return groove
+
+
+PIPE = lin("#3E2E22"); PIPE_HI = lin("#9A8468")
+
+
+def piping(r, d, along, on=1.0, period=2.6):
+    """Pass i6 (the visual reviewer: "smooth sausages with one stitch line ... add seam piping"): a piped seam along d = 0
+    (mm): a dark welted cord 1.3 mm across standing proud between the two hides, its crown rubbed pale, a shadow line
+    either side and a row of stitches on each hide. Drawn broad: the sheet gives a finger two texels a millimetre."""
+    bead = line(d, 0.42, 0.40) * on
+    crown = line(d, 0.10, 0.28) * on
+    gap = line(np.abs(d) - 1.05, 0.14, 0.32) * on
+    st = line(np.abs(d) - 1.95, 0.24, 0.26) * (np.mod(along / period + 0.5 * (d > 0), 1.0) < 0.58) * on
+    r.mix(PIPE, 0.85 * bead); r.mix(PIPE_HI, 0.55 * crown)
+    r.shade(1.0 - 0.42 * gap)
+    r.mix(THREAD, 0.85 * st)
+    r.hgt += 0.30 * bead - 0.22 * gap + 0.14 * st
+    r.gloss += 0.14 * crown - 0.06 * gap
+    return bead
 
 
 NAIL = lin("#9C8880"); NAIL_TIP = lin("#A99C90"); SKIN_PAD = lin("#8A6E62"); SKIN_DEEP = lin("#5E3A2A")
@@ -165,17 +188,32 @@ def digit(part, stations, L, C, seed, worn=0.0, thumb=False):
     kn = np.zeros_like(S)
     for j in (1, 2, 3):
         kn = np.maximum(kn, np.exp(-((x - stations[j] * L) / (4.2 if j == 1 else 3.2)) ** 2 - (y / (C * 0.12)) ** 2))
-    wear = np.clip(0.55 * inside + 0.55 * tipw + 0.75 * kn + worn, 0, 1) * (0.55 + 0.9 * n1)
-    r.mix(WORN, 0.85 * np.clip(wear, 0, 1)); r.gloss += 0.26 * np.clip(wear, 0, 1)
+    pads = np.zeros_like(S)                                                  # the middle of each phalanx, on the inside
+    for j in (1, 2, 3):
+        pads = np.maximum(pads, np.exp(-((x - 0.5 * (stations[j] + stations[j + 1]) * L) / (0.20 * (stations[j + 1] - stations[j]) * L)) ** 2))
+    if thumb:                                                                # the thumb is cut from the back's hide (its ball is what the idle frame shows of the hand)
+        wear = np.clip(0.55 * inside + 0.55 * tipw + 0.75 * kn + worn, 0, 1) * (0.55 + 0.9 * n1)
+        r.mix(WORN, 0.85 * np.clip(wear, 0, 1)); r.gloss += 0.26 * np.clip(wear, 0, 1)
+    else:
+        r.mix(PALM * (0.92 + 0.16 * n1[..., None]), 0.80 * inside * (1.0 - 0.6 * tipw))     # pass i5: the palm hide runs up the inside of each finger
+        r.gloss -= 0.06 * inside
+        wear = np.clip(0.55 * tipw + 0.75 * kn + worn * (1.0 - inside), 0, 1) * (0.55 + 0.9 * n1)
+        r.mix(WORN, 0.85 * np.clip(wear, 0, 1) * (1.0 - 0.55 * inside)); r.gloss += 0.26 * np.clip(wear, 0, 1)
+        padw = inside * pads * (0.45 + 0.7 * n1)
+        r.mix(PALM_WORN, 0.75 * np.clip(padw, 0, 1)); r.gloss += 0.16 * np.clip(padw, 0, 1)
     r.hgt += 0.05 * kn
     # joints: fine wrinkles across the back, one deep crease on the inside
     for j in ((2, 3) if not thumb else (2, 3)):
         xj = stations[j] * L
         back = 1.0 - sm((ay - C * 0.17) / (C * 0.09))
-        for o, wob in ((-1.9, 0.3), (0.0, 1.1), (1.8, 2.2)):
-            d = x - (xj + o + 0.35 * np.sin(y * 0.8 + wob))
-            wr = line(d, 0.16, 0.30) * back
-            r.shade(1.0 - 0.40 * wr); r.hgt -= 0.20 * wr
+        # pass i6 ("add knuckle creases"): three hairlines of 0.9 mm were under two texels of the sheet and did not reach the
+        # screen. Five folds, broad and deep, the outer ones shorter, the leather standing up between them
+        for o, wob, reach in ((-3.4, 0.3, 0.11), (-1.7, 1.7, 0.16), (0.0, 1.1, 0.19), (1.7, 2.2, 0.16), (3.3, 0.6, 0.10)):
+            d = x - (xj + o + 0.40 * np.sin(y * 0.8 + wob))
+            wr = line(d, 0.24, 0.42) * (1.0 - sm((ay - C * reach) / (C * 0.07)))
+            puff = line(d - 0.85, 0.20, 0.45) * (1.0 - sm((ay - C * reach) / (C * 0.07)))
+            r.shade(1.0 - 0.52 * wr); r.hgt -= 0.26 * wr
+            r.shade(1.0 + 0.10 * puff); r.hgt += 0.07 * puff
         for o, wob, k in ((-1.1, 0.5, 0.7), (0.5, 1.9, 1.0)):                # the crease inside the joint: two soft folds, not a ring
             cr = line(x - (xj + o + 0.5 * np.sin(y * 0.5 + wob)), 0.22, 0.6) * sm((ay - C * 0.30) / (C * 0.07)) * k
             r.shade(1.0 - 0.36 * cr); r.hgt -= 0.24 * cr; r.gloss -= 0.08 * cr
@@ -183,13 +221,15 @@ def digit(part, stations, L, C, seed, worn=0.0, thumb=False):
     xk = stations[1] * L
     for o in (-2.6, 2.4):
         d = x - (xk + o + 0.05 * y * y * (1 if o > 0 else -1) * 0.6)
-        wr = line(d, 0.16, 0.30) * (1.0 - sm((ay - C * 0.16) / (C * 0.08)))
-        r.shade(1.0 - 0.30 * wr); r.hgt -= 0.14 * wr
+        wr = line(d, 0.24, 0.40) * (1.0 - sm((ay - C * 0.16) / (C * 0.08)))
+        r.shade(1.0 - 0.46 * wr); r.hgt -= 0.22 * wr
     # the seams: one down each side from the knuckle to the tip seam, and the tip seam over the back
     # (the two meet over the end of the finger in an arch: no seam ACROSS the fingertip, which drew a ring round it)
     arch = C * 0.25 * np.sqrt(np.clip(1.0 - np.clip((S - 0.86) / 0.125, 0.0, 1.0) ** 2, 0.0, 1.0))
     on = sm((S - (stations[1] - 0.02)) / 0.04) * (1.0 - sm((S - (cut - 0.036)) / 0.004))
-    r.seam(ay - arch, x, on=on, stitch_side=-1.0)
+    piping(r, ay - arch, x, on=on)
+    # pass i6: the fourchette's other seam, where the palm hide is sewn on (a plain stitched seam, no cord)
+    r.seam(ay - C * 0.365, x, on=sm((S - (stations[1] + 0.02)) / 0.04) * (1.0 - sm((S - 0.80) / 0.05)), stitch_side=1.0, depth=0.20)
     # the sides and the root sit in the shade of the next finger
     side = np.exp(-((ay - C * 0.25) / (C * 0.085)) ** 2)
     r.shade(1.0 - 0.20 * side)
@@ -206,8 +246,19 @@ def palm(seed):
     n1 = r.noise(5, 6, 3, 11)
     # the palm side: worn pale and smooth, two creases and the line round the ball of the thumb
     inner = 1.0 - back
-    r.mix(WORN, inner * (0.50 + 0.5 * n1)); r.gloss += 0.20 * inner
     yy = np.where(y > 0, y - 100.0, y + 100.0)               # mm from the middle of the palm, thumb side negative
+    # pass i5: the palm patch (PALM), worn smooth and paler on the heel, the ball of the thumb and under the knuckles
+    patch = sm((ay - 50.0) / 8.0)                            # the patch is sewn on 4 mm inside the edge seam: the hand's two edges stay the back's hide
+    thenar = 1.0 - sm((yy + 4.0) / 8.0)                      # ... and so does the thumb's half of the palm (what the idle frame shows of the gun hand, between the grip and the frame's edge)
+    patch = patch * (1.0 - thenar)
+    r.seam(yy + 0.0, x, on=sm((x - 10.0) / 6.0) * (1.0 - sm((x - 96.0) / 4.0)) * sm((ay - 56.0) / 4.0), stitch_side=1.0, depth=0.16)      # the patch's inner edge, down the middle of the palm
+    r.mix(PALM * (0.90 + 0.20 * n1[..., None]), 0.94 * patch); r.gloss -= 0.05 * patch
+    off = np.clip(inner - patch, 0.0, 1.0)                    # the palm side the patch leaves bare is worn pale and smooth, as it was
+    r.mix(WORN, off * (0.50 + 0.5 * n1)); r.gloss += 0.20 * off
+    rubp = np.maximum(np.maximum(np.exp(-((x - 20.0) / 15.0) ** 2 - ((yy - 14.0) / 20.0) ** 2), np.exp(-((x - 26.0) / 17.0) ** 2 - ((yy + 24.0) / 15.0) ** 2)),
+                      0.8 * np.exp(-((x - 86.0) / 9.0) ** 2 - (yy / 34.0) ** 2))
+    r.mix(PALM_WORN, patch * np.clip(rubp * (0.5 + 0.8 * n1), 0, 1) * 0.8); r.gloss += 0.20 * patch * rubp
+    r.seam(ay - 50.0, x, on=sm((x - 10.0) / 6.0) * (1.0 - sm((x - 96.0) / 4.0)), stitch_side=1.0, depth=0.18)      # the patch's own stitch row
     for (x0, k, c0) in ((72.0, 0.10, 0.0), (56.0, -0.14, 6.0)):
         d = x - (x0 + k * yy + 3.0 * np.sin(yy / 17.0 + c0))
         cr = line(d, 0.35, 0.7) * inner * (np.abs(yy) < 36.0)
@@ -247,7 +298,7 @@ def palm(seed):
 
 def gauntlet(seed):
     L, C = 56.0, 190.0
-    r = Rect("gauntlet", L, C, seed); r.leather(mottle=0.20)
+    r = Rect("gauntlet", L, C, seed); r.leather(base=LEATHER * 0.74, mottle=0.20)     # pass i5: the gauntlet a shade under the hand (the wrist reads as a joint)
     x, y, S = r.x, r.y, r.S; ay = np.abs(y)
     for o in (4.0, 8.5, 13.5, 19.0):
         d = x - (o + 1.1 * np.sin(y / 11.0 + o * 0.7))

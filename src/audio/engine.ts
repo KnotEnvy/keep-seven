@@ -2,7 +2,7 @@
 // with no graph (or a suspended one) every handler still does its bookkeeping (`recent()`, voices, captions, music
 // state), and the same class runs against an OfflineAudioContext for tests. Nothing here allocates after
 // construction except the short-lived nodes of a sound start.
-import type { AudioCue, BossPhase, EnemyKind, EventName, GameEvents, Rng, SurfaceType, ZoneId } from '../core/contracts.ts';
+import type { AudioCue, BossPhase, DamageKind, EnemyKind, EventName, GameEvents, Rng, SurfaceType, ZoneId } from '../core/contracts.ts';
 import { AMB_EVENTS, Ambience, HUM_FLAT, HUM_NAMES, HUM_OFF, HUM_TUNED } from './ambience.ts';
 import type { AmbEvent } from './ambience.ts';
 import { bellSounds } from './bells.ts';
@@ -11,7 +11,7 @@ import { creatureSounds } from './creatures.ts';
 import { cueSounds, worldSounds } from './cues.ts';
 import { BUS_UI, MAX_VOICES } from './graph.ts';
 import type { Graph } from './graph.ts';
-import { CONFIRM_DELAY, KILL_DELAY, gunSounds } from './gun.ts';
+import { CONFIRM_DELAY, HURT_BLAST, HURT_LUNGE, HURT_PLAIN, HURT_SLAM, HURT_STAKE, KILL_DELAY, gunSounds } from './gun.ts';
 import { MUSIC_NAMES, Music } from './music.ts';
 import type { MusicHost, MusicStateName } from './music.ts';
 import { IR_CONFIRM_HOLD, IR_CONFIRM_LIFT, zoneIr } from './reverb.ts';
@@ -55,6 +55,10 @@ const VIEW_COS = 0.55;
 const IMPACT: Record<SurfaceType, string> = { sand: 'impact_sand', wood: 'impact_wood', adobe: 'impact_adobe', metal: 'impact_metal', ceramic: 'impact_ceramic', stone: 'impact_stone', cloth: 'impact_cloth', none: 'impact_none' };
 const STEP: Record<SurfaceType, string> = { sand: 'step_sand', wood: 'step_wood', adobe: 'step_adobe', metal: 'step_metal', ceramic: 'step_ceramic', stone: 'step_stone', cloth: 'step_cloth', none: 'step_none' };
 const KIND_INDEX: Record<EnemyKind, number> = { bider: KIND_BIDER, transit: KIND_TRANSIT, tamper: KIND_TAMPER, windlass: KIND_WINDLASS };
+/** the top layer of 'hurt' by what struck her (gun.ts HURT_*): a knock, a tear, a second blow, heat */
+export const HURT_KIND: Record<DamageKind, number> = { bullet: HURT_STAKE, stake: HURT_STAKE, fan: HURT_STAKE, lunge: HURT_LUNGE, slam: HURT_SLAM, charge: HURT_SLAM, canister: HURT_BLAST, lance: HURT_BLAST, kill_volume: HURT_PLAIN };
+/** how far 'hurt' leans to the side the blow came from (a positional sound leans 0.85) */
+export const HURT_PAN = 0.5;
 
 type Handler<K extends EventName> = (payload: Readonly<GameEvents[K]>) => void;
 
@@ -252,7 +256,8 @@ export class Engine implements MusicHost {
   private simple(name: string): void { this.play(name, this.params()); }
   /**
    * A short hit confirm (tick, tink, sour note, clank): what is left of the report steps back under it for 120 ms, so
-   * the answer to the shot is not 10 dB under the shot. The kill's thud and the freed bell are over the bed without it.
+   * the answer to the shot is not 10 dB under the shot. The freed bell is over the bed without it; the kill's thud steps it
+   * back itself wherever it is held (every room since pass i4).
    * In the hall and the bore, whose rooms answer the report loudest, the room steps back further and for longer and the
    * confirm is a little louder (reverb.ts IR_TAIL_DUCK_DB, IR_CONFIRM_LIFT).
    */
@@ -437,8 +442,8 @@ export class Engine implements MusicHost {
         case 'weak': p.positional = false; p.delay = CONFIRM_DELAY; p.a = this.hold(); this.confirm('hit_weak', p); break;
         case 'kill':
           p.positional = false; p.delay = KILL_DELAY; p.a = this.hold();
-          // in the hall and the bore the thud is held and the report's tail steps back under it as under the others
-          // (no lift: it is at the limiter); in the open it is 8 dB over the bed without either, and nothing moves
+          // the thud is held (6 ms in the thin rooms, longer in the hall and the bore) and the report's tail steps back
+          // under it as under the others (no lift: it is at the limiter)
           if (this.play('hit_kill', p) >= 0 && p.a > 0 && this.graph && this.graph.active) this.graph.duckTail(this.graph.now() + p.delay);
           break;
         case 'freed': p.positional = false; p.delay = CONFIRM_DELAY; this.play('hit_freed', p); break;
@@ -472,7 +477,19 @@ export class Engine implements MusicHost {
     });
     this.on('player/jumped', () => { this.simple('jump'); });
     this.on('player/landed', (e) => { const p = this.params(); p.a = e.speed; this.play('land', p); });
-    this.on('player/damaged', (e) => { if (e.amount <= 0) return; const p = this.params(); p.a = e.amount; this.play('hurt', p); });
+    this.on('player/damaged', (e) => {
+      if (e.amount <= 0) return;
+      const p = this.params();
+      p.a = e.amount; p.b = HURT_KIND[e.kind] ?? HURT_PLAIN;
+      // it leans to the side it came from (never hard over: it is her own body that sounds)
+      if (e.source !== 'world' && e.source !== 'player') {
+        const dx = e.fromX - this.lx, dz = e.fromZ - this.lz, d = Math.sqrt(dx * dx + dz * dz), rl = Math.sqrt(this.fx * this.fx + this.fz * this.fz);
+        if (d > 0.2 && rl > 1e-4) p.pan = HURT_PAN * (dx * -this.fz + dz * this.fx) / (rl * d);
+      }
+      // the bed steps back under it as it does under a shot: being hit is never lost in the music
+      // (two stakes of a fan on one tick are one blow to the ear: the second would only push the limiter)
+      if (this.playOnce('hurt', p) >= 0 && this.graph) this.graph.duck(this.now());
+    });
     this.on('player/died', () => { this.simple('died'); });
     this.on('player/respawned', () => {
       this.clearTracked(); this.pounding = false;

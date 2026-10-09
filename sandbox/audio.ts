@@ -105,7 +105,7 @@ function build(sb: Sandbox): void {
   button('gun:fire', 'FIRE', fire, 'hot');
   button('gun:reload', 'reload (0.35 + n x 0.30 + 0.30 s)', reload);
   button('gun:six', 'six shots, 480 ms apart, then a dry click', () => { for (let k = 0; k < 7; k++) after(k * 0.48, fire); });
-  // a shot with its confirm: the confirm sounds 150 ms after the click (the kill's thud 190 ms after), over the report's tail
+  // a shot with its confirm: the confirm sounds 190 ms after the click (the kill's thud too), over the report's tail
   const fireAnd = (outcome: HitOutcome, kind: EntityKind): void => {
     if (chambers === 0) chambers = 6;
     chambers--;

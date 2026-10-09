@@ -3,7 +3,7 @@
 // the text rules (one card a note, the loading line, the load shares) are in text.spec.ts.
 //   - the work at hand is drawn in play for five seconds each time it changes, under the checkpoint numeral; it waits
 //     for a movement card, is not drawn under a sheet, and a respawn takes it away
-//   - the line dot is named for six seconds when the first line round is taken, and while its hint is drawn
+//   - the line dot is named when the first line round is taken (pass i4: for as long as one is held)
 //   - the title's mark is twice its size, and in a frame narrower than 3:2 the column stands under the lit camp
 //   - "break the band" on ink with an aqua key cap is in hud.test.mjs; the reader's cards in screens.test.mjs
 import { after, before, test } from 'node:test';
@@ -113,7 +113,7 @@ test('the objective fits a small window and a 4:3 frame, and every objective of 
   }
 });
 
-test('the line dot is named when the first line round is taken (six seconds) and while its hint is drawn; a restored count is not named', async () => {
+test('the line dot is named when the first line round is taken, in its own aqua under the dots, and stays named; no dot, no name', async () => {
   const game = await openSandbox(server);
   try {
     await press(game, 'state/play');
@@ -127,27 +127,16 @@ test('the line dot is named when the first line round is taken (six seconds) and
     assert.deepEqual([l.on, l.text, l.fill, (await hud(game)).lineLabel], [true, STORY.ui.ui_hud_line_rounds, 'rgb(124, 242, 226)', true], 'the dot is named, in its own aqua, in story.json\'s word');
     assert.ok(l.size >= 8 && l.underDots && l.clear && l.left >= 0, `under the dots, clear of the seventh and the bars (${JSON.stringify(l)})`);
     await game.page.screenshot({ path: path.join(OUT, 'line_label_1280x720.png'), clip: { x: 0, y: 500, width: 260, height: 220 } });
-    await run(game, 350);
-    assert.equal((await hud(game)).lineLabel, true, 'still named at 5.9 s');
-    await run(game, 12);
-    assert.deepEqual([(await hud(game)).lineLabel, (await label()).on], [false, false], 'the name fades after six seconds; the dot stays');
+    // pass i4 (story reviewer b): the name no longer goes after six seconds: it stands for as long as a line round is
+    // held (tests/ui/i4.test.mjs has the rest: a minute later, after a respawn, the pause screen's legend)
+    await run(game, 362);
+    assert.deepEqual([(await hud(game)).lineLabel, (await label()).on], [true, true], 'still named after six seconds');
     assert.equal(await game.page.evaluate(() => document.querySelector('.k7 .hud .mark .lp').getAttribute('class')), 'lp on');
-    // the hint that teaches the key names the dot for as long as it is drawn
-    await emit(game, 'ui/hint', { key: 'ui_hint_line', show: true }, 2);
-    assert.equal((await hud(game)).lineLabel, true, 'named while the seat-a-line-round hint is drawn');
-    await run(game, 600);
-    assert.equal((await hud(game)).lineLabel, true);
-    await emit(game, 'ui/hint', { key: 'ui_hint_line', show: false }, 2);
-    assert.equal((await hud(game)).lineLabel, false);
-    // a count that comes back with a checkpoint is not a first line round
-    await game.page.evaluate(() => { const d = window.__dbg, c = d.ext.core.ctx(); c.player.debug.setAmmo?.(undefined, undefined, 0); });
-    await press(game, 'ring/empty');
-    await game.page.evaluate(() => window.__dbg.ext.uisb.run('ring/first line round (the dot is named)').catch(() => {}));
-    await emit(game, 'player/respawned', { checkpoint: 'cp_gallery_bay' }, 3);
-    assert.equal((await hud(game)).lineLabel, false, 'a respawn takes the name away and a restored count does not bring it back');
     // no line round, no name (the hint may be up before the first locker)
-    const none = await game.page.evaluate(async () => { const d = window.__dbg; await d.ext.uisb.run('ring/empty'); return d.ext.core.ctx().player.weapon.lineRounds; });
-    if (none === 0) { await emit(game, 'ui/hint', { key: 'ui_hint_line', show: true }, 2); assert.equal((await hud(game)).lineLabel, false, 'no dot, no name'); }
+    const none = await game.page.evaluate(async () => { const d = window.__dbg; await d.ext.uisb.run('state/full cylinder'); return d.ext.core.ctx().player.weapon.lineRounds; });
+    assert.equal(none, 0);
+    await emit(game, 'ui/hint', { key: 'ui_hint_line', show: true }, 2);
+    assert.equal((await hud(game)).lineLabel, false, 'no dot, no name');
   } finally { await game.close(); }
 });
 
@@ -182,7 +171,8 @@ test('the title: the mark at twice its size on the loading screen and the title;
   // index.html's pre-boot page follows: the same mark, the same line, the same rule for a narrow frame
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   assert.match(html, /#preload svg \{[^}]*height: max\(calc\(var\(--u\) \* 56\), 52px\); width: max\(calc\(var\(--u\) \* 36\.4\), 33\.8px\)/);
-  assert.match(html, /@media \(max-aspect-ratio: 3\/2\) \{ #preload \.line \{ bottom: 5\.5%; \} \}/);
+  // (pass i4: the narrow frame's column also stands at 3.5 % of the width: tests/ui/i4.test.mjs)
+  assert.match(html, /@media \(max-aspect-ratio: 3\/2\) \{[^\n]*#preload \.line \{[^}]*bottom: 5\.5%; \} \}/);
   const css = fs.readFileSync(path.join(ROOT, 'src/ui/ui.css'), 'utf8');
   assert.match(css, /\.k7 \.pm \{ height: max\(calc\(var\(--u\) \* 56\), 52px\); width: max\(calc\(var\(--u\) \* 36\.4\), 33\.8px\)/);
 });

@@ -1,6 +1,6 @@
 # Integration report
 
-Sixteen parts. **Part P** (first below) is the closing pass of iteration i3: **its gate, release check, numbers, hero frames and known-gaps list (P.0 to P.8) describe the game as it stands**, and where it differs from any other part, Part P holds. **Part O** (after it) is the cross-cutting fix pass that opened iteration i3: two sentences of text, the share tags, and the budget moves of ruling R14 (its ledger O.2 stands except for the three chunks of P.1 row 3). **Part N** (after it) is the closing pass of iteration i2 (its N.0 on running and driving the game still stands; P.0 adds to it). **Part M** (after it) is the closing pass of iteration i1 (its M.0 on running and driving the game still stands; N.0 adds to it). **Part L** (after it) is the cross-cutting fix pass that opened iteration i1 (story and visuals toward release); the pass's code and look teams worked after it. **Part K** (after it) is the release pass p0 (the cross-cutting fixer, five code teams, four look teams, then the closer): **its gate, release check, numbers, hero frames and known-gaps list (K.0 to K.7) describe the game as released**, and where it differs from any other part, Part K holds. **Part J** (after it) is the closing pass of polish round 5; its fights table J.3 still stands for the fights no p0 team re-measured. **Part I** (after it) is the cross-cutting fix and tuning pass that opened polish round 5, the last
+Twenty parts. **Part T** (first below) is the closing pass of iteration i6: **its gate, release check, numbers, hero frames and known-gaps list (T.3 to T.8) describe the game as it now stands**, and where it differs from any other part, Part T holds. **Part S** (after it) is the closing pass of iteration i5 (its S.0 adds to how the game is run and driven). **Part R** (after it) is the closing pass of iteration i4; its table of fights replayed with the reviewers' proxies (in R.5) still stands, because no combat value changed in iteration i5. **Part Q** (after it) is the cross-cutting fix pass that opened iteration i4: twelve fixes in core, the page, the build and the tools, the budget moves of ruling R14 (**its ledger Q.2 is the current one**), and the text and data made ready for the pass's teams; where it differs from any other part, Part Q holds, and its Q.0 adds to how the game is run and driven. **Part P** (after it) is the closing pass of iteration i3: **its numbers, hero frames and known-gaps list (P.5 to P.8) still describe what a player sees** (no mesh, texture or shader changed in Part Q), and where it differs from any earlier part, Part P holds. **Part O** (after it) is the cross-cutting fix pass that opened iteration i3: two sentences of text, the share tags, and the budget moves of ruling R14 (its ledger O.2 stands except for the three chunks of P.1 row 3). **Part N** (after it) is the closing pass of iteration i2 (its N.0 on running and driving the game still stands; P.0 adds to it). **Part M** (after it) is the closing pass of iteration i1 (its M.0 on running and driving the game still stands; N.0 adds to it). **Part L** (after it) is the cross-cutting fix pass that opened iteration i1 (story and visuals toward release); the pass's code and look teams worked after it. **Part K** (after it) is the release pass p0 (the cross-cutting fixer, five code teams, four look teams, then the closer): **its gate, release check, numbers, hero frames and known-gaps list (K.0 to K.7) describe the game as released**, and where it differs from any other part, Part K holds. **Part J** (after it) is the closing pass of polish round 5; its fights table J.3 still stands for the fights no p0 team re-measured. **Part I** (after it) is the cross-cutting fix and tuning pass that opened polish round 5, the last
 round of changes: its gate, fights and numbers (I.1 to I.5) are the current ones for what it measured, and where it
 differs from Parts A to H, Part I holds. The round's code and look teams work after it; what they change is in their
 own request files. **Part H** is the closing pass of polish round 4 (its hero frames and its known-gaps list H.6 stand
@@ -10,6 +10,788 @@ the closing pass of polish round 3. **Part E** is the cross-cutting fix and tuni
 the first critic panel of polish round 2. **Part A** is the code integration (the real game wired, played, built and
 measured; A.1 is how to run and play, A.5 how to drive the real game). **Part B** is the art integration that came
 before it (`B.1` to `B.6`: where another document says "INTEGRATION_REPORT section 6" it means B.6).
+
+# Part T. Closing pass, iteration i6 (2026-10-08)
+
+There was no cross-cutting fix pass in this iteration. One code team (world) and four look teams (gun, exterior,
+underground, creatures and props) worked in the tree; this pass processed their requests, mirrored their changes into
+the documents, rebuilt every asset, ran the whole gate one suite after another, made the release build and checked it
+from a sub-path, measured, and took the hero frames. Evidence: `scratch/i6-closer/` (`NOTES.md`, `gate/` with one log
+per command and `summary.txt`, `build_assets.log`, `release_check.json` and `.log`, `perf/`, `before/` = the documents
+and the two edited files before this pass), `shots/i6-closer/` (every leg's frames), `shots/i6/` (the twelve hero
+frames and `hero_sheet.jpg`). **Memory:** one browser at a time, every suite at `--test-concurrency=1`, one Blender
+build; no leg over 4 500 ticks; the watchdog killed nothing.
+
+## T.0 Run and drive: what is new
+
+- Nothing in how the game is started or stepped changed (S.0, R.0, Q.0, P.0, N.0, M.0 and A.5 stand).
+- `blender/env_interior/lm_paint.py` (dirt painted into a lightmap) is imported by `env_lift_hall.py` and
+  `env_the_bore.py` only; after editing it rebuild both zones with `--force`.
+- The playthrough by input is **28 647 ticks (7.7 minutes of play), hash `1938ee81`**, 83 rounds, 31 freed, 0 deaths
+  (ticks and stats as in Part S; the hash moved because the director's hashed sighting state is now 0 / false
+  wherever her line to the pursued man is not clean).
+- This pass's capture tools are `scratch/i6-closer/heroseg.mjs`, `at.mjs`, `flash.mjs`, `tamper.mjs`, `sheet.mjs`,
+  `px.mjs` and `perf/` (copies of pass i5's, writing to `shots/i6-closer/`).
+
+## T.1 Requests processed (each request file ends in "Closer, pass i6: decisions")
+
+| Request | Decision |
+|---|---|
+| world: the sighting's rule and the hash | **Mirrored**: GDD 23.20 in place and **23.21**, LEVEL **21**, ARCHITECTURE "Pass i6 (closer)" |
+| gun: the struck line `THE ASSIZE  VII  1104` against the bible's "no logo but the one stamp" | **Ruled: the line stays** (ruling R13 asked for it; it is the court's property line and the gun's number). ART_BIBLE 8.1 amended in place |
+| every look team: mirror into the documents | ART_BIBLE "Amendments, pass i6 (closer)" (24 rows), ARCHITECTURE "Pass i6 (closer)", LEVEL 21, GDD 23.21 |
+| creatures-props: edits in render-tech's files (`SHADOW_VERTEX_LIT`, `lampInfoOf`) | **Accepted**; all of `tests/render` passes on the final tree |
+| creatures-props: the dress pieces' download figure 0.3 -> 0.305 MB in its test | **Accepted** (ruling R14; all props are now also held to the order's 0.8 MB) |
+| every team: `loadMeter` byte table, `share.jpg`, hero frames | **Refreshed** (T.2) |
+| the hat's halo on High; wood grain on the wagon and cart; a texture on the Windlass's plates; a dusk shadow map; the cage's inside on High; the softer last fire on High; the recoil shield's form; a 1024 glove sheet | **Not built**; each is in `docs/KNOWN_ISSUES.md` |
+
+## T.2 Seams found and fixed by this pass
+
+| # | Seam | Fix |
+|---|---|---|
+| 1 | The shared files in `src/render` (edited by three teams at once): every edit each team listed was looked for by name (17 constants, uniforms and functions in `post.ts`, `system.ts`, `vfx/ambient.ts`, `vfx/vfx.ts`, `moods.ts`, `materials.ts`): all present, none half-applied; `tests/render` 86 of 86 | none needed |
+| 2 | The zones were built by two teams one after the other and the gun's helper scripts are not tracked | **every asset rebuilt with `--force` in one run**: 105 items in 554.1 s (`build_assets.log`); `npm run check:assets`: 84 assets, 21 textures, 11.74 MB, all pass |
+| 3 | `src/ui/loadMeter.ts` `BOOT_FILE_BYTES` was 7 659 660; the boot sets' files are 7 642 948 bytes | the figure refreshed (and the copies in `tests/ui/i2_real.test.mjs`) |
+| 4 | **`tests/ui/i2_real.test.mjs` "the loading line follows the bytes in" failed twice running** (-0.232, -0.208 against a floor of -0.12). A race in the test, not in the page: the test counts a file's bytes when its route hands the body over; the page learns of the file from the browser's resource entry, up to one 0.2 s look later; a 2 MB file is 0.22 of the line. It was the "timing flake" of passes i4 and i5 | the lower bound compares the line with the bytes of the look before (the test's own stated tolerance is the 0.35 s ease); the upper bound and every other assertion are unchanged; the test's stale divisor 7 367 836 is the current figure. 3 of 3 alone, then the whole suite 91 of 91 |
+| 5 | `public/share.jpg` and the hero frames showed the old hammer, pylon, plates and last image | `share.jpg` made again from this pass's title frame (75 518 B); twelve new hero frames |
+
+## T.3 The gate (one command after another, on the final tree; `scratch/i6-closer/gate/`)
+
+| Command | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm run validate` | layout, assets, contracts: pass |
+| `npm run test:unit` | 29 files, **519 of 519** |
+| `npm run check:assets` | 84 assets, 21 textures, 11.74 MB: all pass |
+| `node --test tests/render/` | **86 of 86** (619 s) |
+| `node --test tests/world/` | **172 of 172** (366 s) |
+| `node --test tests/player/` | **45 of 45** |
+| `node --test tests/enemies/` | **79 of 79** |
+| `node --test tests/ui/` | **91 of 91** (378 s; the first run was 90 of 91, T.2 row 4) |
+| `node --test tests/audio/` | **49 of 49** |
+| `node --test tests/pipeline/` | **83 of 83** |
+| `tests/art_weapons`, `art_props`, `art_env_exterior`, `art_env_interior`, `art_enemies`, `art_boss` | 32, 98, 38, 24, 41, 39: all pass |
+| `node --test tests/core/` | 70 pass, 6 skipped (the real-game ones) |
+| `KEEP7_REAL=all node --test tests/core/` | **76 of 76** (313 s) |
+| `node --test tests/e2e/` | **29 of 29**: the playthrough by input from the title to the end card, 28 647 ticks, hash `1938ee81`, the same on a second load; 17 of 17 checkpoints restore |
+| `npm run build` (with the workflow's `SITE_URL`) | built: 112 files, 14 524 878 B |
+
+## T.4 Release check (`node tools/release_check.mjs --dist dist --sub /keep-seven/`; `release_check.json`)
+
+The built site served from `/keep-seven/` by a plain static server, booted cold with no debug hook: **pass**.
+
+| | |
+|---|---|
+| To the title | **60 requests, 9 852 520 B** (8 319 418 B compressed) |
+| To control (Begin, the story sheet, Enter, W) | the same 60 requests and bytes: nothing more is fetched before she walks |
+| Console errors, requests outside the sub-path, failed, not 200 | 0, 0, 0, 0 |
+| Absolute "/" addresses in the built text files | none |
+| Debug hook | not on the page, its driver's names not in the script |
+| Asset version | one, `?v=c82ff59c`, on every model and texture |
+| Reload | 1 request; the title offers "Go on I · 1" |
+
+`shots/i6-closer/release_walked.png` (opened): in play in the gully with the first subtitle, pointer locked.
+
+## T.5 Numbers
+
+Per visibility cell, the peak over every nav node and eight headings at 1280 x 720 (`perf/cells_*.log`):
+
+| Cell | Low: draw calls / triangles / MiB | High: draw calls / triangles / MiB |
+|---|---|---|
+| `cell_lip_gully` | 49 / 78 797 / 48.9 | 82 / 131 427 / 73.8 |
+| `cell_lip_gate` | 55 / 95 107 / 48.9 | 94 / 198 256 / 73.8 |
+| `cell_street` | 55 / 97 063 / 48.9 | 96 / 207 661 / 73.8 |
+| `cell_yard` | 62 / **100 428** / 48.9 | **107** / **226 572** / 73.8 |
+| `cell_yard_door` | 50 / 98 237 / 48.9 | 104 / 215 490 / 73.8 |
+| `cell_tally_seam` | 51 / 65 723 / **52.9** | 81 / 115 497 / **77.8** |
+| `cell_tally` | 56 / 83 827 / 52.9 | 87 / 147 487 / 77.8 |
+| `cell_gallery_stair` | 40 / 58 448 / 41.6 | 62 / 76 915 / 66.6 |
+| `cell_gallery` | **68** / 89 543 / 41.6 | 92 / 147 916 / 66.6 |
+| `cell_hall` | 64 / 84 888 / 41.6 | 84 / 135 421 / 66.6 |
+| `cell_bore` | 59 / 79 692 / 41.6 | 75 / 128 460 / 66.6 |
+| `cell_rim` | 16 / 28 585 / 29.6 | 28 / 28 596 / 54.6 |
+| **Worst** | **68 / 100 428 / 52.9** (caps 100 typical, 150 worst / 120 000 / 64) | **107 / 226 572 / 77.8** (caps 220 / 400 000 / 128) |
+
+The outdoor cells draw about 900 triangles more than in Part S (the pylon, the stubs' rakes, the sighting's mesa rim,
+the cart and the wagon). The memory ledger at each tier's largest buffer was not re-measured: no texture's size or
+format changed in this pass (Part S: Low 55.3 MiB in its worst stage, High 121.0 at 1920 x 1080). Peak in the played
+High legs of T.6: 100 draw calls, 205 041 triangles.
+
+JS per fixed tick in live fights, all six real systems, Low, no drawing (`perf/fightms.log`; median): yard 0.012 ms,
+the file 0.032, the Tamper 0.032, **Windlass phase 2 0.031**; worst single tick 0.3 ms (budget 4 ms; SwiftShader's
+drawing is not in it).
+
+Bytes allocated per tick and drawn frame (`perf/alloc.log`, the harness's `measureAlloc`, median of twelve batches):
+yard 4 488, the file 4 106, the Tamper 4 609, **Windlass phase 2 5 842** (it was 5 106 in Part S; its twelve batches
+run 5 068 to 6 864; no code of the fight changed, the boss's model has more lamps and knot parts); per tick alone
+1 782 / 1 664 / 1 804 / 2 492.
+
+Total download (`dist`): **13.85 MiB** of 20. Bundle: **1 762 781 B** (521 170 B gzip), style 37 075 B. Assets:
+11.74 MiB (`public/assets` 12 280 KB on disk). First load to the title: 9.40 MiB in 60 requests. Playthrough: 28 647
+ticks, **7.7 minutes** of play at the test bot's pace.
+
+**Fights were not replayed with the reviewers' proxies in this pass**: no combat value, enemy, encounter or collider
+changed in iteration i6. Part R's table stands.
+
+## T.6 Hero frames (`shots/i6/`, the real game, High, 1280 x 720, after the final rebuild; each opened)
+
+| Frame | What | From |
+|---|---|---|
+| `hero_01.png` | the title: the camp in the shaft of sun, warm dust in the gully's mouth, the revolver with its lower hammer | leg A |
+| `hero_02.png` | the opening view with the first work-at-hand line | leg A |
+| `hero_03.png` | Front Street, a fight mid-shot: the flash at the muzzle, three hooded figures coming, one at arm's length | `flash.mjs` |
+| `hero_04.png` | the street toward the yard: the mesa, the derrick, the hung washing, dust in the low sun | `at.mjs` |
+| `hero_05.png` | the sighting: the man with the forked rod standing on a mesa's rim, the tank and the brick stubs in the foreground | leg C |
+| `hero_06.png` | the Tally House light puzzle: two shutters open, dust in the light, the hooded figures with their knots | leg C |
+| `hero_07.png` | the gallery: the line round down the file | leg D |
+| `hero_08.png` | the Tamper's charge down the hall between ribs with stencilled bay numbers and stains | `tamper.mjs` |
+| `hero_09.png` | the Windlass at the asking: twelve bolted plates, six lens lamps, crystal knots, the rule on screen | leg E |
+| `hero_10.png` | a phase-2 haul mid-shot: the disc turned to her, the flash, the pawl's crystal knot lit | leg F |
+| `hero_11.png` | the seventh shot: the column, the rings, "BORE PROVEN." | leg G |
+| `hero_12.png` | the rim ending: the town's lamps, the thread, the fire, mist on the plain, the pylon, benched rimrock in the foreground, no gun | leg H |
+
+Legs (each a fresh browser from a checkpoint): A title to `cp_lip_gate` (2 227 ticks), C `cp_yard_clear` to
+`cp_tally_hatch` (2 871), D to `cp_file_clear` (2 239), E `cp_bore_ante` to `cp_boss_p1` (2 798), F to `cp_boss_p3`
+(4 476), G to `cp_rim` (2 924), H to the ending (3 310); no stuck, no god mode, 0 console errors in any.
+Also opened: `shots/i6-closer/legH_04_story_stone.png`, `legH_09_ending_card.png`, `legD_02_enter_the_gallery.png`,
+`high_flash_1.png`, `street_b.png`, `release_walked.png`, `crop_barrel_recoil.png`. The steel in `hero_07` measures
+65, 75, 86 (red over blue 0.76): where a viewer shows it plum, it is the viewer's palette.
+
+## T.7 What a reviewer should know before looking
+
+- In `hero_07` the **black disc on a black arm** still hangs in the gallery's vanishing point (a spent knot seat).
+- In recoil the revolver fills the right third of the frame for a few ticks (`hero_03`, `hero_08`); its outline is
+  stair-stepped at 720p there (no smoothing on the view-model's edge on the software renderer).
+- Behind the rim stone the red faceted balanced rock is unchanged (`legH_04`).
+- In `hero_04` the work-at-hand's ground is caught half-faded in the top left corner: a moment of the fade.
+- `hero_12` and the end card frame were taken from a leg that starts at the rim, so that card's counts are zero.
+- From the yard gate and the east yard there is no figure and no glint: he rises only where the line to him is clean,
+  and he is gone on the tick it is not.
+
+## T.8 Known gaps (plain words in `docs/KNOWN_ISSUES.md`)
+
+- **Nothing of iterations i4, i5 and i6 is committed, and the publishing workflow has never run** (no agent may commit
+  or push). Untracked files that must be added: `tools/release_check.mjs`, `src/enemies/hintring.ts`,
+  `src/world/sightRock.ts`, `blender/env_interior/lm_paint.py`, `tests/e2e/i4.test.mjs`,
+  `tests/e2e/lib/orphan-child.mjs`, `tests/art_env_exterior/i5.test.mjs`, `i6.test.mjs`,
+  `tests/art_env_interior/i4_seam.test.mjs`, `i5_doorway.test.mjs`, `i6_breakup.test.mjs`,
+  `tests/art_props/dress/i4_real.test.mjs`, `tests/art_weapons/i4_real.test.mjs`, `i5_real.test.mjs`, `i6.test.mjs`,
+  `tests/audio/i4.test.mjs`, `tests/enemies/i4.test.mjs`, `tests/player/flinch.spec.ts`, `i4_real.test.mjs`,
+  `line_hold.test.mjs`, `tests/render/i4.test.mjs`, `i5.test.mjs`, `tests/ui/i4.test.mjs`, `i4_real.test.mjs`,
+  `i5.test.mjs`, `i5_real.test.mjs`, `tests/world/i4.test.mjs`, `i4_real.test.mjs`, `i5.test.mjs`, `i5_real.test.mjs`,
+  `i6.test.mjs`, `i6_real.test.mjs`.
+- Ruling R16: High is still Low inside the lift cage facing its walls (1.3 to 4.0 of 255), close to Low on the near
+  rock of the gully, at the gallery's file door looking into the hall and at the first look at the Windlass from the
+  catwalk (the last two were not re-measured in this pass). There is no shadow map in the blue hour. High's last fire
+  is softer than Low's (ruling R5: seen in `hero_12`, a small soft flame in a warm halo).
+- Ruling R19: the balanced rock behind the rim stone, the wagon's and cart's wood (no grain), the hats (108
+  triangles), the spent knot seats and the seventh round's pale sleeve are as they were. The Windlass's plates are
+  bolted and seamed but smooth between the bolts at the muzzle. The hall's floor between the ribs is an open plate.
+- Ruling R6/R13: the wear on the steel is modest at 1:1; the struck line is seen only from the left; the recoil
+  shield was not reshaped; `take_round`, `load_kept`, `unload_*`, the line round and the sprint were not looked at in
+  the game with the new hammer and fingers.
+- Ruling R3 / R2: the Tally House rising still costs a careless player nothing; the yard can kill a middling player
+  while the Windlass kills no proxy (Part R; not replayed).
+- Ruling R15: the title still waits for the whole surface set (9.4 MiB).
+- Thin margins: `env_the_bore` 19 triangles free, `boss_windlass` 29, `chunk_st_yard` 118, the dress pieces' download
+  4.7 kB; the Windlass's phase 2 allocates 5.8 kB per tick and frame against the 6 kB aimed for; the gallery's
+  contact shade and the view-model's lightness in the boss room pass their tests by a hair (Part S).
+- The burst and hit states of the Windlass's new knot were seen only as they passed in legs F and G, not studied.
+- No real GPU, no ears, no human hands, no real phone, no run of the published page. Hard and Easy were not replayed.
+
+# Part S. Closing pass, iteration i5 (2026-10-08)
+
+There was no cross-cutting fix pass in this iteration. Two code teams (world, UI) and five look and render teams
+(render-tech, gun, exterior, underground, creatures and props) worked in the tree; this pass processed their requests,
+mirrored their changes into the documents, rebuilt every asset, ran the whole gate one suite after another, made the
+release build and checked it from a sub-path, measured, and took the hero frames. Evidence: `scratch/i5-closer/`
+(`NOTES.md`, `gate/` with one log per command and `summary.txt`, `build_assets.log`, `build_bore.log`,
+`release_check.json` and `.log`, `perf/`, `before/` = the design files, generators and documents before this pass),
+`shots/i5-closer/` (every leg's frames, `doors/`), `shots/i5/` (the twelve hero frames and `hero_sheet.jpg`).
+**Memory:** one browser at a time, every suite at `--test-concurrency=1`, one Blender build; no leg over 4 500 ticks;
+the watchdog killed nothing.
+
+## S.0 Run and drive: what is new
+
+- Nothing in how the game is started or stepped changed (R.0, Q.0, P.0, N.0, M.0 and A.5 stand).
+- `__dbg.ext.render.blobs(on?)` lists each creature's blob shadow (shade, opacity, core); `false` switches the shade
+  probe off. The world director's debug state gained `sightUp` and `sightClean`.
+- The gun's and the hands' helper scripts (`assize.py`, `gun_tex.py`, `hands.py`, `hands_tex.py`, `revolver_rig.py`,
+  `revolver_anim.py`) are not seen by the build's dependency tracker: after an edit use
+  `node tools/build-assets.mjs --only tx_gun,tx_gun_detail,tx_hands,tx_hands_detail,weapon_revolver --force`.
+- The true last image is taken with `scratch/i5-team-exterior-look/end.mjs <set> <tier> take|leave`; a doorway or any
+  other still with `scratch/i5-closer/cap.mjs <tier> <shots.json> <folder>`; what a pixel is drawn from with
+  `scratch/i5-closer/pick.mjs <tier> <shots.json> "x,y;x,y"` (no hit at all means a hole in the mesh).
+- The playthrough by input is **28 647 ticks (7.7 minutes of play), hash `d1e66cb0`**, 83 rounds, 31 freed, 0 deaths
+  (the tick count and the stats are pass i4's; the hash moved because the director's debug state grew).
+
+## S.1 Requests processed (each request file ends in "Closer, pass i5: decisions")
+
+| Request | Decision |
+|---|---|
+| creatures-props: one manifest line that gives the rim stone its texture | **Applied.** `tools/gen_assets.mjs`: `prop_rim_stone` lists `m_prop` and `m_frontier`, 2 draw calls. The stone's rock faces carry the cliffs' strata row; in the zone it is still one `m_frontier` mesh (`env_far_rim` 12 340 triangles, 3 of 3 draw calls; `cell_rim` draws 16 calls on Low as before). `shots/i5-closer/legH_04_story_stone.png` (opened) |
+| world: stale layout notes | **Applied** in `tools/gen_layout.mjs` (`trg_dowser.params.startsWhen`, `drawsEye`: notes only) |
+| render-tech: a Transit's blob does not reach its feet | **Applied**: `src/enemies/pool.ts` `setLevel(1.8)` for a Transit (drawing only; the playthrough's ticks and stats are unchanged) |
+| creatures-props: `AO_THIN` 0.028 -> 0.035 (the halo round a hung hat on High) | **Tried and reverted**: the gallery's contact shade as a whole fell to 0.77 of 255, under the 0.8 that `tests/render/polish4_high.test.mjs` asks. With 0.028 it is 0.83: a thin margin |
+| every team: mirror into the documents | GDD section 5 and 12.2 in place and **23.20**; LEVEL **20**; ART_BIBLE `ui_pale` row in place and "Amendments, pass i5 (closer)"; ARCHITECTURE "Pass i5 (closer)" |
+| exterior-look, creatures-props: `loadMeter` byte table | **Refreshed** (S.2 row 3) |
+| pipeline: `blender/lib/zone.py` `embed_prop` reads a cleared material index | **Not changed** at the close of the last pass (it would alter every embedded two-material prop); the rule "one mesh a material" is in ARCHITECTURE "Pass i5 (closer)" |
+| the air light across a doorway; the gate pylon; the balanced rock behind the stone; wood grain on the wagon; the Windlass's face plates; the idle pose toward profile; `fp_preview.py` | **Not built**; each is in `docs/KNOWN_ISSUES.md` |
+| the last fire 1.5 times larger; things rather than paint on the gully and street floors | **Declined by the exterior team, upheld** (a test caps the flame's hot body and pass i2's reviewers asked for a small far fire; the street cells have no triangles left for lightmapped shelves) |
+
+## S.2 Seams found and fixed by this pass
+
+| # | Seam | Fix |
+|---|---|---|
+| 1 | The shared files in `src/render` (edited by four teams at once): every edit each team listed was looked for by name (26 constants and functions in `system.ts`, `vfx/vfx.ts`, `vfx/quads.ts`, `vfx/ambient.ts`, `materials.ts`, `moods.ts`): all present, none half-applied. The failures the teams saw on the shared tree (`polish3` R6 in the bore, `i2` "the town's fixed shadows" and "light in the air only adds") **do not occur on the final tree** | none needed |
+| 2 | **A hole in the boss room's floor across both doorways** (the underground team's "dark navy rectangle on the floor", seen and not investigated; `pick.mjs` hits no mesh there). `delete_region` takes a face by its centre and took the floor's outer ring with the wall of each opening: a strip 0.6 m deep and a door wide, open to the void, on Low and High, since before this iteration | `blender/env_interior/env_the_bore.py` `build_on_top`: the floor gets an edge at each wall's inner plane and only what lies inside the wall is removed. `env_the_bore` rebuilt and re-baked: 39 849 of 40 000 triangles, 10 of 10 draw calls. `shots/i5-closer/doors/boredoor_side_low.png`, `liftdoor_side_low.png` (opened: floor to the frame) |
+| 3 | `src/ui/loadMeter.ts` `BOOT_FILE_BYTES` was 7 367 836; the boot sets' files are 7 659 660 bytes after this pass's art | the figure refreshed (and the test's printed copy) |
+| 4 | `design/assets.json` and `design/layout.json` regenerated after S.1 rows 1 and 2, and the gun's helper scripts are not tracked: every asset was stale | **every asset rebuilt with `--force`**: 105 items in 530.2 s (`build_assets.log`), then the bore again (281 s); `npm run check:assets`: 84 assets, 21 textures, 11.74 MB, all pass |
+| 5 | `public/share.jpg` and the hero frames showed the old revolver, stub wall and last image | `share.jpg` made again from this pass's title frame (78 239 B); twelve new hero frames |
+
+## S.3 The gate (one command after another, on the final tree; `scratch/i5-closer/gate/`)
+
+| Command | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm run validate` | layout, assets (16 checks), contracts: pass |
+| `npm run test:unit` | 29 files, **519 of 519** |
+| `npm run check:assets` | 84 assets, 21 textures, 11.74 MB: all pass |
+| `node --test tests/render/` | **86 of 86** (603 s; the first run was 85 of 86 with `AO_THIN` 0.035, S.1) |
+| `node --test tests/world/` | **168 of 168** (350 s) |
+| `node --test tests/player/` | **45 of 45** |
+| `node --test tests/enemies/` | **79 of 79** |
+| `node --test tests/ui/` | **91 of 91** (373 s; "the loading line follows the bytes in" passed) |
+| `node --test tests/audio/` | **49 of 49** |
+| `node --test tests/pipeline/` | **83 of 83** |
+| `tests/art_weapons`, `art_props`, `art_env_exterior`, `art_env_interior`, `art_enemies`, `art_boss` | 30, 98, 33, 20, 41, 39: all pass |
+| `node --test tests/core/` | 70 pass, 6 skipped (the real-game ones) |
+| `KEEP7_REAL=all node --test tests/core/` | **76 of 76** (315 s) |
+| `node --test tests/e2e/` | **29 of 29**: the playthrough by input from the title to the end card, 28 647 ticks, hash `d1e66cb0`, the same on a second load; 17 of 17 checkpoints restore |
+| `npm run build` (with the workflow's `SITE_URL`) | built: 112 files, 14 517 245 B |
+
+## S.4 Release check (`node tools/release_check.mjs --dist dist --sub /keep-seven/`; `release_check.json`)
+
+The built site served from `/keep-seven/` by a plain static server, booted cold with no debug hook: **pass**.
+
+| | |
+|---|---|
+| To the title | **60 requests, 9 869 237 B** (8 337 624 B compressed) |
+| To control (Begin, the story sheet, Enter, W) | the same 60 requests and bytes: nothing more is fetched before she walks |
+| Console errors, requests outside the sub-path, failed, not 200 | 0, 0, 0, 0 |
+| Absolute "/" addresses in the built text files | none |
+| Debug hook | not on the page, its driver's names not in the script |
+| Asset version | one, `?v=636b40c6`, on every model and texture |
+| Reload | 1 request; the title offers "Go on I · 1" |
+
+`shots/i5-closer/release_walked.png` (opened): in play in the gully with the first subtitle, pointer locked.
+
+## S.5 Numbers
+
+Per visibility cell, the peak over every nav node and eight headings at 1280 x 720 (`perf/cells_*.log`):
+
+| Cell | Low: draw calls / triangles / MiB | High: draw calls / triangles / MiB |
+|---|---|---|
+| `cell_lip_gully` | 49 / 78 031 / 48.9 | 82 / 130 137 / 73.9 |
+| `cell_lip_gate` | 55 / 94 345 / 48.9 | 94 / 196 966 / 73.9 |
+| `cell_street` | 55 / 96 183 / 48.9 | 96 / 206 113 / 73.9 |
+| `cell_yard` | 62 / **99 548** / 48.9 | **107** / **224 928** / 73.9 |
+| `cell_yard_door` | 50 / 97 417 / 48.9 | 104 / 213 978 / 73.9 |
+| `cell_tally_seam` | 51 / 65 481 / **52.9** | 81 / 115 255 / **77.8** |
+| `cell_tally` | 56 / 83 467 / 52.9 | 87 / 147 009 / 77.8 |
+| `cell_gallery_stair` | 40 / 58 452 / 41.6 | 62 / 76 919 / 66.7 |
+| `cell_gallery` | **68** / 89 491 / 41.6 | 92 / 148 012 / 66.6 |
+| `cell_hall` | 64 / 84 836 / 41.6 | 84 / 135 417 / 66.6 |
+| `cell_bore` | 59 / 79 564 / 41.6 | 75 / 128 110 / 66.6 |
+| `cell_rim` | 16 / 28 373 / 29.6 | 27 / 28 384 / 54.6 |
+| **Worst** | **68 / 99 548 / 52.9** (caps 100 typical, 150 worst / 120 000 / 64) | **107 / 224 928 / 77.8** (caps 220 / 400 000 / 128) |
+
+Every cell draws a few hundred triangles more than in Part R (the revolver and hands are 12 093, they were 11 709; the
+stubs' brickwork; the Windlass's round chambers). The memory ledger at each tier's largest buffer (the manifest's
+`stages`; High at 1920 x 1080) is unchanged: Low 55.3 MiB in its worst stage (the seam), High 121.0. The generator's
+plan is unchanged (worst cell 119 840 triangles, 84 / 92 draw calls). Peak in the played High legs of S.6: 100 draw
+calls, 203 751 triangles.
+
+JS per fixed tick in live fights, all six real systems, Low, no drawing (`perf/fightms.log`; median): yard 0.012 ms,
+the file 0.030, the Tamper 0.029, **Windlass phase 2 0.030**; worst single tick 0.7 ms (budget 4 ms; SwiftShader's
+drawing is not in it).
+
+Bytes allocated per tick and drawn frame (`perf/alloc.log`, the harness's `measureAlloc`, median of twelve batches):
+yard 4 474, the file 4 151, the Tamper 4 586, **Windlass phase 2 5 106** (ceiling 6 000); per tick alone 1 679 / 1 658 /
+1 822 / 2 494.
+
+Total download (`dist`): **13.84 MiB** of 20. Bundle: **1 760 065 B** (519 881 B gzip), style 37 075 B. Assets:
+11.74 MiB (`public/assets` 12 309 KB on disk). First load to the title: 9.41 MiB in 60 requests. Playthrough: 28 647
+ticks, **7.7 minutes** of play at the test bot's pace.
+
+**Fights were not replayed with the reviewers' proxies in this pass**: no combat value, enemy, encounter or collider
+changed in iteration i5 (the world's change is the sighting; the enemies' file changed by one blob size). Part R's
+table stands.
+
+## S.6 Hero frames (`shots/i5/`, the real game, High, 1280 x 720, after the final rebuild; each opened)
+
+| Frame | What | From |
+|---|---|---|
+| `hero_01.png` | the title: the camp in the shaft of sun with soft motes, the hanging line, the revolver with its new frame line | leg A |
+| `hero_02.png` | the opening view with the first work-at-hand line | leg A |
+| `hero_03.png` | Front Street, a fight mid-shot: the flash at the muzzle, three hooded figures coming, one at arm's length | `flash.mjs` |
+| `hero_04.png` | the street toward the yard: the mesa, the derrick, the hung washing, dust in the low sun | `at.mjs` |
+| `hero_05.png` | the sighting: the man with the forked rod standing on the rimrock, the broken wall in the foreground now brickwork | leg C |
+| `hero_06.png` | the Tally House light puzzle: two shutters open, dust in the light, the hooded figures with their knots | leg C |
+| `hero_07.png` | the gallery: the line round down the file | leg D |
+| `hero_08.png` | the Tamper's charge down the hall, a round off its plate | `tamper.mjs` |
+| `hero_09.png` | the Windlass at the asking: the six lamps lit, round chambers, the rule on screen | leg E |
+| `hero_10.png` | a phase-2 haul mid-shot: the disc turned to her, the flash, the pawl's knot lit | leg F |
+| `hero_11.png` | the seventh shot: the column, the rings, "BORE PROVEN." | leg G |
+| `hero_12.png` | the rim ending: the town's lamps, the thread, the fire, the first stars, benched rimrock with fire-lit lips in the foreground, no gun | leg H |
+
+Legs (each a fresh browser from a checkpoint): A title to `cp_lip_gate` (2 227 ticks), C `cp_yard_clear` to
+`cp_tally_hatch` (2 871), D to `cp_file_clear` (2 239), E `cp_bore_ante` to `cp_boss_p1` (2 798), F to `cp_boss_p3`
+(4 476), G to `cp_rim` (2 924), H to the ending (3 310); no stuck, no god mode, 0 console errors in any.
+Also opened: `shots/i5-closer/legH_04_story_stone.png` (the stone with its strata, the six cases, the seventh in its
+violet glow), `doors/boredoor_side_low.png`, `doors/liftdoor_side_low.png`, `release_walked.png`. The steel in
+`hero_07` measures 61, 70, 81 (red over blue 0.76): where a viewer shows it plum, it is the viewer's palette.
+
+## S.7 What a reviewer should know before looking
+
+- In `hero_07` the **black disc on a black arm** still hangs in the gallery's vanishing point (a spent knot seat).
+- The revolver's hammer is still a prominent horn and its barrel is as foreshortened as it was; the frame behind the
+  cylinder is slimmer. In recoil the revolver fills the right third of the frame for a few ticks (`hero_03`, `hero_08`).
+- Behind the rim stone the red faceted balanced rock is unchanged (`legH_04`).
+- In `hero_04` and `hero_08` the work-at-hand's ground is caught half-faded in the top left corner (the words go
+  first, then the ground): it is a moment of the fade, not a stuck panel.
+- From the yard gate and the east yard there is no figure and no glint: he rises only where the line to him is clean.
+- The pale straight stripes render-tech saw on High's street ground near (-40, 0) were looked for in `hero_03` and
+  `hero_04` (High, Front Street): the sand shows its ripple and two faint wheel tracks, nothing this pass could call a
+  stripe artefact. Not reproduced, not explained.
+
+## S.8 Known gaps (plain words in `docs/KNOWN_ISSUES.md`)
+
+- **Nothing of iterations i4 and i5 is committed, and the publishing workflow has never run** (no agent may commit or
+  push). Untracked files that must be added: `tools/release_check.mjs`, `src/enemies/hintring.ts`,
+  `src/world/sightRock.ts`, `tests/e2e/i4.test.mjs`, `tests/e2e/lib/orphan-child.mjs`,
+  `tests/art_env_exterior/i5.test.mjs`, `tests/art_env_interior/i4_seam.test.mjs`, `i5_doorway.test.mjs`,
+  `tests/art_props/dress/i4_real.test.mjs`, `tests/art_weapons/i4_real.test.mjs`, `i5_real.test.mjs`,
+  `tests/audio/i4.test.mjs`, `tests/enemies/i4.test.mjs`, `tests/player/flinch.spec.ts`, `i4_real.test.mjs`,
+  `line_hold.test.mjs`, `tests/render/i4.test.mjs`, `i5.test.mjs`, `tests/ui/i4.test.mjs`, `i4_real.test.mjs`,
+  `i5.test.mjs`, `i5_real.test.mjs`, `tests/world/i4.test.mjs`, `i4_real.test.mjs`, `i5.test.mjs`, `i5_real.test.mjs`.
+- Ruling R16: High is still close to Low at the gallery's file door looking into the hall (5.7 of 255), at the first
+  look at the Windlass from the catwalk (5.2), under the overhang at the start (5.1) and on the rim (7.3). High's
+  contact shadow under a creature in shade is weaker than Low's in absolute terms (32.5 against 52.6 levels).
+- Ruling R19: the gate pylon, the balanced rock behind the rim stone, the Windlass's face plates, the wagon's wheel in
+  shade, the spent knot seats and the seventh round's pale sleeve are as they were.
+- Ruling R3 / R2: the Tally House rising still costs a careless player nothing; the yard can kill a middling player
+  while the Windlass kills no proxy (Part R; not replayed).
+- Ruling R15: the title still waits for the whole surface set (9.4 MiB).
+- Two thin test margins: the view-model in the boss room is L* 0.3 inside `polish3` R6 (the gun team's measure; the test passes on the final tree); the gallery's contact shade is
+  0.03 of 255 over `polish4_high`'s floor.
+- The new sighting was not played by a person: from the east yard the player is led by the tally door's lamp, not by
+  the glint.
+- The fire and line-round strips of the gun team predate their final elbow value; `load_kept`, `take_round`,
+  `unload_*` and the sprint were not looked at in the real game with the new off-hand pose.
+- No real GPU, no ears, no human hands, no real phone, no run of the published page. Hard and Easy were not replayed.
+
+# Part R. Closing pass, iteration i4 (2026-10-08)
+
+After the cross-cutting fixer (Part Q) five code teams (player, enemies, world, UI, audio) and five look and
+render teams (render-tech, gun, exterior, underground, creatures and props) worked in the tree; this pass processed their
+requests, mirrored their changes into the documents, rebuilt every asset, ran the whole gate one suite after another,
+made the release build and checked it from a sub-path, measured, and took the hero frames. Evidence:
+`scratch/i4-closer/` (`NOTES.md`, `gate/` with one log per command and `summary.txt`, `build_assets.log`,
+`release_check.json` and `.log`, `perf/`, `proxy/`, `before/` = the design files, generators and documents before this
+pass), `shots/i4-closer/` (every leg's frames), `shots/i4/` (the twelve hero frames and `hero_sheet.jpg`).
+**Memory:** one browser at a time, every suite at `--test-concurrency=1`, one Blender build; no leg over 4 500 ticks;
+the watchdog killed nothing.
+
+## R.0 Run and drive: what is new
+
+- Nothing in how the game is started or stepped changed (Q.0, P.0, N.0, M.0 and A.5 stand).
+- `__dbg.ext.render.sizeState()` gives the scene buffer's size; `PerfStats.width / height` are the canvas's, which no
+  longer follows the adaptive ratio on Low and High. `__dbg.ext.render.dust(on?)` switches High's daylight dust.
+- `__dbg.ext.enemies`: `tamperHelp()`, `tamperDeaths(n)`, `bossDeaths(n, lastKind)`; `boss()` reports the hints said.
+- `blender/weapons/gun_tex.py` and `assize.py` are not seen by the build's dependency tracker: after an edit use
+  `node tools/build-assets.mjs --only tx_gun,tx_gun_detail,weapon_revolver --force`.
+- The image viewer some tools use palettises large or teal-dominant frames (the steel can look plum or brown in a
+  sheet): judge colour from the pixels (`scratch/i4-closer/px.mjs`) or a small crop.
+- The playthrough by input is **28 647 ticks (7.7 minutes of play), hash `288d9761`**, 83 rounds, 31 freed, 0 deaths.
+
+## R.1 Requests processed (each request file ends in "Closer, pass i4: decisions")
+
+| Request | Decision |
+|---|---|
+| underground-look: the peg stair's cell must also draw the proving bay | **Applied.** `tools/gen_assets.mjs`: `cell_tally_seam` shows `chunk_gl_stair` and `chunk_gl_bay` while `hatch_powered` is set. Plan 82 343 triangles, 65 / 73 draw calls (it was 76 251, 50 / 58); drawn on Low 64 424 to 64 905 triangles, 48 to 51 calls; ARCHITECTURE 7.5 row |
+| enemies: `hint_tamper_vent` once per run of the fight | **Applied** in `src/world/director.ts` (a new attempt no longer owes the line again) |
+| world: stale layout notes | **Applied** in `tools/gen_layout.mjs` (`trg_dowser`, `vista_dowser`, `trg_ante_enter`, `prop_cup_two`: notes only) |
+| every team: mirror into the documents | GDD section 5 and 12.2 in place and **23.19**; LEVEL **19**; ART_BIBLE "Amendments, pass i4 (closer)"; ARCHITECTURE "Pass i4 (closer)" and the 7.5 row |
+| creatures-props: `loadMeter` byte table | **Refreshed** (R.2 row 2) |
+| a faster first lunge for a Bider risen from a seat; a tighter Windlass; the title before the whole surface set; a BVH off the main thread; a sound for the cold bay's knot; the violet sleeve of the seventh round; the spent knot seats; the wagon's wheel; a vertex-lit face under High's shadow map; the dial tuck at 4:3; `maxRatio()` and the second tier guard in core | **Not built**; each is in `docs/KNOWN_ISSUES.md` |
+| the Tamper's vent earlier in the slam; a third yard Transit stagger; "do not offer Begin"; the death line's hold | **Declined by the teams, upheld** (their numbers are in the request files) |
+
+## R.2 Seams found and fixed by this pass
+
+| # | Seam | Fix |
+|---|---|---|
+| 1 | The shared files in `src/render` (edited by five teams at once): every edit each team listed was looked for by name (45 constants and functions) and all are present; the three render failures the look teams saw on the shared tree (`flash_muzzle` on High, `i4` test 2, `runtime` tiers) and `polish3` R5 / R7 **do not occur on the final tree**: 83 of 83 | none needed |
+| 2 | `src/ui/loadMeter.ts` `BOOT_FILE_BYTES` was 6 791 954; the boot sets' files are 7 367 836 bytes after this pass's art (the test's own copy of the figure with it). `tests/ui/i2_real.test.mjs` "the loading line follows the bytes in" failed once in a full run (the timing flake the UI team reported: the line 0.22 behind the bytes) and passed alone and in the next full run | the figure refreshed in both places; the real cold load reports exactly 7 367 836 bytes |
+| 3 | `design/assets.json` and `design/layout.json` regenerated after rows 1 and 3 of R.1: every asset was stale | **every asset rebuilt**: 105 items in 534.8 s (`build_assets.log`); `npm run check:assets`: 84 assets, 21 textures, 11.41 MB, all pass |
+| 4 | `public/share.jpg` and the hero frames showed the old steel, glove, hammer, sighting and last image | `share.jpg` made again from this pass's title frame (78 767 B); twelve new hero frames |
+| 5 | The "posterised banding" the exterior team saw in late captures | not in the files: the final frames are smooth (`hero_01`, `hero_04`, `hero_05` opened at full size); it is the viewer's palette on large sheets |
+
+## R.3 The gate (one command after another, on the final tree; `scratch/i4-closer/gate/`)
+
+| Command | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm run validate` | layout, assets (16 checks), contracts: pass |
+| `npm run test:unit` | 29 files, **519 of 519** |
+| `npm run check:assets` | 84 assets, 21 textures, 11.41 MB: all pass |
+| `node --test tests/render/` | **83 of 83** (587 s) |
+| `node --test tests/world/` | **163 of 163** (343 s) |
+| `node --test tests/player/` | **45 of 45** |
+| `node --test tests/enemies/` | **79 of 79** |
+| `node --test tests/ui/` | **89 of 89** (372 s; run three times: 89, then 88 with the flake of R.2 row 2, then 89 after the last change) |
+| `node --test tests/audio/` | **49 of 49** |
+| `node --test tests/pipeline/` | **83 of 83** |
+| `tests/art_weapons`, `art_props`, `art_env_exterior`, `art_env_interior`, `art_enemies`, `art_boss` | 28, 98, 29, 19, 41, 39: all pass |
+| `node --test tests/core/` | 70 pass, 6 skipped (the real-game ones) |
+| `KEEP7_REAL=all node --test tests/core/` | **76 of 76** (308 s) |
+| `node --test tests/e2e/` | **29 of 29** (run twice, the second after the last change): the playthrough by input from the title to the end card, 28 647 ticks, hash `288d9761`, the same on a second load; 17 of 17 checkpoints restore |
+| `npm run build` (with the workflow's `SITE_URL`) | built: 112 files, 14 168 540 B |
+
+## R.4 Release check (`node tools/release_check.mjs --dist dist --sub /keep-seven/`; `release_check.json`)
+
+The built site served from `/keep-seven/` by a plain static server, booted cold with no debug hook: **pass**.
+
+| | |
+|---|---|
+| To the title | **60 requests, 9 572 632 B** (8 044 293 B compressed) |
+| To control (Begin, the story sheet, Enter, W) | the same 60 requests and bytes: nothing more is fetched before she walks |
+| Console errors, requests outside the sub-path, failed, not 200 | 0, 0, 0, 0 |
+| Absolute "/" addresses in the built text files | none |
+| Debug hook | not on the page, its driver's names not in the script |
+| Asset version | one, `?v=a702641a`, on every model and texture |
+| Reload | 1 request; the title offers "Go on I · 1" |
+
+`shots/i4-closer/release_walked.png` (opened): in play in the gully with the first subtitle, pointer locked.
+
+## R.5 Numbers
+
+Per visibility cell, the peak over every nav node and eight headings at 1280 x 720 (`perf/cells_*.log`):
+
+| Cell | Low: draw calls / triangles / MiB | High: draw calls / triangles / MiB |
+|---|---|---|
+| `cell_lip_gully` | 49 / 77 524 / 48.9 | 82 / 129 507 / 73.9 |
+| `cell_lip_gate` | 55 / 93 753 / 48.9 | 94 / 196 010 / 73.9 |
+| `cell_street` | 55 / 95 547 / 48.9 | 96 / 205 079 / 73.9 |
+| `cell_yard` | 62 / **98 912** / 48.9 | **107** / **223 894** / 73.9 |
+| `cell_yard_door` | 50 / 96 904 / 48.9 | 104 / 213 283 / 73.9 |
+| `cell_tally_seam` | 51 / 64 905 / **52.9** | 81 / 114 487 / **77.8** |
+| `cell_tally` | 56 / 82 847 / 52.9 | 87 / 146 153 / 77.8 |
+| `cell_gallery_stair` | 40 / 57 492 / 41.6 | 62 / 75 767 / 66.7 |
+| `cell_gallery` | **68** / 88 531 / 41.6 | 92 / 146 860 / 66.6 |
+| `cell_hall` | 64 / 83 876 / 41.6 | 84 / 134 481 / 66.6 |
+| `cell_bore` | 59 / 78 580 / 41.6 | 75 / 126 742 / 66.6 |
+| `cell_rim` | 16 / 27 504 / 29.6 | 27 / 27 515 / 54.6 |
+| **Worst** | **68 / 98 912 / 52.9** (caps 100 typical, 150 worst / 120 000 / 64) | **107 / 223 894 / 77.8** (caps 220 / 400 000 / 128) |
+
+The memory ledger at each tier's largest buffer (the manifest's `stages`; High at 1920 x 1080) is unchanged: Low 55.3 MiB
+in its worst stage (the seam), High 121.0. Peak in the played High legs of R.6: 100 draw calls, 202 795 triangles.
+
+JS per fixed tick in live fights, all six real systems, Low, no drawing (`perf/fightms.log`; median, worst single tick):
+yard 0.013 ms, the file 0.033, the Tamper 0.029, **Windlass phase 2 0.033**; worst single tick 0.2 ms (budget 4 ms;
+SwiftShader's drawing is not in it).
+
+Bytes allocated per tick and drawn frame (`perf/alloc.log`, the harness's `measureAlloc`, median of twelve batches):
+yard 4 490, the file 4 138, the Tamper 4 624, **Windlass phase 2 5 923** (ceiling 6 000); per tick alone 1 667 / 1 633 /
+1 801 / 2 494. (Part P: 5 125 / 4 787 / 5 693 / 5 347 and 1 665 / 1 624 / 1 868 / 2 278: the file and the yard fell
+with render-tech's bone write; the Windlass rose.)
+
+Total download (`dist`): **13.51 MiB** of 20. Bundle: **1 754 671 B** (520 545 B gzip), style 37 434 B. Assets:
+11.41 MiB (`public/assets` 11 963 744 B). First load to the title: 9.13 MiB in 60 requests. Playthrough: 28 647
+ticks, **7.7 minutes** of play at the test bot's pace.
+
+**Fights replayed on the final tree** with the reviewers' proxies (Low, Normal, seed 1, one run each: a small sample;
+`proxy/*.log`):
+
+| Leg | Plain | Mid (reaction 0.5 s, aim error 0.17 m + 0.02 a metre, no back-pedal) | Careless |
+|---|---|---|---|
+| Front Street | 0 deaths, 18 damage | 0 deaths, 54 | |
+| the yard | 0 deaths, 0 damage | **1 death**, 178 (stakes 110, lunges 68) | |
+| the Tally House | | | 0 damage (**still free**) |
+| the file | 0 damage, one line of three | 36 damage, one line of three | |
+| the Tamper | 0 deaths, 74 (slam 38, lunges 36) | 1 death, then cleared (charge 70, slam 76, lunges 34) | 0 deaths, 38 (slam) |
+| the Windlass, phases 1 and 2 | 0 deaths, 0 damage | 0 deaths, 117 (canister 69, lance 30, a lunge 18) | |
+
+The plain proxy went from the gallery's baffle to the end card in one leg with no death (86 rounds). The file's line
+round took three (the held line) and the proxies were hit with the flinch in (no stuck aim, no lost run).
+
+## R.6 Hero frames (`shots/i4/`, the real game, High, 1280 x 720, after the final rebuild; each opened)
+
+| Frame | What | From |
+|---|---|---|
+| `hero_01.png` | the title: the camp in the shaft of sun, the hanging line, the revolver in a gloved hand | leg A |
+| `hero_02.png` | the opening view with the first work-at-hand line | leg A |
+| `hero_03.png` | Front Street, a fight mid-shot: the flash at the muzzle, three hooded figures coming, one at arm's length | `flash.mjs` |
+| `hero_04.png` | the street toward the yard: the mesa, the derrick, dust in the low sun | `at.mjs` |
+| `hero_05.png` | the sighting: the man with the forked rod **standing on the rimrock**, the line under him | leg C |
+| `hero_06.png` | the Tally House light puzzle: two shutters open, dust in the light, the hooded figures with their knots; the steel is blue | leg C |
+| `hero_07.png` | the gallery: the line round down the file | leg D |
+| `hero_08.png` | the Tamper's charge down the hall, a round off its plate | `tamper.mjs` |
+| `hero_09.png` | the Windlass at the asking: the six lamps lit, the rule on screen | leg E |
+| `hero_10.png` | a phase-2 haul mid-shot: the disc turned to her, the flash, the pawl's knot lit | leg F |
+| `hero_11.png` | the seventh shot: the column, the rings, "BORE PROVEN.", no halo round the kerb | leg G |
+| `hero_12.png` | the rim ending: level; the town's lamps, the thread, the fire, the first stars, no gun | leg H |
+
+Legs (each a fresh browser from a checkpoint): A title to `cp_lip_gate` (2 227 ticks), C `cp_yard_clear` to
+`cp_tally_hatch` (2 871), D to `cp_file_clear` (2 239), E `cp_bore_ante` to `cp_boss_p1` (2 798), F to `cp_boss_p3`
+(4 476), G to `cp_rim` (2 924), H to the ending (3 310); no stuck, no god mode, 0 console errors in any.
+Also opened: `shots/i4-closer/legH_04_story_stone.png` (the stone as an outcrop, the six cases, the seventh in its
+violet glow), `legE_09_boss_parley.png`, `high_flash_0.png`.
+
+## R.7 What a reviewer should know before looking
+
+- In `hero_07` and wherever the knots of the proving line are spent, a **black disc on a black arm** hangs in the middle
+  of the gallery's vanishing point (the spent knot seat): not fixed.
+- In `hero_12` the dune in the foreground is a smooth unlit shape filling the lower third of the last frame.
+- Behind the rim stone the red faceted three-piece rock is unchanged; the bed of the stone is smooth between its cracks.
+- The revolver's hammer is still a prominent horn; the hand's fingers point at the viewer.
+- In recoil the revolver fills the right third of the frame for a few ticks (`hero_03`, `hero_08`).
+
+## R.8 Known gaps (plain words in `docs/KNOWN_ISSUES.md`)
+
+- **Nothing of this pass is committed, and the publishing workflow has never run** (no agent may commit or push).
+  Untracked files that must be added: `tools/release_check.mjs`, `src/enemies/hintring.ts`, `src/world/sightRock.ts`,
+  `tests/e2e/i4.test.mjs`, `tests/e2e/lib/orphan-child.mjs`, `tests/art_env_interior/i4_seam.test.mjs`,
+  `tests/art_props/dress/i4_real.test.mjs`, `tests/art_weapons/i4_real.test.mjs`, `tests/audio/i4.test.mjs`,
+  `tests/enemies/i4.test.mjs`, `tests/player/flinch.spec.ts`, `tests/player/i4_real.test.mjs`,
+  `tests/player/line_hold.test.mjs`, `tests/render/i4.test.mjs`, `tests/ui/i4.test.mjs`, `tests/ui/i4_real.test.mjs`,
+  `tests/world/i4.test.mjs`, `tests/world/i4_real.test.mjs`.
+- Ruling R3: the Tally House rising still costs a careless player nothing. Ruling R2 / the curve: the yard can kill a
+  middling player while the Windlass kills no proxy.
+- Ruling R16: High is plainly richer toward the sun and in the rooms; away from the sun, under the overhang and on the
+  rim it is still close to Low.
+- Ruling R15: the title still waits for the whole surface set (9.1 MiB).
+- Ruling R19: the spent knot seats, the wagon's wheel, the cairn behind the rim stone and the seventh round's pale
+  sleeve are as they were.
+- No real GPU, no ears, no human hands, no real phone, no run of the published page.
+- Hard and Easy were not replayed; the proxies above are one seed each.
+- The combat changes of the enemies team that were proven in the sandbox only (the Tamper's longer stun and back-vent
+  ring, the 30 s phase-3 repeat) were not replayed in the real game by this pass.
+
+# Part Q. Cross-cutting fix pass, iteration i4 (2026-10-08)
+
+Four fresh reviewers scored the tree of Part P (story and UX 9.1 and 9.1, visuals 8.7 and 8.6) and a regression review
+of playthrough, combat, performance and robustness found three majors: 75 issues in all
+(`scratch/lead/carryover-issues.json`). This pass took the twelve assigned to integration, the budget moves of ruling
+R14 that this pass's issues plainly need, and the story text, layout data and rulings the code and look teams will need
+(the design data is frozen for them). The code teams and then the look teams work after it. Evidence:
+`scratch/i4-fixer/` (`NOTES.md`, `gate/` with one log per command and `summary.txt`, `build_assets.log` and
+`build_assets_2.log`, `release_check.json`, `story_edit.mjs`, `tris.mjs`, `dress.mjs`, `archtables.mjs`, `before/` = the
+design files, generators and `index.html` before this pass), `shots/i4-fixer/` (opened: `i4_touch_notice.png`,
+`i4_boot_waiting.png`, `i4_fault_script.png`, `release_title.png`, `release_walked.png`), `tests/e2e/i4.test.mjs`.
+**Memory:** one browser at a time, every suite at `--test-concurrency=1`, one Blender build at a time; the watchdog
+killed nothing.
+
+## Q.0 Run and drive: what is new
+
+- **A release build has no debug hook.** `npm run build` (and the Pages workflow) makes a script without
+  `installDebugHook` and its driver; `?test=1`, `?debug=1`, `?cp=`, `?autostart=1`, `?stubs=` and `?assets=` do nothing
+  on it. `KEEP7_HOOK=1 npm run build` makes the build the tests step. `tests/harness.mjs`
+  `startServer({ mode: 'build' })` builds WITH the hook (every existing build test is unchanged);
+  `startServer({ mode: 'build', hook: false })` is the bundle as published.
+- **A real pointer lock in headless Chromium is not usable for measurement** (the performance reviewer: 83 000
+  synthetic mouse events in 1.5 s of play, the main thread 95 % busy, a major GC every 1.3 s, the page at several GB).
+  A script that clicks "Begin" on a page without the hook calls `grantPointerLock(pageOrContext)` first
+  (`tools/browser.mjs`, re-exported by `tests/harness.mjs`): the page grants itself the lock with the events a browser
+  sends. **No real-loop number of an earlier part was taken with the shim; treat those as upper bounds.**
+- **`node tools/release_check.mjs [--dist dist] [--sub /keep-seven/] [--out f.json] [--shots dir]`** is the release
+  check as a tool (it was a scratch script of each closer): it exits 1 when the built site is not what a visitor
+  should get. The Pages workflow runs it before it uploads the site.
+- **Asset addresses of a build carry `?v=<8 hex>`.** A test that routes a file of a build by its address must allow a
+  query (`**/lm_gallery.webp*`).
+- **A killed script leaves no browser** (`tools/browser.mjs`: SIGTERM, SIGINT, SIGHUP or a vanished parent kill this
+  process's children). Suites at `--test-concurrency=1` on this machine: render 523 s, UI 308 s, core on the real
+  game 300 s, world 292 s: **give a suite 15 minutes before calling it hung.**
+- The playthrough by input is **31 000 ticks, hash `7709c6cb`** (the asking is four lines; a packet at the yard's bell
+  post). `__dbg.setAmmo` refuses a non-finite argument by name.
+
+## Q.1 The twelve issues assigned to integration
+
+| # | Issue | Change | Proof |
+|---|---|---|---|
+| 1 | The asking is 24 s of standing before the fight (story-a) | **Reproduced** from the reviewer's log: 2.1 s behind a narrator's line, then five lines. `design/story.json`: `nar_parley` is gone, `stn_parley_2` is six words ("STAKE. STAKE. CANISTER. STAKE. STAKE. CANISTER.", 47 characters in 4.5 s: the rule's own hold); `tools/gen_layout.mjs`: `trg_enc_windlass.params.parley` is four keys; `src/enemies/defs.ts` `BOSS.parley` = { 0, 3.5, 7.5, line4 12, windowEnd 16, phase1 17 }, `boss/parley.ts` `PARLEY_LINES` four rows; GDD 8.1 in place and 23.18. **12.75 s to the open mouths, 17.75 s to phase 1 from the first line** (17.0 and 22.05 before). The 2.1 s behind a narrator's line is the world's queue: **ruled** (GDD 23.18) that the asking's first line may cut a narrator's line that has had 60 % of its hold; the world team builds it | the real game, `tests/world/i2_real.test.mjs` (the inspection 12.75 s after the first line, phase 1 at 17.75 s, within 0.5 s); `tests/enemies/logic.spec.ts`, `boss_p1`, `release_p0`, `i3` (edited with the data); `tests/e2e/i4.test.mjs` test 2 |
+| 2 | The end card's Time leaves out every failed attempt (story-a, playthrough) | `src/core/flow.ts` `carryStats`: before every restore of the run she is in (a death, "Restart from checkpoint", the net under the world) the save takes `playSeconds` and `deaths` from the live count, and the stored save with it (a reload after a death forgets neither). No change in `src/world` | `tests/e2e/i4.test.mjs` test 1 (the real game: 10 s played past a checkpoint, a death: the clock is not rolled back, the save and `localStorage` carry it; 5 s more and a restart: the same; health is the checkpoint's) |
+| 3 | Ammunition runs to zero in the yard (playthrough) | `tools/gen_layout.mjs`: **`pk_rounds_6_yard_bell`** at the foot of the bell post; GDD 6.5 and 10 | test 2 (the packet is picked up in the real game: reserve 0 -> 6); the playthrough still passes with 89 rounds |
+| 4 | Hard changes nothing for a decent shot on the surface (combat) | `src/enemies/defs.ts`: `DIFFICULTY.hard.telegraphScale` **0.8** (was 0.9): a Transit aims 0.72 s (0.9 on Normal), a Bider winds up 0.4 s (0.5); `TAMPER.slamWindupBy.hard` 1.125 keeps the Tamper's slam at 0.9 s; GDD 15. **Not replayed with the reviewer's proxies** (Q.7) | `tests/enemies/logic.spec.ts` (the table), `bider.test.mjs` (Hard in view 0.4 s; from behind within 6 m still 0.5), `polish_r5.test.mjs` (the slam's 54 ticks) |
+| 5 | The whole surface set is fetched before the title (performance) | **Partly.** Done: the surface set's requests go out beside the always set's (they waited for it to be fetched, decoded and uploaded); the next resident set is asked for when she enters the last zone before it (`Flow.fetchAhead`: the Tally House, the bore), not at the puzzle's solve. **Not done: the title before the street and the Tally House are in** (Q.7) | `tests/e2e/production.test.mjs` (the build boots, 60 requests to control); the release check (Q.5) |
+| 6 | Real-loop measurements corrupted by a pointer-lock event storm (performance) | `grantPointerLock` in `tools/browser.mjs` and the harness; `tools/release_check.mjs` uses it; noted in Q.0 | the release check walks her by real input with the shim (Q.5); `shots/i4-fixer/release_walked.png` |
+| 7 | One 1.73 MB script with the debug driver compiled in; boot tasks of 160 to 410 ms (performance) | `vite.config.mts` `__KEEP7_HOOK__`, `src/main.ts`: the release script has no `installDebugHook` (`followPath`, `stepUntil`, `aimAtEntity`, `perfRun`: 0 occurrences) and ignores the hook's parameters. `src/main.ts` gives the page a turn after the context, after the render and world factories and after each `init()`. **The script is 1 712 881 B (506 501 B compressed; it was 1 727 865 / 515 900)**: the hook was about 15 kB of it. The systems' own debug surfaces (`ctx.debug.register`, the `debug` objects of the contracts) are still in: they belong to five teams' files (Q.7). `three` is imported as a namespace of its ES-module build and `postprocessing` by name (six classes): the bundler already shakes both; whether deep-path imports would drop more was not measured | `tests/e2e/i4.test.mjs` test 6; `tools/release_check.mjs` (fails a build whose script names the driver) |
+| 8 | Asset files under unversioned names (performance) | `vite.config.mts` `assetsVersion` (sha-256 over the manifest and every file under `public/assets`, 8 hex) -> `__KEEP7_ASSETS__` -> `AssetStoreDeps.version`: every asset request of a build is `assets/<...>?v=<version>`. The files stay where they are; the workflow is unchanged | `tests/core/assetsRetry.spec.ts` (every request carries it), `tests/e2e/i4.test.mjs` test 6 (one version on every asset request of the release page), the release check |
+| 9 | A script or a style that fails to load: the splash animates for ever (robustness) | `index.html`: a capturing `error` listener for the script and the stylesheet shows "It would not load. Reload the page." with a reload button over the page; "Still waiting on the connection." after 20 s without the game; `<noscript>` line. The words are `story.json` `system.page_failed`, `page_reload`, `page_slow`, `needs_script` | `tests/e2e/i4.test.mjs` test 4 (the release build: the script answered 404, then the style: the line, the button, a reload that boots); `tests/core/pageHead.spec.ts` (the words equal the data); `shots/i4-fixer/i4_fault_script.png` (opened) |
+| 10 | A stalled request during the first load leaves LOADING with no line (robustness) | `src/core/assets.ts` `fetchOnce`: a body is read as it arrives; no byte for 30 s aborts the request, which the retry treats as a dropped connection (four tries, then the plain line of a failed load); `quietFor()`. `src/core/flow.ts` `watchConnection`: after 8 s with requests waiting and nothing arriving, in `boot` and `loading`, `system.waiting` is drawn under the bar (`#flow-waiting`) | `tests/core/assetsRetry.spec.ts` (a silent connection is aborted and asked four times; a body in pieces is read whole); `tests/e2e/i4.test.mjs` test 5 (the release build with the surface lightmap held: the line appears, the file is let through, the title comes and the line goes); `shots/i4-fixer/i4_boot_waiting.png` (opened) |
+| 11 | What was tested is not what a tag would publish (robustness) | **Partly.** The tree of Part P is committed (`a67918a`; `git status` was clean when this pass began). The workflow now runs `tools/release_check.mjs` on the built site before it uploads it (with a manual input to skip it), and has a 20 minute limit. **Not done: this pass's changes are uncommitted, and the workflow has never run** (no agent may commit or push; Q.7) | `tests/core/pageHead.spec.ts` (the workflow's build line and share step, unchanged); the tool itself run here (Q.5) |
+| 12 | Two suites run longer than ten minutes, and a cut-off run leaves browsers (robustness) | `tools/browser.mjs`: on SIGTERM, SIGINT or SIGHUP, or when the parent process goes away, the process kills its children (the browsers) and exits. The time budget is written in ARCHITECTURE ("Pass i4") and Q.0. **`tests/render` was not split** (it is render-tech's directory) | `tests/e2e/i4.test.mjs` test 7 (a child script with a browser is sent SIGTERM: it exits 143 and its browser is gone) |
+
+Also (ruling R20, assigned to the UI team; the page before the game is core's): **a visitor without a mouse is told so
+on the first screen, before the game downloads.** `index.html` tests for a fine pointer of any kind and for pointer
+lock; without either it shows "KEEP SEVEN needs a mouse and a keyboard. Open it on a computer." and one button, "Load it
+anyway", under the name, sets `html[data-input="touch"]` and leaves `window.__keep7Gate`; `src/main.ts` awaits it before
+`createContext`. `tests/e2e/i4.test.mjs` test 3 (an emulated phone on the release build: the notice inside a 412 x 915
+screen, **0 asset requests behind it**, the game after the button; a desktop gets no notice);
+`shots/i4-fixer/i4_touch_notice.png` (opened). Playwright's phone emulation itself answers `(any-pointer: fine)` false.
+
+## Q.2 Ruling R14: the ledger
+
+**The view-model gives back what three passes did not spend**: `weapon_revolver` 18 000 -> **14 000** (11 745 built,
+2 255 free). Those 4 000 triangles are in every cell. Moved through `tools/gen_assets.mjs` ("Pass i4"); nothing was
+built with them (the meshes are byte for byte Part P's). Built = the shipped mesh (`scratch/i4-fixer/tris.mjs`).
+
+| | Was | Now | Built | Free |
+|---|---|---|---|---|
+| `weapon_revolver` | 18 000 | **14 000** | 11 745 | 2 255 |
+| `chunk_lip_rock`, `chunk_lip_upper`, `chunk_lip_gate` (the gully's faces, the pylon) | 8 000, 8 500, 6 500 | **9 200, 9 500, 7 300** | 7 722, 8 471, 6 197 | 1 478, 1 029, 1 103 |
+| `chunk_lip_mid` (pays) | 6 000 | **5 000** | 4 733 | 267 |
+| `chunk_st_east`, `chunk_st_west`, `chunk_st_yard`, `chunk_st_works` | 13 400, 15 700, 12 700, 6 400 | **13 800, 16 000, 13 400, 6 500** | 13 085, 15 437, 12 624, 6 317 | 715, 563, 776, 183 |
+| `prop_wagon_tipped`, `prop_water_cart` (merged into the street's chunks) | 1 200, 900 | **1 500, 1 100** | 1 200, (in the chunk) | 300, |
+| `env_backdrop_day` (ground under the pursued man) | 1 700 | **2 100** | 1 539 | 561 |
+| `chunk_rim_ledge`, `prop_rim_stone`, `env_backdrop_dusk` (the last image) | 16 000, 240, 2 000 | **19 000, 1 200, 3 200** | 11 374, 230, 1 965 | 7 626, 970, 1 235 |
+| `prop_cartridge_kept` | 144 | **240** | 134 | 106 |
+| `enemy_tamper`, `tamper_cold_static` | 4 000, 4 000 | **5 000, 5 000** | 3 962, 3 584 | 1 038, 1 416 |
+| `boss_windlass` | 8 000 | **8 400** | 7 991 | 409 |
+| `prop_hat_hung` (24 hang), the gallery's dressing allowance | 50, 8 500 | **110, 10 000** | 48 | 62 a hat |
+| `prop_sighting_loop` | 220 | **320** | 220 | 100 |
+| `chunk_ty_hall` | 17 000 | **17 200** | 16 895 | 305 |
+| `chunk_gl_stair`, `chunk_gl_bay` (back to what they are) | 4 000, 4 000 | **3 200, 3 200** | 2 868, 2 818 | 332, 382 |
+
+**The ledger's model changed in one place** (`tools/validate_assets.mjs` `cellBudget`): a cell's OWN zone's dressing is
+counted whole. A zone's instanced dressing is one batch per asset and is submitted whole from every cell of the zone;
+the closer of pass i3 had padded the stair's chunks by 1 600 triangles to cover that. Other zones seen from a cell are
+still counted by the share of their chunks that is visible.
+
+The generator's own ledger (`node tools/gen_assets.mjs`; the validator recomputes it and fails above 120 000 triangles
+or 100 / 150 draw calls; ARCHITECTURE 7.5 carries the same tables), beside what the real game draws on Low
+(`KEEP7_REAL=all node --test tests/core/`, eight headings a cell, `gate/core_real.log`):
+
+| Cell | Triangles (plan) | Drawn | Draw calls typical / worst (plan) | Drawn |
+|---|---|---|---|---|
+| `cell_lip_gully` | 90 154 | 76 520 | 56 / 63 | 47 |
+| `cell_lip_gate` | 118 670 | 92 439 | 66 / 73 | 51 |
+| `cell_street`, `cell_yard` | **119 840** | 79 517, 97 234 | 73 / 80 | 47, 55 |
+| `cell_yard_door` | 116 445 | 92 504 | 77 / 83 | 42 |
+| `cell_tally_seam`, `cell_tally` | 76 251, 105 562 | 59 425, 76 911 | 50 / 58, 79 / 87 | 37, 49 |
+| `cell_gallery_stair` | 58 960 | 56 280 | 42 / 50 | 40 |
+| `cell_gallery`, `cell_hall` | 115 700, 108 589 | 68 505, 76 478 | 84 / 92, 81 / 89 | 47, 49 |
+| `cell_bore` | 89 208 | 74 674 | 65 / 73 | 40 |
+| `cell_rim` | 41 620 | 25 770 | 22 / 27 | 14 |
+
+**Textures: nothing changed.** Stages with render targets at the tier's largest buffer: surface 51.3, **seam 55.3**,
+underground 44.0, coda 32.0 MiB on Low (cap 64); 117.0, **121.0**, 109.8, 97.8 on High (cap 128). Draw calls: one more
+in `cell_yard_door` and `cell_tally` (the packet at the bell post is a second instanced batch of `pk_rounds_6` there).
+
+**What each look team has to spend** is in ART_BIBLE "Amendments, pass i4" and in a "Fixer, pass i4" table at the end
+of each team's request file. **Traps:** the street and yard cells have 160 triangles of plan left; `env_plenty_street`
+is held to the sum of its chunk plans with its four drawn nodes (about 1 670 free in all); the stair cell draws 40 of
+its 42 typical calls; a mesh over its plan fails the build.
+
+## Q.3 Text, data and rulings made ready for the teams
+
+| | |
+|---|---|
+| New lines (`design/story.json`; said by nothing until a team uses them) | `nar_dowser_down`, `hint_boss_lob`, `hint_boss_pawls`, `hint_tamper_back`, `nar_leave_2`; UI: `ui_needs_input`, `ui_lock_refused`, `ui_legend_line` (listed in `tests/ui/text.spec.ts` `INTENTIONALLY_UNUSED` until used); `system`: `needs_input`, `load_anyway`, `needs_script`, `page_failed`, `page_reload`, `page_slow` |
+| Ruling R20, the leave ending | `meta.rules.ending_branch.leave` = `nar_leave`, **`nar_leave_2`** ("It was his to keep. She had spent her own."), `nar_fire`, `nar_last`; `nar_leave_2` is in `never_stale`. `nar_take_1` is said only by a take. `src/world/ending.ts` reads the list: **the real game already plays it** (`tests/world/` 146 of 146: `i1` and `i2` read the list from the data) |
+| The round on the stone | `bindings.interactable.ia_stone_round.scale` 2.6 -> **3.4** |
+| Rulings for the code teams (GDD 23.18) | the asking's first line may cut a narrator's line that has had 60 % of its hold; paired lines are one unit; a hint is never lost behind a line that only waits on a look; each boss hint at most once per visit to a checkpoint; the pursued man is never taken away inside her view |
+| Rebuild | every asset rebuilt after the last design-data change: **105 items in 513.5 s**, then 105 skipped (`build_assets_2.log`); `npm run check:assets`: 84 assets, 21 textures, all pass. Only `lm/lm_surface.webp` differs from the commit (the surface bake is not bit-stable) |
+
+## Q.4 The gate (one command after another, on the final tree; `scratch/i4-fixer/gate/`)
+
+| Command | Result |
+|---|---|
+| `npx tsc --noEmit` | 0 errors |
+| `npm run validate` | layout (16 checks), manifest (84 assets, 21 textures, 12 cells, 16 checks), `contracts.ts` = ARCHITECTURE section 5: pass |
+| `npm run test:unit` | 28 files, **498 pass** (495 + the two of `assetsRetry.spec.ts` and the one of `pageHead.spec.ts`) |
+| `node tools/build-assets.mjs`, `npm run check:assets` | 105 built in 513.5 s, then 105 skipped; all pass |
+| `node --test tests/core/` (core stubs) | 70 pass, 6 skipped, 0 fail |
+| `KEEP7_REAL=all node --test tests/core/` | 76 pass, 0 fail |
+| `node --test tests/e2e/` (seven files) | **29 pass**: the 22 of Part P and the 7 of `i4.test.mjs`. The playthrough by input: **31 000 ticks, 8.4 min of play, 89 rounds, 35 freed, 0 deaths, hash `7709c6cb`**, the same on a second load; 17 of 17 checkpoints restore after a death |
+| `node --test tests/player/` `enemies/` `world/` | 41, 73, 146 pass, 0 fail |
+| `node --test tests/ui/` `audio/` `pipeline/` | 80, 44, 83 pass, 0 fail |
+| `node --test tests/render/` | 76 pass, 0 fail (523 s) |
+| `node --test tests/art_weapons/` `art_enemies/` `art_boss/` `art_props/` `art_env_interior/` `art_env_exterior/` | 27, 41, 39, 97, 18, 29 pass, 0 fail |
+| `npm run build` with `SITE_URL` | `dist` 112 files, 13 884 645 B = **13.24 MiB of 20**; script 1 712 881 B (506 501 B compressed), style 34 407 B, design data 322 012 B, the page 11 288 B (it was 6 674: the notices and their script) |
+
+Test expectations edited with the data or the numbers (each follows a deliberate change of the thing measured):
+`tests/enemies/logic.spec.ts`, `boss_p1.test.mjs`, `release_p0.test.mjs`, `i3.test.mjs` (four lines of asking),
+`bider.test.mjs` (Hard's 0.4 s), `tests/world/i2_real.test.mjs` (the asking's clock), `tests/core/data.spec.ts` (269
+markers), `tests/core/budget.test.mjs` (the street zone's bounds), `tests/ui/text.spec.ts` (the three keys not yet
+used), `tests/e2e/production.test.mjs` and `tests/core/stubs.test.mjs` (a routed asset address may carry a query). No
+bound was loosened.
+
+**One fault of my own found by the gate:** the harness set the hook variable outside the queue that serialises builds;
+two test files of one process asking for their builds at once got each other's (`gate/e2e.log` of the first run: 27 of
+29). It is set inside the queued job now.
+
+## Q.5 Release check from a sub-path (`node tools/release_check.mjs`; `scratch/i4-fixer/release_check.json`)
+
+A build made with `SITE_URL=https://KnotEnvy.github.io/keep-seven/` and no `KEEP7_HOOK` (the workflow's own command),
+served at `http://127.0.0.1:<port>/keep-seven/` by the tool's plain file server, booted cold, the lock granted by the
+shim:
+
+| | |
+|---|---|
+| Before the script | `#preload` seen: "KEEP SEVEN", the mark, "The court is gone. The Rule leans." |
+| To the title | **60 requests, 9 364 571 B** (7 866 904 B with the text files compressed); document title "KEEP SEVEN"; `shots/i4-fixer/release_title.png` (opened) |
+| Every asset request | `?v=0db4adbd` (one version on all 53) |
+| The debug hook | `window.__dbg` undefined; `followPath`, `stepUntil`, `aimAtEntity`, `perfRun`: 0 occurrences in the script |
+| Begin, the story sheet, Enter, W for 1.5 s | **no further request**; the pointer is held and no screen is up: she is in the gully with the first work-at-hand line and the narrator's first line; `shots/i4-fixer/release_walked.png` (opened) |
+| Console errors / requests outside the sub-path / failed / non-200 / absolute "/" addresses | 0 / 0 / 0 / 0 / 0 |
+| A reload | 1 request; the title offers "Go on I · 1" |
+| By type | 1 html 11 288 B, 1 js 1 712 881 B, 1 css 34 407 B, 3 json 322 012 B, 1 jpg 79 851 B, 16 webp 2 695 948 B, 37 glb 4 508 184 B |
+
+**The check's first version passed with her standing on the click-to-resume plate** (seen only because the screenshot
+was opened): the shim granted the lock inside the click's own task, which no browser does; the lock was then held
+before "Begin" had left the title and the UI let it go again as the story sheet opened. The shim now grants on a later
+task (30 ms), as a browser does, and the check fails unless she is in play with the pointer held. A grant 5, 12 and 60
+ms late were each played through the story sheet into the run (`scratch/i4-fixer/lockdbg2.mjs`): the game is right for
+any grant a browser can give.
+
+## Q.6 Request rows
+
+No row of pass i3 was left open by its closer. Every team's request file has a **"Fixer, pass i4"** table at its end
+(`exterior-look.md`, `creatures-props.md`, `underground-look.md`, `gun.md`, `render-tech.md`, `ui.md`, `world.md`,
+`enemies.md`, `player.md`, `audio.md`): what is ready for it, what it has to spend, what is ruled. Withdrawn: the
+rulings of p0, i1 and i3 that kept `nar_take_1` in the leave ending (ruling R20). Declined again: a persisted "an asking
+has been heard" (a save-format change; the asking is 17.75 s now). Not applied: staggering the yard's Transits (the
+world team's `director.ts` records at `ENTRY_PACKET_IN` that it was played in pass p0 and measured worse). Mirrored: GDD
+8.1, 6.5, 10, 15 in place and **23.18**; ART_BIBLE **"Amendments, pass i4"**; ARCHITECTURE **"Pass i4"**, 11.1 and 7.5
+(both tables, rewritten from the manifest); the work orders' budget row; `docs/KNOWN_ISSUES.md`.
+
+## Q.7 Not done, and open
+
+- **The title before the whole surface set is in** (performance): `world.buildSet('surface')` builds the lip, the
+  street and the Tally House as one, with their collision and props; core cannot show a title on a third of it. The
+  title is inside the budget on broadband as measured by the reviewer (3.76 s at 25 Mbit) and not on a slower line.
+  A split needs the world to build a set zone by zone: a row for it is in `docs/requests/world.md`.
+- **The systems' debug surfaces are still in the release script** (`ctx.debug.register(...)`, the `debug` objects of the
+  contracts: `teleport`, `solvePuzzle`, `clearEncounter` and the like). They are in five teams' files and in frozen
+  contracts; with the hook gone nothing can call them. The script is 15 kB smaller, not the 100 kB a full strip might give.
+- **The module evaluation itself is still one task**: one script file is evaluated whole. The turns added are between
+  the context, the factories and the inits.
+- **Nothing of this pass is committed, and the workflow has never run** (no agent may change the index or push). The
+  new workflow step installs a browser on the runner (`npx playwright install --with-deps chromium
+  chromium-headless-shell`) and has not been run there: if it fails for a reason of the runner, a manual run with
+  "skip_release_check" publishes without it. New untracked files the build or the gate needs: `tools/release_check.mjs`,
+  `tests/e2e/i4.test.mjs`, `tests/e2e/lib/orphan-child.mjs`.
+- **`tests/render` was not split**; its budget is documented and a cut-off run no longer leaves browsers.
+- **The fights were not replayed with the reviewers' proxies** after Hard's shorter tells, the shorter asking and the
+  yard's packet; the deterministic playthrough (Normal) passes with the same 89 rounds. Hard was not played at all.
+- **Nothing a player sees outdoors, on the rim or on the gun changed**: the moved triangles are unspent, and every
+  visual issue is the look teams'. `public/share.jpg` is still Part P's title frame: when the gun, the hand or the
+  camp changes, the closer re-runs `node tools/make_share_image.mjs <title frame.png>`.
+- The notice for a visitor without a mouse was checked with an emulated phone, not on one. The title's own line for
+  that visitor, the refused pointer lock's line and the pause legend's line are written and unused: the UI team's.
+- The per-cell peaks on High, the fights' milliseconds, the allocation figures and the hero frames of Part P were not
+  taken again: no mesh, texture or shader changed.
 
 # Part P. Closing pass, iteration i3 (2026-10-07): the game as it stands
 

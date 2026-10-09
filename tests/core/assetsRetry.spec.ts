@@ -12,6 +12,13 @@ function store(allowSynthesis: boolean): AssetStoreImpl {
     spreadUploads: () => false, renderer: () => null, retryDelays: [0, 0, 0],
   });
 }
+/** pass i4: a store whose requests carry a build version and give a silent connection up after `stallMs` */
+function versioned(stallMs: number): AssetStoreImpl {
+  return new AssetStoreImpl({
+    manifest: data.manifest, layout: data.layout, events: new EventBusImpl(), baseUrl: './', allowSynthesis: true, test: true,
+    spreadUploads: () => false, renderer: () => null, retryDelays: [0, 0, 0], version: '?v=1a2b3c4d', stallMs,
+  });
+}
 const response = (status: number): Response => new Response(status === 200 ? new Uint8Array(64) : null, { status, headers: { 'content-type': 'application/octet-stream' } });
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -64,5 +71,48 @@ describe('AssetStore: a failed request', () => {
     await expect(s.prefetch('coda')).rejects.toThrow(/failed to load/);     // still missing (404), but it was ASKED
     expect(calls).toBeGreaterThan(after);
     expect(s.busy).toBe(false);
+  });
+
+  // ---- pass i4 ---------------------------------------------------------------------------------------------------------
+  it('a request from which no byte comes is given up after the stall time and asked again: four tries, then missing', async () => {
+    const calls = new Map<string, number>();
+    let aborted = 0, quietSeen = 0;
+    let s: AssetStoreImpl | null = null;
+    // a connection that is accepted and then says nothing; it ends only when the store aborts it
+    vi.stubGlobal('fetch', (url: string, init?: { signal?: AbortSignal }) => new Promise((_resolve, reject) => {
+      calls.set(url, (calls.get(url) ?? 0) + 1);
+      setTimeout(() => { if (s) quietSeen = Math.max(quietSeen, s.quietFor()); }, 20);
+      init?.signal?.addEventListener('abort', () => { aborted++; reject(new DOMException('aborted', 'AbortError')); });
+    }));
+    s = versioned(40);
+    expect(s.quietFor()).toBe(0);                                 // nothing is being fetched
+    await s.prefetch('coda');
+    const n = (data.manifest.sets.coda?.assets?.length ?? 0) + (data.manifest.sets.coda?.textures.length ?? 0);
+    // (textures are synthesised in node without a request: only what was asked for is counted)
+    expect(calls.size).toBeGreaterThan(0);
+    expect(calls.size).toBeLessThanOrEqual(n);
+    expect([...calls.values()].every((c) => c === 4)).toBe(true);
+    expect(aborted).toBe(calls.size * 4);
+    expect(quietSeen).toBeGreaterThan(0);                         // while it waited, the store knew nothing was arriving
+    expect(s.quietFor()).toBe(0);
+    expect(s.busy).toBe(false);
+  });
+  it('a file that arrives in pieces is read whole, and every request of a build carries its version', async () => {
+    const urls: string[] = [];
+    const glb = new Uint8Array(64);
+    vi.stubGlobal('fetch', (url: string) => {
+      urls.push(url);
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) { controller.enqueue(glb.slice(0, 10)); controller.enqueue(glb.slice(10, 40)); controller.enqueue(glb.slice(40)); controller.close(); },
+      });
+      return Promise.resolve(new Response(body, { status: 200, headers: { 'content-type': 'application/octet-stream' } }));
+    });
+    const s = versioned(1000);
+    await s.prefetch('coda');
+    expect(urls.length).toBeGreaterThan(0);
+    for (const u of urls) expect(u).toMatch(/^\.\/assets\/[a-z]+\/[\w.]+\?v=1a2b3c4d$/);
+    expect(s.report.retries).toBe(0);
+    // 64 zero bytes are not a GLB: each file was read to its end and judged (a stand-in), not left hanging
+    expect(s.report.assetsSynthesised).toBe(data.manifest.sets.coda?.assets?.length ?? 0);
   });
 });

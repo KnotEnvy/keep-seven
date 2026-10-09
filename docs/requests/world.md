@@ -396,3 +396,127 @@ that held the old behaviour were rewritten in place (`director`, `ending`, `i1`,
 | I3.3 rows 2 to 4, layout fields | **Declined as fields, applied as notes**: the constants stay in `src/world/director.ts` (one source); `trg_peg_stair`, `trg_enc_street`, `trg_windlass_seen` and `trg_ante_enter` carry a `note` in `design/layout.json` that states the behaviour and names the constant |
 | I3.3 row 5 documents | Done; `docs/KNOWN_ISSUES.md` rewritten |
 | I3.3 rows 6 to 8 | Noted; `BOSS.parley` rewritten for the merged text; `tests/player/` passes |
+
+## Fixer, pass i4 (2026-10-08): what is ready for this team, and what is ruled
+
+
+| Item | State |
+|---|---|
+| The end card's Time (two reviewers) | **Done in core** (`src/core/flow.ts` `carryStats`): the save takes the run's `playSeconds` and `deaths` from the live count before every restore of the run she is in, and stores it. `checkpoints.ts` needs no change; `tests/e2e/i4.test.mjs` |
+| The asking | **four lines** (`nar_parley` is gone from the data and from `trg_enc_windlass.params.parley`), the roll-call six words: 12.75 s to the open mouths, 17.75 s to phase 1 from the first line. `PARLEY_FIRST_HOLD` / `PARLEY_ROLL_HOLD` / `PARLEY_SPOKEN_HOLD` still repeat the data and were not touched. **Ruled (GDD 23.18): the asking's first line may cut a narrator's line about the room behind her once that line has had 60 % of its hold.** That removes the last 2 s; it is yours |
+| The leave ending (ruling R20) | `ending_branch.leave` is `nar_leave`, **`nar_leave_2`**, `nar_fire`, `nar_last`; `nar_take_1` is said only by a take. `ending.ts` reads the list; `tests/world/i1.test.mjs` and `i2.test.mjs` read it too. The rulings of p0, i1 and i3 that kept `nar_take_1` there are withdrawn |
+| New lines for you | `nar_dowser_down` ("He turned and went down the far side.") for the pursued man's fail-safe exit |
+| The yard | a packet at the foot of the bell post (`pk_rounds_6_yard_bell`). **The Transits were not staggered**: `director.ts` records at `ENTRY_PACKET_IN` that holding the third back was played in pass p0 and measured worse. If you want it anyway, `WAVE_RULES` can do it once the layout splits wave B: ask the closer |
+| Underground files | core asks for the next resident set when she enters the last zone before it (the Tally House, the bore); your prefetch at the seam then finds them loaded |
+| Ruled for the queue (GDD 23.18) | paired lines are one unit; a hint is never lost behind a line that only waits on a look; the Dowser is never taken away inside her view. All three are yours to build |
+| Not possible in core alone | showing the title before the whole surface set is in (the performance reviewer): `buildSet('surface')` builds the three surface zones as one. If you can build the lip first and the street and Tally House behind the title, say what core must offer |
+
+## World, pass i4 (2026-10-08): the eighteen issues, what changed, and what others must follow
+
+The team's log is `scratch/i4-team-world/NOTES.md`; images are in `shots/i4-team-world/` (each one cited here was
+opened). Tests: `tests/world/i4.test.mjs` (12, the real world beside core stubs), `tests/world/i4_real.test.mjs` (5, the
+real game), ten new unit tests in `tests/world/story.spec.ts`, and edited expectations in `i1`, `i2`, `i3`, `i3_real`,
+`misc`, `polish_r3`, `release_p0`, `seam` (each follows a deliberate change of the thing measured; none was loosened).
+
+### I4.1 What changed (ruling R1: the closer mirrors these into GDD, LEVEL and ARCHITECTURE)
+
+| # | Issue | Change (file) | Number or rule for the documents |
+|---|---|---|---|
+| 1 | The "dead plumb" thread leaned 7 degrees in the locked last frame; in the leave branch two scenery lines stood between the choice and the fire | `ending.ts`: the eased view comes to rest `END_PITCH_DEG` = 1.25 degrees above level (it was 8.8: the fire's bearing + 12 of lift), also when the fire was already in her view; the leave branch says the thread's and the Rule's lines BEFORE `nar_leave`, with her view eased to the plain under them | GDD 9.8: the last frame is level; the land's edge is at about 55 % of the frame's height (it was 63 %). Leave order: lamps, `nar_rim_2`, `nar_rim_3`, `nar_leave`, `nar_leave_2`, the fire. Measured on High at 1280 x 720: thread 0.95 to 0.98 degrees off vertical (7.2 before), the Rule 9.1 |
+| 2 | The pursued man was taken away under a stare | `director.ts` `SIGHT_OFF` 66, `SIGHT_STAYS` 40, `SIGHT_DOWN` 1.5: he goes only when he has been out of her FRAME (66 degrees off the middle of her view) for 2 s (0.5 s once the door is open) after a second of being looked at; the beat's 12 s clock no longer takes him (it still opens the door); stared at for 40 s he goes down behind the skyline over 1.5 s under `nar_dowser_down` (his quad is cropped from the boots up at its foot line: sunk, it slid over the mesa's face); walked away from with him still in frame, the card stays until it is out of it | GDD 9.3 and `trg_dowser.params.goesWhen` / `clockSeconds` notes (layout, frozen for us) |
+| 3 | Place-bound lines said in the next place | `story.ts`: a PRESENT line takes a narrator's line down once that has had `PRESENT_READ` = 60 % of its hold (never one the story stands on, never another present line, never its own first half); a line that waits for its subject does not go stale waiting and is dropped when its subject is gone for good. `director.ts` `PLACE_LINES`: `nar_tally_hearth` is said only with the cup within 8 m and inside 60 degrees of the middle of her view, and dropped when she leaves the Tally House | GDD 12.1 / 23.18. Real game: the watcher is named 0.42 s after the look (2.3 s before) |
+| 4 | The run hint half way down the gully | `interact.ts` `SPRINT_WALKED` 15 -> 3 m; only the game's title card holds it back (`TITLE_CARD`), a movement card does not | GDD 12.1: shown 5.9 s after "Begin" at z 79 of 97 .. 4 (it was 16.9 s, z 62); `shots/i4-team-world/sprint_hint_under_card.png` |
+| 5 | The embers named to a wall | `director.ts` `LOOK_GATES.trg_ante_enter`: `last` 20 -> 0, `until: 'door_bore'` (once the bore door is no longer shut the lines are not said at all) | LEVEL: `trg_ante_enter` note |
+| 6 | The asking | `story.ts` `StoryQueue.open`: the asking's first line takes ANY narrator's line down once it has had 60 % of its hold, unless that line's continuation is still to come | GDD 8.1 / 23.18: "until then up to 2 s are added" can go. `PARLEY_*_HOLD` still only repeat the data |
+| 7 | "Lines of three or more: 0" after the proving line | `puzzles/proving_line.ts`, `index.ts`: the puzzle counts its own solving line round (once a shot, `State.lineCounted`) | GDD 12.3 |
+| 8 | Half of a pair without its first half | `story.ts` `Story.orphan`: when a narrator's line is dropped unheard, its continuation (`_2` after the bare key or `_1`, `_3` after `_2`) is dropped with it, waiting or asked for later; never a line of `never_stale` or the rim's | GDD 12.1 / 23.18 |
+| 9 | "Go on" was silent | `checkpoints.ts`: a run taken up from the title shows the card of the movement the checkpoint lies in, if it had been shown before the save (`StoryApi.recard`); a death does not | GDD 12.2. The reviewer's 15 silent seconds at `cp_lip_gate` were also the bot standing 0.3 m short of `trg_enc_street`'s volume: a player who walks on gets "II. Plenty" 1.5 s later as before |
+| 10 | **Major**: the jug gate's worded hints lost while `nar_rule` waits | `story.ts` `hintFree`: for a hint the queue is free when nothing is on screen and everything in line only waits on its subject | GDD 13 / 23.18 |
+| 11 | The kept round's hint never said under the Windlass's talk | `story.ts` `REPEAT_REST`: `stn_boss_refilled` and `stn_boss_head_dry_refilling` are not said again within 20 s, whoever asks; `kept.ts` says its two ladder lines with `sayHint` (next in line, over a station line that has been read) | GDD 6.6, 8.2 |
+| 12 | "LEFT CLICK to fire" never left | `interact.ts` `FIRE_HINT_SECONDS` 8, `FIRE_AGAIN` 40, `FIRE_HINT_SHOWS` 2; down when the gate's puzzle is solved or she leaves its volume | GDD 12.1 ("the walk, run and interact hints" becomes "the walk, run, interact and fire hints") |
+| 13 | The Tally House rising costs nothing | `director.ts` `WAVE_RULES['enc_tally/A'].stagger` = `TALLY_STAGGER` 2.5 s: the riser nearer her at once, the other 2.5 s on with its own chair scrape | GDD 10. **Only half done**: see I4.2 |
+| 14 | The plate's lines through the file fight | `director.ts` `READ_SETS`: a readable's lines do not begin inside a fight; begun before it they are heard out and the fight's announcing lines stand behind them (`StoryApi.sayBehind`) | GDD 12.1 |
+| 16 | Nothing points at the secrets | The two pointers existed (pass p0) and were too faint. `interact.ts`: `BELL_NEAR` 22 -> 12 m with a 1.5 s glint on the bell at each ring; the cold bay's seam breathes and its knot glints through the slot every 4 s within 14 m, out of a fight | GDD 11 |
+| 18 | A BVH build inside a frame on the peg stair | `build.ts`: the solids of the whole set below stand from the surface build on (everything underground lies under y = -2, the surface above y = -1), so the swap on the stair builds no BVH; the drop of the surface and the activation of the set below are two slices | ARCHITECTURE 6 / 3.6: "the static set of the surface holds the underground's solids too; a restore or a warp straight underground builds that set alone" |
+
+Issue 15 (the end card's Time) is core's, done by the fixer. Issue 17: see I4.2.
+
+### I4.2 Not done, with the numbers
+
+| Issue | What was tried | Result |
+|---|---|---|
+| 13 the Tally House costs a careless player health | The reviewers' proxies from `cp_tally_enter` (`scratch/i4-team-world/tb_*.log`, `ts_*.log`): before, careless 18 / 0, plain 0, the fight 6.2 s; with the stagger, 0 / 0 / 0, 7.4 to 8.0 s | The rising is two beats now, not one, and still free. A third riser would break "Nine kept their seats" and the lamp count. **What would cost her is the enemies' number: a faster first lunge for a Bider that has just risen from a seat** (asked in I4.3) |
+| 17 the yard and the file kill an average player | Mid proxy (reaction 0.5 s, aim error 0.17 m + 0.02 a metre, no back-pedal), seeds 1 to 3, `cp_street_clear` to `cp_yard_clear`: as it stands 2 deaths / 0 / 0, stakes 152 / 22 / 44 (`yb_m*.log`). The reviewer's fix, the third Transit 4 s behind the second: 0 / 3 deaths / 0, stakes 106 / 383 / 44 (`ys4_m*.log`): **worse**, as pass p0 measured. A canteen from the first enemy put down under 34 health changed no run of the yard or the file (`yc_m*`, `fc_m*` = `fn_m*`) | Both withdrawn; the waves are as the layout says. The yard has three sources of lead now (the entry packet, the tin, the fixer's packet at the bell post). The other half of the issue, a Windlass that kills nobody, is the enemies' |
+| 18 the real-loop frame times | The proof is a test (`tests/world/seam.test.mjs`: no `collision.setStatic` between the day-cell and the foot of the stair). The frames were not measured again in the real loop | A worker-built or serialised BVH is core's (I4.3) |
+
+### I4.3 Requests
+
+| # | To | Request |
+|---|---|---|
+| 1 | closer (documents, layout notes) | Mirror I4.1 into GDD 6.6, 8.1, 9.3, 9.8, 10, 11, 12.1 to 12.3, 13 and 23.18, LEVEL and ARCHITECTURE. `trg_dowser.params.goesWhen`, `clockSeconds` and `vista_dowser.params.visibleSeconds` describe the old rule; `trg_ante_enter.params.note` says "at 20 s whatever she faces"; `prop_cup_two.params.line` says the fight's end is the fallback (it now waits for the cup to be in view). `docs/KNOWN_ISSUES.md`: the secrets' pointers; the Tally House |
+| 2 | enemies | (a) R3, the Tally House: a Bider woken from `sit_table` should make its first lunge sooner or faster; the world now stands them 2.5 s apart. (b) The Windlass's `stn_boss_refilled` and `stn_boss_head_dry_refilling` are held to once in 20 s each by the world's queue whatever you ask (`REPEAT_REST`): you may stop repeating them. (c) Issue 17's other half is yours: the Windlass killed no proxy in 14 legs |
+| 3 | audio | The cold bay's knot has no sound of its own: a faint hum at `knot_cold_bay` while `sec_cold_bay` is not found would complete the pointer (cue and caption key are yours and the closer's). The loft bell is rung with `step_chime` at pitch 0.75, gain 0.8, now from 12 m |
+| 4 | exterior-look | (a) The last frame is LEVEL now (`END_PITCH_DEG` 1.25, `src/world/ending.ts`): the land's edge is at about 55 % of the frame's height and the dune below it fills the lower 40 % (`shots/i4-team-world/end_leave_09_nar_last.png`). That foreground is yours to light; the pitch cannot go above about 1.9 degrees without the thread leaning again (at 80 degrees of field of view: 1.3). (b) The pursued man's quad is cropped at its own foot line when he goes down (`SIGHT_SINK` 5 % of his height under it): whatever he is made to stand on should meet that line (`shots/i4-team-world/dowser_39s.png`: his boots are still a few pixels over the mesa's top) |
+| 5 | ui | `ui_hint_sprint` can now be up under a movement card ("I. The Lip") and beside a subtitle (`shots/i4-team-world/sprint_hint_under_card.png`); `ui_hint_fire` is lowered by the world after 8 s. Nothing to change unless you want the fire hint in `LAZY_HINTS` too |
+| 6 | core | (a) A BVH built off the main thread or shipped with the assets: the world no longer builds one on the stair, but the lift's dark still builds the coda's, and every restore builds one behind the loading screen. (b) The title before the whole surface set (the fixer's question): the world can build the lip alone and stage the street and the Tally House behind the title as it stages the gallery (`build.ts` `enterSeam`, slices). It needs from core: the surface set's files asked for in two parts (the lip's assets first: `assets.prefetch(set, ids)` as `activate(set, ids)` already is), `flow.ts` showing the title when `world.buildSet` has built the first part, "Begin" waiting (or the gully's gate staying shut) until the rest is built, and a contract for it (`WorldApi.buildSet(set, { first })` or `buildRest()`): `contracts.ts` is frozen. Not attempted in this pass |
+
+## Closer, pass i4 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| I4.1 rows 1 to 18 | Mirrored: GDD 23.19, LEVEL 19, ARCHITECTURE "Pass i4 (closer)" |
+| I4.3 row 1 layout notes | **Applied** in `tools/gen_layout.mjs` (notes only; `vista_dowser.visibleSeconds` 40): `trg_dowser`, `vista_dowser`, `trg_ante_enter`, `prop_cup_two`; every asset rebuilt after it |
+| I4.3 row 2 (a) the Tally House, (c) the Windlass | **Not built**: see `docs/requests/enemies.md` and `docs/KNOWN_ISSUES.md` |
+| I4.3 row 3 a hum for the cold bay's knot | **Not built** (a cue and a caption key pinned by `tests/audio/logic.spec.ts`); known issue |
+| I4.3 row 6 core: a BVH off the main thread; the title before the whole surface set | **Not built** (a contract change); known issue |
+| Enemies' ask 2.1 | Applied by the closer (above file) |
+
+## Pass i5 (world team, 2026-10-08): the pursued man on the tank roof
+
+### I5.1 Done
+
+| # | Issue (both visual reviewers, a major each; R4, R18) | Change | Proof |
+|---|---|---|---|
+| 1 | From the yard gate and the east half of the yard the pursued man reads as a man standing on the pump tank; further west he slides behind it and comes out beside it in the air | `src/world/director.ts` (`SIGHT_RISE` 0.35 s, `SIGHT_CLEAN_UNDER` 1.0, `SIGHT_CLEAN_SIDE` 0.9, `SIGHT_CLEAN_EVERY` 4 ticks, `sightLineClean`, `sightUp`). His card is drawn only where her line to him is CLEAN: six sight lines against the yard's collision, measured in his drawn heights (his middle; his feet 0.9 heights to either side; the rock one height under his feet in the middle and 0.9 to either side). Where it is clean he comes up over the rim in 0.35 s (the crop of `SIGHT_DOWN` run backwards: no pop, no fade through the sky) and steps down as fast where she leaves it; while he is down the card's group is invisible and stands 4 km under the world, so the rod's glint (a renderer card that follows the card's node) is gone with him. The beat (line, look, door clock's hold) runs only while he stands. Looked at for her second and then walked out of the clean strip: he goes down for good under `nar_dowser_down` and the door opens. `nar_dowser_shot` is not said while he is down. | Where it is clean (real collision, one metre grid, `scratch/i5-team-world/probe2.mjs low after map`): the strip before the tally door, z -10 to -12 for x -99 to -81 (z -8 and -13 west of x -88; `trg_dowser` is x -95 to -82, z -13.6 to -7.8), and the north yard z 2 to 8; never the gate, the east half, the yard's middle or the tank's lee. Frames opened: `shots/i5-team-world/sheet_test_low.jpg` (gate, east, middle: no figure; mid-rise; vista, door, north: on his rock), `sheet_after_high.jpg` (High), `crop_rise_vs_standing.jpg` (24 px of 52 over the rim, 0.18 s in). Tests: `tests/world/i5.test.mjs` (4), `tests/world/i5_real.test.mjs` (720p, real game: 0 meshes of his card drawn from the three reviewers' places; 52 px tall at the vista, the door and the north yard) |
+
+Gate after the change: `npx tsc --noEmit` clean; `node --test tests/world/` 168 of 168 (the one failure of the first run was the 40 s window of `tests/world/i4.test.mjs`, widened by the 0.35 s of the rise); `KEEP7_REAL=all node --test tests/core/` 76 of 76; `node --test tests/e2e/` 29 of 29. The playthrough by input is still 28 647 ticks, 83 rounds, 31 freed, 0 deaths; its hash is now `d1e66cb0` (it was `288d9761`: the director's debug state has two new fields), the same on a second load.
+
+### I5.2 Requests
+
+| # | To | Request |
+|---|---|---|
+| 1 | closer (documents, layout notes) | Mirror I5.1 into GDD 9.3 / 23.x and LEVEL. `trg_dowser.params.drawsEye` ("a sun-glint off the rod every 1.5 s from the moment enc_yard is clear") and `startsWhen` are stale: the glint and the figure are there from the moment her line to him is clean (the strip before the tally door, the north yard), and the beat starts when she is inside the volume, he stands, and he is within the view cone. INTEGRATION_REPORT's playthrough hash: `d1e66cb0`. |
+| 2 | exterior-look | (a) The rimrock (`world_sight_rock`) still stands whenever the street is built; from the gate its cap is behind the tank and nothing of it reads over the roof (`shots/i5-team-world/test_gate.png`). (b) If the wall stump north of the vista line or the tank is moved or rebuilt, the clean strip moves with the collision: `tests/world/i5.test.mjs` test 2 names the eight places that must stay clean. |
+| 3 | render-tech, enemies | Nothing needed. `tests/render/polish.test.mjs` (the far card's frame from the vista) and `tests/enemies/vignettes.test.mjs` play the vignette themselves; they were not run by this team. |
+
+## Closer, pass i5 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| I5.2 row 1 (documents, layout notes, the hash) | **Applied.** `tools/gen_layout.mjs`: `trg_dowser.params.startsWhen` and `drawsEye` rewritten (notes only; `design/layout.json` regenerated). Mirrored: GDD 23.20, LEVEL 20, ARCHITECTURE "Pass i5 (closer)". The playthrough hash is in INTEGRATION_REPORT Part S |
+| I5.2 row 2 (exterior-look) | Noted in LEVEL 20; `tests/world/i5.test.mjs` is run on the final rebuilt tree (Part S gate) |
+| The narrower eye-draw from the east yard | **Accepted as built**, not playtested by a person: in `docs/KNOWN_ISSUES.md` |
+
+## Pass i6 (world team, 2026-10-08): the pursued man over the tank while he stepped down
+
+### I6.1 Done
+
+| # | Issue (visual reviewer b, minor; R18) | Change | Proof |
+|---|---|---|---|
+| 1 | When her line to him stops being clean he goes down, but for the first ticks after she leaves the strip he is still drawn over the pump tank's rim from the yard gate (a man standing on the tank) | `src/world/director.ts` `tickSighting`. The cause: the clean line was tried every 4th tick (`SIGHT_CLEAN_EVERY`) and he then stepped down over `SIGHT_RISE` (0.35 s, 21 ticks), so up to 25 ticks of him were drawn from a place where the skyline is not his. Now the line is tried on EVERY tick while anything of him shows (every 4th only while he is down), and on the tick it is not clean `sightUp` is 0: he is not drawn in the frame that follows. He still comes UP over the rim in 0.35 s, and the seen walk-down (`SIGHT_DOWN`, 1.5 s) remains for the stared-at case alone (`SIGHT_STAYS`, 40 s, on a clean line). Looked at for her second and then out of the strip: the beat still ends under `nar_dowser_down` and the door opens; he is simply not drawn meanwhile. The card that pass i4 left standing "while it is in her frame" after she has gone into the Tally House is under the same rule: it is taken the moment her line to it is not clean (from inside the house the line is through its west wall, never clean) | Before: `sightUp` 0.95 one tick after a teleport from the strip to the gate; `shots/i6-team-world/before_gate_tick1.png` (opened: the figure on the tank's rim under the pump tower). After: `shots/i6-team-world/test_gate_tick1.png` (opened: same frame, no figure), `test_strip.png` (opened: he stands on the mesa from the strip). Real game, 720p: 0 meshes of his card in the draw list and the card 4 km under the world on tick 1 and tick 6 from the gate, the east yard and the pump (`tests/world/i6_real.test.mjs`). Walked at 6 m/s from the vista to the gate with her eyes on him, read every tick: 155 ticks, he shows on 9, the line is first not clean on tick 10, he shows while it is not clean on 0 (`tests/world/i6.test.mjs`, 3 tests; the two that test the hiding, and the real-game one, failed before the change). `tests/world/i4.test.mjs` (the Tally House case) rewritten to the new rule |
+
+### I6.2 Requests
+
+| # | To | Request |
+|---|---|---|
+| 1 | closer (documents) | LEVEL 20, the sighting row, and GDD 23.20: "he comes up over the rim in 0.35 s and steps down as fast" becomes "he comes up over the rim in 0.35 s; where her line to him stops being clean he is not drawn from that tick (tried every tick while he shows)". The ghost card of pass i4 (GDD 23.x, "his card stands while it is in her frame" after she enters the Tally House) now also needs a clean line, which the house never gives. `trg_dowser.params.drawsEye` in `tools/gen_layout.mjs` needs no change (it only speaks of the rise). |
+| 2 | everyone | No request. Nothing outside `src/world/` and `tests/world/` was edited. |
+
+Gate after the change (run one file at a time): `npx tsc --noEmit` clean; `tests/world/` 30 files, 172 of 172 (i4's Tally House case rewritten, see I6.1); `KEEP7_REAL=all node --test tests/core/` 76 of 76; `node --test tests/e2e/playthrough.test.mjs` 4 of 4. The playthrough by input is still 28 647 ticks, 83 rounds, 31 freed, 0 deaths, the same on a second load; its hash is now `1938ee81` (it was `d1e66cb0`: the director's sighting state, `sightUp` / `sightClean`, is in the hashed debug state and is now 0 / false wherever her line to him is not clean). Closer: INTEGRATION_REPORT's hash. The rest of `tests/e2e/` was not rerun by this team.
+
+## Closer, pass i6 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| I6.2 row 1 (documents, the hash) | **Mirrored**: GDD 23.20 in place and 23.21, LEVEL 21, ARCHITECTURE "Pass i6 (closer)"; the hash is in INTEGRATION_REPORT Part T |
+| Not checked on High | The real-game test and the hero leg of the sighting are run on High in Part T |

@@ -7,7 +7,9 @@ import { MOODS, M_AMBIENT, M_KEY } from './moods.ts';
 import type { MoodKey } from './moods.ts';
 import { FLAG_ADD, FLAG_GLOW } from './vfx/quads.ts';
 
-interface InstancedSet { mesh: THREE.InstancedMesh; free: number[]; used: number; capacity: number; dirty: boolean; /** every drawn instance carries a glow (a stake in flight) */ glow: boolean }
+interface InstancedSet { mesh: THREE.InstancedMesh; free: number[]; used: number; capacity: number; dirty: boolean; /** every drawn instance carries a glow (a stake in flight, the stone's round) */ glow: GlowSpec | null }
+/** the glow of one instanced set: metres across, least pixels, metres pulled toward the eye, strength, how far up the thing it sits (in the asset's own metres), hue */
+interface GlowSpec { readonly size: number; readonly minPx: number; readonly pull: number; readonly k: number; readonly up: number; readonly color: THREE.Color }
 /** what the halo pass writes into (the quad batch) */
 interface GlowSink { readonly data: Float32Array; next(): number }
 /**
@@ -15,9 +17,27 @@ interface GlowSink { readonly data: Float32Array; next(): number }
  * 4 cm stake coming at her was a dark sliver six pixels across; each hot stake now carries a camera-facing flame glow
  * of GLOW_SIZE metres with a white heart, never under GLOW_MIN_PX on screen.
  */
-const GLOW_SETS: readonly string[] = ['proj_stake|stake_hot'];
 const GLOW_SIZE = 0.3, GLOW_MIN_PX = 12, GLOW_PULL = 0.9;
 const GLOW_COLOR = new THREE.Color(0xff9433);
+/**
+ * Look team creatures-props, pass i4 (the story reviewer: "the seventh round on the stone is a dark speck; its 'wrong
+ * colour' band cannot be seen ... the violet band only becomes visible on the HUD after it is taken"). The round that
+ * stands on the rim stone (`prop_cartridge_kept|round_violet`, drawn 3.4 times life size) carries the knots' violet as a
+ * small breath of light at its band: KEPT_GLOW_SIZE metres across, never under KEPT_GLOW_MIN_PX on screen, and gone
+ * with the round when it is taken. One quad of the halo batch; nothing on a tier's budget.
+ */
+const KEPT_GLOW_SIZE = 0.2, KEPT_GLOW_MIN_PX = 16, KEPT_GLOW_K = 0.5, KEPT_BAND_UP = 0.0165;
+const GLOW_SETS: Readonly<Record<string, GlowSpec>> = {
+  'proj_stake|stake_hot': { size: GLOW_SIZE, minPx: GLOW_MIN_PX, pull: GLOW_PULL, k: 1.1, up: 0, color: GLOW_COLOR },
+  'prop_cartridge_kept|round_violet': { size: KEPT_GLOW_SIZE, minPx: KEPT_GLOW_MIN_PX, pull: 0.06, k: KEPT_GLOW_K, up: KEPT_BAND_UP, color: new THREE.Color(0xb24bff) },
+};
+/**
+ * ... and the light of an instanced thing at blue hour (mood L6). The ledge and what is baked into it (the six spent
+ * cases on the stone) are lit by the whole dusk sky in the bake; an instance took `ambient + key / 2` like everywhere
+ * else, which at dusk is a third of that and ember-pink: the seventh round stood beside six brass cases as a dark red
+ * speck. An instanced thing on the rim takes this light instead (linear; measured against the baked cases).
+ */
+const INST_DUSK: readonly [number, number, number] = [0.40, 0.38, 0.44];
 class InstanceRef {
   set: InstancedSet | null = null;
   slot = 0; visible = true; x = 0; y = 0; z = 0; rot = 0; scale = 1;
@@ -62,7 +82,7 @@ export class Instances implements InstanceApi {
     const src = (source ?? first) as THREE.Mesh | null;
     if (!src) return null;
     const material = Array.isArray(src.material) ? src.material.map((m) => this.twin(m, src.geometry)) : this.twin(src.material, src.geometry);
-    const set: InstancedSet = { mesh: this.makeMesh(src.geometry, material, INITIAL_CAPACITY, 'inst:' + key), free: [], used: 0, capacity: INITIAL_CAPACITY, dirty: false, glow: GLOW_SETS.includes(key) };
+    const set: InstancedSet = { mesh: this.makeMesh(src.geometry, material, INITIAL_CAPACITY, 'inst:' + key), free: [], used: 0, capacity: INITIAL_CAPACITY, dirty: false, glow: GLOW_SETS[key] ?? null };
     this.sets.set(key, set);
     this.setList.push(set);
     return set;
@@ -131,6 +151,7 @@ export class Instances implements InstanceApi {
     r.lr = (mood[M_AMBIENT] as number) + 0.5 * (mood[M_KEY] as number);
     r.lg = (mood[M_AMBIENT + 1] as number) + 0.5 * (mood[M_KEY + 1] as number);
     r.lb = (mood[M_AMBIENT + 2] as number) + 0.5 * (mood[M_KEY + 2] as number);
+    if (key === 'L6') { r.lr = INST_DUSK[0]; r.lg = INST_DUSK[1]; r.lb = INST_DUSK[2]; }
     r.tr = 1; r.tg = 1; r.tb = 1;
     this.write(r);
     this.writeColor(r);
@@ -194,12 +215,13 @@ export class Instances implements InstanceApi {
 
   /** One glow per drawn instance of the glowing sets, into the quad batch; returns how many were written. */
   emitGlow(sink: GlowSink): number {
-    const list = this.setList, c = GLOW_COLOR, cam = this.ctx.scene.camera.position;
+    const list = this.setList, cam = this.ctx.scene.camera.position;
     let n = 0;
     for (let i = 0; i < list.length; i++) {
       const set = list[i] as InstancedSet;
-      if (!set.glow || set.mesh.count === 0 || !set.mesh.visible) continue;
-      const m = set.mesh.instanceMatrix.array;
+      const g = set.glow;
+      if (!g || set.mesh.count === 0 || !set.mesh.visible) continue;
+      const m = set.mesh.instanceMatrix.array, c = g.color;
       for (let k = 0; k < set.mesh.count; k++) {
         const b = k * 16;
         // a hidden or free slot is a zero-scale matrix; a pooled one waits far under the world
@@ -208,14 +230,15 @@ export class Instances implements InstanceApi {
         const o = sink.next();
         if (o < 0) return n;
         const d = sink.data;
-        const x = m[b + 12] as number, y = m[b + 13] as number, z = m[b + 14] as number;
+        // (`up` is along the instance's own Y, at its own scale: the band of a round drawn 3.4 times life size)
+        const x = (m[b + 12] as number) + (m[b + 4] as number) * g.up, y = (m[b + 13] as number) + (m[b + 5] as number) * g.up, z = (m[b + 14] as number) + (m[b + 6] as number) * g.up;
         // drawn GLOW_PULL metres nearer in depth: coming at her, the stake's own dark end would sit in the glow's heart
         const dist = Math.hypot(x - cam.x, y - cam.y, z - cam.z);
         d[o] = x; d[o + 1] = y; d[o + 2] = z; d[o + 3] = 0;
-        d[o + 4] = 0; d[o + 5] = GLOW_MIN_PX; d[o + 6] = Math.min(0.5, GLOW_PULL / Math.max(dist, 0.5)); d[o + 7] = GLOW_SIZE;
-        d[o + 8] = c.r; d[o + 9] = c.g; d[o + 10] = c.b; d[o + 11] = 1.1;
+        d[o + 4] = 0; d[o + 5] = g.minPx; d[o + 6] = Math.min(0.5, g.pull / Math.max(dist, 0.5)); d[o + 7] = g.size;
+        d[o + 8] = c.r; d[o + 9] = c.g; d[o + 10] = c.b; d[o + 11] = g.k;
         d[o + 12] = 0.95; d[o + 13] = 0; d[o + 14] = 0; d[o + 15] = 0;
-        d[o + 16] = 1; d[o + 17] = 0; d[o + 18] = GLOW_SIZE; d[o + 19] = FLAG_ADD | FLAG_GLOW;
+        d[o + 16] = 1; d[o + 17] = 0; d[o + 18] = g.size; d[o + 19] = FLAG_ADD | FLAG_GLOW;
         n++;
       }
     }

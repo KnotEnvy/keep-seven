@@ -117,6 +117,19 @@ const TURN_TOWARD_TOWN = 0;
  * Well inside the cone the fire is "seen" in (SEEN_COS, 25 degrees).
  */
 const TURN_LIFT_DEG = 12;
+/**
+ * Pass i4 (story reviewer a, and first on that reviewer's list of what would raise the score: in the locked final frame
+ * the "dead plumb" thread leaned 7 degrees and the Rule 9.5, two near-parallel lines, under the two lines that say one
+ * is plumb and the other leans). The cause is the lift: with the view pitched up 8.8 degrees every true vertical off the
+ * middle of the frame converges toward the top, and the thread stands 38 degrees left of the fire (lean on screen =
+ * atan(x / f * tan(pitch)), x / f = 0.79 there at the default field of view). A true vertical is drawn within 1.5
+ * degrees of vertical anywhere in a 16:9 frame only while the view is within about 1.9 degrees of level (at the widest
+ * field of view, 80 degrees: 1.3). So the eased view comes to rest `END_PITCH_DEG` above level, whatever the lift would
+ * give: the thread is drawn plumb, the Rule's nine degrees are plainly a lean, and the text agrees with the picture.
+ * The land's edge then stands just under the middle of the frame (it was at 63 %): the foreground below it is the
+ * exterior look team's to light in this pass (docs/requests/world.md). `TURN_LIFT_DEG` still applies below that cap.
+ */
+export const END_PITCH_DEG = 1.25;
 // (exterior look, pass i3; the visual reviewer: "the lower 40 % of the final frame is a dark dune; the town, lamps and fire
 // occupy a thin band": 7 -> 12. The revolver is let down from the moment the fire catches, so nothing stands in the lower
 // right any more: the land's edge is at 63 % of the frame's height, the fire at 68 %, the town's lamps under it, and the
@@ -349,8 +362,13 @@ class Ending implements EndingApi {
       return;
     }
     s.story.sayFrontAll(this.lampLines);                 // not yet said (she never stood where the town shows): now
-    for (const key of own) s.story.say(key);
+    // Pass i4 (story reviewer a: in the leave branch the thread's and the Rule's lines were said AFTER "She left it on
+    // the stone. Six, then.", ten seconds of scenery between the choice and the fire). The scenery lines she is still
+    // owed come first, with her view eased to the plain they are about (level: the thread is drawn plumb); then the
+    // branch's own lines, and nothing between them and the fire.
     for (const key of scene) s.story.say(key);
+    for (const key of own) s.story.say(key);
+    if (scene.length > 0 && !this.lampTurned) { this.lampTurned = true; this.startTurn(); }
   }
   /** a lamps line is on screen or waiting: the fire is not kindled over the count of the windows */
   private lampsPending(): boolean {
@@ -395,7 +413,8 @@ class Ending implements EndingApi {
   private startTurn(): void {
     const { s } = this;
     this.turn = -1;
-    if (s.ctx.options.value.reduceMotion || this.fireSeen()) return;
+    // (pass i4: also when the fire is in her view already: the frame comes to rest level, END_PITCH_DEG)
+    if (s.ctx.options.value.reduceMotion) return;
     const pl = s.ctx.player, p = pl.position;
     const dx = this.fireAt[0] - p.x, dy = this.fireAt[1] - (p.y + PLAYER_EYE), dz = this.fireAt[2] - p.z;
     // yaw 0 looks along -Z and a positive yaw turns left: forward = (-sin, 0, -cos)
@@ -407,7 +426,7 @@ class Ending implements EndingApi {
     }
     this.yaw0 = pl.yaw * RAD2DEG; this.pitch0 = pl.pitch * RAD2DEG;
     this.yaw1 = this.yaw0 + ((((want - this.yaw0) % 360) + 540) % 360 - 180);
-    this.pitch1 = Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * RAD2DEG + TURN_LIFT_DEG;
+    this.pitch1 = Math.min(END_PITCH_DEG, Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * RAD2DEG + TURN_LIFT_DEG);
     this.setYaw = this.yaw0; this.setPitch = this.pitch0;
     this.turn = 0;
   }
@@ -498,6 +517,8 @@ class Ending implements EndingApi {
     if (this.phase === BRANCH) {
       // the branch's last line has been heard (with no line of its own: whatever is still being said)
       const said = this.branchLast === '' ? s.story.idle : s.story.finished(this.branchLast);
+      // (pass i4: a view the branch began to ease, for the scenery lines of a leave, goes on easing under them)
+      if (!said && this.turn >= 0) this.tickTurn();
       if (said && this.lampsPending() && this.phaseT < BRANCH_LIMIT) {
         // (round 5: a quick take leaves the lamps to be counted after it; her view is eased up from the stone to the
         // plain and the town first, so the windows are in frame while they are counted and the fire kindles in view)

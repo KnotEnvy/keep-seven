@@ -334,3 +334,206 @@ checked at 2 m only. No person has looked at any of this on a real GPU.
 | 2.1 `tests/player/place.test.mjs` bounds | **Accepted**: the old pair of bounds kept the hand out of the frame, which is the reviewers' issue |
 | 2.2 share picture, hero frames | Made again (INTEGRATION_REPORT Part P) |
 | 4 not done | In `docs/KNOWN_ISSUES.md` |
+
+## Fixer, pass i4 (2026-10-08): what is ready for this team, and what is ruled
+
+
+| Item | State |
+|---|---|
+| The view-model's triangles | **14 000** (was 18 000; 11 745 built, **2 255 free**): three passes left 6 255 unspent and the outdoors, the rim and the creatures needed them (ruling R14 allows up to three times the first budget, it does not reserve it). Draw calls (3) and the five textures are unchanged |
+| `prop_cartridge_kept` | **240** triangles (was 144; 106 free). The round on the stone is drawn at 3.4 times (was 2.6). Wanted from this team (story reviewer a): a band on `round_violet` that reads as the wrong colour at standing distance (an emissive violet row; a violet glint) |
+| Ruling R17 | one material in every room: the steel's hue and value are held against the room in `src/render/moods.ts` (the view-model columns) and the material; `tests/art_weapons/i3_real.test.mjs` is the place for the pin the reviewer asks for (steel hue and highlight share per mood) |
+
+## Look team gun, pass i4 (2026-10-08): what changed, for the closer to mirror
+
+Four issues (visual-b major "not one material from room to room", visual-a minor "pale and chrome-like in the Tally House and at
+dusk", visual-a minor "top strap and hammer silhouette", visual-b minor "the glove turns olive underground"). Evidence:
+`shots/i4-team-gun/before/`, `shots/i4-team-gun/after/` (`cmp1_low.png`, `cmp2_low.png` = before left, after right;
+`z_high.png`), logs `scratch/i4-team-gun/before_low_B.log`, `after_low.log`, `after_high.log`, `NOTES.md`.
+
+### 1. Changes
+
+| # | Where | Was | Now |
+|---|---|---|---|
+| 1 | ARCHITECTURE 8.4, the view-model's rig (`src/render/system.ts` two lines after `this.exposure =`; `materials.ts` `vmExposure`, `fadeProp`) | the rig (display levels) was multiplied by the world's exposure ramp: the Tally House door's "+1 stop" showed it a stop over in the whole Tally House and on the hatch stair ("bright chrome on the peg stair", twice the gallery's luminance) | the rig's ambient, key and rim are divided by the ramp. Stair steel L* 21.9 against the gallery's 22.2 (it was 29.7 against 21.5) |
+| 2 | ART_BIBLE 3 mood table, view-model column (`moods.ts` L2) | `vmK` 0.764, `vmAmbK` 0.66 (tuned at twice their face value, see row 1) | `vmK` **1.4**, `vmAmbK` **0.72**: the same key and ambient as seen before, the rim a stop lower. L2 no longer needs its exception in `tests/render/moods.spec.ts` (not edited) |
+| 3 | ARCHITECTURE 8.4 `m_gun` (`materials.ts` `keepHold`, `GUN_HUE`, `GUN_BODY_SAT`, `GUN_HOT_0/1`, `GUN_HOT_SAT`, `GUN_SHOW_KNEE/MAX`, `GUN_CASE_SAT`) | the hue of the LIGHT the steel takes was held term by term; the mood's grade (tint and coloured lift) recoloured it afterwards | the steel is held ON THE SCREEN: each steel texel goes forward through the frame's own grade (the block's `uK[K_GRADE_A/B]`, the frame's exposure in `uObj[1].w`), its hue there is set to `GUN_HUE` (0.86, 1.0, 1.44) but for 8 % of its own (35 % for the case colours), rising to 90 % between display levels 0.10 and 0.40 (highlights are the room's), its luminance shouldered from 0.34 to at most 0.58 of display white, and back. One new float per view-model draw (`uObj[1].w`), no new uniform, texture or program |
+| 4 | the same, `m_hands` (`HANDS_HUE`, `HANDS_BODY_SAT`) | the gloves took the room's hue whole (olive under teal) | the leather is held on the screen to `HANDS_HUE` (1.50, 0.89, 0.55) with 30 % of what the room made of it |
+| 5 | `materials.ts` `GUN_BAND_K` 4.0 -> 5.8, `GUN_EDGE_ON` 0.2 (new) | a face seen edge-on (the octagon's top flat on the skyline) took the whole rim and band: a row of lit dashes ("teeth") | what a face mirrors fades as it turns edge-on (0.05 to 0.28 of N.V); the band is stronger to keep R6's 1 % of highlight |
+| 6 | ART_BIBLE 8.1 the model (`blender/weapons/assize.py`) | frame chamfer 2.4 in one facet; recoil shield a flat disc with one chamfer; hammer spur tip at -81.4, pad 8.6 mm | frame's shoulder a quarter round in two facets (3.0 mm; the flank stays a flat face); the shield's face crowned 1 mm and rolled into its rim; the spur a fifth shorter (tip -78.3) and a tenth lower, pad 7.6 mm. 11 709 of 14 000 triangles, 3 draw calls |
+| 7 | ART_BIBLE 8.1 the steel's surface (`blender/weapons/gun_tex.py`) | a "milled panel" drawn behind the cylinder (its bevelled border was the reviewer's "hard triangular V plate"); frame filing 0.0045; edge wear barrel flats 0.30, frame 0.48; the last 40 mm of the barrel thinned 0.34; chequer 0.11 | the panel is gone (a tenth of its step, no line); frame filing 0.0026; barrel flats 0.14, frame 0.34, the sighting groove's lips unworn; muzzle thinning 0.13 from 162 mm; chequer 0.06. `tx_gun` 92.7 kB, `tx_gun_detail` 65.4 kB (same sizes and formats) |
+
+No node, bone or clip name or timing changed; placement (`VIEW_PLACE`) untouched; `src/player` untouched.
+
+### 2. Measured (1280 x 720, steel left of the grip and the hand, body = under L* 40)
+
+| Room | body R / B before -> after (Low) | steel mean L* after | glove before -> after | High body R / B |
+|---|---|---|---|---|
+| overhang | 0.91 -> 0.79 | 26.7 | 78,59,53 -> 77,60,51 | 0.81 |
+| street | 0.89 -> 0.79 | 32.1 | 90,74,71 -> 92,74,65 | 0.80 |
+| Tally House | 1.61 -> 0.80 | 23.4 | 98,53,34 -> 80,55,42 | 0.82 |
+| hatch stair | 0.82 -> 0.77 (L* 35.0 -> 25.2) | 25.2 | 79,89,78 -> 67,57,48 | 0.75 |
+| gallery | 0.59 -> 0.75 | 25.5 | 49,63,63 -> 66,59,53 | 0.74 |
+| plate door | 1.37 -> 0.79 | 25.7 | 92,54,35 -> 83,58,44 | 0.81 |
+| boss room | 0.63 -> 0.74 | 24.7 | 52,60,60 -> 66,57,51 | 0.74 |
+| rim at dusk | 0.95 -> 0.77 | 23.2 | 82,51,50 -> 77,56,49 | 0.82 |
+
+(the "before" ratios were taken over the whole gun, walnut included; the after set is left of the grip.) Nothing of the steel
+is over L* 79 at rest (it reached 96). Pinned by `tests/art_weapons/i4_real.test.mjs` (new): hue within 0.08 of the street's
+in nine rooms, the stair at the gallery's level, the glove red over green over blue.
+
+### 3. Tests
+
+`tests/art_weapons` 28 of 28 (`i4_real.test.mjs` new; `i2_real.test.mjs`: the Tally House's whole-view-model R / B bound is
+1.25, it was 1.5 and was held by the bronze steel), `tests/player` 45 of 45, vitest render + player + core 361 of 361,
+`tests/render` polish3 R6 passes (highlights 1.2 to 1.4 %), polish, i2, polish4_high, polish5_high pass, `tsc` clean,
+`check-glb` 84 assets pass. **Not mine and failing on this tree while other look teams work:** `tests/render/polish3`
+R5 / R7 (the last fire's flame is 70 px tall, bound 48: exterior-look's fire) and `tests/render/flash_muzzle` on High (the
+flash's core 42 px from the muzzle on frame 1; it fails the same with both holds switched off; it passed at 05:25 before
+`post.ts` and `vfx/vfx.ts` were edited by others). The whole `tests/render` directory was not run.
+
+### 4. Not done
+
+The barrel still carries a soft pale wedge at the muzzle (the horizon band on the round front, now under L* 78 and in the
+room's hue). The round in the left hand (brass) and the walnut are not held and take the room's hue. `take_round`,
+`unload_*`, the line round and the sprint were not looked at with the shorter hammer (reload and the kept round were:
+`shots/i4-team-gun/clips/`). The hold assumes the grade is the merged pass's (vignette, bloom and air are not in it): on
+High the rim's body reads R / B 0.82 against 0.77 on Low. No person has looked at this on a real GPU.
+
+## Closer, pass i4 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| 1 the seven rows | Mirrored: ART_BIBLE "Amendments, pass i4 (closer)", ARCHITECTURE "Pass i4 (closer)" 8.4 |
+| Rebuild / re-capture | Every asset rebuilt by the closer after the last design-data change; `public/share.jpg` and the twelve hero frames retaken; `tests/art_weapons/i4_real.test.mjs` runs in the gate (the file is untracked: it must be added to the commit) |
+| Creatures-props' ask: the whole sleeve of `round_violet` violet | **Not built**: `wrong_fade` would put a violet cell out once the stage is proven and no one could look at it at the close; known issue |
+| 4 not done | In `docs/KNOWN_ISSUES.md` |
+
+## Look team gun, pass i5 (2026-10-08): what changed, for the closer to mirror
+
+Three issues, all minor, all from visual reviewer b ("a thick hood over the cylinder reads like a spanner jaw", "the grip's
+red wood goes grey-black underground", "the two gloves merge into one mass during the reload ... a floating square cuff").
+Evidence: `shots/i5-team-gun/before/`, `shots/i5-team-gun/after/` (`cmp_idle_low.png` = before left, after right, six rooms;
+`cmp_reload_low.png`; `reload_t040_c.png` against `before/reload_t040_c.png`; `z_high.png`), workbench looks in
+`shots/i5-team-gun/look/` (`base_left.png` against `f2_left.png`; `rl_r145_zoom.png` against `rl_h2_zoom.png`), logs
+`scratch/i5-team-gun/after_low.log`, `after_high.log`, `NOTES.md`.
+
+### 1. Changes
+
+| # | Where | Was | Now |
+|---|---|---|---|
+| 1 | ART_BIBLE 8.1 the model (`blender/weapons/assize.py` `FRAME_TOP`, `FRAME_OUT`) | the top strap 6.9 mm thick (top at 15.5 over the bore); behind the window the frame carried that height 30 mm back and sloped to the grip: one slab that hid the cocked hammer's neck | the strap is 5.2 mm (top at **13.8**); the frame falls 12 mm in the first 12 mm behind the recoil shield and runs low to the back strap's knuckle (a concave sweep), so the hammer's neck stands clear with air under the spur; the toe under the barrel is swept back. The sighting groove and its wear mask (`gun_tex.py`) follow `FRAME_TOP`. `tx_gun` / `tx_gun_detail` re-baked (same sizes and formats, 91.1 / 63.6 kB) |
+| 2 | ARCHITECTURE 8.4 `m_gun` (`src/render/materials.ts` `WOOD_HUE`, `WOOD_BODY_SAT`, `WOOD_FLOOR`) | walnut and brass were "not steel and untouched": red wood under a teal lamp returned a third of its street level, grey | the walnut (a `tx_gun` texel that is not steel and whose gloss is under 0.42) is lifted to 0.70 of the level it would have under a white light of the room's luminance and held on the screen to `WOOD_HUE` (2.20, 0.70, 0.46) with 40 % of what the room made of it. No new uniform, texture or program. Brass is still untouched |
+| 3 | ARCHITECTURE 8.4 `m_hands` (`SLEEVE_HUE`, `SLEEVE_BODY_SAT`, `VM_HANDS`) | pass i4's leather hold painted the oilcloth cuff glove-tan; `VM_HANDS` 0.96 | a `tx_hands` texel whose blue is over its red (the oilcloth) is held to `SLEEVE_HUE` (0.95, 0.99, 1.16), not to the leather's; `VM_HANDS` **1.10** (the gloves' level at rest is what it was: street 91,73,65 against 92,74,65) |
+| 4 | ART_BIBLE 8.2 the hands (`blender/weapons/hands.py`) | the palm block ended at the knuckle row in a flat cap 13 mm beyond the little finger's knuckle, and at the wrist in another: with the fingers bent (the off hand in the loading pose, seen edge-on) it was the sawn end of a board, which is what the reviewer called the cuff | the knuckle end slants 13 mm back toward the little finger and closes in a rounded edge; the heel is rounded; the gauntlet's neck turns in over the heel, its bend is spread over all its rings and its flare is 37 x 30 mm (40 x 31). `Hand(tone=)`: the off hand is shaded 0.74 in COLOR_0 and its palm side 0.80 again. 12 093 of 14 000 triangles (11 709), 3 draw calls |
+| 5 | ART_BIBLE 8.2 the gloves' surface (`blender/weapons/hands_tex.py`) | one hide; the palm side worn pale | a dark rough-out patch (`PALM` #4A382B) sewn over the little-finger half of the palm and the insides of the four fingers, with its stitch rows; the thumb, its half of the palm and the back are the old hide; the gauntlet is 0.74 of the hand's value (a cuff, not more hand). `tx_hands` 49.2 kB, `tx_hands_detail` 92.4 kB (same sizes and formats) |
+| 6 | GDD / ART_BIBLE the loading pose (`blender/weapons/revolver_anim.py` `PORT_ROLL`, `ELBOW_DIR`) | the off hand lay 125 degrees round the bore, its forearm straight down from right of the centre line (0, 0.34, -0.94): back over back with the gun hand | **145** degrees and (-0.33, 0.37, -0.87): the off hand is 2 cm further left with its palm and thumb open to the eye, the round in plain view along the forefinger, the forearm leaves by the bottom edge left of the gun hand's. Every clip that uses the loading pose moves with it (`reload_*`, `load_line`, `unload_line`, `load_kept`, `unload_kept`, `take_round`). No clip name, length or event frame changed |
+
+No node, bone or clip name or timing changed; placement (`VIEW_PLACE`, `src/player`) untouched; `design/*.json` untouched.
+
+### 2. Measured (1280 x 720)
+
+| Room | the grip: the reviewer's sample before -> the box 1085..1150, 580..690 (wood and the back strap's edge) after, Low | view-model mean L* / under L* 12, Low after | steel body R / B after (Low, High) |
+|---|---|---|---|
+| street | -> 96,62,60 | 31.6 / 0 % | 0.79, 0.80 |
+| Tally House | -> 84,44,35 | 23.3 / 1.2 % | 0.80, 0.82 |
+| gallery | reviewer: 48,43,45 -> 68,49,48 (one 8 px sample on the panel, 1117,635: 57,68,67 -> 86,63,58) | 24.2 / 0 % | 0.75, 0.74 |
+| hall | reviewer: 49,42,42 -> 67,47,47 | 23.6 / 0 % | 0.75, 0.74 |
+| boss room | reviewer: 50,48,43 -> 67,46,47 | 23.4 / 0.1 % | 0.74, 0.74 |
+| rim at dusk | -> 77,42,42 | 23.0 / 1.3 % | 0.77, 0.83 |
+
+Pinned by `tests/art_weapons/i5_real.test.mjs` (new, untracked: add it to the commit): the grip box is red over green and
+over blue by 1.3 in six rooms; the off hand's COLOR_0 is 0.66 to 0.90 of the gun hand's.
+
+### 3. Tests
+
+`tests/art_weapons` 30 of 30, `tests/player` 45 of 45, vitest 519 of 519, `tests/render` polish 8 of 8, polish3 6 of 6
+(R6 in the boss room: view-model L* 23.5 against 32.2 behind it, the bound is 23.2: **0.3 of margin**; the room behind the
+gun was 31.2 this morning), polish4_high, polish5_high, flash_muzzle, release_p0, prewarm, i1_high, i3, i4, i5 pass, `tsc`
+clean, `check-glb` 84 assets pass. `tests/render/i2` fails two tests on this tree that are not the view-model's (the town's
+fixed shadows on High, "light in the air only adds"): other look teams were editing. The whole `tests/render` directory
+and `tests/e2e` were not run.
+
+### 4. Not done
+
+The idle pose was not turned toward profile (the reviewer's alternative): the barrel is as foreshortened as it was; the
+silhouette change is the frame's. On High the highlight share of the view-model is 0.94 to 0.98 % in the Tally House, the
+boss room and on the rim (Low 1.1 %; `polish3` R6 measures Low). The off hand's separation is in shape and a modest shade,
+not in colour; the two hands still touch on the screen. `load_kept`, `take_round`, `unload_*` and the sprint were not
+looked at in the game with the new roll and elbow (their automated framing and continuity tests pass; `load_line`, `fire`
+and the reload were looked at: `shots/i5-team-gun/w5/sheet_line_low_street_0.png`, `sheet_fire_low_street_0.png`).
+`blender/weapons/fp_preview.py` draws the hands with the wrong texture (it predates `m_hands`). No person has looked at any
+of this on a real GPU.
+
+## Closer, pass i5 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| Rows 1 to 6 (documents) | **Mirrored**: ART_BIBLE "Amendments, pass i5 (closer)" (8.1, 8.2, 8.3), ARCHITECTURE "Pass i5 (closer)" 8.4, GDD 23.20 (the loading pose) |
+| Rebuild with `--force` | **Done**: every asset rebuilt with `--force` after the design-data change (Part S) |
+| `tests/art_weapons/i4_real.test.mjs`, `i5_real.test.mjs` untracked | Listed in Part S for whoever commits (no agent may) |
+| `polish3` R6 margin in the boss room | Run on the final tree: see Part S |
+| The idle pose toward profile; the hands touching in the reload; `fp_preview.py` | **Not built**: in `docs/KNOWN_ISSUES.md` |
+
+## Look team gun, pass i6 (2026-10-08): what changed, for the closer to mirror
+
+One issue, minor, visual reviewer b ("the revolver's rear is heavy and its steel is smooth up close": an oversized ribbed hammer
+spur like a horn, almost no wear at 720p, glove fingers thick smooth sausages with one stitch line). Evidence:
+`shots/i6-team-gun/before/`, `shots/i6-team-gun/after/` (`cmp_idle_low.png`, `cmp_idle_high.png` = before left, after right, six
+rooms; `sheet_fire_low_street_*.png`, `sheet_reload_low_street_*.png`, `reload_t040_c.png`), looks in `shots/i6-team-gun/look/`
+(`base_left.png` against `h2_left.png`; `t3_left.png`, `t4_eye.png` = the texture on the model, brightened), logs
+`scratch/i6-team-gun/before_low.log`, `after_low.log`, `after_high.log`, `NOTES.md`.
+
+### 1. Changes
+
+| # | Where | Was | Now |
+|---|---|---|---|
+| 1 | ART_BIBLE 8.1 the hammer (`blender/weapons/assize.py` `HAMMER`, `PAD_HW`) | a neck 16 mm deep under an arc 41 mm off its screw, spur tip at -78.3, 4.7 mm thick, pad 7.6 mm wide: at full cock (the idle pose) the nearest steel to the eye was a sail | neck **10 mm**, arc **37.6 mm** off the screw, tip at **-70.5**, spur 3.3 mm thick, pad **6.6 mm**. `HAMMER[7]` is still the crest (`revolver_anim` reads it: the thumb follows). Pinned by `tests/art_weapons/i6.test.mjs` (new, untracked) |
+| 2 | ART_BIBLE 8.1 the hammer's chequering (`gun_tex.py`) | the product of two sines = a square grid of 0.75 mm, under two texels: it aliased into the reviewer's "ribs" | two sets of cut lines at 45 degrees, 0.95 mm apart, shallow (0.05) and matt; the hammer's texel density 1.5 -> 2.2; the pad's wear capped at 0.42 (no bright dashes); no polishing arcs on the spur |
+| 3 | ART_BIBLE 8.1 the steel's wear (`gun_tex.py`) | passes i3 and i4 had cut the long edges' wear to 0.14 .. 0.34 against aliasing: the shader draws a texel as bare steel only from a wear of about 0.45, so nothing showed | every edge carries a FEATHERED band (the edge mask blurred, no step to alias): frame 0.72, barrel flats 0.55, housing 0.45, shield and gate 0.75; flute edges 0.85 / 0.9; a turn line round the cylinder at the bolt notches; the crown's worn lip 3 mm; worn-through streaks (0.8) on the flanks, the shield and the cylinder's lands; 28 single hairline scratches. The blue's base x 0.58 (0.60); gloss rises with wear 1.5 times sooner |
+| 4 | ART_BIBLE 8.1 **"no logo but the one stamp"** (`gun_tex.py` `_stamp`, `LINE_Y0`; `assize.py` `barrel_oct` `sym` 4 -> 2) | nothing on the barrel | the reviewer asked for a struck line (ruling R13): `THE ASSIZE  VII  1104` in 3.1 mm capitals on the barrel's upper left flat, from 99 mm toward the frame: the court's property line and the gun's number, not a maker's ornament. **The bible's sentence needs the amendment** ("the one stamp, and the court's line on the barrel") |
+| 5 | ARCHITECTURE 8.4 `m_gun` (`src/render/materials.ts` `GUN_BARE_0`, `GUN_BARE_1`) | 0.060, 0.170 | **0.045, 0.140** (thinned blue starts to mirror a little sooner). The steel's hue is where it was (body R / B 0.75 .. 0.80 in sixteen spots) |
+| 6 | ART_BIBLE 8.2 the hands (`hands.py` `SLIM`) | finger radii of round 5, thumbs as passed | fingers and both thumbs x **0.93** |
+| 7 | ART_BIBLE 8.2 the gloves' surface (`hands_tex.py` `piping`, `digit`) | a groove and one stitch row down each side of a finger; three hairline wrinkles per joint (under two texels: not on the screen) | a piped seam (a dark welted cord 1.3 mm across, its crown rubbed pale, a stitch row on each hide), the fourchette's second seam where the palm hide is sewn on, five broad folds over each joint with the leather standing between them, deeper knuckle arcs |
+
+No node, bone or clip name or timing changed; `VIEW_PLACE` and `src/player` untouched; `design/*.json` untouched. Built:
+`tx_gun` 101 kB, `tx_gun_detail` 64 kB, `tx_hands` 56 kB, `tx_hands_detail` 95 kB (same sizes and formats), `weapon_revolver`
+12 093 of 14 000 triangles, 3 draw calls.
+
+### 2. Measured (1280 x 720, Low; High in the logs)
+
+Steel body R / B before -> after: overhang 0.79 -> 0.79, street 0.79 -> 0.79, Tally House 0.80 -> 0.80, stair 0.77 -> 0.77, gallery
+0.75 -> 0.75, boss room 0.74 -> 0.75, rim 0.77 -> 0.77. Steel over L* 60: 3.3 % -> 3.9 % (street 3.4 -> 4.0). Brightest steel
+texel L* 77.0 .. 78.7 -> 77.7 .. 79.1. View-model mean L* +0.1 .. +0.3. Gloves unchanged in colour (street 91,73,65 -> 90,72,64).
+
+### 3. Tests
+
+`tests/art_weapons` 32 of 32 (`i6.test.mjs` new), `tests/player` 45 of 45, vitest 519 of 519, `tests/render` polish 8, polish3 6,
+flash_muzzle 4, polish4_high 2, polish5_high 2, i2 5, i4 7, i5 3: all pass; `tsc` clean; `check-glb` 84 assets, 21 textures pass.
+The rest of `tests/render` and `tests/e2e` were not run.
+
+### 4. Not done
+
+The wear is plain in a 2x crop and modest at 1:1: the shader keeps blued steel dark by design (R17), and a face turned to the
+eye mirrors little. The struck line lies on a flat the idle pose shows edge-on and the reload turns away: it is seen from the
+left (`look/t3_left.png`), in play only in passing. The recoil shield's and the frame's forms were not changed. On High the
+gallery's steel still looks mauve against the teal room (measured 50,55,67: as before). The glove sheet is still 512 x 512
+(two texels a millimetre on a finger): finer stitching would need 1024, which the Low memory cap does not have free.
+`take_round`, `load_kept`, `unload_*`, the line round and the sprint were not looked at in the game with the new hammer and
+fingers (fire and reload were). No person has looked at this on a real GPU.
+
+### 5. For the closer
+
+- The helper scripts are not tracked by the build: `node tools/build-assets.mjs --only tx_gun,tx_gun_detail,tx_hands,tx_hands_detail,weapon_revolver --force` after any design-data change.
+- The asset bytes changed (`src/ui/loadMeter.ts` `BOOT_FILE_BYTES`); `public/share.jpg` and the hero frames show the old hammer.
+- `tests/art_weapons/i6.test.mjs` is untracked (as are `i4_real` and `i5_real`).
+
+## Closer, pass i6 (2026-10-08): decisions
+
+| Row | Decision |
+|---|---|
+| Rows 1 to 7 (documents) | **Mirrored**: ART_BIBLE "Amendments, pass i6 (closer)" (8.1, 8.2), ARCHITECTURE "Pass i6 (closer)" 8.4 |
+| Row 4, the struck line against "no logo but the one stamp" | **Ruled: the line stays** (R13 asked for it; it is the court's property line and the gun's number, not a maker's ornament). ART_BIBLE 8.1 amended in place |
+| Rebuild with `--force`; `BOOT_FILE_BYTES`; `share.jpg`; hero frames | **Done** (Part T) |
+| `tests/art_weapons/i6.test.mjs` untracked | Listed in Part T for whoever commits |
+| Section 4 (the shield's form, the gallery's mauve steel on High, 1024 glove sheet, the clips not looked at) | **Not built**: in `docs/KNOWN_ISSUES.md` |

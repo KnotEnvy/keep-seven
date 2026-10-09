@@ -11,6 +11,17 @@ import type { Uniform } from '../shared.ts';
 
 export const AMBIENT_POINTS = 600;
 export const MAX_BLADES = 3;
+/**
+ * The daylight dust of the High tier (the second half of the sand cloud), pass i4: its level against what it was, the
+ * share of its hue that is the mood's light, the metres between which it fades out, the elevation (rise over distance
+ * from the eye) between which a mote seen above the horizon fades, and the metres from which that fade applies.
+ */
+export const DUST_ALPHA = 0.6, DUST_TINT = 0.7;
+/** the overhang's shafts (out of doors, pass i5): a mote's size against a room's, its level, the shaft's radius in metres, the metres over which it fades out */
+export const OUT_SIZE = 2.2, OUT_ALPHA = 0.28, OUT_SPREAD = 0.95, OUT_FAR: readonly [number, number] = [4.5, 8.0];
+/** the rim's motes under the blue hour (pass i6): their drift in metres a second, their size against the station's, their colour */
+export const DUSK_DRIFT = 0.22, DUSK_SIZE = 1.5, DUSK_COL: readonly [number, number, number] = [1.0, 0.62, 0.40];
+export const DUST_FAR: readonly [number, number] = [5.5, 9], DUST_SKY: readonly [number, number] = [0.0, 0.10], DUST_SKY_FROM: readonly [number, number] = [1.5, 3.5];
 
 const VERT = /* glsl */`
 attribute float aSlot;
@@ -21,6 +32,7 @@ uniform vec3 uBladeB[ ${MAX_BLADES} ];
 const vec3 uWind = vec3( 0.9, 0.0, 0.9 );
 uniform vec4 uGround;
 uniform vec2 uViewport;
+uniform vec3 uLit;
 varying vec4 vCol;
 varying vec2 vStreak;
 void main() {
@@ -40,20 +52,29 @@ void main() {
 		vec3 s1 = cross( dir, s0 );
 		float t = fract( seed.y + uTime * 0.006 * ( 0.5 + seed.x ) );
 		float ang = seed.z * 6.2831853 + uTime * 0.12 * ( seed.x - 0.5 );
-		float rad = 0.5 * sqrt( fract( seed.z * 7.31 + seed.x ) );
+		// exterior look, pass i5 (the visual reviewer: under the overhang High's dust is "a tight cluster of hard white dots
+		// against the gully wall"): out of doors (uGround.w, the overhang's two shafts) a mote is DUST, not a spark. It rides
+		// a wider shaft, is twice the size and soft-edged, takes the sand's warm hue under the mood's light at a third of
+		// the level, and is gone by OUT_FAR metres (further off a mote is a pixel and a cluster of them is a rash)
+		float outd = step( 0.5, uGround.w );
+		float rad = mix( 0.5, ${OUT_SPREAD.toFixed(2)}, outd ) * sqrt( fract( seed.z * 7.31 + seed.x ) );
 		p = a.xyz + ab * t + ( s0 * cos( ang ) + s1 * sin( ang ) ) * rad + 0.04 * sin( seed.yzx * 6.2831853 + uTime * 0.35 );
 		alpha = a.w * 0.55 * smoothstep( 0.0, 0.08, t ) * ( 1.0 - smoothstep( 0.85, 1.0, t ) );
-		sizeM = 0.010 + 0.012 * seed.x;
-		vCol = vec4( 1.0, 0.85, 0.66, alpha );
+		sizeM = ( 0.010 + 0.012 * seed.x ) * mix( 1.0, ${OUT_SIZE.toFixed(2)}, outd );
+		vCol = vec4( mix( vec3( 1.0, 0.85, 0.66 ), vec3( 0.86, 0.62, 0.40 ) * mix( vec3( 1.0 ), uLit / max( max( uLit.r, uLit.g ), max( uLit.b, 1e-3 ) ), 0.5 ), outd ), alpha * mix( 1.0, ${OUT_ALPHA.toFixed(2)}, outd ) );
+		vStreak = vec2( 0.0, outd );
 	} else if ( uMode > 1.5 ) {
 		// the station's air: a mote hangs, sinks a hand a minute and wanders a hand's width; it glints as it turns
 		vec3 abox = vec3( 16.0, 5.0, 16.0 );
-		vec3 aw = seed * abox + vec3( 0.04, -0.012, 0.03 ) * uTime * ( 0.5 + seed.y ) + 0.12 * sin( seed.zxy * 40.0 + uTime * 0.21 );
+		// exterior look, pass i6 (R16, the rim): out under the blue hour (uGround.z) the same motes are the ledge's dust on
+		// the evening wind: they drift (DUSK_DRIFT m/s), are DUSK_SIZE the size and take the afterglow's colour
+		float dusk = step( 0.5, uGround.z );
+		vec3 aw = seed * abox + ( vec3( 0.04, -0.012, 0.03 ) + dusk * vec3( ${DUSK_DRIFT.toFixed(2)}, 0.02, ${(DUSK_DRIFT * 0.45).toFixed(3)} ) ) * uTime * ( 0.5 + seed.y ) + 0.12 * sin( seed.zxy * 40.0 + uTime * 0.21 );
 		p = mod( aw - cameraPosition + abox * 0.5, abox ) - abox * 0.5 + cameraPosition;
 		float atw = 0.5 + 0.5 * sin( uTime * ( 0.5 + seed.z ) + seed.x * 63.0 );
 		alpha = uGround.y * ( 0.12 + 0.88 * atw * atw * atw );
-		sizeM = 0.012 + 0.016 * seed.x;
-		vCol = vec4( 0.70, 1.0, 0.94, alpha );
+		sizeM = ( 0.012 + 0.016 * seed.x ) * mix( 1.0, ${DUSK_SIZE.toFixed(2)}, dusk );
+		vCol = vec4( mix( vec3( 0.70, 1.0, 0.94 ), vec3( ${DUSK_COL.map((v) => v.toFixed(2)).join(', ')} ), dusk ), alpha );
 	} else {
 		vec3 box = vec3( 26.0, 1.0, 26.0 );
 		vec3 w = seed * box + uWind * uTime * ( 0.7 + 0.6 * seed.y );
@@ -69,10 +90,12 @@ void main() {
 			p.xz = mod( w2.xz - cameraPosition.xz + box.xz * 0.5, box.xz ) - box.xz * 0.5 + cameraPosition.xz;
 			p.y = uGround.x + 0.35 + fract( seed.y * 7.0 + seed.x ) * 3.2 + 0.12 * sin( uTime * 0.5 + seed.x * 40.0 );
 			float tw = 0.5 + 0.5 * sin( uTime * ( 0.9 + seed.z ) + seed.x * 63.0 );
-			alpha = uGround.y * uGround.z * ( 0.25 + 0.75 * tw * tw * tw );
+			alpha = uGround.y * uGround.z * ${DUST_ALPHA.toFixed(2)} * ( 0.25 + 0.75 * tw * tw * tw );
 			sizeM = 0.03 + 0.03 * seed.x;
-			vCol = vec4( 1.0, 0.80, 0.52, alpha );
-			vStreak = vec2( 0.0 );
+			// pass i4 (visual reviewer: "daylight dust motes read as white specks against the sky"): the dust takes the hue of
+			// the mood's own light (its level stays the dust's), not a fixed gold that adds up to white over a bright sky
+			vCol = vec4( mix( vec3( 1.0, 0.80, 0.52 ), uLit / max( max( uLit.r, uLit.g ), max( uLit.b, 1e-3 ) ), ${DUST_TINT.toFixed(2)} ), alpha );
+			vStreak = vec2( -1.0, 0.0 );
 		}
 	}
 	vec4 mv = viewMatrix * vec4( p, 1.0 );
@@ -80,8 +103,8 @@ void main() {
 	gl_Position = projectionMatrix * mv;
 	float px = sizeM * uViewport.y * projectionMatrix[ 1 ][ 1 ] * 0.5 / dist;
 	if ( uMode < 0.5 ) {
-		vCol.a *= smoothstep( 0.3, 1.2, dist ) * clamp( px, 0.3, 1.0 );
-		gl_PointSize = clamp( px, 1.5, 6.0 );
+		vCol.a *= smoothstep( 0.3, 1.2, dist ) * clamp( px, 0.3, 1.0 ) * ( 1.0 - vStreak.y * smoothstep( ${OUT_FAR[0].toFixed(1)}, ${OUT_FAR[1].toFixed(1)}, dist ) );
+		gl_PointSize = clamp( px, 1.5 + 1.5 * vStreak.y, 6.0 + 4.0 * vStreak.y );
 	} else {
 		// a streak along the wind as it appears on screen
 		if ( vStreak.x > 0.5 ) {
@@ -90,6 +113,15 @@ void main() {
 			vStreak = length( d ) > 1e-3 ? normalize( d ) : vec2( 1.0, 0.0 );
 			vCol.a *= smoothstep( 0.6, 2.0, dist ) * ( 1.0 - smoothstep( 9.0, 13.0, dist ) );
 			gl_PointSize = clamp( px, 2.0, 40.0 );
+		} else if ( vStreak.x < - 0.5 ) {
+			// the daylight dust is NEAR dust: gone by DUST_FAR metres (further off a mote is a two-pixel dot, a stuck pixel), and
+			// a mote that is seen ABOVE the horizon from more than arm's length has the sky or a sunlit skyline behind it:
+			// it fades with its elevation (the points cannot read what is behind them; near the eye a mote is a soft disc)
+			vStreak = vec2( 0.0 );
+			float elev = ( p.y - cameraPosition.y ) / dist;
+			vCol.a *= smoothstep( 0.8, 2.5, dist ) * ( 1.0 - smoothstep( ${DUST_FAR[0].toFixed(1)}, ${DUST_FAR[1].toFixed(1)}, dist ) ) * clamp( px, 0.4, 1.0 )
+				* ( 1.0 - smoothstep( ${DUST_SKY[0].toFixed(2)}, ${DUST_SKY[1].toFixed(2)}, elev ) * smoothstep( ${DUST_SKY_FROM[0].toFixed(1)}, ${DUST_SKY_FROM[1].toFixed(1)}, dist ) );
+			gl_PointSize = clamp( px, 2.0, 6.0 );
 		} else {
 			vCol.a *= smoothstep( 0.8, 2.5, dist ) * ( 1.0 - smoothstep( 9.0, 13.0, dist ) ) * clamp( px, 0.4, 1.0 );
 			gl_PointSize = clamp( px, 2.0, 6.0 );
@@ -109,6 +141,7 @@ void main() {
 	vec3 c = vCol.rgb;
 	if ( uMode < 0.5 ) {
 		a = max( 1.0 - dot( p, p ), 0.0 );
+		a = mix( a, a * a, vStreak.y );                       // out of doors: a soft disc
 		gl_FragColor = vec4( c * a * vCol.a, 0.0 );
 	} else {
 		if ( dot( vStreak, vStreak ) < 0.25 ) {
@@ -133,7 +166,7 @@ export class AmbientPoints {
   /** per blade: x, y, z of its end */
   readonly bladeB = new Float32Array(MAX_BLADES * 3);
   private readonly mode: Uniform<number> = { value: 0 };
-  /** x: ground height under the player, y: strength, z: 1 = half the sand cloud is dust in the light (High) */
+  /** x: ground height under the player, y: strength, z: 1 = half the sand cloud is dust in the light (High), w: 1 = the blades' motes are out of doors (the overhang's shafts) */
   readonly ground: Uniform<THREE.Vector4> = { value: new THREE.Vector4(0, 1, 0, 0) };
   readonly viewport: Uniform<THREE.Vector2> = { value: new THREE.Vector2(960, 540) };
   readonly lit: Uniform<THREE.Color> = { value: new THREE.Color(1, 1, 1) };

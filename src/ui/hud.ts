@@ -13,7 +13,32 @@ export const RING_TURN_DELAY = 0.12;
 export const RING_TURN_SECONDS = 0.18;
 export const RING_KICK_SECONDS = 0.14;
 export const SHIVER_SECONDS = 0.3;
-export const ARC_SECONDS = 0.6;
+/**
+ * Pass i4 (ruling R20; the combat reviewer, major: "being hit is barely shown"). A hit drew a 20 px arc beside the
+ * crosshair for 0.6 s on the wall clock and an outline on one health bar. Now, still with no full-screen flash and no
+ * red: the arc is drawn at ARC_RADIUS with a heavy stroke and is wider the harder the hit (ARC_SPANS), stands
+ * ARC_SECONDS and fades over the last ARC_FADE_SECONDS; and the SIDE OF THE FRAME the hit came from is inked in for
+ * EDGE_SECONDS. Pass i5 (visual reviewer b: the pale bar that stood on that side "read like a progress bar"): the side
+ * is a soft FLARE of warm red-violet over an ink bruise, feathered inward, with no edge anywhere in it (ui.css `.hurt`;
+ * the ink shows on the glare, the red-violet in the dark rooms). It is whole for 0.35 s and fades over EDGE_FADE_SECONDS. A hit from a quarter lights the two sides it lies between; one with no direction (a fall, the world)
+ * lights all four. Its strength is the damage's (HURT_LIGHT .. HURT_HEAVY -> HURT_MIN .. 1). Every opacity is counted in
+ * fixed ticks in HURT_STEPS steps and written when it changes (a stepped capture shows what a player sees; a paused game
+ * holds it). Reduce flashes: the side comes up over EDGE_SOFT_SECONDS instead of at once, at EDGE_SOFT_LEVEL.
+ */
+export const ARC_SECONDS = 1;
+export const ARC_FADE_SECONDS = 0.4;
+export const ARC_RADIUS = 78;
+export const ARC_SPANS: readonly number[] = [58, 74, 92];
+export const EDGE_SECONDS = 0.9;
+export const EDGE_FADE_SECONDS = 0.55;
+export const EDGE_SOFT_SECONDS = 0.2;
+export const EDGE_SOFT_LEVEL = 0.6;
+export const HURT_STEPS = 10;
+export const HURT_LIGHT = 8, HURT_HEAVY = 30, HURT_MIN = 0.55;
+/** a side takes part when the hit lies within this of it (cosine): a hit from dead ahead lights the top alone */
+export const EDGE_SHARE = 0.38;
+/** the four sides in the order of `.hurt`'s children: ahead is the top of the frame, behind is the bottom */
+export const EDGES: readonly string[] = ['t', 'r', 'b', 'l'];
 export const SEGMENT_FLASH_SECONDS = 0.4;
 export const CHECKPOINT_SECONDS = 2;
 export const CARD_FADE_OUT = 0.8;
@@ -34,6 +59,16 @@ export const CARD_STEPS = 20;
 export const CARD_MIN_SECONDS = 1;
 export const CARD_FADE_QUICK = 0.3;
 export const CARD_THREAT_SECONDS = 6;
+/**
+ * Pass i4 (combat reviewer): "V  THE WEIGHT" stood in the middle of the view (95 ticks) after "Go on" at the lift hall's
+ * gantry, over the Tamper's entrance: the world shows a movement's card again when a run is taken up at the checkpoint
+ * that opens it, and the Tamper's scene is a vignette, which raises none of the threats above. A card now STANDS ASIDE
+ * whenever something on stage wants the middle of the frame: a vignette is playing (the Tamper's entrance, the sighting
+ * of the pursued man, the bell), an enemy is awake (`enemies.threat`), or a fight is on. Aside, it is one row in the
+ * checkpoint numeral's place, top left ("V · 1  THE WEIGHT"), for the card's own time; the work at hand does not wait
+ * for it. It is looked at when the card arrives and on every fixed tick while it is up; once aside it stays aside.
+ */
+export const CARD_ASIDE = true;
 /** GDD 17 "Captions": a caption holds 2 s and the same key is not shown again within 4 s */
 export const CAPTION_REPEAT_SECONDS = 4;
 /**
@@ -107,6 +142,12 @@ export const OBJECTIVE_STANDS: Readonly<Record<StoryKey, string>> = { obj_rim_ch
 export const LINE_LABEL_SECONDS = 6;
 export const LINE_HINT: StoryKey = 'ui_hint_line';
 /**
+ * Pass i4 (story reviewer b): outside those six seconds the dot was a dot ("• 24" at the bore door and in the boss
+ * room, where the line round matters most). The name now stands under the dot for as long as a line round is held; the
+ * pause screen's legend says what it is and which key seats it (system.ts, `ui_legend_line`).
+ */
+export const LINE_LABEL_ALWAYS = true;
+/**
  * Pass i2 (story reviewer): close to the asking's dial the subtitle box lay on numeral 5 and the port under it. While
  * she is inside the puzzle's volume and it is unsolved, the talk column drops to the frame's bottom margin and the
  * box's backing thins (ui.css `.k7.dial`): the numerals and the ports read through and above it.
@@ -131,6 +172,11 @@ const SEGMENT_TOP: readonly number[] = [34, 67, 100];
 const FILL_STEPS = 23;
 const ARC_POOL = 3;
 const ARC_DIRECTIONS = 32;
+const HURT_OPACITY: readonly string[] = Array.from({ length: HURT_STEPS + 1 }, (_, i) => (i / HURT_STEPS).toFixed(2));
+const ARC_PATHS: readonly string[] = ARC_SPANS.map((span) => arcPath(ARC_RADIUS, span));
+const EDGE_CLASS: readonly (readonly [string, string])[] = EDGES.map((e) => [e, e + ' on'] as const);
+/** the sides a hit lit, by bit mask (bit k = EDGES[k]): '', 't', 'r', 'tr' ... 'trbl' (built once: a hit allocates nothing) */
+const SIDES: readonly string[] = Array.from({ length: 16 }, (_, mask) => EDGES.filter((_e, k) => (mask & (1 << k)) !== 0).join(''));
 const SEG_CLASS: readonly string[] = ['seg', 'seg regen'];
 const FLASH: readonly string[] = ['', 'fa', 'fb'];
 
@@ -158,6 +204,15 @@ export class Hud {
   private readonly arcLeft = new Float32Array(ARC_POOL);
   private arcNext = 0;
   private readonly arcTransform: string[] = [];
+  private readonly arcStep = new Int8Array(ARC_POOL);
+  // ---- the side of the frame a hit came from (pass i4): seconds left, strength and drawn step of each of the four
+  private readonly edges: HTMLElement[] = [];
+  private readonly edgeLeft = new Float32Array(4);
+  private readonly edgeLevel = new Float32Array(4);
+  private readonly edgeStep = new Int8Array(4);
+  /** what tests read: the strength of the last hit (0 .. 1) and the sides it lit, as 't', 'tr', 'trbl' ... */
+  hurtLevel = 0;
+  hurtSides = '';
   private markerPhase = 0;
   private kickLeft = 0;
   private shiverLeft = 0;
@@ -218,6 +273,15 @@ export class Hud {
   /** the seventh is out of its slot (chambered) or spent: nothing is left to break */
   private keptAway = false;
   private readonly checkpointBox: HTMLDivElement;
+  private readonly checkpointNumeral: HTMLSpanElement;
+  private readonly checkpointTitle: HTMLSpanElement;
+  /**
+   * Pass i4 (combat reviewer): the card that is up stands ASIDE: its words are in the checkpoint numeral's row, top
+   * left, and nothing is drawn in the middle of the frame (CARD_ASIDE).
+   */
+  cardAside = false;
+  /** vignettes started and not ended (ids are layout strings) */
+  private readonly vignettes = new Set<string>();
   private checkpointLeft = 0;
   private readonly cardBox: HTMLDivElement;
   private readonly cardNumeral: HTMLDivElement;
@@ -283,7 +347,7 @@ export class Hud {
     this.gauges = el('div', 'hud', root);
     const cross = svg('svg', { viewBox: '-100 -100 200 200', 'aria-hidden': 'true' }, this.gauges, 'xh');
     this.cross = cross;
-    for (let i = 0; i < ARC_POOL; i++) this.arcs.push(inked('path', { d: arcPath(46, 50) }, cross, 'arc'));
+    for (let i = 0; i < ARC_POOL; i++) this.arcs.push(inked('path', { d: ARC_PATHS[0] as string }, cross, 'arc'));
     const x = svg('g', {}, cross, 'x');
     for (const [x1, y1, x2, y2] of [[0, -4, 0, -9], [4, 0, 9, 0], [0, 4, 0, 9], [-4, 0, -9, 0]] as const) inked('line', { x1, y1, x2, y2 }, x, 'tick');
     inked('line', { x1: 0, y1: -4, x2: 0, y2: -12 }, x, 'plumb');
@@ -322,10 +386,15 @@ export class Hud {
     // alone was invisible where the frame's edges are already dark (the Tally House, the bore)
     this.lowFrame = el('div', 'lowf', this.gauges);
     for (const corner of ['tl', 'tr', 'bl', 'br']) el('i', corner, this.lowFrame);
+    // pass i4: the side a hit came from (ui.css `.hurt`)
+    const hurt = el('div', 'hurt', this.gauges);
+    for (const edge of EDGES) this.edges.push(el('i', edge, hurt));
 
     // ---------------------------------------------------------------- text
     this.texts = el('div', 'txt', root);
     this.checkpointBox = el('div', 'cp', this.texts);
+    this.checkpointNumeral = el('span', 'cp-n', this.checkpointBox);
+    this.checkpointTitle = el('span', 'cp-t', this.checkpointBox);
     this.objBox = el('div', 'obj', this.texts);
     setText(el('div', 'obj-label', this.objBox), ui('ui_pause_objective'));
     this.objText = el('div', 'obj-line', this.objBox);
@@ -389,6 +458,7 @@ export class Hud {
     this.quiet = HINT_QUIET_SECONDS;
     this.threatAt = -1;
     this.liveEncounters.clear();
+    this.vignettes.clear();
     this.fight = false;
     this.keptSettle = false;
     this.keptLoading = false;
@@ -396,6 +466,8 @@ export class Hud {
     this.applyGauges();
     this.clearMarker();
     for (let i = 0; i < ARC_POOL; i++) if ((this.arcLeft[i] as number) > 0) this.arcOff(i);
+    for (let i = 0; i < 4; i++) this.edgeOff(i);
+    this.hurtLevel = 0; this.hurtSides = '';
     this.arcDeg = -1;
     for (let i = 0; i < 3; i++) { this.segRegen[i] = 0; this.flashOff(i); }
     this.bossLitEvent = -1;
@@ -499,14 +571,36 @@ export class Hud {
     let step = 0;
     if (ahead !== 0 || right !== 0) step = Math.round((Math.atan2(right, ahead) / (2 * Math.PI)) * ARC_DIRECTIONS);
     step = ((step % ARC_DIRECTIONS) + ARC_DIRECTIONS) % ARC_DIRECTIONS;
+    // how hard: the arc's width and the side's strength
+    let level = HURT_MIN + ((e.amount - HURT_LIGHT) / (HURT_HEAVY - HURT_LIGHT)) * (1 - HURT_MIN);
+    if (!(level > HURT_MIN)) level = HURT_MIN; else if (level > 1) level = 1;
+    const span = level >= 0.85 ? 2 : level >= 0.68 ? 1 : 0;
     const i = this.arcNext;
     this.arcNext = (i + 1) % ARC_POOL;
     const arc = this.arcs[i] as SVGElement, under = arc.previousElementSibling as SVGElement;
-    const t = this.arcTransform[step] as string;
+    const t = this.arcTransform[step] as string, d = ARC_PATHS[span] as string;
     arc.style.transform = t; under.style.transform = t;
+    arc.setAttribute('d', d); under.setAttribute('d', d);
     arc.setAttribute('class', 'arc on'); under.setAttribute('class', 'ink arc on');
     this.arcLeft[i] = ARC_SECONDS;
+    this.arcStep[i] = -1;
+    this.drawArc(i);
     this.arcDeg = (step * 360) / ARC_DIRECTIONS;
+    // the side of the frame it came from: top = ahead, right, bottom = behind, left
+    const none = ahead === 0 && right === 0;
+    const a = (step * 2 * Math.PI) / ARC_DIRECTIONS, c = Math.cos(a), sn = Math.sin(a);
+    let sides = 0;
+    for (let k = 0; k < 4; k++) {
+      const w = none ? 1 : k === 0 ? c : k === 1 ? sn : k === 2 ? -c : -sn;
+      if (w < EDGE_SHARE) continue;
+      sides |= 1 << k;
+      // a second hit on a side that is still up never weakens it
+      const now = this.edgeShown(k);
+      this.edgeLevel[k] = level > now ? level : now;
+      this.edgeLeft[k] = EDGE_SECONDS;
+      this.drawEdge(k);
+    }
+    this.hurtLevel = level; this.hurtSides = SIDES[sides] as string;
     // the segment her health is now in flashes its outline (never the screen)
     const hp = (e.health / (p.maxHealth || 100)) * 100;
     const seg = hp > (SEGMENT_TOP[1] as number) ? 2 : hp > (SEGMENT_TOP[0] as number) ? 1 : 0;
@@ -527,7 +621,53 @@ export class Hud {
     this.arcLeft[i] = 0;
     const arc = this.arcs[i] as SVGElement;
     arc.setAttribute('class', 'arc');
-    (arc.previousElementSibling as SVGElement).setAttribute('class', 'ink arc');
+    const under = arc.previousElementSibling as SVGElement;
+    under.setAttribute('class', 'ink arc');
+    arc.style.opacity = ''; under.style.opacity = '';
+    this.arcStep[i] = 0;
+  }
+  /** an arc's opacity from its own clock: whole, then down over the last ARC_FADE_SECONDS */
+  private drawArc(i: number): void {
+    const left = this.arcLeft[i] as number;
+    let o = left / ARC_FADE_SECONDS;
+    if (o > 1) o = 1;
+    let q = Math.ceil(o * HURT_STEPS - 1e-6);
+    if (q < 1) q = 1;                                   // an arc that is up is never invisible
+    if (q === this.arcStep[i]) return;
+    this.arcStep[i] = q;
+    const arc = this.arcs[i] as SVGElement, text = HURT_OPACITY[q] as string;
+    arc.style.opacity = text;
+    (arc.previousElementSibling as SVGElement).style.opacity = text;
+  }
+  /** a side's strength right now (0 .. 1): its level, down over the last EDGE_FADE_SECONDS; softly up under reduce flashes */
+  private edgeShown(k: number): number {
+    const left = this.edgeLeft[k] as number;
+    if (left <= 0) return 0;
+    let o = this.edgeLevel[k] as number;
+    if (left < EDGE_FADE_SECONDS) o *= left / EDGE_FADE_SECONDS;
+    if (this.ctx.options.value.reduceFlashes) {
+      o *= EDGE_SOFT_LEVEL;
+      const up = (EDGE_SECONDS - left + FIXED_DT) / EDGE_SOFT_SECONDS;
+      if (up < 1) o *= up;
+    }
+    return o;
+  }
+  private drawEdge(k: number): void {
+    let q = Math.ceil(this.edgeShown(k) * HURT_STEPS - 1e-6);
+    if (q < 1) q = 1;
+    if (q === this.edgeStep[k]) return;
+    const edge = this.edges[k] as HTMLElement;
+    if (this.edgeStep[k] === 0) edge.className = (EDGE_CLASS[k] as readonly [string, string])[1];
+    this.edgeStep[k] = q;
+    edge.style.opacity = HURT_OPACITY[q] as string;
+  }
+  private edgeOff(k: number): void {
+    this.edgeLeft[k] = 0; this.edgeLevel[k] = 0;
+    if (this.edgeStep[k] === 0) return;
+    this.edgeStep[k] = 0;
+    const edge = this.edges[k] as HTMLElement;
+    edge.className = (EDGE_CLASS[k] as readonly [string, string])[0];
+    edge.style.opacity = '0';
   }
   onSegment(e: Readonly<GameEvents['player/health_segment']>): void { this.segRegen[e.segment] = e.regenerating ? 1 : 0; }
 
@@ -600,6 +740,9 @@ export class Hud {
     this.cardHold = Math.max(0, seconds - CARD_FADE_OUT);
     this.cardFade = CARD_FADE_OUT;
     this.cardAge = 0;
+    this.cardRoman = parts.numeral; this.cardName = parts.title;
+    this.setCardAside(this.wantsAside());
+    if (this.cardAside) this.drawCheckpoint();
     this.drawCard();
     // a fight is already on (she came back into it): the card is brief from the start
     if (this.threatAt >= 0 && this.ticks - this.threatAt < Math.round(CARD_THREAT_SECONDS / FIXED_DT)) this.cutCard();
@@ -608,7 +751,34 @@ export class Hud {
     if (this.card === '') return;
     this.card = ''; this.cardLeft = 0; this.cardHold = 0; this.cardAge = 0;
     flag(this.cardBox, 'on', false);
+    this.setCardAside(false);
     this.drawCard();
+  }
+  /** the card that is up, in its two parts ("V", "The Weight"; a card without a numeral is its name alone) */
+  private cardRoman = '';
+  private cardName = '';
+  /** something on stage wants the middle of the frame (CARD_ASIDE) */
+  private wantsAside(): boolean {
+    return CARD_ASIDE && (this.vignettes.size > 0 || this.liveEncounters.size > 0 || this.ctx.enemies.threat > 0 || BOSS_FIGHTING[this.ctx.enemies.boss.phase] === true);
+  }
+  private setCardAside(on: boolean): void {
+    if (on === this.cardAside) return;
+    this.cardAside = on;
+    flag(this.cardBox, 'aside', on);
+    this.drawCheckpoint();
+    if (on && this.objPending) this.showObjective();     // the work at hand does not wait for a card that is aside
+  }
+  /** the checkpoint row: the numeral ("V · 1") while it is up, and the card's name beside it while a card stands aside */
+  private drawCheckpoint(): void {
+    const aside = this.cardAside && this.card !== '';
+    setText(this.checkpointNumeral, this.checkpoint !== '' ? this.checkpoint : aside ? this.cardRoman : '');
+    setText(this.checkpointTitle, aside ? this.cardName : '');
+    flag(this.checkpointBox, 'on', this.checkpoint !== '' || aside);
+  }
+  /** `vignette/state`: a staged scene has the middle of the frame while it plays */
+  onVignette(e: Readonly<GameEvents['vignette/state']>): void {
+    if (e.stage === 'started') { this.vignettes.add(e.id); if (this.card !== '' && this.cardLeft > 0) this.setCardAside(true); }
+    else this.vignettes.delete(e.id);
   }
   /**
    * The card's opacity from its own clock: up in CARD_FADE_IN, down over the last `cardFade` seconds, never a jump when
@@ -650,14 +820,13 @@ export class Hud {
   onCheckpoint(e: Readonly<GameEvents['checkpoint/saved']>): void {
     const text = format(this.ctx.data.ui('ui_checkpoint'), this.ctx.options.value.bindings, { movement: roman(e.movement), n: String(e.section) });
     this.checkpoint = text;
-    setText(this.checkpointBox, text);
-    flag(this.checkpointBox, 'on', true);
+    this.drawCheckpoint();
     this.checkpointLeft = CHECKPOINT_SECONDS;
   }
   private endCheckpoint(): void {
     if (this.checkpoint === '') return;
     this.checkpoint = ''; this.checkpointLeft = 0;
-    flag(this.checkpointBox, 'on', false);
+    this.drawCheckpoint();
   }
 
   // =============================================================== the objective in play
@@ -673,7 +842,7 @@ export class Hud {
     this.showObjective();
   }
   private showObjective(): void {
-    if (!this.objPending || this.card !== '') return;
+    if (!this.objPending || (this.card !== '' && !this.cardAside)) return;
     this.objPending = false;
     this.objOn = true;
     this.objLeft = OBJECTIVE_SECONDS;
@@ -813,7 +982,13 @@ export class Hud {
     for (let i = 0; i < ARC_POOL; i++) {
       const left = arcLeft[i] as number;
       if (left <= 0) continue;
-      if ((arcLeft[i] = left - dt) <= 1e-6) this.arcOff(i);
+      if ((arcLeft[i] = left - dt) <= 1e-6) this.arcOff(i); else this.drawArc(i);
+    }
+    const edgeLeft = this.edgeLeft;
+    for (let k = 0; k < 4; k++) {
+      const left = edgeLeft[k] as number;
+      if (left <= 0) continue;
+      if ((edgeLeft[k] = left - dt) <= 1e-6) this.edgeOff(k); else this.drawEdge(k);
     }
     const flashLeft = this.segFlashLeft;
     for (let i = 0; i < 3; i++) {
@@ -838,7 +1013,7 @@ export class Hud {
       this.lineRoundsSeen = lines;
     }
     if (this.lineLabelLeft > 0 && (this.lineLabelLeft -= dt) <= 1e-6) this.lineLabelLeft = 0;
-    this.lineLabelWant = lines > 0 && (this.lineLabelLeft > 0 || (this.hintOn && this.hintKey === LINE_HINT));
+    this.lineLabelWant = lines > 0 && (LINE_LABEL_ALWAYS || this.lineLabelLeft > 0 || (this.hintOn && this.hintKey === LINE_HINT));
     // ---- at the asking's dial the talk column stands low and thin
     const dv = this.dialVolume;
     if (dv !== null) {
@@ -847,7 +1022,7 @@ export class Hud {
       this.setDial(inside);
       if (this.askQuestion > 0 || this.askShown > 0) this.drawQuestion();
       // the question stands with the work at hand while she is at the door (and comes back when she comes back)
-      if (inside && this.askShown > 0 && this.objKey !== '' && this.card === '') {
+      if (inside && this.askShown > 0 && this.objKey !== '' && (this.card === '' || this.cardAside)) {
         if (!this.objOn) { this.objPending = true; this.showObjective(); }
         this.objLeft = OBJECTIVE_SECONDS;
       }
@@ -855,7 +1030,11 @@ export class Hud {
     if (this.cardLeft > 0) {
       this.cardLeft -= dt; this.cardHold -= dt; this.cardAge += dt;
       if (this.cardLeft <= 1e-6) this.endCard();
-      else { if (this.cardHold <= 1e-6) flag(this.cardBox, 'on', false); this.drawCard(); }
+      else {
+        if (this.cardHold <= 1e-6) flag(this.cardBox, 'on', false);
+        if (!this.cardAside && this.wantsAside()) this.setCardAside(true);
+        this.drawCard();
+      }
     }
   }
 

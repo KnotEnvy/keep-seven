@@ -13,7 +13,7 @@ under the barrel, hip and ankle drums, the shoulder housing) so nothing opens up
 ram is a piston that slides out of the casing (bone `arm_r_ram` translates along the arm), the legs telescope (the
 foot slides on the thigh's post).
 """
-import math
+import math, random
 import bpy, bmesh
 import numpy as np
 from mathutils import Vector, Matrix, Quaternion
@@ -298,7 +298,7 @@ def casing_k(z):
     return min(0.95, 0.18 + 0.80 * min(1.0, max(0.0, (0.10 - z) / 1.10)) ** 0.7)
 
 
-def streak(name, top, down, across, normal, length=0.3, width=0.06, strength=1.0, under=None):
+def streak(name, top, down, across, normal, length=0.3, width=0.06, strength=1.0, under=None, shade=1.0):
     """A stain under a fastener, sill or seam end (ART_BIBLE 4.5): a tapering strip 2 mm off the enamel, palette
     `enamel`, its head multiplied toward enamel_stain and fading to nothing at its foot. 4 triangles."""
     top = Vector(top); d = Vector(down).normalized(); a = Vector(across).normalized(); n = Vector(normal).normalized()
@@ -320,9 +320,97 @@ def streak(name, top, down, across, normal, length=0.3, width=0.06, strength=1.0
         t = (co - top - n * 0.003).dot(d) / length
         k = strength * max(0.0, 1.0 - t) ** 0.8
         base = stain_mul(under(co)) if under else (1.0, 1.0, 1.0)     # the surface it lies on is itself stained
-        col[li, :3] = [b * m for b, m in zip(base, stain_mul(k))]
+        col[li, :3] = [b * m * shade for b, m in zip(base, stain_mul(k))]      # shade: the AO of the wall it lies on (a streak takes none)
     vcol.set_colors(ob, col, "Mul")
     ob["flat_ao"] = True
+    return ob
+
+
+# ---------------------------------------------------------------------------------------------------- close-range surface
+# Look team creatures-props, pass i4 (the playthrough reviewer: "the fight is played inside its slam range ... at that
+# distance it reads as a large smooth dome and flat plates with no surface detail"). The fighting unit's drum is seen
+# from one to two metres, where a 13 x 17 cm lathe cell is 80 px across. Sized for that distance, and on the fighting
+# unit only (the cold unit is the clean casting it always was, and its zone is not rebuilt):
+#   rows     five more edge loops round the wall: the stain is painted per vertex and had nothing finer to live on;
+#   a seam   the wall is two courses of plate: a 12 mm joint let INTO the wall's own faces at SEAM_Z (two loops, the
+#            strip between them dark), the upper course a shade off the lower, a row of rivets along both sides of it;
+#   rivets   along both lips of the band and round the shoulder of the crown;
+#   grime    blotches the size of a hand over the film, a tide line of dust on the band's upper lip, a dark skirt
+#            under the seam; chips where the enamel has gone to the steel at the band's lower lip and the foot.
+SEAM_Z = (0.669, 0.681)
+ROWS_I4 = (0.10, 0.405, 0.545, 0.805)
+
+
+def _vn(x, y, z):
+    """Smooth value noise 0..1 (a lattice hash, trilinear)."""
+    def h(i, j, k):
+        t = math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453
+        return t - math.floor(t)
+    ix, iy, iz = math.floor(x), math.floor(y), math.floor(z)
+    fx, fy, fz = x - ix, y - iy, z - iz
+    fx, fy, fz = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy), fz * fz * (3 - 2 * fz)
+    out = 0.0
+    for dx in (0, 1):
+        for dy in (0, 1):
+            for dz in (0, 1):
+                out += (fx if dx else 1 - fx) * (fy if dy else 1 - fy) * (fz if dz else 1 - fz) * h(ix + dx, iy + dy, iz + dz)
+    return out
+
+
+def grime_k(x, y, z):
+    """Barrel-local: what the film alone does not say at arm's length (0..1 toward STAIN): hand-sized blotches, the
+    dust that lies on the band's upper lip, the weep under the plate seam, the splash at the foot."""
+    b = min(1.0, max(0.0, _vn(x * 5.5 + 3.1, y * 5.5 - 1.7, z * 6.0) - 0.40) / 0.22)        # patches with an edge, not a haze
+    k = 0.62 * b
+    k = max(k, 0.36 * min(1.0, max(0.0, _vn(x * 13.0, y * 13.0, z * 17.0 + 5.0) - 0.52) / 0.2))   # a finer speckle
+    if 0.33 <= z <= 0.43: k = max(k, 0.55 * (1.0 - (z - 0.33) / 0.10) ** 1.5)                  # the band's upper lip holds dust
+    if SEAM_Z[0] - 0.14 <= z <= SEAM_Z[0]: k = max(k, 0.42 * (1.0 - (SEAM_Z[0] - z) / 0.14) ** 1.2 * (0.4 + 0.6 * _vn(x * 9.0, y * 9.0, 0.5)))   # the seam weeps
+    if z < 0.12: k = max(k, 0.5 * (1.0 - max(0.0, z) / 0.12))
+    return min(1.0, k)
+
+
+def scuff_k(x, y, z):
+    """Barrel-local: where the film has been rubbed off again (0..1 of it GONE): long slanting scrapes at the height
+    the drum meets door frames and pillars, and a worn patch under each hatch's sill. The pale of the enamel itself is
+    the only light value the wall has: without it the grime is dark on dark."""
+    if z < 0.36 or z > 1.02: return 0.0
+    a = math.atan2(y, x) * 0.65
+    s = _vn(a * 9.0 + z * 14.0, a * 2.0 - z * 3.0, 4.2)                # stretched along a slant
+    k = min(1.0, max(0.0, s - 0.60) / 0.12)
+    return k * min(1.0, (z - 0.36) / 0.05)
+
+
+def wall_stain(x, y, z):
+    """Barrel-local: the fighting drum's whole stain at a point: film x washes x runs x grime, less the scuffs."""
+    return (1.0 - (1.0 - drum_k(x, y, z)) * (1.0 - grime_k(x, y, z))) * (1.0 - 0.85 * scuff_k(x, y, z))
+
+
+def rivets(name, sites, r=0.013, h=0.007, colour="steel"):
+    """Round-head rivets at this distance are three facets: a low three-sided point on each (position, normal)."""
+    bm = mesh.new_bmesh()
+    for q, (at, normal) in enumerate(sites):
+        n = Vector(normal).normalized(); t = n.orthogonal().normalized(); b = n.cross(t)
+        base = [bm.verts.new(Vector(at) + (t * math.cos(a) + b * math.sin(a)) * r) for a in (0.6 + q, 0.6 + q + 2.0944, 0.6 + q + 4.1888)]
+        apex = bm.verts.new(Vector(at) + n * h)
+        for i in range(3):
+            f = bm.faces.new((base[i], base[(i + 1) % 3], apex)); f.normal_update()
+            if f.normal.dot(n) < 0: f.normal_flip()
+    ob = mesh.new_mesh_object(name, bm)
+    mesh.finish(ob, bevel=0.0, smooth_angle=20, weighted=False)
+    return paint(ob, colour)
+
+
+def chip(name, at, normal, down, w, hgt, seed, under=None):
+    """Enamel gone to the steel: a ragged four-cornered flake 2 mm off the wall."""
+    n = Vector(normal).normalized(); d = Vector(down).normalized(); a = n.cross(d).normalized()
+    rr = random.Random(seed)
+    c = Vector(at) + n * 0.002
+    pts = [c - a * w * rr.uniform(0.4, 0.6), c + a * w * rr.uniform(0.35, 0.6) + d * hgt * rr.uniform(0.0, 0.3), c + a * w * rr.uniform(0.1, 0.5) + d * hgt * rr.uniform(0.8, 1.0), c - a * w * rr.uniform(0.2, 0.55) + d * hgt * rr.uniform(0.5, 0.9)]
+    bm = mesh.new_bmesh()
+    f = bm.faces.new([bm.verts.new(q) for q in pts]); f.normal_update()
+    if f.normal.dot(n) < 0: f.normal_flip()
+    ob = mesh.new_mesh_object(name, bm)
+    paint(ob, "steel"); ob["flat_ao"] = True
     return ob
 
 
@@ -351,6 +439,8 @@ def barrel(clean, band):
     ob = lathe("tp_barrel", _PROFILE, skip=lambda i, j: _vent_row(i) and _vent_col(j), cap_top=True, clamp=FLAT_X)
     hunch(ob)
     mesh.finish(ob, bevel=0.0, smooth_angle=33)
+    if not clean:
+        for zc in ROWS_I4 + SEAM_Z: mesh.bisect(ob, (0.0, 0.0, zc), (0.0, 0.0, 1.0))     # (pass i4: see "close-range surface")
     paint(ob, "enamel")
     flat = lambda p: p.normal.x < -0.97 and 0.0 < p.center.z < 1.30          # the machined flat the arm rides on; the band stops at it
     bandf = lambda p: 0.21 - 1e-4 < p.center.z < 0.33 + 1e-4 and not flat(p)
@@ -362,9 +452,18 @@ def barrel(clean, band):
         col = np.ones((len(me.loops), 4), dtype=np.float32)
         for p in me.polygons:
             if bandf(p): continue
+            cz = p.center.z
+            seam = SEAM_Z[0] - 1e-4 < cz < SEAM_Z[1] + 1e-4 and not flat(p)
+            course = 0.90 if SEAM_Z[1] < cz < 1.05 else 1.0              # the upper course of plate: a shade off the lower
+            if -0.01 < cz < 1.05 and not flat(p):                         # ... and each plate (two facets wide, the courses half a plate out of step) its own
+                pa = (math.degrees(math.atan2(p.center.y, p.center.x)) - 7.5) % 360.0
+                pi = int((pa + (15.0 if cz > SEAM_Z[1] else 0.0)) // 30.0) + (40 if cz > SEAM_Z[1] else 0) + (80 if cz < 0.21 else 0)
+                course *= 0.84 + 0.16 * (math.sin(pi * 12.9898) * 43758.5453 % 1.0)
             for li in p.loop_indices:
                 co = me.vertices[me.loops[li].vertex_index].co
-                col[li, :3] = stain_mul(drum_k(co.x, co.y, co.z))
+                k = wall_stain(co.x, co.y, co.z)
+                col[li, :3] = [c * course for c in stain_mul(k)]
+                if seam: col[li, :3] = (0.16, 0.17, 0.16)                 # the joint between the two courses
         vcol.set_colors(ob, col, "Mul")
     parts = [ob]
     # the ball the barrel turns on: a steel cone down to a sphere centred on the pivot (any pose looks seated)
@@ -391,14 +490,38 @@ def barrel(clean, band):
         parts.append(bt)
         for j, z in enumerate((0.40, 0.925)):
             parts.append(bolt(f"tp_batten{k}_bolt{j}", (0.67 * ca, 0.67 * sa, z), (ca, sa, 0), r=0.02))
+    if not clean:
+        # pass i4: rivets along the plate seam, both lips of the band and the crown's shoulder; chips at the band's lower lip and the foot
+        sites = []
+        for j in range(24):
+            if _vent_col(j): continue
+            for half in (0.25, 0.75):
+                a = math.radians(7.5 + (j + half) * 15.0); ca, sa = math.cos(a), math.sin(a)
+                rr = 0.65 * math.cos(math.radians(7.5)) / math.cos(math.radians(abs(half - 0.5) * 15.0)) - 0.001     # on the 24-sided wall's flat, not the circle
+                if rr * ca < FLAT_X + 0.03: continue
+                for z in (SEAM_Z[0] - 0.026, SEAM_Z[1] + 0.026): sites.append(((rr * ca, rr * sa, z), (ca, sa, 0.0)))
+                if half < 0.5:
+                    for z in (0.356, 0.184): sites.append(((rr * ca, rr * sa, z), (ca, sa, 0.0)))
+            a = math.radians(7.5 + (j + 0.5) * 15.0); ca, sa = math.cos(a), math.sin(a)
+            rf = (0.35 + 0.3 * math.cos(math.radians(33.75))) * math.cos(math.radians(7.5)) - 0.001
+            if rf * ca > FLAT_X + 0.03: sites.append(((rf * ca, rf * sa, 1.05 + 0.3 * math.sin(math.radians(33.75))), (ca * 0.83, sa * 0.83, 0.56)))
+        parts.append(rivets("tp_rivets", sites))
+        for q, (a, z, w, hgt) in enumerate(((12, 0.208, 0.07, 0.05), (-40, 0.205, 0.05, 0.035), (64, 0.208, 0.09, 0.04), (-66, 0.205, 0.06, 0.05), (100, 0.206, 0.05, 0.03), (160, 0.207, 0.08, 0.045),
+                                              (28, 0.06, 0.10, 0.06), (-58, 0.05, 0.08, 0.05), (118, 0.07, 0.12, 0.05), (-112, 0.05, 0.07, 0.06), (4, 0.662, 0.05, 0.03), (-20, 0.56, 0.045, 0.04), (48, 0.47, 0.05, 0.035))):
+            ca, sa = math.cos(math.radians(a)), math.sin(math.radians(a))
+            off = ((a - 7.5) % 15.0) - 7.5                                # degrees from the middle of its wall facet
+            rw = 0.65 * math.cos(math.radians(7.5)) / math.cos(math.radians(off)) + (0.007 if 0.21 < z < 0.33 else 0.0)
+            fa = math.radians(a - off); fn = (math.cos(fa), math.sin(fa), 0.0)   # the facet's own normal
+            parts.append(chip(f"tp_chip{q}", (rw * ca, rw * sa, z), fn, (0, 0, -1), w * 0.6, hgt * 0.6, 40 + q))
     for o in parts: paint_wear(o)
     if not clean:
         # crisp heads under the battens' lower bolts and below the band's lip (the broad wash is in the drum's own colours)
         for k, (a, z, ln, w, s) in enumerate(((-28, 0.375, 0.30, 0.07, 1.0), (130, 0.375, 0.32, 0.07, 1.0), (-130, 0.375, 0.30, 0.07, 1.0),
                                                (20, 0.205, 0.17, 0.08, 1.0), (-48, 0.205, 0.16, 0.07, 0.9), (118, 0.205, 0.18, 0.08, 1.0), (52, 0.205, 0.15, 0.07, 0.9))):
             ca, sa = math.cos(math.radians(a)), math.sin(math.radians(a))
-            under = lambda co: drum_k(co.x, co.y, co.z)
-            parts.append(streak(f"tp_streak{k}", (0.652 * ca, 0.652 * sa, z), (0, 0, -1), (-sa, ca, 0), (ca, sa, 0), ln, w, s, under=under))
+            under = lambda co: min(1.0, wall_stain(co.x, co.y, co.z) + 0.12)      # (pass i4: the wall under a streak is the grimed wall; the plates' own shade is not in it, so a shade darker,
+            # and well darker under the band's lip: the wall there carries the lip's AO, a streak does not: they stood out as pale spikes)
+            parts.append(streak(f"tp_streak{k}", (0.652 * ca, 0.652 * sa, z), (0, 0, -1), (-sa, ca, 0), (ca, sa, 0), ln, w, s, under=under, shade=0.6 if z < 0.3 else 0.85))
     for o in parts[1:]: hunch(o)
     for o in parts: xf(o, M_BARREL())
     return parts
@@ -533,7 +656,7 @@ def back_housing(clean):
     if not clean:
         stain_part(hs, lambda co: 0.25 + 0.55 * min(1.0, max(0.0, (z1 - co.z) / (z1 - z0))) ** 0.8)
         for k, x in enumerate((-0.2, 0.05, 0.24)):                       # under the sill
-            out.append(streak(f"tp_back_streak{k}", (x, math.sqrt(0.65 ** 2 - x * x) , z0 - 0.005), (0, 0, -1), (1, 0, 0), (x, math.sqrt(0.65 ** 2 - x * x), 0), 0.11, 0.06, under=lambda co: drum_k(co.x, co.y, co.z)))
+            out.append(streak(f"tp_back_streak{k}", (x, math.sqrt(0.65 ** 2 - x * x) , z0 - 0.005), (0, 0, -1), (1, 0, 0), (x, math.sqrt(0.65 ** 2 - x * x), 0), 0.11, 0.06, under=lambda co: min(1.0, wall_stain(co.x, co.y, co.z) + 0.12), shade=0.7))
     for o in out: xf(o, M_BARREL())
     return out
 

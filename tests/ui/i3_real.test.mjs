@@ -77,7 +77,7 @@ test('real game: at 4:3 the title column stands on a soft ink ground over the li
       } finally { await bot.close().catch(() => {}); }
     }
     const narrow = out[1024], wide = out[1280];
-    assert.ok(narrow.ground.content !== 'none' && /rgba\(20, 17, 15, 0\.5\d*\)/.test(narrow.ground.bg) && /blur/.test(narrow.ground.filter), `4:3: an ink ground, blurred (${JSON.stringify(narrow.ground)})`);
+    assert.ok(narrow.ground.content !== 'none' && /rgba\(20, 17, 15, 0\.7\d*\)/.test(narrow.ground.bg) && /blur/.test(narrow.ground.filter), `4:3: an ink ground, blurred (${JSON.stringify(narrow.ground)})`);
     assert.ok(narrow.shaded < narrow.lit * 0.88, `4:3: the sand beside "The story so far" is darker under it (${narrow.lit.toFixed(0)} -> ${narrow.shaded.toFixed(0)})`);
     assert.ok(narrow.menu.b <= 768 * 0.955 && narrow.menu.l > 0, 'the column is where pass i2 put it');
     assert.equal(wide.ground.content, 'none', '16:9: the column stands in the dark, with no ground');

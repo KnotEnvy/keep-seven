@@ -6,7 +6,7 @@ import type {
   BossPhase, CheckpointId, DoorState, EncounterId, EnemiesSave, GameEvents, LayoutMarker, MarkerId, PlayerSave, PuzzleId, PuzzleSave, SaveData,
   StoryKey, VignetteId, WorldSave,
 } from '../core/contracts.ts';
-import { ENCOUNTERS, PUZZLES, emptyStats, inVolume, paramString } from './internals.ts';
+import { ENCOUNTERS, PUZZLES, emptyStats, inVolume, paramList, paramString } from './internals.ts';
 import type { CheckpointsApi, State } from './internals.ts';
 
 /** checkpoints that are PLACES (layout `params.when`): the start, 'entering ...', 'foot of the stair', 'the lift opens ...' */
@@ -125,7 +125,7 @@ class Checkpoints implements CheckpointsApi {
     }
   }
 
-  reset(): void { this.override = null; this.warping = false; }
+  reset(): void { this.override = null; this.warping = false; this.resumed = false; }
 
   // ---- runs -----------------------------------------------------------------------------------------
   private resetRun(): void {
@@ -165,6 +165,7 @@ class Checkpoints implements CheckpointsApi {
     if (fromSave) {
       // the flow applies the save (enemies, world, player) once the right set is resident
       s.running = true;
+      this.resumed = true;
       return this.after(s.build.ensureFor(fromSave.checkpoint, fromSave.world.onceFlags.includes('hatch_powered')), () => {});
     }
     this.resetRun();
@@ -256,11 +257,34 @@ class Checkpoints implements CheckpointsApi {
     if (s.flags.has('hatch_powered')) void s.build.track(s.build.enterSeam());
     // last: what the save held waiting is said again, and what was heard this run stays heard
     s.story.restored();
+    // Pass i4 (story reviewer b: a run taken up again from the title, "Go on I . 2", stood in the street with no card
+    // and no line: both had been spent before the save). The card of the movement she comes back into is shown again,
+    // if it had been shown (a checkpoint ahead of its movement's card gets the card from its own trigger, as ever).
+    // Only "Go on": a death comes back without it.
+    if (this.resumed) {
+      this.resumed = false;
+      const card = this.movementCard(s.checkpoint);
+      if (card !== '' && s.flags.has(card)) s.story.recard(card);
+    }
     this.warping = false;
     s.visDirty = true;
     s.placed();
   }
   private warping = false;
+  /** the run is being taken up again from the title (beginRun with a save): applySave shows the movement's card */
+  private resumed = false;
+  /** the card of the movement a checkpoint lies in: the last card a trigger of its zone shows (`card_title` is the game's) */
+  private movementCard(id: CheckpointId): StoryKey {
+    const { data } = this.s.ctx;
+    const m = this.list[this.index(id)];
+    if (!m) return '';
+    let card = '';
+    for (const t of data.markersOfType('trigger')) {
+      if (t.zone !== m.zone) continue;
+      for (const k of paramList(t, 'cards')) if (/^card_[ivx]+$/.test(k)) card = k;
+    }
+    return card;
+  }
 
   // ---- warp -----------------------------------------------------------------------------------------
   /** where a marker lies along the critical path: the index of the path node nearest to it */
