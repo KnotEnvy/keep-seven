@@ -51,6 +51,7 @@
         "nar_cradle_2",
         "nar_street_after",
         "nar_nine",
+        "nar_seat_shot",
         "nar_tamper_dead"
       ],
       "narrator_repeat": "Every nar_* line plays at most once per run, whatever fires it and however many markers name it (the flag is saved with the checkpoint). hint_*, stn_* and cap_* lines may repeat. The once_only list names the lines whose single use is load-bearing or conditional.",
@@ -382,6 +383,11 @@
       "speaker": "narrator",
       "text": "Nine kept their seats. She let them keep them.",
       "seconds": 4.5
+    },
+    "nar_seat_shot": {
+      "speaker": "narrator",
+      "text": "None of these had stood. She kept her lead.",
+      "seconds": 4
     },
     "nar_pegs_1": {
       "speaker": "narrator",

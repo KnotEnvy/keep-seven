@@ -12,7 +12,10 @@ a shuttered desert town and down into the machine under it.
 
 ## Play it
 
-Built and tested with Node 24; needs a browser with WebGL2.
+**In the browser:** https://knotenvy.github.io/keep-seven/ — needs a mouse, a keyboard and a
+browser with WebGL2.
+
+**From source** (built and tested with Node 24):
 
 ```bash
 npm install
@@ -39,16 +42,16 @@ quality. Adding `?cp=<checkpoint id>` to the dev URL starts at a checkpoint.
 ## Status
 
 A vertical-slice demo, built over one pre-production pass, one production round, four
-polish rounds and a release-polish pass, each judged by reviewers who had not built the
-work. A scripted bot finishes the stage from the title to the end card by input alone.
+polish rounds and two release-polish passes, each judged by reviewers who had not built
+the work. A scripted bot finishes the stage from the title to the end card by input alone.
 
-Latest review scores out of 10: story and UX 9.1, playthrough 8.7, performance 8.7,
-robustness 8.7, visuals 8.65, combat 8.5. Work on visuals and story/UX is continuing.
+Scores out of 10 from the last independent reviews: performance 8.8, robustness 8.8,
+story and UX 8.85 (9.3 from an earlier pair of reviewers), visuals 8.7, playthrough 8.6,
+combat 8.4. What is still open is in [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md).
 
 **Not yet verified by a person:** frame rate on a real GPU (all automated testing ran
 on a software renderer), the audio (it is synthesized at runtime and has only been
-measured, never listened to), and how it plays in human hands. Known gaps are listed at
-the top of [`docs/INTEGRATION_REPORT.md`](docs/INTEGRATION_REPORT.md).
+measured, never listened to), and how it plays in human hands.
 
 ### Playtesting
 

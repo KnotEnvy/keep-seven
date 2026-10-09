@@ -1,18 +1,17 @@
-# Known issues in this build (2026-10-08, at the close of the sixth iteration toward release)
+# Known issues in this build (v1.0.0, 2026-10-08)
 
 This is everything we know to be still open. Nothing here stops the stage from being
 played from the title to the end card. The numbers behind each line are in
 `docs/INTEGRATION_REPORT.md`, Part T.
 
-## Before it can be published
+## Release
 
-- **The work of the last three iterations is not committed.** The page is published from a
-  commit, so the changes (and thirty-two new files, listed in the report) must be
-  committed before the release tag is made.
-- **The publishing workflow has never run.** The built site was checked locally from a
-  sub-path with a plain file server and passed. The workflow also boots the built site in
-  a headless browser before it publishes; if that step fails on the build machine for a
-  reason of its own, a manual run can skip it. Somebody should open the real page once.
+This build is version `v1.0.0`, published to GitHub Pages at
+https://knotenvy.github.io/keep-seven/ by the repository's workflow, which typechecks,
+runs the unit tests, builds, and boots the built site in a headless browser from a
+sub-path before it publishes. Two defects found in the last review were fixed just before
+the release: on the Low setting, dying in the Tally House no longer leaves the shutters
+and figures drawn in garbage colours, and the nine seated figures now answer a shot.
 
 ## Not yet checked by a person: the most useful things to report
 

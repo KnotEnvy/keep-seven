@@ -1,6 +1,6 @@
 # Integration report
 
-Twenty parts. **Part T** (first below) is the closing pass of iteration i6: **its gate, release check, numbers, hero frames and known-gaps list (T.3 to T.8) describe the game as it now stands**, and where it differs from any other part, Part T holds. **Part S** (after it) is the closing pass of iteration i5 (its S.0 adds to how the game is run and driven). **Part R** (after it) is the closing pass of iteration i4; its table of fights replayed with the reviewers' proxies (in R.5) still stands, because no combat value changed in iteration i5. **Part Q** (after it) is the cross-cutting fix pass that opened iteration i4: twelve fixes in core, the page, the build and the tools, the budget moves of ruling R14 (**its ledger Q.2 is the current one**), and the text and data made ready for the pass's teams; where it differs from any other part, Part Q holds, and its Q.0 adds to how the game is run and driven. **Part P** (after it) is the closing pass of iteration i3: **its numbers, hero frames and known-gaps list (P.5 to P.8) still describe what a player sees** (no mesh, texture or shader changed in Part Q), and where it differs from any earlier part, Part P holds. **Part O** (after it) is the cross-cutting fix pass that opened iteration i3: two sentences of text, the share tags, and the budget moves of ruling R14 (its ledger O.2 stands except for the three chunks of P.1 row 3). **Part N** (after it) is the closing pass of iteration i2 (its N.0 on running and driving the game still stands; P.0 adds to it). **Part M** (after it) is the closing pass of iteration i1 (its M.0 on running and driving the game still stands; N.0 adds to it). **Part L** (after it) is the cross-cutting fix pass that opened iteration i1 (story and visuals toward release); the pass's code and look teams worked after it. **Part K** (after it) is the release pass p0 (the cross-cutting fixer, five code teams, four look teams, then the closer): **its gate, release check, numbers, hero frames and known-gaps list (K.0 to K.7) describe the game as released**, and where it differs from any other part, Part K holds. **Part J** (after it) is the closing pass of polish round 5; its fights table J.3 still stands for the fights no p0 team re-measured. **Part I** (after it) is the cross-cutting fix and tuning pass that opened polish round 5, the last
+Twenty parts, and before them a short **Pre-release fixes** part (X.1 to X.4: two faults fixed just before publishing, and the gate and hero frames on the final tree; where it differs from Part T, it holds). **Part T** (after it) is the closing pass of iteration i6: **its gate, release check, numbers, hero frames and known-gaps list (T.3 to T.8) describe the game as it now stands**, and where it differs from any other part, Part T holds. **Part S** (after it) is the closing pass of iteration i5 (its S.0 adds to how the game is run and driven). **Part R** (after it) is the closing pass of iteration i4; its table of fights replayed with the reviewers' proxies (in R.5) still stands, because no combat value changed in iteration i5. **Part Q** (after it) is the cross-cutting fix pass that opened iteration i4: twelve fixes in core, the page, the build and the tools, the budget moves of ruling R14 (**its ledger Q.2 is the current one**), and the text and data made ready for the pass's teams; where it differs from any other part, Part Q holds, and its Q.0 adds to how the game is run and driven. **Part P** (after it) is the closing pass of iteration i3: **its numbers, hero frames and known-gaps list (P.5 to P.8) still describe what a player sees** (no mesh, texture or shader changed in Part Q), and where it differs from any earlier part, Part P holds. **Part O** (after it) is the cross-cutting fix pass that opened iteration i3: two sentences of text, the share tags, and the budget moves of ruling R14 (its ledger O.2 stands except for the three chunks of P.1 row 3). **Part N** (after it) is the closing pass of iteration i2 (its N.0 on running and driving the game still stands; P.0 adds to it). **Part M** (after it) is the closing pass of iteration i1 (its M.0 on running and driving the game still stands; N.0 adds to it). **Part L** (after it) is the cross-cutting fix pass that opened iteration i1 (story and visuals toward release); the pass's code and look teams worked after it. **Part K** (after it) is the release pass p0 (the cross-cutting fixer, five code teams, four look teams, then the closer): **its gate, release check, numbers, hero frames and known-gaps list (K.0 to K.7) describe the game as released**, and where it differs from any other part, Part K holds. **Part J** (after it) is the closing pass of polish round 5; its fights table J.3 still stands for the fights no p0 team re-measured. **Part I** (after it) is the cross-cutting fix and tuning pass that opened polish round 5, the last
 round of changes: its gate, fights and numbers (I.1 to I.5) are the current ones for what it measured, and where it
 differs from Parts A to H, Part I holds. The round's code and look teams work after it; what they change is in their
 own request files. **Part H** is the closing pass of polish round 4 (its hero frames and its known-gaps list H.6 stand
@@ -10,6 +10,95 @@ the closing pass of polish round 3. **Part E** is the cross-cutting fix and tuni
 the first critic panel of polish round 2. **Part A** is the code integration (the real game wired, played, built and
 measured; A.1 is how to run and play, A.5 how to drive the real game). **Part B** is the art integration that came
 before it (`B.1` to `B.6`: where another document says "INTEGRATION_REPORT section 6" it means B.6).
+
+# Pre-release fixes (2026-10-08, after Part T; verified by a pass that made neither fix)
+
+Two faults found by the final reviewers were fixed just before publishing. Nothing else changed: no shader, material,
+texture, mesh, tuning value or other line of text. Where this part differs from Part T (the gate's counts, the
+playthrough's ticks and hash, the hero frames) this part holds. Evidence: `scratch/prerelease-verify/` (`NOTES.md`,
+`gate/` with one log per command and `summary.txt`, `sweep.log`, `seated_A.log`, `seated_B.log`, `release_check.log`,
+`hero.log`), `shots/prerelease-verify/`, `shots/release/` (the twelve hero frames and `hero_sheet.jpg`). The fixers'
+own notes are in `scratch/prerelease-render/` and `scratch/prerelease-seated/`.
+
+## X.1 Low and min: wrong textures after a death in the Tally House
+
+- **What was wrong.** On Low (and min), after a death and retry in the Tally House the shutters were bright yellow
+  with blue stripes, the poster solid blue, and the Biders carried coloured patches, for as long as the player stayed
+  (`shots/reg-story-b/d_after.png`). High was clean.
+- **Root cause.** `quietBones()` in `src/render/quiet.ts` (pass i4: it writes a skeleton's bone matrices with its own
+  `texSubImage2D`) bound the bone texture on whatever texture unit happened to be active: the unit of the last sampler
+  three had bound for the draw before (`uEmisMap` of a skinned `m_prop`, unit 2). Three sets a material's samplers
+  again only when the material or the program changes, so the next skinned meshes that shared both (the second Bider,
+  the three shutters, the hatch, the share cloth) read a Bider's 12 x 12 float bone matrices as their emissive map.
+  It is not tied to death as such: the retry leaves the room in a draw order where it happens every frame. On High
+  the shadow pass uploads the bones three's own way first, so `quietBones` has nothing to write.
+- **The fix.** `quietBones` calls `renderer.state.activeTexture()` (three's own scratch unit, the last one, which no
+  program's sampler is given) before `state.bindTexture`, so the write goes through three's binding cache on a unit
+  no draw reads. Ten lines added, two removed, in `src/render/quiet.ts` only.
+- **The proof.** The reviewer's own scripts re-run unchanged on the fixed tree (`death.mjs`, `death2.mjs low
+  cp_tally_enter`, `death3.mjs`: `shots/prerelease-verify/d_after.png`, `sheet_reviewer.jpg`, opened): clean at
+  +0.5, +2, +6 and +12 s. An independent sweep (`scratch/prerelease-verify/sweep.mjs`: the canvas before the death
+  and after the retry from the same pose, AI off) at **all 17 checkpoints on Low and on min** (34 legs, a fresh
+  browser each) and "Go on" from the title into the Tally House on Low and min, then a death there: every leg ends in
+  play at its checkpoint with no console error; pixels of the fault's colours never rise by more than 3 (Tally House 730 -> 720
+  on Low, 724 -> 725 on min: the knots' own violet; 0 -> 0 in 28 legs); pixels that differ are 0 in 18 legs and
+  otherwise the view-model's sway, the Biders' breathing and the Windlass's drum angle (about 11 000 at
+  `cp_boss_p1` / `p2`). Contact sheets of the after-frames `sheet_after_low.jpg`, `sheet_after_min.jpg` and the pairs
+  `sheet_pairs.jpg` were opened: no garbage in any. New regression test `tests/render/prerelease.test.mjs` (with
+  `tests/render/samplers.mjs`: on every draw call, the GL texture bound on each sampler's unit is the one three holds
+  for that uniform); the fixer reports it fails on the old file with the four `uEmisMap` rows.
+- **Not shown.** SwiftShader only (no GPU here). Fights with moving enemies were covered by the existing suites only.
+
+## X.2 The seated figures in the Tally House now answer a shot
+
+- **What was wrong.** The nine who keep their seats wear the lit knot the player has just been taught to shoot, and
+  a round fired into one drew nothing of the figure's own: no mark, no sound, no word.
+- **Root cause.** The figures are an instanced prop with no hit volume. Each row sits inside a wood blocker of the
+  layout (1.3 m high): a round at a body rang as wood on the blocker's face, a round at the knot (1.30 to 1.36 m)
+  flew on over it.
+- **The fix.** `src/world/interact.ts`: each seat of a `seats` prop marker has a cloth box of its own just proud of
+  the blocker (0.94 x 0.84 m, 1.4 m high). A round stops there as in any inert thing (`combat/hit`, `impact`, cloth:
+  the puff, the mark and the thud are the surface's own); nothing bursts, nobody is freed or felled, and it is no hit
+  on the end card. The first such round is answered once a run by a new narrator line, `nar_seat_shot` in
+  `design/story.json` ("None of these had stood. She kept her lead.", 4 s, in `once_only`; the flag
+  `did_seat_shot` is saved with the run). `design/layout.json` is unchanged.
+- **The proof.** The real game on High, two rounds from 2.5 m behind the west row (`seated_A.log`,
+  `shots/prerelease-verify/sheet_seated.jpg`, opened): round 1 into a hood: `impact` on cloth at the figure, damage
+  0, `gun_report` and `impact_cloth` on the same tick, the line on screen; round 2 at another figure's knot height:
+  the same impact and sound, no line. No `knot/burst`, no `enemy/*`, both risers still dormant, rounds that told 0.
+  Then on to the ending by input (`seated_B.log`): the card reads "ROUNDS FIRED 2 / ROUNDS THAT TOLD 0 of 2 / KNOTS
+  BURST 0 / LAMPS LIT IN PLENTY 9 / Nine who kept their seats." New test `tests/world/prerelease_seated.test.mjs`
+  (3 of 3). The line is in the narrator's voice (past tense, third person, counted; "lead" is this game's own word
+  for the plain round, as in `nar_tin`) and uses no term from the books.
+
+## X.3 The gate on the final tree (one command after another; `scratch/prerelease-verify/gate/summary.txt`)
+
+| Command | Result |
+|---|---|
+| `npx tsc --noEmit` | clean |
+| `npm run validate` | pass |
+| `npm run test:unit` | 29 files, **519 of 519** |
+| `npm run check:assets` | pass |
+| `node --test tests/render/` | **87 of 87** (86 and the new one) |
+| `node --test tests/world/` | **175 of 175** (172 and the three new) |
+| `tests/player`, `enemies`, `audio`, `ui`, `pipeline` | 45, 79, 49, 91, 83: all pass |
+| `tests/art_weapons`, `art_props`, `art_env_exterior`, `art_env_interior`, `art_enemies`, `art_boss` | 32, 98, 38, 24, 41, 39: all pass |
+| `node --test tests/core/` | 70 pass, 6 skipped (the real-game ones) |
+| `KEEP7_REAL=all node --test tests/core/` | **76 of 76** |
+| `node --test tests/e2e/` | **29 of 29**: title to end card by input in **28 695 ticks, hash `25d4a088`**, 83 rounds, 31 freed, 0 deaths, the same on a second load |
+| `npm run build` with `SITE_URL=https://knotenvy.github.io/keep-seven/` | built: 112 files, 14 525 872 B; the share picture's address is absolute |
+| `node tools/release_check.mjs --dist dist --sub /keep-seven/` | **pass**: 60 requests, 9 853 514 B to the title; 0 errors, 0 outside the sub-path, 0 failed |
+
+The playthrough is 48 ticks longer than in Part T and its hash moved (rounds, freed and deaths are the same). Which of
+the changes since Part T moved it was not traced; the run is the same on a second load.
+
+## X.4 Hero frames (`shots/release/`, the real game, High, 1280 x 720, on the final tree; each opened)
+
+`hero_01` the title · `02` the opening view · `03` Front Street mid-shot with the muzzle flash · `04` the street ·
+`05` the sighting · `06` the Tally House light puzzle · `07` the gallery, the line round down the file · `08` the
+Tamper's charge · `09` the Windlass at parley · `10` a phase-2 haul mid-shot · `11` the seventh shot, "BORE PROVEN." ·
+`12` the rim ending. Legs as in T.6 (no god mode in the played legs, no stuck, 0 console errors; peak 100 draw calls,
+205 041 triangles). Neither fault was listed in `docs/KNOWN_ISSUES.md`, so that file is unchanged.
 
 # Part T. Closing pass, iteration i6 (2026-10-08)
 

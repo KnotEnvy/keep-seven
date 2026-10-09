@@ -183,6 +183,19 @@ interface LazyHint { key: StoryKey; flag: string; needed: boolean; timer: number
 interface Look { marker: LayoutMarker; timer: number; flag: string; x: number; y: number; z: number }
 interface Loose { marker: LayoutMarker; shot: Shot; role: number; done: boolean; idle: number; nudges: number; outlined: boolean; seenFlag: string }
 const KNOT = 0, BELL = 1, PLATE = 2, ROPE = 3, BORE = 4;
+/**
+ * Pre-release (a final reviewer: the nine who keep their seats in the Tally House wear the lit knot she has just been
+ * taught to shoot, and a round fired into one drew nothing: no word, nothing of the figure's own; then "She let them
+ * keep them"). The figures are drawn only; each row stands inside one wood blocker of the layout (0.9 m across,
+ * 1.3 m high: `ty_seats_w` / `_e`), so a round at a body rang as wood on the blocker's face and a round at the knot
+ * (1.30 to 1.36 m) flew on over it. Each seat of a `seats` prop marker now has a cloth box of its own that wraps the
+ * figure and stands just proud of the blocker (SEAT_HALF_X across the row's 0.45, up to SEAT_TOP over the knot), so
+ * the round meets the figure first. It stops there as in any inert thing (`impact` on cloth: the puff, the mark and
+ * the thud are the surface's own, and it is no hit on the end card); nothing bursts and nobody is freed or felled.
+ * The first such round is answered once a run (SEAT_LINE; SEAT_FLAG is saved with the run).
+ */
+const SEAT_HALF_X = 0.47, SEAT_HALF_Z = 0.42, SEAT_TOP = 1.4;
+export const SEAT_LINE: StoryKey = 'nar_seat_shot', SEAT_FLAG = 'did_seat_shot';
 
 class Interact implements InteractApi, ShotOwner {
   private readonly things: Thing[] = [];
@@ -190,6 +203,9 @@ class Interact implements InteractApi, ShotOwner {
   private readonly pickups: Pickup[] = [];
   private dropCursor = 0;
   private readonly loose: Loose[] = [];
+  /** pre-release: the hit volumes of the ones who keep their seats (SEAT_TOP above), one a seat */
+  private readonly seats: Shot[] = [];
+  private readonly seatOwner: ShotOwner = { onShot: () => this.onSeatShot() };
   private readonly looks: Look[] = [];
   /** p0: the secrets' pointers (BELL_NEAR above) */
   private readonly ringers: Ringer[] = [];
@@ -237,6 +253,11 @@ class Interact implements InteractApi, ShotOwner {
     this.hit = collision.createHit();
     // ---- things used with `interact`
     for (const m of data.layout.markers) {
+      if (m.type === 'prop' && Array.isArray(m.params.seats)) {
+        const n = (m.params.seats as unknown[]).length;
+        for (let i = 0; i < n; i++) this.seats.push(new Shot(this.seatOwner, m.id + '#' + i, 'interactable', i, m));
+        continue;
+      }
       if (m.type === 'readable') { this.addThing(m, READABLE, 'read', 'ui_prompt_read'); if (!this.firstReadable) this.firstReadable = m; continue; }
       if (m.type === 'pickup') {
         this.pickups.push({ id: m.id, kind: paramString(m, 'pickup') as PickupKind, marker: m, zone: m.zone, x: m.pos[0], y: m.pos[1], z: m.pos[2], token: -1, live: false, taken: false, available: true, dropped: false, retry: 0 });
@@ -363,6 +384,15 @@ class Interact implements InteractApi, ShotOwner {
       l.shot.add(s, x, y, z, paramNumber(m, 'hitRadius', l.role === PLATE ? 0.4 : 0.2), l.role === KNOT ? 'metal' : 'ceramic', m.params.pierce === true ? ColFlag.PIERCE : 0);
       this.syncLoose(l);
     }
+    for (let i = 0; i < this.seats.length; i++) {
+      const sh = this.seats[i] as Shot, m = sh.marker as LayoutMarker;
+      if (m.zone !== zone) continue;
+      const seat = (m.params.seats as { pos: [number, number, number] }[])[sh.index];
+      if (!seat || sh.volume >= 0) continue;
+      sh.volume = collision.addVolume({ shape: 'box', layer: Layer.SHOOTABLE, flags: 0, surface: 'cloth', entity: sh.ref, part: 'whole', priority: 0, receiver: sh });
+      sh.x = seat.pos[0]; sh.y = seat.pos[1] + SEAT_TOP / 2; sh.z = seat.pos[2];
+      collision.setVolumeBox(sh.volume, sh.x, sh.y, sh.z, SEAT_HALF_X, SEAT_TOP / 2, SEAT_HALF_Z, 0);
+    }
     this.syncSeams();
   }
   /** p0: a seam glows while its zone is built and its secret is not found */
@@ -432,6 +462,7 @@ class Interact implements InteractApi, ShotOwner {
       if (l.marker.zone !== zone) continue;
       if (l.role === BORE) { if (this.boreVolume >= 0) { col.removeVolume(this.boreVolume); this.boreVolume = -1; } } else l.shot.remove(s);
     }
+    for (const sh of this.seats) if ((sh.marker as LayoutMarker).zone === zone) sh.remove(s);
   }
 
   // ---- things ---------------------------------------------------------------------------------------
@@ -732,6 +763,13 @@ class Interact implements InteractApi, ShotOwner {
     s.story.sayFrontAll(paramList(m, 'lines'));                          // on the event: the knot she has just shot
     const enc = paramString(m, 'startsEncounter');
     if (enc !== '') s.director.start(enc as EncounterId);
+  }
+  /** a round into one who kept a seat: it stops there (Shot.onHit has answered `impact`); the first is spoken of, once a run */
+  private onSeatShot(): void {
+    const { s } = this;
+    if (s.flags.has(SEAT_FLAG)) return;
+    s.flags.add(SEAT_FLAG);
+    s.story.sayUrgent(SEAT_LINE);
   }
   onShot(shot: Shot, _hit: Readonly<HitResult>, damage: Readonly<DamageInfo>, out: HitResponse): void {
     const { s } = this;

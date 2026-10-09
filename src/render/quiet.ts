@@ -63,10 +63,18 @@ export function quietBones(renderer: THREE.WebGLRenderer, skeleton: THREE.Skelet
   const gl = renderer.getContext() as WebGL2RenderingContext, image = texture.image as { width: number; height: number };
   const data = skeleton.boneMatrices as Float32Array;
   if (data.length !== image.width * image.height * 4) return;
-  if (typeof (renderer.state as unknown as { pixelStorei?: unknown }).pixelStorei !== 'function') return;   // another three: its own way
+  if (typeof (renderer.state as unknown as { pixelStorei?: unknown }).pixelStorei !== 'function' || typeof (renderer.state as unknown as { activeTexture?: unknown }).activeTexture !== 'function') return;   // another three: its own way
+  // Pre-release pass (final reviewer: "after a death in the Tally House on Low the shutters are bright yellow with blue
+  // stripes, the poster solid blue"). The texture was bound on whatever unit happened to be active: the unit of the LAST
+  // sampler three had bound for the draw before (uEmisMap of a skinned m_prop, unit 2). Three sets a material's samplers
+  // only when the material or the program changes, so when the next skinned mesh shared both (two Biders, then the
+  // shutters, the hatch and the share cloth: one material, one program) nothing put the emissive palette back and they
+  // all read these bone matrices as their emissive map. The write goes through three's own scratch unit (the last one,
+  // what `activeTexture()` without a slot selects; no program's sampler is ever given it), in three's cache of bindings.
+  const state = renderer.state as unknown as { activeTexture(slot?: number): void; pixelStorei(name: number, value: number | boolean): void };
+  state.activeTexture();
   renderer.state.bindTexture(gl.TEXTURE_2D, props.__webglTexture);
   // (through three's cache of the pixel store: a store set behind its back would leave the next image upload flipped)
-  const state = renderer.state as unknown as { pixelStorei(name: number, value: number | boolean): void };
   state.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, texture.flipY);
   state.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, texture.premultiplyAlpha);
   state.pixelStorei(gl.UNPACK_ALIGNMENT, texture.unpackAlignment);
